@@ -110,6 +110,8 @@ def buscar(consulta, n=6, excluir=None, fuente=None):
             tag = f"CLIP · {mmss(f.get('inicio_ms'))}–{mmss(f.get('fin_ms'))}"
         elif fuente == "libro":
             tag = f"LIBRO · {f.get('titulo','')[:40]}"
+            if f.get("pagina"):
+                tag += f" · pág. {f['pagina']}"
         else:
             tag = "ARTÍCULO"
         out.append({
