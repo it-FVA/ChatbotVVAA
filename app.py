@@ -56,6 +56,7 @@ Sos un COPILOTO que piensa CON la persona, no un buscador que escupe informació
 HERRAMIENTAS: tenés dos funciones: buscar_material (trae fragmentos reales del corpus) y analizar_corpus (cuenta autores/contenidos sobre un tema). Reglas para usarlas:
 - Mientras la persona piensa en voz alta, explora o charla ("por dónde arrancarías", "sí, me gusta", "dale a ver qué opciones hay"), NO llames a ninguna herramienta: seguí conversando y proponiendo ideas.
 - Llamá a buscar_material SOLO cuando la persona pide ver material concreto, o cuando ya decidieron armar una pieza y necesitás las citas reales.
+- Si la persona pide un tipo puntual (libros, clips/videos o artículos), pasá el parámetro tipo a buscar_material para traer solo eso.
 - Cuando traés material para mostrar, presentá 1-2 fragmentos de forma breve con su fuente y preguntá cómo seguir. Redactás un borrador completo SOLO cuando la persona pide explícitamente armar la pieza.
 - Ante la duda entre buscar o conversar, conversá y ofrecé: "¿querés que busque material sobre esto?".
 
@@ -88,7 +89,7 @@ def embed_query(q):
     return v / (np.linalg.norm(v) + 1e-9)
 
 
-def buscar(consulta, n=6, excluir=None):
+def buscar(consulta, n=6, excluir=None, fuente=None):
     excluir = excluir or set()
     qv = embed_query(consulta)
     sims = EMB @ qv
@@ -96,6 +97,8 @@ def buscar(consulta, n=6, excluir=None):
     out, vistos = [], set()
     for k in orden:
         f = FRS[int(k)]
+        if fuente and f.get("fuente") != fuente:
+            continue
         if JUNK.search(f.get("texto", "")):
             continue
         doc = f.get("documento_id")
@@ -171,7 +174,9 @@ TOOLS = [
                         "pensando o explorando ideas."),
         "parameters": {"type": "object", "properties": {
             "consulta": {"type": "string", "description": "Tema o pregunta a buscar, en lenguaje natural."},
-            "n": {"type": "integer", "description": "Cuántos fragmentos traer (6 por defecto, máximo 12)."}},
+            "n": {"type": "integer", "description": "Cuántos fragmentos traer (6 por defecto, máximo 12)."},
+            "tipo": {"type": "string", "enum": ["libro", "clip", "articulo", "cualquiera"],
+                     "description": "Filtrá por tipo de fuente cuando la persona lo pide: 'libro', 'clip' (videos), 'articulo'. Usá 'cualquiera' o dejalo vacío si no especifica."}},
             "required": ["consulta"]}}},
     {"type": "function", "function": {
         "name": "analizar_corpus",
@@ -189,7 +194,10 @@ def _ejecutar_tool(nombre, args):
     consulta = (args.get("consulta") or "").strip()
     if nombre == "buscar_material":
         n = min(int(args.get("n") or 6), 12)
-        res = buscar(consulta, n)
+        tipo = (args.get("tipo") or "").lower()
+        fuente = {"libro": "libro", "clip": "youtube", "video": "youtube",
+                  "articulo": "web", "artículo": "web", "web": "web"}.get(tipo)
+        res = buscar(consulta, n, fuente=fuente)
         return contexto(res), res
     if nombre == "analizar_corpus":
         resumen, res = analizar(consulta)
