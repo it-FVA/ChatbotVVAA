@@ -50,14 +50,20 @@ REGLA DE ORO (inviolable): trabajás SOLO con los fragmentos que se te dan en "M
 
 DISTINCIÓN: las palabras del autor van entre comillas, textuales. Tu texto de enlace/introducción es tuyo y nunca simula ser la voz del autor.
 
-Sos un COPILOTO que piensa CON la persona, no un buscador que escupe información. Tu modo por defecto es CONVERSAR: hacé preguntas, ofrecé ángulos, ayudá a dar forma a la idea, siempre de a un paso y CORTO (una o dos ideas, o UNA pregunta por vez). NO traigas material ni armes contenido hasta que la persona lo pida claramente. Si intuís que haría falta material o un borrador, OFRECELO como pregunta ("¿querés que busque material sobre esto?", "¿lo armo como posteo?") en vez de hacerlo por tu cuenta. Preferí siempre una pregunta breve antes que una respuesta larga. Pensás CON la persona, no en lugar de ella.
+Sos un COPILOTO que piensa CON la persona, no un buscador que escupe información. Tu modo por defecto es CONVERSAR: hacé preguntas, ofrecé ángulos, ayudá a dar forma a la idea, siempre de a un paso y CORTO (una o dos ideas, o UNA pregunta por vez). Preferí siempre una pregunta breve antes que una respuesta larga. Pensás CON la persona, no en lugar de ella.
+
+HERRAMIENTAS: tenés dos funciones: buscar_material (trae fragmentos reales del corpus) y analizar_corpus (cuenta autores/contenidos sobre un tema). Reglas para usarlas:
+- Mientras la persona piensa en voz alta, explora o charla ("por dónde arrancarías", "sí, me gusta", "dale a ver qué opciones hay"), NO llames a ninguna herramienta: seguí conversando y proponiendo ideas.
+- Llamá a buscar_material SOLO cuando la persona pide ver material concreto, o cuando ya decidieron armar una pieza y necesitás las citas reales.
+- Cuando traés material para mostrar, presentá 1-2 fragmentos de forma breve con su fuente y preguntá cómo seguir. Redactás un borrador completo SOLO cuando la persona pide explícitamente armar la pieza.
+- Ante la duda entre buscar o conversar, conversá y ofrecé: "¿querés que busque material sobre esto?".
 
 Redactás borradores para revisión humana. Tono cálido, simple, sin sermonear, español rioplatense. Aclarás que es un borrador para curaduría del equipo."""
 
-JUNK = re.compile(r"(suscr[íi]b|clic[k]?\s*(aqu[íi]|ac[áa])|haz\s*clic|hac[ée]\s*clic|inscrib[íi]|para mayor informaci|hasta la pr[óo]xima|dejo un momento a solas|los invito a volver|d[ée]jen(me)? sus comentarios|gracias por (acompañ|hacerme compañ))", re.I)
-AGG = re.compile(r"(cu[áa]nt[oa]s|qu[ée]\s+autores|qui[ée]nes|todos los|todo lo que|list[áa]|cont[áa]|cu[ée]nt[ao]|cantidad de)", re.I)
-RETRIEVE = re.compile(r"(tra[ée]me|busc[áa]|mostr[áa]|dame|traer|material|citas?|clips?|fragmentos?|videos?|ejemplos?|qu[ée]\s+(dijo|dice|escribi))", re.I)
-PRODUCE = re.compile(r"(arm[áa]|armame|armalo|redact|gener[áa]|escrib[íi]|hac[ée]lo|hac[ée]me|hagamos|dale|listo)", re.I)
+# Filtro de "ruido": pies de video, saludos/cierres e instrucciones de meditación/danza
+# (no aportan como contenido citable). El modelo decide cuándo buscar (tool-calling),
+# así que ya no hacen falta reglas por palabra clave.
+JUNK = re.compile(r"(suscr[íi]b|clic[k]?\s*(aqu[íi]|ac[áa])|haz\s*clic|hac[ée]\s*clic|inscrib[íi]|para mayor informaci|hasta la pr[óo]xima|dejo un momento a solas|los invito a volver|d[ée]jen(me)? sus comentarios|gracias por (acompañ|hacerme compañ)|much[íi]sim[ao]s?\s+gracias|un placer|nos vemos|desmute|pongan? las? c[áa]mara|una peque[ñn]a encuesta|levant[áa]?\s+la\s+mano|cerr[áa]\s+los\s+ojos|inhal|exhal|vamos a (dejar|girar|movernos)|hacia el otro lado|en c[áa]mara lenta|un par de giros)", re.I)
 
 
 # ---------------- Carga del corpus ----------------
@@ -153,44 +159,78 @@ def llm_openai(messages, max_tokens=1200):
         return f"Error llamando al modelo: {e}"
 
 
+TOOLS = [
+    {"type": "function", "function": {
+        "name": "buscar_material",
+        "description": ("Busca en el corpus real de la Fundación (videos, artículos y libros de Br. David "
+                        "y los facilitadores) los fragmentos más relevantes a un tema o pregunta. Devuelve "
+                        "citas reales con su fuente. Usalo SOLO cuando necesitás material concreto para "
+                        "mostrar, citar o armar una pieza; NO lo uses mientras la persona todavía está "
+                        "pensando o explorando ideas."),
+        "parameters": {"type": "object", "properties": {
+            "consulta": {"type": "string", "description": "Tema o pregunta a buscar, en lenguaje natural."},
+            "n": {"type": "integer", "description": "Cuántos fragmentos traer (6 por defecto, máximo 12)."}},
+            "required": ["consulta"]}}},
+    {"type": "function", "function": {
+        "name": "analizar_corpus",
+        "description": ("Cuenta y analiza sobre el corpus: cuántos autores o contenidos hablan de un tema, "
+                        "quiénes, cantidades. Usalo cuando la persona pide conteos o pregunta "
+                        "'¿cuántos/quiénes...?'."),
+        "parameters": {"type": "object", "properties": {
+            "consulta": {"type": "string", "description": "Tema a analizar."}},
+            "required": ["consulta"]}}},
+]
+
+
+def _ejecutar_tool(nombre, args):
+    """Corre la herramienta pedida. Devuelve (texto_para_el_modelo, materiales_para_mostrar)."""
+    consulta = (args.get("consulta") or "").strip()
+    if nombre == "buscar_material":
+        n = min(int(args.get("n") or 6), 12)
+        res = buscar(consulta, n)
+        return contexto(res), res
+    if nombre == "analizar_corpus":
+        resumen, res = analizar(consulta)
+        return "CONTEOS REALES del corpus (exactos, NO los recalcules):\n" + resumen + "\n\n" + contexto(res), res
+    return "", []
+
+
 def responder(historial):
-    """historial: lista de {'role','content'}. Devuelve (texto, materiales)."""
-    usuarios = [m["content"] for m in historial if m["role"] == "user"]
-    ultimo = usuarios[-1] if usuarios else ""
-    query = " ".join(usuarios[-2:]) if len(usuarios) >= 2 else ultimo
-    agg = bool(AGG.search(ultimo))
-    produce = bool(PRODUCE.search(ultimo))
-    retrieve = bool(RETRIEVE.search(ultimo))
+    """historial: lista de {'role','content'}. El modelo decide si buscar o conversar.
+    Devuelve (texto, materiales_para_mostrar)."""
+    mensajes = [{"role": "system", "content": SYSTEM_MSG}] + [
+        {"role": m["role"], "content": m["content"]} for m in historial]
     mostrar = []
-    largo = 450
-    nota = ("\n\n(MODO COPILOTO: pensás CON la persona. Respondé CORTO, de a un paso: una o dos ideas o UNA "
-            "pregunta, y esperá su respuesta. NO traigas material ni armes contenido todavía. Si te parece que "
-            "haría falta, OFRECELO como pregunta ('¿busco material sobre esto?', '¿lo armo como posteo?'), no lo "
-            "hagas por tu cuenta.)")
-    if agg:
-        resumen, mostrar = analizar(query)
-        largo = 900
-        nota = ("\n\nCONTEOS REALES calculados sobre el corpus (exactos, NO los recalcules ni inventes):\n"
-                + resumen + "\n\nPresentá estos números claros y naturales; podés citar 1-2 fragmentos con su fuente.")
-    elif produce:
-        res = buscar(query, 6)
-        mostrar = [r for r in res if r["score"] >= UMBRAL] or res[:4]
-        largo = 1300
-        nota = ("\n\n" + contexto(mostrar) +
-                "\n\n(Armá un borrador breve usando SOLO este material, con cita textual y su fuente. "
-                "Aclarás que es para revisión del equipo.)")
-    elif retrieve:
-        res = buscar(query, 6)
-        mostrar = [r for r in res if r["score"] >= UMBRAL] or res[:4]
-        largo = 550
-        nota = ("\n\n" + contexto(mostrar) +
-                "\n\n(Presentá MUY brevemente 1-2 de los fragmentos más relevantes con su fuente, y preguntá cómo "
-                "seguir: ¿lo armamos como posteo?, ¿querés ver más? No armes todavía un contenido completo.)")
-    msgs = [{"role": "system", "content": SYSTEM_MSG}]
-    for i, m in enumerate(historial):
-        contenido = m["content"] + (nota if (m["role"] == "user" and i == len(historial) - 1) else "")
-        msgs.append({"role": m["role"], "content": contenido})
-    return llm_openai(msgs, largo), mostrar
+    try:
+        resp = client.chat.completions.create(
+            model=MODELO_LLM, messages=mensajes, tools=TOOLS,
+            tool_choice="auto", temperature=0.5, max_tokens=1000)
+    except Exception as e:
+        return f"Error llamando al modelo: {e}", mostrar
+    msg = resp.choices[0].message
+    if not msg.tool_calls:
+        return msg.content or "", mostrar   # turno de conversación (pinponeo)
+    # El modelo decidió usar herramientas
+    mensajes.append({
+        "role": "assistant", "content": msg.content or "",
+        "tool_calls": [{"id": tc.id, "type": "function",
+                        "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
+                       for tc in msg.tool_calls]})
+    for tc in msg.tool_calls:
+        try:
+            args = json.loads(tc.function.arguments or "{}")
+        except Exception:
+            args = {}
+        texto_tool, res = _ejecutar_tool(tc.function.name, args)
+        if res:
+            mostrar = res
+        mensajes.append({"role": "tool", "tool_call_id": tc.id, "content": texto_tool})
+    try:
+        resp2 = client.chat.completions.create(
+            model=MODELO_LLM, messages=mensajes, temperature=0.5, max_tokens=1300)
+        return resp2.choices[0].message.content or "", mostrar
+    except Exception as e:
+        return f"Error llamando al modelo: {e}", mostrar
 
 
 # ---------------- UI ----------------
