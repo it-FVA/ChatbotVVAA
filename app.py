@@ -196,18 +196,11 @@ def responder(historial):
 # ---------------- UI ----------------
 st.markdown("""
 <style>
-:root { --amber:#F39C12; }
-.stApp { background:#FFFFFF; }
-html, body, [class*="css"], .stMarkdown, .stChatMessage, textarea, input { font-family: Arial, Helvetica, sans-serif !important; }
-a { color: var(--amber) !important; }
-.stButton>button, .stDownloadButton>button {
-  background: var(--amber); color:#FBFBFB; border:none; border-radius:8px; font-weight:bold;
-}
-.stButton>button:hover, .stDownloadButton>button:hover { background:#d98a0f; color:#fff; }
-[data-testid="stChatInput"] textarea:focus { border-color: var(--amber) !important; box-shadow: 0 0 0 1px var(--amber) !important; }
-[data-testid="stChatMessage"] { background:#FBFBFB; border-radius:10px; }
-.marca-t { font-size:1.35rem; font-weight:bold; color:#000; line-height:1.15; margin:0; }
-.marca-s { font-size:.85rem; color:#777; margin:0; }
+/* Los colores los maneja .streamlit/config.toml (tema claro y oscuro).
+   Acá solo detalles de layout que se adaptan solos a cualquier modo. */
+[data-testid="stChatMessage"] { border-radius:12px; }
+.marca-t { font-size:1.35rem; font-weight:700; line-height:1.15; margin:0; }
+.marca-s { font-size:.85rem; opacity:.6; margin:0; }
 </style>
 """, unsafe_allow_html=True)
 

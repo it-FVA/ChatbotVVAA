@@ -1,0 +1,21 @@
+# Tema de marca "Vivir Agradecidos" (ámbar) — con versión clara y oscura.
+# El usuario puede cambiar entre claro/oscuro desde el menú (☰ → Settings → Theme).
+
+[theme]
+base = "light"
+font = "sans-serif"
+primaryColor = "#F39C12"
+
+[theme.light]
+primaryColor = "#F39C12"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#FBF4E9"
+textColor = "#1A1A1A"
+linkColor = "#C97F0A"
+
+[theme.dark]
+primaryColor = "#F5A62A"
+backgroundColor = "#161514"
+secondaryBackgroundColor = "#211F1D"
+textColor = "#F2F0EC"
+linkColor = "#F5B851"
