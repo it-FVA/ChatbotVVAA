@@ -1,6 +1,9 @@
 # Tema de marca "Vivir Agradecidos" (ámbar) — con versión clara y oscura.
 # El usuario puede cambiar entre claro/oscuro desde el menú (☰ → Settings → Theme).
 
+[client]
+toolbarMode = "minimal"
+
 [theme]
 base = "light"
 font = "sans-serif"
