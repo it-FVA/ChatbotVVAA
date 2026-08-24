@@ -194,7 +194,30 @@ def responder(historial):
 
 
 # ---------------- UI ----------------
-st.markdown("#### 🌼 Asistente de contenido · Br. David")
+st.markdown("""
+<style>
+:root { --amber:#F39C12; }
+.stApp { background:#FFFFFF; }
+html, body, [class*="css"], .stMarkdown, .stChatMessage, textarea, input { font-family: Arial, Helvetica, sans-serif !important; }
+a { color: var(--amber) !important; }
+.stButton>button, .stDownloadButton>button {
+  background: var(--amber); color:#FBFBFB; border:none; border-radius:8px; font-weight:bold;
+}
+.stButton>button:hover, .stDownloadButton>button:hover { background:#d98a0f; color:#fff; }
+[data-testid="stChatInput"] textarea:focus { border-color: var(--amber) !important; box-shadow: 0 0 0 1px var(--amber) !important; }
+[data-testid="stChatMessage"] { background:#FBFBFB; border-radius:10px; }
+.marca-t { font-size:1.35rem; font-weight:bold; color:#000; line-height:1.15; margin:0; }
+.marca-s { font-size:.85rem; color:#777; margin:0; }
+</style>
+""", unsafe_allow_html=True)
+
+col_logo, col_title = st.columns([1, 7], gap="small")
+try:
+    col_logo.image(os.path.join(HERE, "logo.png"), width=58)
+except Exception:
+    col_logo.markdown("🌼")
+col_title.markdown('<p class="marca-t">Asistente de contenido</p>'
+                   '<p class="marca-s">· Br. David · Vivir Agradecidos</p>', unsafe_allow_html=True)
 st.caption("Búsqueda y armado fundados solo en el material real de la Fundación. Los borradores son para revisión del equipo.")
 
 if "messages" not in st.session_state:
