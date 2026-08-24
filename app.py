@@ -6,7 +6,7 @@ Misma lógica que el server local, pero:
 Secrets necesarios en Streamlit Cloud:
   OPENAI_API_KEY, APP_PASSWORD   (opcional: ASISTENTE_MODELO)
 """
-import os, json, re, html, base64
+import os, json, re, html, base64, urllib.parse
 import numpy as np
 import streamlit as st
 from openai import OpenAI
@@ -114,6 +114,7 @@ def buscar(consulta, n=6, excluir=None):
             "texto": re.sub(r"\s+", " ", f.get("texto") or "").strip(),
             "autor": f.get("autor") or "—", "fuente": fuente,
             "url": f.get("url"), "doc": doc, "score": round(float(sims[int(k)]), 2),
+            "inicio_ms": f.get("inicio_ms"),
         })
         if len(out) >= n:
             break
@@ -281,15 +282,31 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 
 
+def link_fuente(r):
+    """Devuelve el enlace que salta al lugar exacto: clip -> segundo; artículo -> frase resaltada."""
+    url = r.get("url") or ""
+    if not url:
+        return ""
+    if r.get("fuente") == "youtube" and r.get("inicio_ms"):
+        seg = int((r["inicio_ms"] or 0) / 1000)
+        sep = "&" if "?" in url else "?"
+        return f"{url}{sep}t={seg}s"
+    if r.get("fuente") == "web":
+        snippet = " ".join((r.get("texto") or "").split()[:8]).strip(" ,.;:—\"'“”")
+        if snippet:
+            return url + "#:~:text=" + urllib.parse.quote(snippet)
+    return url
+
+
 def render_mats(mats):
     for r in mats:
         tag = html.escape(r.get("tag") or "")
         autor = html.escape(r.get("autor") or "")
         titulo = html.escape(r.get("titulo") or "")
         texto = html.escape((r.get("texto") or "")[:300])
-        url = r.get("url") or ""
-        src = (f'<a class="vac-src" href="{html.escape(url)}" target="_blank">Ver fuente ↗</a>'
-               if url else "")
+        href = link_fuente(r)
+        src = (f'<a class="vac-src" href="{html.escape(href)}" target="_blank">Ver fuente ↗</a>'
+               if href else "")
         st.markdown(
             f'<div class="vac-card"><div class="vac-top">'
             f'<span class="vac-tag">{tag}</span><span class="vac-autor">{autor}</span></div>'
