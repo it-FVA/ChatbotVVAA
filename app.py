@@ -344,3 +344,5 @@ if prompt := st.chat_input("Escribí acá… (ej: 'estoy pensando una campaña s
         if mats:
             render_mats(mats)
     st.session_state.messages.append({"role": "assistant", "content": texto, "mats": mats})
+
+# redeploy: paginas de libros v2
