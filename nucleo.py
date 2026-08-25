@@ -72,6 +72,14 @@ Redactás borradores para revisión humana. Tono cálido, simple, sin sermonear,
 JUNK = re.compile(r"(suscr[íi]b|clic[k]?\s*(aqu[íi]|ac[áa])|haz\s*clic|hac[ée]\s*clic|inscrib[íi]|para mayor informaci|hasta la pr[óo]xima|dejo un momento a solas|los invito a volver|d[ée]jen(me)? sus comentarios|gracias por (acompañ|hacerme compañ)|much[íi]sim[ao]s?\s+gracias|un placer|nos vemos|desmute|pongan? las? c[áa]mara|una peque[ñn]a encuesta|levant[áa]?\s+la\s+mano|cerr[áa]\s+los\s+ojos|inhal|exhal|vamos a (dejar|girar|movernos)|hacia el otro lado|en c[áa]mara lenta|un par de giros)", re.I)
 
 
+def _es_indice(t):
+    """Detecta páginas de índice / tabla de contenido / datos de catálogo (no son citas reales)."""
+    nums = len(re.findall(r"\b\d{1,3}\b", t))
+    marc = len(re.findall(r"\b\d{1,3}\s*[-–.]", t))
+    pal = max(len(t.split()), 1)
+    return (nums >= 6 and nums / pal > 0.18) or marc >= 5
+
+
 def mmss(ms):
     s = int((ms or 0) / 1000)
     return f"{s//60:02d}:{s%60:02d}"
@@ -114,7 +122,7 @@ def buscar(consulta, n=6, excluir=None, fuente=None):
         f = FRS[int(k)]
         if fuente and f.get("fuente") != fuente:
             continue
-        if JUNK.search(f.get("texto", "")):
+        if JUNK.search(f.get("texto", "")) or _es_indice(f.get("texto", "")):
             continue
         doc = f.get("documento_id")
         if doc in vistos or doc in excluir:
@@ -163,7 +171,7 @@ def analizar(consulta):
         if float(sims[int(k)]) < UMBRAL_AGG:
             break
         fr = FRS[int(k)]
-        if JUNK.search(fr.get("texto", "")):
+        if JUNK.search(fr.get("texto", "")) or _es_indice(fr.get("texto", "")):
             continue
         a = fr.get("autor") or "—"
         docs_por_autor.setdefault(a, set()).add(fr.get("documento_id"))
