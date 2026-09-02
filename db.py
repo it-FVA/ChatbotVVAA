@@ -81,6 +81,11 @@ def listar_todas(limite=1000):
     return _req("GET", f"?select=id,usuario,titulo,actualizado&order=actualizado.desc&limit={limite}")
 
 
+def exportar_todas(limite=1000):
+    """Todas las conversaciones COMPLETAS (con mensajes), para descargar."""
+    return _req("GET", f"?select=id,usuario,titulo,mensajes,creado,actualizado&order=actualizado.desc&limit={limite}")
+
+
 def crear_conversacion(usuario, titulo, mensajes):
     r = _req("POST", "", body={"usuario": usuario, "titulo": titulo, "mensajes": mensajes})
     return r[0]["id"] if r else None

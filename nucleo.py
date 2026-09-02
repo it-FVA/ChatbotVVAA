@@ -55,6 +55,9 @@ REGLA DE ORO (inviolable): trabajás SOLO con los fragmentos que se te dan en "M
 - NUNCA nombres títulos concretos de clips, videos, libros o artículos —ni cites frases— si no vienen de una búsqueda real. En conversación (sin material a la vista), hablá en general ("seguramente hay material de Br. David sobre esto") y ofrecé buscarlo. Los títulos y las citas SALEN SOLO de buscar_material.
 - Citá siempre la fuente (título y enlace o marca de tiempo).
 - Atribuí correctamente: hay facilitadores (Gawel, Fondevila, Mujica, Grehan, etc.); no confundas a un facilitador con Br. David.
+- Al armar un copy o borrador, TODA frase entre comillas debe ser TEXTUAL del material disponible. NUNCA inventes una cita ni se la atribuyas a Br. David ni a un facilitador. Si no tenés una cita textual del autor pedido, escribí el copy con TUS palabras, SIN comillas atribuidas, o decí que no tenés una cita de ese autor. Y nunca pongas en boca de Br. David algo que dijo un facilitador (ni al revés).
+- Si te piden armar contenido sobre un clip/rango puntual que NO tenés en el material, decílo con honestidad; podés ofrecer un copy con tus palabras, pero SIN inventar citas.
+- Si la persona pide material de un autor puntual y solo hay de otros, decílo con honestidad; NO lo hagas pasar como del autor pedido.
 
 DISTINCIÓN: las palabras del autor van entre comillas, textuales. Tu texto de enlace/introducción es tuyo y nunca simula ser la voz del autor.
 
@@ -64,6 +67,7 @@ HERRAMIENTAS: tenés dos funciones: buscar_material (trae fragmentos reales del 
 - Mientras la persona piensa en voz alta, explora o charla ("por dónde arrancarías", "sí, me gusta", "dale a ver qué opciones hay"), NO llames a ninguna herramienta: seguí conversando y proponiendo ideas.
 - Llamá a buscar_material SOLO cuando la persona pide ver material concreto, o cuando ya decidieron armar una pieza y necesitás las citas reales.
 - Si la persona pide un tipo puntual (libros, clips/videos o artículos), pasá el parámetro tipo a buscar_material para traer solo eso.
+- Si la persona pide material de un autor puntual (ej. Br. David, Fondevila, Gawel, Grehan…), pasá el parámetro autor a buscar_material para traer solo de ese autor.
 - Cuando traés material para mostrar, presentá 1-2 fragmentos de forma breve con su fuente y preguntá cómo seguir. Redactás un borrador completo SOLO cuando la persona pide explícitamente armar la pieza.
 - Ante la duda entre buscar o conversar, conversá y ofrecé: "¿querés que busque material sobre esto?".
 
@@ -111,17 +115,90 @@ def link_fuente(r):
     return url
 
 
-def buscar(consulta, n=6, excluir=None, fuente=None):
+_STOP = {"brother", "hermano", "dr", "doctor", "sr", "del", "los", "las"}
+
+
+def _coincide_autor(fautor, pedido):
+    fa = (fautor or "").lower()
+    claves = [w for w in re.split(r"[^a-záéíóúñ]+", (pedido or "").lower()) if len(w) >= 3 and w not in _STOP]
+    return any(w in fa for w in claves) if claves else True
+
+
+_AUTORES = [
+    ("Br. David", r"br(?:other)?\.?\s*david|hermano\s+david|steindl"),
+    ("Fabiana Fondevila", r"fondevila"),
+    ("Virginia Gawel", r"gawel"),
+    ("Hugo Mujica", r"mujica"),
+    ("Joaquín Grehan", r"grehan"),
+    ("Andy/Andrea Saporiti", r"saporiti"),
+    ("Maite Moreno", r"\bmaite\b"),
+    ("Daniel Tocchini", r"tocchini"),
+    ("Christian Plebst", r"plebst"),
+]
+
+
+def _detectar_autor(texto):
+    """Detecta si la persona pidió material de un autor puntual (red de seguridad si el modelo no pasa 'autor')."""
+    t = (texto or "").lower()
+    for autor, pat in _AUTORES:
+        if re.search(pat, t):
+            return autor
+    return None
+
+
+def _detectar_duracion_max(texto):
+    """Detecta si pidieron videos cortos con un tope (ej. 'no más de 2 minutos'). Devuelve segundos o None."""
+    t = (texto or "").lower()
+    m = re.search(r"(\d+)\s*(?:min|minuto)", t)
+    if m:
+        return int(m.group(1)) * 60
+    if re.search(r"\b(breve|breves|cort[oa]s?|short)\b", t):
+        return 150
+    return None
+
+
+def _rerank(consulta, candidatos, n):
+    """Segundo paso: el modelo elige los n más precisos de una lista más amplia."""
+    lineas = [f"[{i}] {c['tag']} · {c['autor']} — {c['titulo']}: {c['texto'][:150]}"
+              for i, c in enumerate(candidatos)]
+    user = (f"Consulta del equipo: {consulta}\n\nFragmentos candidatos:\n" + "\n".join(lineas) +
+            f"\n\nElegí los {n} MÁS relevantes y precisos para la consulta (mismo tema; si la consulta pide "
+            f"un autor puntual, respetá ese autor). Respondé SOLO los números, del más al menos relevante, "
+            f"separados por comas. Ej: 3,7,1,0,5,2")
+    r = _llm([{"role": "system", "content": "Seleccionás fragmentos con precisión. Respondé solo con números."},
+              {"role": "user", "content": user}], 60)
+    idx = []
+    for x in re.findall(r"\d+", r or ""):
+        i = int(x)
+        if i < len(candidatos) and i not in idx:
+            idx.append(i)
+    orden = [candidatos[i] for i in idx]
+    for c in candidatos:
+        if len(orden) >= n:
+            break
+        if c not in orden:
+            orden.append(c)
+    return orden[:n]
+
+
+def buscar(consulta, n=6, excluir=None, fuente=None, autor=None, max_seg=None, rerank=True):
     FRS, EMB = cargar()
     excluir = set(excluir or [])
     qv = embed_query(consulta)
     sims = EMB @ qv
     orden = np.argsort(-sims)
-    out, vistos = [], set()
+    cand, vistos = [], set()
+    tope = max(n * 3, 15) if rerank else n
     for k in orden:
         f = FRS[int(k)]
         if fuente and f.get("fuente") != fuente:
             continue
+        if autor and not _coincide_autor(f.get("autor"), autor):
+            continue
+        if max_seg and f.get("fuente") == "youtube":
+            dur = ((f.get("fin_ms") or 0) - (f.get("inicio_ms") or 0)) / 1000
+            if dur > max_seg + 5:
+                continue
         if JUNK.search(f.get("texto", "")) or _es_indice(f.get("texto", "")):
             continue
         doc = f.get("documento_id")
@@ -145,10 +222,12 @@ def buscar(consulta, n=6, excluir=None, fuente=None):
             "inicio_ms": f.get("inicio_ms"), "pagina": f.get("pagina"),
         }
         d["ir"] = link_fuente(d)
-        out.append(d)
-        if len(out) >= n:
+        cand.append(d)
+        if len(cand) >= tope:
             break
-    return out
+    if rerank and len(cand) > n:
+        return _rerank(consulta, cand, n)
+    return cand[:n]
 
 
 def contexto(res):
@@ -180,7 +259,7 @@ def analizar(consulta):
     resumen = f"Fragmentos relevantes: {total}. Autores/fuentes distintos: {len(conteo)}.\n"
     for a, n in conteo:
         resumen += f"- {a}: {n} contenido(s)\n"
-    return resumen, buscar(consulta, 6)
+    return resumen, buscar(consulta, 6, rerank=False)
 
 
 def _llm(messages, max_tokens=1200):
@@ -198,18 +277,23 @@ def armar(fragmentos, canal):
     user = (f"Canal: {canal}\n\n{ctx}\n\n"
             f"Armá un borrador de {canal} para la Fundación usando SOLO el material de arriba. "
             f"Elegí 1 a 3 citas, las MÁS relevantes y fuertes para el tema; ignorá cualquier fragmento que sea "
-            f"un pie de página, CTA o cierre de video. Citá textual, con autor y fuente. "
+            f"un pie de página, CTA o cierre de video. Las frases entre comillas deben ser TEXTUALES del "
+            f"material de arriba: NO inventes citas. Si no hay una cita del autor pedido, redactá con tus "
+            f"palabras sin comillas atribuidas. Citá autor y fuente. "
             f"Cerrá aclarando que es un borrador para revisión del equipo.")
     return _llm([{"role": "system", "content": SYSTEM_MSG}, {"role": "user", "content": user}], 1300)
 
 
 def titular(mensajes):
-    """Título corto (estilo ChatGPT) para la conversación."""
-    conv = "\n".join(f"{m.get('role')}: {m.get('content','')}" for m in mensajes[:4])[:1500]
-    t = _llm([{"role": "system", "content": "Poné un título MUY corto (3 a 6 palabras, sin comillas ni punto final) que resuma el tema de esta conversación, en español."},
-              {"role": "user", "content": conv}], 24)
-    t = (t or "").strip().strip('"').strip("'").strip()
-    return t[:60] or "Conversación"
+    """Título corto (estilo ChatGPT), basado en el PRIMER pedido del usuario (más limpio)."""
+    primer = next((m.get("content", "") for m in mensajes if m.get("role") == "user"), "")
+    primer = re.sub(r"\s+", " ", primer).strip()[:400]
+    if not primer:
+        return "Conversación"
+    t = _llm([{"role": "system", "content": "Devolvé SOLO un título corto (3 a 6 palabras, sin comillas, sin markdown ni signos) que resuma de qué trata este pedido, en español."},
+              {"role": "user", "content": primer}], 20)
+    t = re.sub(r"\s+", " ", (t or "")).strip().strip('"').strip("'").strip("*#-• ").strip()
+    return t[:50] or "Conversación"
 
 
 TOOLS = [
@@ -224,7 +308,8 @@ TOOLS = [
             "consulta": {"type": "string", "description": "Tema o pregunta a buscar, en lenguaje natural."},
             "n": {"type": "integer", "description": "Cuántos fragmentos traer (6 por defecto, máximo 12)."},
             "tipo": {"type": "string", "enum": ["libro", "clip", "articulo", "cualquiera"],
-                     "description": "Filtrá por tipo de fuente cuando la persona lo pide: 'libro', 'clip' (videos), 'articulo'. Usá 'cualquiera' o vacío si no especifica."}},
+                     "description": "Filtrá por tipo de fuente cuando la persona lo pide: 'libro', 'clip' (videos), 'articulo'. Usá 'cualquiera' o vacío si no especifica."},
+            "autor": {"type": "string", "description": "Filtrá por autor cuando la persona pide material de alguien puntual (ej. 'Br. David', 'Fondevila', 'Gawel', 'Grehan'). Dejalo vacío si no especifica autor."}},
             "required": ["consulta"]}}},
     {"type": "function", "function": {
         "name": "analizar_corpus",
@@ -244,7 +329,7 @@ def _ejecutar_tool(nombre, args):
         tipo = (args.get("tipo") or "").lower()
         fuente = {"libro": "libro", "clip": "youtube", "video": "youtube",
                   "articulo": "web", "artículo": "web", "web": "web"}.get(tipo)
-        res = buscar(consulta, n, fuente=fuente)
+        res = buscar(consulta, n, fuente=fuente, autor=(args.get("autor") or None), max_seg=args.get("max_seg"))
         return contexto(res), res
     if nombre == "analizar_corpus":
         resumen, res = analizar(consulta)
@@ -259,6 +344,15 @@ def responder(historial):
         {"role": m["role"], "content": m["content"]} for m in historial]
     usuarios = [m["content"] for m in historial if m["role"] == "user"]
     query = usuarios[-1] if usuarios else ""
+    autor_hint = None                      # "pegajoso": recuerda el último autor pedido en la charla
+    for _m in reversed(usuarios):
+        if re.search(r"\b(cualquier|cualquiera|todos|todas|no importa)\b", _m.lower()):
+            break
+        _a = _detectar_autor(_m)
+        if _a:
+            autor_hint = _a
+            break
+    dur_hint = _detectar_duracion_max(" ".join(usuarios[-2:]))
     mostrar = []
     cl = _get_client()
     try:
@@ -280,8 +374,13 @@ def responder(historial):
             args = json.loads(tc.function.arguments or "{}")
         except Exception:
             args = {}
-        if tc.function.name == "buscar_material" and args.get("consulta"):
-            query = args["consulta"]
+        if tc.function.name == "buscar_material":
+            if args.get("consulta"):
+                query = args["consulta"]
+            if autor_hint and not args.get("autor"):
+                args["autor"] = autor_hint      # red de seguridad: autor pedido por la persona
+            if dur_hint and not args.get("max_seg"):
+                args["max_seg"] = dur_hint       # tope de duración si pidieron videos cortos
         texto_tool, res = _ejecutar_tool(tc.function.name, args)
         if res:
             mostrar = res

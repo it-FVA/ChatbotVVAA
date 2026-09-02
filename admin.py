@@ -24,6 +24,11 @@ def cargar_lista():
     return db.listar_todas()
 
 
+@st.cache_data(ttl=20, show_spinner="Preparando exportación…")
+def exportar_todo():
+    return db.exportar_todas()
+
+
 if st.button("🔄 Actualizar"):
     st.cache_data.clear()
 
@@ -36,9 +41,9 @@ with izq:
     filtro = st.selectbox("Filtrar por pope", ["(todos)"] + usuarios)
     visibles = [c for c in items if filtro == "(todos)" or c.get("usuario") == filtro]
     st.caption(f"{len(visibles)} conversaciones")
-    st.download_button("⬇️ Descargar todo (JSON)",
-                       data=json.dumps(items, ensure_ascii=False, indent=2),
-                       file_name="conversaciones.json", mime="application/json")
+    st.download_button("⬇️ Descargar TODO (JSON)",
+                       data=json.dumps(exportar_todo(), ensure_ascii=False, indent=2),
+                       file_name="conversaciones-todas.json", mime="application/json")
     st.divider()
     for c in visibles:
         fecha = (c.get("actualizado") or "")[:16].replace("T", " ")
@@ -57,6 +62,12 @@ with der:
             st.warning("No encontré esa conversación (quizás se borró).")
         else:
             st.subheader(conv.get("titulo") or "Conversación")
+            st.download_button("⬇️ Descargar ESTA conversación (JSON)",
+                               data=json.dumps({"titulo": conv.get("titulo"),
+                                                "mensajes": db.normalizar(conv.get("mensajes"))},
+                                               ensure_ascii=False, indent=2),
+                               file_name="conversacion.json", mime="application/json",
+                               key="dl_" + str(cid))
             for m in db.normalizar(conv.get("mensajes")):
                 with st.chat_message("user" if m["role"] == "user" else "assistant"):
                     st.markdown(m.get("content", ""))
