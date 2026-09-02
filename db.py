@@ -33,6 +33,23 @@ def disponible():
     return bool(url and key)
 
 
+def normalizar(mensajes):
+    """Lleva cualquier mensaje (rol/texto o role/content) al formato canónico."""
+    out = []
+    for m in (mensajes or []):
+        if m.get("role"):
+            role = m["role"]
+        elif m.get("rol") == "u":
+            role = "user"
+        else:
+            role = "assistant"
+        out.append({"role": role,
+                    "content": m.get("content", m.get("texto", "")),
+                    "mats": m.get("mats") or [],
+                    "query": m.get("query", "")})
+    return out
+
+
 def _req(method, params="", body=None):
     url, key = _cfg()
     full = f"{url}/rest/v1/conversaciones{params}"

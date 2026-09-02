@@ -38,6 +38,25 @@ import db
 SESIONES = {}   # token -> usuario
 
 
+def _a_canonico(mensajes):
+    """HTML {rol,texto} -> canónico {role,content} (para guardar igual que Streamlit)."""
+    out = []
+    for m in (mensajes or []):
+        out.append({"role": "user" if m.get("rol") == "u" else "assistant",
+                    "content": m.get("texto", ""),
+                    "mats": m.get("mats") or [], "query": m.get("query", "")})
+    return out
+
+
+def _a_html(mensajes):
+    """Canónico {role,content} -> HTML {rol,texto} (para mostrar en el front)."""
+    out = []
+    for m in db.normalizar(mensajes):
+        out.append({"rol": "u" if m["role"] == "user" else "a",
+                    "texto": m["content"], "mats": m.get("mats") or [], "query": m.get("query", "")})
+    return out
+
+
 class H(BaseHTTPRequestHandler):
     def _send(self, code, ctype, body, extra_headers=None):
         self.send_response(code)
@@ -84,6 +103,8 @@ class H(BaseHTTPRequestHandler):
                 return self._json({"error": "no auth"}, 401)
             cid = self.path.split("id=", 1)[1] if "id=" in self.path else ""
             conv = db.cargar_conversacion(cid) if (cid and db.disponible()) else None
+            if conv:
+                conv["mensajes"] = _a_html(conv.get("mensajes"))
             return self._json(conv or {})
         return self._send(404, "text/plain", "no")
 
@@ -122,14 +143,13 @@ class H(BaseHTTPRequestHandler):
         if self.path == "/api/guardar":
             if not db.disponible():
                 return self._json({"conv_id": None, "titulo": None})
-            msgs = d.get("mensajes", [])
+            msgs = _a_canonico(d.get("mensajes", []))
             cid = d.get("conv_id")
             try:
                 if cid:
                     db.guardar_mensajes(cid, msgs)   # no pisa el título
                     return self._json({"conv_id": cid})
-                titulo = nucleo.titular([{"role": "user" if m.get("rol") == "u" else "assistant",
-                                          "content": m.get("texto", "")} for m in msgs])
+                titulo = nucleo.titular(msgs)
                 cid = db.crear_conversacion(u, titulo, msgs)
                 return self._json({"conv_id": cid, "titulo": titulo})
             except Exception as e:
@@ -200,7 +220,9 @@ APP_PAGE = r"""<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta 
 .head .t{font-weight:bold;font-size:16px}.head .s{font-size:12px;color:var(--suave)}
 .chat{padding:18px 26px;flex:1;overflow-y:auto}
 .msg{margin:10px 0;display:flex}.msg.u{justify-content:flex-end}
+.acol{max-width:760px;width:100%}
 .bub{max-width:760px;padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.5;white-space:pre-wrap}
+.msg.a .bub{display:inline-block}
 .msg.u .bub{background:var(--amber);color:#fff;border-bottom-right-radius:4px}.msg.a .bub{background:#f6f4f0;border-bottom-left-radius:4px}
 .res{border:1px solid var(--linea);border-left:3px solid var(--amber);border-radius:10px;padding:11px 13px;margin:9px 0}
 .res .tag{font-size:11px;font-weight:bold;color:var(--amber-d)}.res .ti{font-weight:bold;font-size:13.5px;margin:2px 0}
@@ -245,7 +267,7 @@ function render(){
  let html="";
  MENS.forEach((m,i)=>{
   if(m.rol==="u"){html+=`<div class="msg u"><div class="bub">${esc(m.texto)}</div></div>`}
-  else{html+=`<div class="msg a"><div class="bub">${esc(m.texto)}</div>${matsBloque(i)}</div>`}
+  else{html+=`<div class="msg a"><div class="acol"><div class="bub">${esc(m.texto)}</div>${matsBloque(i)}</div></div>`}
  });
  chat.innerHTML=html; chat.scrollTop=chat.scrollHeight;
 }

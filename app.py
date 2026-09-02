@@ -70,7 +70,7 @@ def guardar():
 def abrir(cid):
     conv = db.cargar_conversacion(cid)
     if conv:
-        st.session_state.messages = conv.get("mensajes") or []
+        st.session_state.messages = db.normalizar(conv.get("mensajes"))
         st.session_state.conv_id = conv["id"]
         st.session_state.conv_titulo = conv.get("titulo")
 
@@ -178,9 +178,9 @@ def render_mats(mats):
 
 
 for m in st.session_state.messages:
-    rol = "user" if m["role"] == "user" else "assistant"
+    rol = "user" if m.get("role") == "user" else "assistant"
     with st.chat_message(rol, avatar=(AVATAR_USER if rol == "user" else AVATAR_BOT)):
-        st.markdown(m["content"])
+        st.markdown(m.get("content", ""))
         if m.get("mats"):
             render_mats(m["mats"])
 
@@ -190,7 +190,7 @@ if prompt := st.chat_input("Escribí acá… (ej: 'estoy pensando una campaña s
         st.markdown(prompt)
     with st.chat_message("assistant", avatar=AVATAR_BOT):
         with st.spinner("Pensando…"):
-            historial = [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
+            historial = [{"role": m.get("role", "user"), "content": m.get("content", "")} for m in st.session_state.messages]
             texto, mats, _ = nucleo.responder(historial)
         st.markdown(texto)
         if mats:
