@@ -1,27 +1,46 @@
-"""UI Streamlit (online) del asistente. Toda la lógica vive en nucleo.py (cerebro compartido)."""
+"""UI Streamlit (online). Lógica en nucleo.py (cerebro) y guardado en db.py (Supabase)."""
 import os, html, base64
 import streamlit as st
 import nucleo
+import db
 
 st.set_page_config(page_title="Asistente · Vivir Agradecidos", page_icon="🌼", layout="centered")
 
-# ---------------- Acceso con contraseña ----------------
-if not st.session_state.get("ok"):
+
+def _sec(k, d=""):
+    return st.secrets.get(k, d)
+
+
+# ---------------- Credenciales al entorno (para nucleo y db) ----------------
+os.environ["OPENAI_API_KEY"] = _sec("OPENAI_API_KEY")
+os.environ["ASISTENTE_MODELO"] = _sec("ASISTENTE_MODELO", "gpt-4o-mini")
+os.environ["SUPABASE_URL"] = _sec("SUPABASE_URL")
+os.environ["SUPABASE_KEY"] = _sec("SUPABASE_KEY")
+
+USUARIOS = dict(st.secrets.get("usuarios", {}))
+
+# ---------------- Login por usuario ----------------
+if not st.session_state.get("usuario"):
     st.markdown("### 🌼 Asistente de contenido · Vivir Agradecidos")
-    pw = st.text_input("Contraseña", type="password")
-    if pw:
-        if pw == st.secrets.get("APP_PASSWORD", ""):
-            st.session_state["ok"] = True
+    u = st.text_input("Usuario")
+    p = st.text_input("Contraseña", type="password")
+    if st.button("Entrar"):
+        if u in USUARIOS and str(USUARIOS[u]) == p:
+            st.session_state.usuario = u
+            st.session_state.messages = []
+            st.session_state.conv_id = None
+            st.session_state.conv_titulo = None
             st.rerun()
         else:
-            st.error("Contraseña incorrecta.")
+            st.error("Usuario o contraseña incorrectos.")
+    if not USUARIOS:
+        st.caption("⚠ Falta configurar la lista de usuarios en los secrets ([usuarios]).")
     st.stop()
 
-# ---------------- Config: pasar secrets al entorno para el cerebro ----------------
-os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
-os.environ["ASISTENTE_MODELO"] = st.secrets.get("ASISTENTE_MODELO", "gpt-4o-mini")
-
-HERE = os.path.dirname(os.path.abspath(__file__))
+USUARIO = st.session_state.usuario
+st.session_state.setdefault("messages", [])
+st.session_state.setdefault("conv_id", None)
+st.session_state.setdefault("conv_titulo", None)
 
 
 @st.cache_resource(show_spinner="Cargando el corpus…")
@@ -29,6 +48,77 @@ def _init():
     nucleo.cargar()
     return True
 _init()
+
+
+# ---------------- Persistencia de conversaciones ----------------
+def guardar():
+    msgs = st.session_state.messages
+    if not msgs or not db.disponible():
+        return
+    try:
+        if st.session_state.conv_id:
+            db.actualizar_conversacion(st.session_state.conv_id,
+                                       st.session_state.conv_titulo or "Conversación", msgs)
+        else:
+            titulo = nucleo.titular(msgs)      # título sugerido automáticamente
+            st.session_state.conv_titulo = titulo
+            st.session_state.conv_id = db.crear_conversacion(USUARIO, titulo, msgs)
+    except Exception as e:
+        st.warning(f"No pude guardar la conversación: {e}")
+
+
+def abrir(cid):
+    conv = db.cargar_conversacion(cid)
+    if conv:
+        st.session_state.messages = conv.get("mensajes") or []
+        st.session_state.conv_id = conv["id"]
+        st.session_state.conv_titulo = conv.get("titulo")
+
+
+# ---------------- Sidebar (estilo ChatGPT) ----------------
+with st.sidebar:
+    st.markdown(f"**👤 {USUARIO}**")
+    if st.button("➕ Nueva conversación", use_container_width=True):
+        st.session_state.messages = []
+        st.session_state.conv_id = None
+        st.session_state.conv_titulo = None
+        st.rerun()
+
+    st.divider()
+    st.caption("Tus conversaciones")
+    if db.disponible():
+        try:
+            for c in db.listar_conversaciones(USUARIO)[:30]:
+                cid = str(c["id"])
+                titulo = c.get("titulo") or "Conversación"
+                col_a, col_b = st.columns([5, 1], gap="small")
+                if col_a.button(titulo[:32], key="open_" + cid, use_container_width=True):
+                    abrir(c["id"])
+                    st.rerun()
+                with col_b.popover("⋮"):
+                    nuevo = st.text_input("Renombrar", value=titulo, key="ren_" + cid,
+                                          label_visibility="collapsed", placeholder="Nuevo nombre")
+                    if st.button("✏️ Renombrar", key="renb_" + cid, use_container_width=True):
+                        db.renombrar(c["id"], nuevo.strip() or titulo)
+                        if st.session_state.conv_id == c["id"]:
+                            st.session_state.conv_titulo = nuevo.strip() or titulo
+                        st.rerun()
+                    if st.button("🗑️ Borrar conversación", key="delb_" + cid, use_container_width=True):
+                        db.borrar_conversacion(c["id"])
+                        if st.session_state.conv_id == c["id"]:
+                            st.session_state.messages = []
+                            st.session_state.conv_id = None
+                            st.session_state.conv_titulo = None
+                        st.rerun()
+        except Exception as e:
+            st.caption(f"(no pude leer el historial: {e})")
+    else:
+        st.caption("(guardado desactivado: falta configurar Supabase)")
+    st.divider()
+    if st.button("Salir", use_container_width=True):
+        for k in ("usuario", "messages", "conv_id", "conv_titulo"):
+            st.session_state.pop(k, None)
+        st.rerun()
 
 # ---------------- Estilo de marca ----------------
 st.markdown("""
@@ -55,6 +145,7 @@ st.markdown("""
 
 AVATAR_BOT = "🌼"
 AVATAR_USER = "🧑"
+HERE = os.path.dirname(os.path.abspath(__file__))
 
 try:
     _logo64 = base64.b64encode(open(os.path.join(HERE, "logo.png"), "rb").read()).decode()
@@ -67,9 +158,6 @@ st.markdown(
     '<p class="vac-h-s">Br. David · Vivir Agradecidos</p></div></div>'
     '<hr class="vac-rule">', unsafe_allow_html=True)
 st.caption("Búsqueda y armado fundados solo en el material real de la Fundación. Los borradores son para revisión del equipo.")
-
-if "messages" not in st.session_state:
-    st.session_state.messages = []
 
 
 def render_mats(mats):
@@ -108,3 +196,4 @@ if prompt := st.chat_input("Escribí acá… (ej: 'estoy pensando una campaña s
         if mats:
             render_mats(mats)
     st.session_state.messages.append({"role": "assistant", "content": texto, "mats": mats})
+    guardar()

@@ -67,7 +67,7 @@ HERRAMIENTAS: tenés dos funciones: buscar_material (trae fragmentos reales del 
 - Cuando traés material para mostrar, presentá 1-2 fragmentos de forma breve con su fuente y preguntá cómo seguir. Redactás un borrador completo SOLO cuando la persona pide explícitamente armar la pieza.
 - Ante la duda entre buscar o conversar, conversá y ofrecé: "¿querés que busque material sobre esto?".
 
-Redactás borradores para revisión humana. Tono cálido, simple, sin sermonear, español rioplatense. Aclarás que es un borrador para curaduría del equipo."""
+Redactás borradores para revisión humana. Tono cálido, simple, sin sermonear, español rioplatense. Aclarás que es un borrador para curaduría del equipo. (Las conversaciones quedan guardadas en el espacio de trabajo de cada usuario; si te preguntan, confirmalo, no digas que no se guardan.)"""
 
 JUNK = re.compile(r"(suscr[íi]b|clic[k]?\s*(aqu[íi]|ac[áa])|haz\s*clic|hac[ée]\s*clic|inscrib[íi]|para mayor informaci|hasta la pr[óo]xima|dejo un momento a solas|los invito a volver|d[ée]jen(me)? sus comentarios|gracias por (acompañ|hacerme compañ)|much[íi]sim[ao]s?\s+gracias|un placer|nos vemos|desmute|pongan? las? c[áa]mara|una peque[ñn]a encuesta|levant[áa]?\s+la\s+mano|cerr[áa]\s+los\s+ojos|inhal|exhal|vamos a (dejar|girar|movernos)|hacia el otro lado|en c[áa]mara lenta|un par de giros)", re.I)
 
@@ -201,6 +201,15 @@ def armar(fragmentos, canal):
             f"un pie de página, CTA o cierre de video. Citá textual, con autor y fuente. "
             f"Cerrá aclarando que es un borrador para revisión del equipo.")
     return _llm([{"role": "system", "content": SYSTEM_MSG}, {"role": "user", "content": user}], 1300)
+
+
+def titular(mensajes):
+    """Título corto (estilo ChatGPT) para la conversación."""
+    conv = "\n".join(f"{m.get('role')}: {m.get('content','')}" for m in mensajes[:4])[:1500]
+    t = _llm([{"role": "system", "content": "Poné un título MUY corto (3 a 6 palabras, sin comillas ni punto final) que resuma el tema de esta conversación, en español."},
+              {"role": "user", "content": conv}], 24)
+    t = (t or "").strip().strip('"').strip("'").strip()
+    return t[:60] or "Conversación"
 
 
 TOOLS = [
