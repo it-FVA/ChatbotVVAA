@@ -76,6 +76,11 @@ def cargar_conversacion(cid):
     return r[0] if r else None
 
 
+def listar_todas(limite=1000):
+    """Todas las conversaciones (para el panel de revisión). Más recientes primero."""
+    return _req("GET", f"?select=id,usuario,titulo,actualizado&order=actualizado.desc&limit={limite}")
+
+
 def crear_conversacion(usuario, titulo, mensajes):
     r = _req("POST", "", body={"usuario": usuario, "titulo": titulo, "mensajes": mensajes})
     return r[0]["id"] if r else None
