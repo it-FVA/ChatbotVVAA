@@ -78,7 +78,7 @@ def abrir(cid):
 # ---------------- Sidebar (estilo ChatGPT) ----------------
 with st.sidebar:
     st.markdown(f"**👤 {USUARIO}**")
-    if st.button("➕ Nueva conversación", use_container_width=True):
+    if st.button("➕ Nueva conversación", use_container_width=True, type="primary"):
         st.session_state.messages = []
         st.session_state.conv_id = None
         st.session_state.conv_titulo = None
@@ -131,14 +131,14 @@ st.markdown("""
 .vac-h-s { font-size:.9rem; opacity:.6; margin:2px 0 0; }
 .vac-rule { height:3px; border:none; margin:.55rem 0 .1rem;
             background:linear-gradient(90deg,#F39C12,rgba(243,156,18,0)); border-radius:3px; }
-.vac-card { border:1px solid rgba(128,128,128,.28); border-radius:12px;
-            padding:12px 15px; margin:9px 0; background:rgba(243,156,18,.05); }
+.vac-card { border:1px solid rgba(140,130,110,.28); border-left:3px solid #F39C12; border-radius:10px;
+            padding:11px 14px; margin:9px 0; background:rgba(243,156,18,.055); }
 .vac-top { display:flex; gap:10px; align-items:baseline; flex-wrap:wrap; margin-bottom:2px; }
-.vac-tag { color:#F39C12; font-size:.7rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; }
+.vac-tag { color:#d98a0f; font-size:.7rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; }
 .vac-autor { font-size:.8rem; opacity:.7; }
 .vac-titulo { font-weight:700; font-size:.95rem; margin:1px 0 4px; }
 .vac-quote { font-style:italic; opacity:.92; line-height:1.45; margin:0 0 8px; }
-.vac-src { font-size:.82rem; color:#F39C12 !important; text-decoration:none; font-weight:700; }
+.vac-src { font-size:.82rem; color:#d98a0f !important; text-decoration:none; font-weight:700; }
 .vac-src:hover { text-decoration:underline; }
 </style>
 """, unsafe_allow_html=True)

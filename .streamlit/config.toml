@@ -12,9 +12,9 @@ primaryColor = "#F39C12"
 [theme.light]
 primaryColor = "#F39C12"
 backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#FBF4E9"
+secondaryBackgroundColor = "#FAF8F4"
 textColor = "#1A1A1A"
-linkColor = "#C97F0A"
+linkColor = "#D98A0F"
 
 [theme.dark]
 primaryColor = "#F5A62A"

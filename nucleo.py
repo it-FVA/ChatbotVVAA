@@ -23,6 +23,7 @@ _client = None
 _FRS = None
 _EMB = None
 _qcache = {}
+_tradcache = {}
 
 
 def _get_client():
@@ -53,7 +54,7 @@ REGLA DE ORO (inviolable): trabajás SOLO con los fragmentos que se te dan en "M
 - Nunca inventes una cita ni le atribuyas palabras a Br. David o a un autor. Si no está en el material, no existe.
 - Si no hay material sobre el tema, decilo con honestidad; no completes con conocimiento general.
 - NUNCA nombres títulos concretos de clips, videos, libros o artículos —ni cites frases— si no vienen de una búsqueda real. En conversación (sin material a la vista), hablá en general ("seguramente hay material de Br. David sobre esto") y ofrecé buscarlo. Los títulos y las citas SALEN SOLO de buscar_material.
-- Citá siempre la fuente (título y enlace o marca de tiempo).
+- Citá siempre la fuente. NUNCA inventes ni construyas un enlace: usá SOLO los enlaces que aparecen en el material. Los LIBROS no tienen enlace web — se citan por título y número de página (pág. X), jamás con un link inventado.
 - Atribuí correctamente: hay facilitadores (Gawel, Fondevila, Mujica, Grehan, etc.); no confundas a un facilitador con Br. David.
 - Al armar un copy o borrador, TODA frase entre comillas debe ser TEXTUAL del material disponible. NUNCA inventes una cita ni se la atribuyas a Br. David ni a un facilitador. Si no tenés una cita textual del autor pedido, escribí el copy con TUS palabras, SIN comillas atribuidas, o decí que no tenés una cita de ese autor. Y nunca pongas en boca de Br. David algo que dijo un facilitador (ni al revés).
 - Si te piden armar contenido sobre un clip/rango puntual que NO tenés en el material, decílo con honestidad; podés ofrecer un copy con tus palabras, pero SIN inventar citas.
@@ -97,6 +98,17 @@ def embed_query(q):
     v = v / (np.linalg.norm(v) + 1e-9)
     _qcache[q] = v
     return v
+
+
+def _traducir_en(texto):
+    """Traduce la consulta al inglés (cacheado) para búsqueda bilingüe (Br. David habla mucho en inglés)."""
+    if texto in _tradcache:
+        return _tradcache[texto]
+    t = _llm([{"role": "system", "content": "Traducí al inglés SOLO la frase que te doy, sin comillas ni explicaciones."},
+              {"role": "user", "content": texto}], 60)
+    t = (t or "").strip()
+    _tradcache[texto] = t
+    return t
 
 
 def link_fuente(r):
@@ -186,6 +198,12 @@ def buscar(consulta, n=6, excluir=None, fuente=None, autor=None, max_seg=None, r
     excluir = set(excluir or [])
     qv = embed_query(consulta)
     sims = EMB @ qv
+    try:                                   # búsqueda bilingüe: también matcheo con la consulta en inglés
+        en = _traducir_en(consulta)
+        if en and en.lower() != consulta.lower():
+            sims = np.maximum(sims, EMB @ embed_query(en))
+    except Exception:
+        pass
     orden = np.argsort(-sims)
     cand, vistos = [], set()
     tope = max(n * 3, 15) if rerank else n
