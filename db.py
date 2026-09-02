@@ -74,5 +74,11 @@ def renombrar(cid, titulo):
     _req("PATCH", f"?id=eq.{cid}", body={"titulo": titulo})
 
 
+def guardar_mensajes(cid, mensajes):
+    """Solo actualiza los mensajes (no toca el título)."""
+    ahora = datetime.now(timezone.utc).isoformat()
+    _req("PATCH", f"?id=eq.{cid}", body={"mensajes": mensajes, "actualizado": ahora})
+
+
 def borrar_conversacion(cid):
     _req("DELETE", f"?id=eq.{cid}")
