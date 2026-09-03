@@ -16,6 +16,11 @@ Tabla esperada (crear una vez en Supabase → SQL Editor):
       actualizado timestamptz not null default now()
     );
     create index on conversaciones (usuario, actualizado desc);
+
+Para el circuito de REVISIÓN (correr una sola vez en Supabase → SQL Editor):
+
+    alter table conversaciones add column if not exists revisado boolean not null default false;
+    alter table conversaciones add column if not exists nota text;
 """
 import os, json, urllib.request, urllib.parse, urllib.error
 from datetime import datetime, timezone
@@ -72,18 +77,36 @@ def listar_conversaciones(usuario):
 
 
 def cargar_conversacion(cid):
-    r = _req("GET", f"?id=eq.{cid}&select=id,titulo,mensajes")
+    r = _req("GET", f"?id=eq.{cid}&select=id,titulo,mensajes,revisado,nota")
     return r[0] if r else None
 
 
-def listar_todas(limite=1000):
-    """Todas las conversaciones (para el panel de revisión). Más recientes primero."""
-    return _req("GET", f"?select=id,usuario,titulo,actualizado&order=actualizado.desc&limit={limite}")
+def listar_todas(limite=1000, solo_no_revisadas=False):
+    """Conversaciones (para el panel de revisión). Más recientes primero.
+    Con solo_no_revisadas=True trae solo las que faltan revisar."""
+    filtro = "&revisado=is.false" if solo_no_revisadas else ""
+    return _req("GET", f"?select=id,usuario,titulo,actualizado,revisado{filtro}"
+                       f"&order=actualizado.desc&limit={limite}")
 
 
 def exportar_todas(limite=1000):
     """Todas las conversaciones COMPLETAS (con mensajes), para descargar."""
-    return _req("GET", f"?select=id,usuario,titulo,mensajes,creado,actualizado&order=actualizado.desc&limit={limite}")
+    return _req("GET", f"?select=id,usuario,titulo,mensajes,revisado,nota,creado,actualizado"
+                       f"&order=actualizado.desc&limit={limite}")
+
+
+def exportar_no_revisadas(limite=1000):
+    """Solo las conversaciones NO revisadas, COMPLETAS (con mensajes)."""
+    return _req("GET", f"?revisado=is.false&select=id,usuario,titulo,mensajes,creado,actualizado"
+                       f"&order=actualizado.desc&limit={limite}")
+
+
+def marcar_revisada(cid, revisado=True, nota=None):
+    """Marca (o desmarca) una conversación como revisada, con nota opcional."""
+    body = {"revisado": revisado}
+    if nota is not None:
+        body["nota"] = nota
+    _req("PATCH", f"?id=eq.{cid}", body=body)
 
 
 def crear_conversacion(usuario, titulo, mensajes):

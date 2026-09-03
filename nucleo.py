@@ -281,10 +281,62 @@ def analizar(consulta):
     return resumen, buscar(consulta, 6, rerank=False)
 
 
+# Los modelos nuevos (GPT-5.x) usan 'max_completion_tokens' y a veces no aceptan
+# 'temperature'. Estos sets "aprenden" en runtime qué NO soporta cada modelo para
+# no repetir el error ni pagar reintentos de más.
+_usa_max_tokens_viejo = set()      # modelos que piden el nombre viejo 'max_tokens'
+_param_no_soportado = {}           # modelo -> set de parámetros a omitir (ej. 'temperature')
+
+
+def _chat(cl, messages, max_tokens=None, temperature=None, tools=None,
+          tool_choice=None, reasoning_effort="none"):
+    """chat.completions robusto entre modelos: traduce el nombre del tope de tokens
+    y descarta parámetros no soportados (temperature, reasoning_effort, etc.) reintentando.
+    reasoning_effort='none' es obligatorio en GPT-5.x para usar function tools por chat."""
+    modelo = _modelo()
+    while True:
+        skip = _param_no_soportado.get(modelo, set())
+        kwargs = {"model": modelo, "messages": messages}
+        if tools is not None:
+            kwargs["tools"] = tools
+        if tool_choice is not None:
+            kwargs["tool_choice"] = tool_choice
+        if reasoning_effort is not None and "reasoning_effort" not in skip:
+            kwargs["reasoning_effort"] = reasoning_effort
+        if temperature is not None and "temperature" not in skip:
+            kwargs["temperature"] = temperature
+        if max_tokens is not None:
+            nombre = "max_tokens" if modelo in _usa_max_tokens_viejo else "max_completion_tokens"
+            kwargs[nombre] = max_tokens
+        try:
+            return cl.chat.completions.create(**kwargs)
+        except Exception as e:
+            s = str(e)
+            bad = None
+            for pat in (r"Unsupported parameter: '([^']+)'",
+                        r"Unsupported value: '([^']+)'",
+                        r"'param': '([^']+)'"):
+                mm = re.search(pat, s)
+                if mm:
+                    bad = mm.group(1)
+                    break
+            if bad == "max_completion_tokens":
+                _usa_max_tokens_viejo.add(modelo)
+                continue
+            if bad == "max_tokens":
+                _usa_max_tokens_viejo.discard(modelo)
+                continue
+            if bad and bad not in skip:
+                skip = set(skip)
+                skip.add(bad)
+                _param_no_soportado[modelo] = skip
+                continue
+            raise
+
+
 def _llm(messages, max_tokens=1200):
     try:
-        r = _get_client().chat.completions.create(
-            model=_modelo(), messages=messages, max_tokens=max_tokens, temperature=0.5)
+        r = _chat(_get_client(), messages, max_tokens=max_tokens, temperature=0.5)
         return r.choices[0].message.content or ""
     except Exception as e:
         return f"Error llamando al modelo: {e}"
@@ -375,9 +427,8 @@ def responder(historial):
     mostrar = []
     cl = _get_client()
     try:
-        resp = cl.chat.completions.create(
-            model=_modelo(), messages=mensajes, tools=TOOLS,
-            tool_choice="auto", temperature=0.5, max_tokens=1000)
+        resp = _chat(cl, mensajes, tools=TOOLS, tool_choice="auto",
+                     temperature=0.5, max_tokens=1000)
     except Exception as e:
         return f"Error llamando al modelo: {e}", mostrar, query
     msg = resp.choices[0].message
@@ -405,8 +456,7 @@ def responder(historial):
             mostrar = res
         mensajes.append({"role": "tool", "tool_call_id": tc.id, "content": texto_tool})
     try:
-        resp2 = cl.chat.completions.create(
-            model=_modelo(), messages=mensajes, temperature=0.5, max_tokens=1300)
+        resp2 = _chat(cl, mensajes, temperature=0.5, max_tokens=1300)
         return (resp2.choices[0].message.content or ""), mostrar, query
     except Exception as e:
         return f"Error llamando al modelo: {e}", mostrar, query
