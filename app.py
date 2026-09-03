@@ -190,7 +190,8 @@ if prompt := st.chat_input("Escribí acá… (ej: 'estoy pensando una campaña s
         st.markdown(prompt)
     with st.chat_message("assistant", avatar=AVATAR_BOT):
         with st.spinner("Pensando…"):
-            historial = [{"role": m.get("role", "user"), "content": m.get("content", "")} for m in st.session_state.messages]
+            historial = [{"role": m.get("role", "user"), "content": m.get("content", ""),
+                          "mats": m.get("mats")} for m in st.session_state.messages]
             texto, mats, _ = nucleo.responder(historial)
         st.markdown(texto)
         if mats:

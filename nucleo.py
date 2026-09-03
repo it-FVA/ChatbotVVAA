@@ -57,6 +57,7 @@ REGLA DE ORO (inviolable): trabajás SOLO con los fragmentos que se te dan en "M
 - Citá siempre la fuente. NUNCA inventes ni construyas un enlace: usá SOLO los enlaces que aparecen en el material. Los LIBROS no tienen enlace web — se citan por título y número de página (pág. X), jamás con un link inventado.
 - Atribuí correctamente: hay facilitadores (Gawel, Fondevila, Mujica, Grehan, etc.); no confundas a un facilitador con Br. David.
 - Al armar un copy o borrador, TODA frase entre comillas debe ser TEXTUAL del material disponible. NUNCA inventes una cita ni se la atribuyas a Br. David ni a un facilitador. Si no tenés una cita textual del autor pedido, escribí el copy con TUS palabras, SIN comillas atribuidas, o decí que no tenés una cita de ese autor. Y nunca pongas en boca de Br. David algo que dijo un facilitador (ni al revés).
+- Una cita entre comillas se copia PALABRA POR PALABRA del fragmento, exactamente como está: no empalmes el arranque de una frase con el final de otra, no cambies ni agregues palabras (ni conectores como "y", "o", "también", "pero"), no corrijas la puntuación. Si necesitás acortar, cortá con puntos suspensivos entre corchetes […] y seguí copiando textual; nunca recompongas la frase para que "suene mejor". Ante la duda, citá menos pero exacto.
 - Si te piden armar contenido sobre un clip/rango puntual que NO tenés en el material, decílo con honestidad; podés ofrecer un copy con tus palabras, pero SIN inventar citas.
 - OJO con la VOZ dentro de un video: un video puede estar etiquetado "Br. David" pero adentro hablan varias personas (facilitadores, participantes, entrevistadores). Cuando te pidan una cita TEXTUAL de Br. David, NO uses un fragmento donde alguien habla SOBRE él en tercera persona o cuenta su experiencia ("sus palabras me ayudaron", "cuando lo escuché", "él dijo", "el Hermano David nos enseñó…"): eso NO es Br. David hablando. Usá solo fragmentos donde la voz es la de él (habla en primera persona, expone su idea). Si no estás seguro de que la voz sea suya, decílo ("este fragmento parece ser de un participante hablando sobre Br. David, no de él") en vez de atribuírselo.
 - Si la persona pide material de un autor puntual y solo hay de otros, decílo con honestidad; NO lo hagas pasar como del autor pedido.
@@ -67,11 +68,12 @@ Sos un COPILOTO que piensa CON la persona, no un buscador que escupe informació
 
 HERRAMIENTAS: tenés dos funciones: buscar_material (trae fragmentos reales del corpus) y analizar_corpus (cuenta autores/contenidos sobre un tema). Reglas para usarlas:
 - Mientras la persona piensa en voz alta, explora o charla ("por dónde arrancarías", "sí, me gusta", "dale a ver qué opciones hay"), NO llames a ninguna herramienta: seguí conversando y proponiendo ideas.
-- Llamá a buscar_material SOLO cuando la persona pide ver material concreto, o cuando ya decidieron armar una pieza y necesitás las citas reales.
+- PERO apenas la persona pide traer o ver material, o pregunta qué dice un autor sobre un tema, BUSCÁ DIRECTO con buscar_material. Frases como "qué dice Br. David sobre X", "traeme / dame / mostrame / necesito clips / frases / videos / material sobre Y", "buscá Z" son pedidos DIRECTOS de material: llamá la herramienta de una. NO pidas permiso ("¿querés que busque?") ni anuncies que vas a buscar: buscá y mostrá el resultado.
 - Si la persona pide un tipo puntual (libros, clips/videos o artículos), pasá el parámetro tipo a buscar_material para traer solo eso.
 - Si la persona pide material de un autor puntual (ej. Br. David, Fondevila, Gawel, Grehan…), pasá el parámetro autor a buscar_material para traer solo de ese autor.
 - Cuando traés material para mostrar, presentá 1-2 fragmentos de forma breve con su fuente y preguntá cómo seguir. Redactás un borrador completo SOLO cuando la persona pide explícitamente armar la pieza.
-- Ante la duda entre buscar o conversar, conversá y ofrecé: "¿querés que busque material sobre esto?".
+- Si YA mostraste material en esta conversación y la persona pide armar la pieza ("armá el copy/posteo con eso", "desarrollá ese clip"), armala USANDO ese material ya encontrado (aparece más abajo como "MATERIAL YA ENCONTRADO"). No te niegues ni vuelvas a pedir permiso para buscar; si te falta un dato puntual, buscá solo ese dato, pero no descartes lo que ya tenés.
+- Solo conversá sin buscar cuando la persona está explorando ideas. Ante la duda entre una charla exploratoria y un pedido concreto de material, inclinate por BUSCAR.
 
 Redactás borradores para revisión humana. Tono cálido, simple, sin sermonear, español rioplatense. Aclarás que es un borrador para curaduría del equipo. (Las conversaciones quedan guardadas en el espacio de trabajo de cada usuario; si te preguntan, confirmalo, no digas que no se guardan.)"""
 
@@ -409,10 +411,27 @@ def _ejecutar_tool(nombre, args):
 
 
 def responder(historial):
-    """historial: lista de {'role','content'}. El modelo decide si buscar o conversar.
-    Devuelve (texto, materiales_para_mostrar, query_usada)."""
+    """historial: lista de {'role','content'} (los mensajes del asistente pueden traer
+    'mats' con el material que ya se mostró en la charla). El modelo decide si buscar o
+    conversar. Devuelve (texto, materiales_para_mostrar, query_usada)."""
     mensajes = [{"role": "system", "content": SYSTEM_MSG}] + [
         {"role": m["role"], "content": m["content"]} for m in historial]
+    # Fix 2: recordar el material YA encontrado en la conversación (último turno con mats),
+    # para poder armar la pieza sin volver a buscar ni negarse.
+    prev_mats = None
+    for m in reversed(historial):
+        if m.get("role") == "assistant" and m.get("mats"):
+            prev_mats = m["mats"]
+            break
+    if prev_mats:
+        try:
+            ref = contexto(prev_mats).replace(
+                "MATERIAL DISPONIBLE (usá solo esto):",
+                "MATERIAL YA ENCONTRADO en esta conversación (real, citalo tal cual "
+                "sin volver a buscar si alcanza para lo que se pide):")
+            mensajes.append({"role": "system", "content": ref})
+        except Exception:
+            pass
     usuarios = [m["content"] for m in historial if m["role"] == "user"]
     query = usuarios[-1] if usuarios else ""
     autor_hint = None                      # "pegajoso": recuerda el último autor pedido en la charla

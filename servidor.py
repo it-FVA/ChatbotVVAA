@@ -131,7 +131,8 @@ class H(BaseHTTPRequestHandler):
 
         d = self._body()
         if self.path == "/api/chat":
-            hist = [{"role": "user" if m.get("rol") == "u" else "assistant", "content": m.get("texto", "")}
+            hist = [{"role": "user" if m.get("rol") == "u" else "assistant",
+                     "content": m.get("texto", ""), "mats": m.get("mats") or []}
                     for m in d.get("historial", [])]
             resp, res, query = nucleo.responder(hist)
             return self._json({"respuesta": resp, "resultados": res, "query": query})
