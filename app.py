@@ -20,7 +20,8 @@ os.environ["SUPABASE_KEY"] = _sec("SUPABASE_KEY")
 # ---------------- Interruptores del buscador (ver ARQUITECTURA-BUSCADOR.md) ----------------
 # Todos nacen apagados / con el valor de siempre. Se prenden desde los secrets de
 # Streamlit Cloud, sin tocar código. Si no están en secrets, no cambia nada.
-for _k, _d in (("BUSQUEDA_HIBRIDA", "0"), ("RERANK_CANDIDATOS", "15"), ("RERANK_CHARS", "150")):
+for _k, _d in (("BUSQUEDA_HIBRIDA", "0"), ("LIMPIEZA_EXTRA", "0"), ("SYSTEM_MSG_V2", "0"),
+               ("RERANK_CANDIDATOS", "15"), ("RERANK_CHARS", "150")):
     os.environ[_k] = str(_sec(_k, _d))
 
 USUARIOS = dict(st.secrets.get("usuarios", {}))

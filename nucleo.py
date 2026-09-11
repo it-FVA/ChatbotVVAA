@@ -90,6 +90,27 @@ def _bm25():
     return _BM25
 
 
+# ---------------------------------------------------------------------------
+# Limpieza extra (LIMPIEZA_EXTRA=1, apagada por defecto). Dos cosas, medidas
+# sobre el corpus real (fva-transcripcion/medir_basura_y_duplicados.py):
+#   1. No repetir un fragmento cuyo texto ya se mostró aunque venga de otro
+#      documento. 348 fragmentos (1,4%) están duplicados entre documentos: una
+#      charla y su "momentos destacados", artículos con el mismo párrafo.
+#   2. Descartar solapas biográficas y fichas de catálogo. Patrones precisos,
+#      < 25 fragmentos en todo el corpus, ninguno es contenido.
+# ---------------------------------------------------------------------------
+JUNK_EXTRA = re.compile(r"(visitantes diarios|co-?fundador de www|\bISBN\b|dep[óo]sito que marca la ley)", re.I)
+
+
+def _limpieza_extra_activa():
+    return os.environ.get("LIMPIEZA_EXTRA", "0").strip() == "1"
+
+
+def _huella_texto(t):
+    """Huella del texto normalizado, para detectar el mismo fragmento en otro documento."""
+    return _norm_bm25(t)[:400]
+
+
 def _rrf(*rankings):
     """Reciprocal Rank Fusion: cada lista aporta 1/(k + posición). Solo importan las posiciones."""
     puntaje = {}
@@ -130,6 +151,46 @@ HERRAMIENTAS: tenés dos funciones: buscar_material (trae fragmentos reales del 
 - Solo conversá sin buscar cuando la persona está explorando ideas. Ante la duda entre una charla exploratoria y un pedido concreto de material, inclinate por BUSCAR.
 
 Redactás borradores para revisión humana. Tono cálido, simple, sin sermonear, español rioplatense. Aclarás que es un borrador para curaduría del equipo. (Las conversaciones quedan guardadas en el espacio de trabajo de cada usuario; si te preguntan, confirmalo, no digas que no se guardan.)"""
+
+# ---------------------------------------------------------------------------
+# Bloque adicional del system message (SYSTEM_MSG_V2=1, apagado por defecto).
+# Con el interruptor apagado, el mensaje es exactamente el de arriba.
+#
+# Todo lo que sigue sale de dos fuentes ya aprobadas por el equipo, no es criterio
+# propio:
+#   - "Transmitir el mensaje en la era del algoritmo" (Beto, línea editorial)
+#   - Taxonomía v0.2, hoja Distinciones (Beto sobre la base de Amalia)
+#   - Decisión Go -> Responder, tomada por Beto con Br. David (reunión 8/9)
+# ---------------------------------------------------------------------------
+SYSTEM_MSG_V2_EXTRA = """
+
+PROCEDENCIA: cuando el autor de un fragmento aparece como "—", ese material NO tiene autor identificado. No lo atribuyas a Br. David ni a nadie. Si lo usás, decí que es material de la Fundación sin autor atribuido. La palabra directa de Br. David (libros, fragmentos donde habla en primera persona) vale más que la paráfrasis de un tercero: cuando tengas las dos, preferí la directa.
+
+TERMINOLOGÍA: los tres pasos son Detenerse, Mirar y RESPONDER (Stop, Look, Go). "Go" se dice siempre "responder", nunca "avanzar". Es una decisión tomada con Br. David.
+
+DISTINCIONES que Br. David traza y que NO se mezclan (si una consulta pide un lado, no traigas ni cites el otro como si fuera lo mismo):
+- Esperanza ≠ expectativa. La expectativa se dirige a algo que podemos imaginar; la esperanza es apertura a lo inimaginable, a la sorpresa. Lo opuesto a expectativa es desilusión; lo opuesto a esperanza es desesperación.
+- Gozo ≠ felicidad ordinaria. La felicidad depende de la buena suerte; el gozo brota de un corazón agradecido y no depende de las circunstancias.
+- Agradecido EN ≠ agradecido POR. No se puede estar agradecido por el sufrimiento o la pérdida; sí se puede estar agradecido en cada momento, por la oportunidad que contiene.
+- Fe ≠ creencias o dogmas. La fe es confianza valiente y radical en la Vida; no es adherir a doctrinas.
+- Confianza ≠ miedo. Lo opuesto a la confianza no es el descreimiento sino el temor.
+- Miedo ≠ angustia. La angustia es inevitable; el miedo es opcional.
+- Gratitud de Br. David ≠ pensamiento positivo o autoayuda. Se parecen en las palabras y son distintos en el fondo: la gratitud se dirige a un otro, a un dador; no es una técnica para sentirse mejor.
+
+LÍNEA EDITORIAL (cuando armás una pieza — posteo, frase, newsletter, clip):
+- La unidad mínima no es la frase: es el GESTO. Una pieza que no propone algo concreto para hacer hoy no está terminada.
+- El orden es experiencia → extrañeza → pregunta → práctica. No empieces afirmando una verdad ("tenés que vivir en el presente"); empezá señalando algo raro en cómo vivimos, para que a la persona le nazca una pregunta propia. Br. David no dice "tenés que": dice "¿te diste cuenta de que…?".
+- No prometas felicidad, sanación ni bienestar. La promesa que sí se sostiene es estar más vivo.
+- Escribí para UNA persona, no para una audiencia. Una pieza está bien si alguien se la mandaría a otro pensando "esto es para vos".
+- Brevedad no es superficialidad. Veinte segundos pueden abrir una pregunta que dure años; lo vacío es el problema, no lo corto.
+- Antes de dar un borrador por terminado, verificá que responda: ¿qué extrañeza abre? ¿qué gesto propone? ¿de qué pasaje del corpus sale (con la fuente visible)? ¿a quién se la mandarías? ¿cuál es la invitación concreta (lugar, fecha, cupo, si la hay)? Si no responde alguna, decilo en vez de rellenar."""
+
+
+def system_msg():
+    """El system message vigente según el interruptor SYSTEM_MSG_V2."""
+    if os.environ.get("SYSTEM_MSG_V2", "0").strip() == "1":
+        return SYSTEM_MSG + SYSTEM_MSG_V2_EXTRA
+    return SYSTEM_MSG
 
 JUNK = re.compile(r"(suscr[íi]b|clic[k]?\s*(aqu[íi]|ac[áa])|haz\s*clic|hac[ée]\s*clic|inscrib[íi]|para mayor informaci|hasta la pr[óo]xima|dejo un momento a solas|los invito a volver|d[ée]jen(me)? sus comentarios|gracias por (acompañ|hacerme compañ)|much[íi]sim[ao]s?\s+gracias|un placer|nos vemos|desmute|pongan? las? c[áa]mara|una peque[ñn]a encuesta|levant[áa]?\s+la\s+mano|cerr[áa]\s+los\s+ojos|inhal|exhal|vamos a (dejar|girar|movernos)|hacia el otro lado|en c[áa]mara lenta|un par de giros)", re.I)
 
@@ -273,7 +334,8 @@ def buscar(consulta, n=6, excluir=None, fuente=None, autor=None, max_seg=None, r
                 orden = _rrf(orden, lexico)
         except Exception:
             pass                           # si falta rank_bm25 o falla, sigue vectorial como siempre
-    cand, vistos = [], set()
+    cand, vistos, huellas = [], set(), set()
+    limpieza = _limpieza_extra_activa()
     # Cuántos candidatos ve el reranker. Default 15 -> con n=6 da 18, igual que antes.
     # El plan sugiere 50 (RERANK_CANDIDATOS=50). Cambiarlo no toca la recuperación.
     tope = max(n * 3, _env_int("RERANK_CANDIDATOS", 15)) if rerank else n
@@ -287,11 +349,19 @@ def buscar(consulta, n=6, excluir=None, fuente=None, autor=None, max_seg=None, r
             dur = ((f.get("fin_ms") or 0) - (f.get("inicio_ms") or 0)) / 1000
             if dur > max_seg + 5:
                 continue
-        if JUNK.search(f.get("texto", "")) or _es_indice(f.get("texto", "")):
+        texto_f = f.get("texto", "")
+        if JUNK.search(texto_f) or _es_indice(texto_f):
+            continue
+        if limpieza and JUNK_EXTRA.search(texto_f):
             continue
         doc = f.get("documento_id")
         if doc in vistos or doc in excluir:
             continue
+        if limpieza:
+            hu = _huella_texto(texto_f)
+            if hu in huellas:
+                continue
+            huellas.add(hu)
         vistos.add(doc)
         fu = f.get("fuente")
         if fu == "youtube":
@@ -421,7 +491,7 @@ def armar(fragmentos, canal):
             f"material de arriba: NO inventes citas. Si no hay una cita del autor pedido, redactá con tus "
             f"palabras sin comillas atribuidas. Citá autor y fuente. "
             f"Cerrá aclarando que es un borrador para revisión del equipo.")
-    return _llm([{"role": "system", "content": SYSTEM_MSG}, {"role": "user", "content": user}], 1300)
+    return _llm([{"role": "system", "content": system_msg()}, {"role": "user", "content": user}], 1300)
 
 
 def titular(mensajes):
@@ -481,7 +551,7 @@ def responder(historial):
     """historial: lista de {'role','content'} (los mensajes del asistente pueden traer
     'mats' con el material que ya se mostró en la charla). El modelo decide si buscar o
     conversar. Devuelve (texto, materiales_para_mostrar, query_usada)."""
-    mensajes = [{"role": "system", "content": SYSTEM_MSG}] + [
+    mensajes = [{"role": "system", "content": system_msg()}] + [
         {"role": m["role"], "content": m["content"]} for m in historial]
     # Fix 2: recordar el material YA encontrado en la conversación (último turno con mats),
     # para poder armar la pieza sin volver a buscar ni negarse.

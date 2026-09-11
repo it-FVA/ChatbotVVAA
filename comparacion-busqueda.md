@@ -1,4 +1,4 @@
-# Comparación de búsqueda — 2026-09-10 23:15
+# Comparación de búsqueda — 2026-09-11 00:09
 
 Filtro de autor: **Br. David** · 6 resultados por modo.
 
@@ -22,7 +22,7 @@ para armar la pieza?* No hace falta mirar puntajes.
 **[3]** ≡ `LIBRO · La gratitud, corazon de la plegaria · pág. 79` · *Br. David* · "La gratitud, corazon de la plegaria"  
 > Hemos hecho aquí una importante distinción entre esperanza y expectativas; se trata de un paralelo con nuestra distinción anterior entre fe y creencias. Vimos que la fe conduce a las creencias, así como la esperanza conduce a las expectativas. Sin embargo, la fe no depende de las creencias, ni la esperanza de las expec…
 
-**[4]** ≡ `LIBRO · Confiar plenamente en la vida · pág. 90` · *Br. David* · "Confiar plenamente en la vida"  
+**[4]**  `LIBRO · Confiar plenamente en la vida · pág. 90` · *Br. David* · "Confiar plenamente en la vida"  
 > La esperanza es la actitud por la cual nos abrimos a las sorpresas que la vida nos depara; y así como hicimos una distinción entre fe y creencias, también debemos distinguir entre esperanza y expectativas. Las expectativas se refieren a aquello que podemos llegar a imaginarnos, mientras que la esperanza (actitud básica…
 
 **[5]** ≡ `ARTÍCULO` · *Br. David* · "La fe y la esperanza"  
@@ -42,16 +42,36 @@ para armar la pieza?* No hace falta mirar puntajes.
 **[3]** ≡ `LIBRO · La gratitud, corazon de la plegaria · pág. 79` · *Br. David* · "La gratitud, corazon de la plegaria"  
 > Hemos hecho aquí una importante distinción entre esperanza y expectativas; se trata de un paralelo con nuestra distinción anterior entre fe y creencias. Vimos que la fe conduce a las creencias, así como la esperanza conduce a las expectativas. Sin embargo, la fe no depende de las creencias, ni la esperanza de las expec…
 
-**[4]** ≡ `LIBRO · Confiar plenamente en la vida · pág. 90` · *Br. David* · "Confiar plenamente en la vida"  
-> La esperanza es la actitud por la cual nos abrimos a las sorpresas que la vida nos depara; y así como hicimos una distinción entre fe y creencias, también debemos distinguir entre esperanza y expectativas. Las expectativas se refieren a aquello que podemos llegar a imaginarnos, mientras que la esperanza (actitud básica…
-
-**[5]** ≡ `ARTÍCULO` · *Br. David* · "La fe y la esperanza"  
-> La esperanza es la actitud por la cual nos abrimos a las sorpresas que la vida nos depara; y así como hicimos una distinción entre fe y creencias, también debemos distinguir entre esperanza y expectativas. Las expectativas se refieren a aquello que podemos llegar a imaginarnos, mientras que la esperanza (actitud básica…
-
-**[6]** ✚ `ARTÍCULO` · *Br. David* · "Esperanza: apertura a la sorpresa"  
+**[4]**  `ARTÍCULO` · *Br. David* · "Esperanza: apertura a la sorpresa"  
 > David Steindl-Rast En su libro “La gratitud, corazón de la plegaria”, el hermano David propone a la esperanza como respuesta a las situaciones inimaginables de la vida, y lo ilustra con una bella historia de León Tolstoi. L a fe es la respuesta del corazón a la vida entendida como un don. De manera similar, la esperanz…
 
-**Resumen:** 5 pasajes en común · A: 1 propios · B: 1 propios
+**[5]**  `LIBRO · Confiar plenamente en la vida · pág. 90` · *Br. David* · "Confiar plenamente en la vida"  
+> La esperanza es la actitud por la cual nos abrimos a las sorpresas que la vida nos depara; y así como hicimos una distinción entre fe y creencias, también debemos distinguir entre esperanza y expectativas. Las expectativas se refieren a aquello que podemos llegar a imaginarnos, mientras que la esperanza (actitud básica…
+
+**[6]** ≡ `ARTÍCULO` · *Br. David* · "La fe y la esperanza"  
+> La esperanza es la actitud por la cual nos abrimos a las sorpresas que la vida nos depara; y así como hicimos una distinción entre fe y creencias, también debemos distinguir entre esperanza y expectativas. Las expectativas se refieren a aquello que podemos llegar a imaginarnos, mientras que la esperanza (actitud básica…
+
+### B2 · híbrida + limpieza
+
+**[1]** ≡ `ARTÍCULO` · *Br. David* · "Fe, esperanza y amor"  
+> Las expectativas se refieren a aquello que podemos llegar a imaginarnos, mientras que la esperanza (actitud básica frente a la vida), es apertura a lo inimaginable. Si esperamos algo que imaginamos, se trata de una mera expectativa; pero la Esperanza es estar abiertos al misterio, a la gran sorpresa de la que surge tod…
+
+**[2]** ≡ `ARTÍCULO` · *Br. David* · "Palabras clave para una vida plena"  
+> Esperanza Esperanza y expectativas están íntimamente relacionadas, pero no debemos confundirlas. Nuestras expectativas nos remiten a algo que imaginamos, mientras que la esperanza se refiere a lo inimaginable. Lo opuesto a expectativa es desilusión; lo opuesto a esperanza es desesperación. Uno puede aferrarse desespera…
+
+**[3]** ≡ `ARTÍCULO` · *Br. David* · "La fe y la esperanza"  
+> La esperanza es la actitud por la cual nos abrimos a las sorpresas que la vida nos depara; y así como hicimos una distinción entre fe y creencias, también debemos distinguir entre esperanza y expectativas. Las expectativas se refieren a aquello que podemos llegar a imaginarnos, mientras que la esperanza (actitud básica…
+
+**[4]** ≡ `LIBRO · La gratitud, corazon de la plegaria · pág. 79` · *Br. David* · "La gratitud, corazon de la plegaria"  
+> Hemos hecho aquí una importante distinción entre esperanza y expectativas; se trata de un paralelo con nuestra distinción anterior entre fe y creencias. Vimos que la fe conduce a las creencias, así como la esperanza conduce a las expectativas. Sin embargo, la fe no depende de las creencias, ni la esperanza de las expec…
+
+**[5]**  `ARTÍCULO` · *Br. David* · "Esperanza: apertura a la sorpresa"  
+> David Steindl-Rast En su libro “La gratitud, corazón de la plegaria”, el hermano David propone a la esperanza como respuesta a las situaciones inimaginables de la vida, y lo ilustra con una bella historia de León Tolstoi. L a fe es la respuesta del corazón a la vida entendida como un don. De manera similar, la esperanz…
+
+**[6]** ✚ `ARTÍCULO` · *Br. David* · "Pesimismo, optimismo y esperanza"  
+> Hoy hemos degradado la esperanza convirtiéndola en optimismo, y es por eso que, como contrapartida, hay quienes se regodean en el pesimismo y la desesperación. La desesperación impide que la realidad nos sorprenda, mientras que la esperanza espera que la realidad se sorprenda a sí misma. Al tener esperanza, creamos una…
+
+**Resumen:** 4 pasajes en común · A: 1 propios · B: 0 propios · B2: 1 propios
 
 ---
 
@@ -74,30 +94,50 @@ para armar la pieza?* No hace falta mirar puntajes.
 **[5]** ✚ `ARTÍCULO` · *Br. David* · "100 años de Brother David Steindl-Rast"  
 > En la hospitalidad con la que reciben a cada huésped. En el silencio compartido. En el cuidado de una huerta. En la belleza en cada rincón. En el respeto por la naturaleza. En el arte expresado de muchas maneras. En la multiplicidad de miradas. En las sonrisas. En los gestos, la gentileza, la ternura y la fuerza. Allí …
 
-**[6]** ✚ `ARTÍCULO` · *Br. David* · "El abecé de la gratitud: un juego entretenido"  
-> V- Voting (Votar) Sé que votar se hace difícil para los pobres, y el sistema es injusto. Con más razón, me detengo, veo la oportunidad de promover la justicia, y voy a votar. W- Wikipedia ¡Compartir todos nuestros conocimientos en forma gratuita! ¿Apoyamos este proyecto como se lo merece? Ésta es una oportunidad de tra…
+**[6]** ✚ `CLIP · 18:39–19:27` · *Br. David* · "Panel docentes y conclusión de Br  David"  
+> Y sobre todo a las personas que hablaron recién desde su propia experiencia. I think we will want to express to all of them our deep gratitude. And I also feel that just a round of applause is not enough. Y creo que todos querríamos poder expresarles nuestra profunda gratitud y que solo una ronda de aplausos no alcanza…
 
 ### B · híbrida
+
+**[1]** ≡ `LIBRO · Responder - El tercer paso a la gratitud · pág. 5` · *Br. David* · "Responder - El tercer paso a la gratitud"  
+> El hermano David es co-fundador de www.gratefulness.org, un sitio web que da apoyo a A Network for Grateful Living (Una Red para Vivir Agradecidos), que congrega a quienes siguen su pensamiento y tiene más de 10.000 visitantes diarios de más de 200 países. En 2013 nace el sitio web www.viviragradecidos.org, que difunde…
+
+**[2]** ≡ `ARTÍCULO` · *Br. David* · "Para comprometernos a vivir agradecidos"  
+> Todos podemos hacer nuestro este compromiso que escribiera Br. David. Un pequeño recordatorio que nos puede ayudar a vivir todo lo que la gratitud implica. 🌟 En acción de gracias por la vida, me comprometo a superar la ilusión del “esto me corresponde” , recordándome a mí mismo que todo lo he recibido como un don, por …
+
+**[3]**  `ARTÍCULO` · *Br. David* · "Cuerpo, mente y espíritu: ¡plenamente vivos!"  
+> Actuar en el espíritu es actuar como quienes actúan cuando saben que se pertenecen mutuamente. Vivir una vida espiritual significa actuar como uno actuaría en su propia casa, a la que uno pertenece. Esta pertenencia común es una base para el hacer, una base para la acción. La acción y el pensamiento están estrechamente…
+
+**[4]**  `LIBRO · La gratitud, corazon de la plegaria · pág. 94` · *Br. David* · "La gratitud, corazon de la plegaria"  
+> Aquí también el amor y la gratitud se encuentran. Cuando el amor actúa de acuerdo a lo que implica su “sí” a la pertenencia, no hay manera de confundir su respuesta con el afán de los “bienhechores”, 94 q ue esperan que se les dé las gracias por sus servicios. Aquí el servicio en sí es una expresión de nuestra gratitud…
+
+**[5]**  `LIBRO · Orientacion para una vida plena · pág. 181` · *Br. David* · "Orientacion para una vida plena"  
+> Si lo hacemos, cantando en un coro, la música cobra plena vida. La [ 180 ] Vida en plenitud es como el coro de aleluyas en una interpretación cantada de El Mesías de Händel. Una interpretación viva encarnará el espíritu de ese coro de manera inspiradora. El coro, la orquesta y el director juntos deben sintonizarse entr…
+
+**[6]**  `ARTÍCULO` · *Br. David* · "Cinco pasos para encontrar tu vocación"  
+> Entonces comprenderás lo que significan las palabras de Jesús: “Yo he venido para que tengan vida, y para que la tengan en abundancia” (Juan 10,10). Artículo reproducido con permiso de Vision Vocation Network. También te puede interesar: ¿Vivir agradecidos? Servir a los demás El servicio como vocación Despiertos, atent…
+
+### B2 · híbrida + limpieza
 
 **[1]** ≡ `ARTÍCULO` · *Br. David* · "Para comprometernos a vivir agradecidos"  
 > Todos podemos hacer nuestro este compromiso que escribiera Br. David. Un pequeño recordatorio que nos puede ayudar a vivir todo lo que la gratitud implica. 🌟 En acción de gracias por la vida, me comprometo a superar la ilusión del “esto me corresponde” , recordándome a mí mismo que todo lo he recibido como un don, por …
 
-**[2]** ✚ `ARTÍCULO` · *Br. David* · "Cuerpo, mente y espíritu: ¡plenamente vivos!"  
+**[2]**  `ARTÍCULO` · *Br. David* · "Cuerpo, mente y espíritu: ¡plenamente vivos!"  
 > Actuar en el espíritu es actuar como quienes actúan cuando saben que se pertenecen mutuamente. Vivir una vida espiritual significa actuar como uno actuaría en su propia casa, a la que uno pertenece. Esta pertenencia común es una base para el hacer, una base para la acción. La acción y el pensamiento están estrechamente…
 
-**[3]** ✚ `LIBRO · La gratitud, corazon de la plegaria · pág. 94` · *Br. David* · "La gratitud, corazon de la plegaria"  
+**[3]**  `LIBRO · La gratitud, corazon de la plegaria · pág. 94` · *Br. David* · "La gratitud, corazon de la plegaria"  
 > Aquí también el amor y la gratitud se encuentran. Cuando el amor actúa de acuerdo a lo que implica su “sí” a la pertenencia, no hay manera de confundir su respuesta con el afán de los “bienhechores”, 94 q ue esperan que se les dé las gracias por sus servicios. Aquí el servicio en sí es una expresión de nuestra gratitud…
 
-**[4]** ≡ `LIBRO · Responder - El tercer paso a la gratitud · pág. 5` · *Br. David* · "Responder - El tercer paso a la gratitud"  
-> El hermano David es co-fundador de www.gratefulness.org, un sitio web que da apoyo a A Network for Grateful Living (Una Red para Vivir Agradecidos), que congrega a quienes siguen su pensamiento y tiene más de 10.000 visitantes diarios de más de 200 países. En 2013 nace el sitio web www.viviragradecidos.org, que difunde…
+**[4]** ≡ `LIBRO · Responder - El tercer paso a la gratitud · pág. 92` · *Br. David* · "Responder - El tercer paso a la gratitud"  
+> Cuando el profeta Zacarías dice: en aquel día (el día del Mesías), cada olla y cada cuenco en Jerusalén y Judá serán sagrados para el Dios de los ejércitos, para que todo el que ofrece sacrificios pueda usarlos, implica que no hay nada en la tierra que no pueda ser un recipiente lleno de nuestra gratitud para ser ofrec…
 
-**[5]** ✚ `ARTÍCULO` · *Br. David* · "Cinco pasos para encontrar tu vocación"  
+**[5]**  `ARTÍCULO` · *Br. David* · "Cinco pasos para encontrar tu vocación"  
 > Entonces comprenderás lo que significan las palabras de Jesús: “Yo he venido para que tengan vida, y para que la tengan en abundancia” (Juan 10,10). Artículo reproducido con permiso de Vision Vocation Network. También te puede interesar: ¿Vivir agradecidos? Servir a los demás El servicio como vocación Despiertos, atent…
 
-**[6]** ✚ `LIBRO · Orientacion para una vida plena · pág. 181` · *Br. David* · "Orientacion para una vida plena"  
+**[6]**  `LIBRO · Orientacion para una vida plena · pág. 181` · *Br. David* · "Orientacion para una vida plena"  
 > Si lo hacemos, cantando en un coro, la música cobra plena vida. La [ 180 ] Vida en plenitud es como el coro de aleluyas en una interpretación cantada de El Mesías de Händel. Una interpretación viva encarnará el espíritu de ese coro de manera inspiradora. El coro, la orquesta y el director juntos deben sintonizarse entr…
 
-**Resumen:** 2 pasajes en común · A: 4 propios · B: 4 propios
+**Resumen:** 2 pasajes en común · A: 4 propios · B: 0 propios · B2: 0 propios
 
 ---
 
@@ -111,21 +151,21 @@ para armar la pieza?* No hace falta mirar puntajes.
 **[2]** ✚ `ARTÍCULO` · *Br. David* · "Una reverencia profunda"  
 > Un don completamente gratuito y a nuestra disposición para que lo disfrutemos. Sin pensarlo, de forma totalmente espontánea, junté mis manos, y me dí cuenta de que estaba haciendo una reverencia. Comprendí que eso es todo lo que importa: que podamos hacer una reverencia, una reverencia profunda. Solo eso. Solo eso”. Re…
 
-**[3]** ≡ `ARTÍCULO` · *Br. David* · "Detenernos, mirar, actuar"  
-> Si somos conscientes de ello, y vivimos cada momento de nuestras vidas tomando conciencia de que el mayor regalo nos es dado ahora, y ahora, y ahora… entonces viviremos agradecidos. ¿Cómo podemos aprender a ser agradecidos, no solo en momentos como éste, cuando todo es hermoso, sino en todo momento? En primer lugar deb…
+**[3]** ≡ `ARTÍCULO` · *Br. David* · "El valor de un regalo"  
+> David Steindl-Rast Cercanos a las Fiestas de fin de año, compartimos reflexiones de Br. David en torno al gesto de hacer regalos. Cuando despertamos a la realidad de que todo es un regalo, entonces “círculos de conciencia cada vez más amplios hacen que nuestro mundo reviva”. U n arco iris siempre se nos presenta como u…
 
 **[4]** ≡ `ARTÍCULO` · *Br. David* · "Detenernos, mirar, actuar"  
 > La gratitud es la clave de la felicidad. El presente es el regalo más valioso. Si somos conscientes de ello, y vivimos cada momento de nuestras vidas tomando conciencia de que el mayor regalo nos es dado ahora, y ahora, y ahora… entonces viviremos agradecidos. ¿Cómo podemos aprender a ser agradecidos, no solo en moment…
 
-**[5]** ≡ `LIBRO · La gratitud, corazon de la plegaria · pág. 110` · *Br. David* · "La gratitud, corazon de la plegaria"  
-> Una persona agradecida primero dice “¡gracias!”, y después abre el paquete 109 p ara ver el regalo. Tener fe es tener el valor de responder agradecidamente a cualquier situación que se presente, movidos por la confianza en el Dador. Gratuito odrá ser el universo P como dicen, inmenso. Pero si no existiera no se lo extr…
+**[5]** ≡ `ARTÍCULO` · *Br. David* · "Detenernos, mirar, actuar"  
+> Si somos conscientes de ello, y vivimos cada momento de nuestras vidas tomando conciencia de que el mayor regalo nos es dado ahora, y ahora, y ahora… entonces viviremos agradecidos. ¿Cómo podemos aprender a ser agradecidos, no solo en momentos como éste, cuando todo es hermoso, sino en todo momento? En primer lugar deb…
 
-**[6]** ≡ `ARTÍCULO` · *Br. David* · "Palabras clave para una vida plena"  
-> Una persona agradecida primero dice “¡gracias!”, y después abre el paquete para ver el regalo. Tener fe es tener el valor de responder agradecidamente a cualquier situación que se presente, movidos por la confianza en el Dador. Gratuito Podrá ser el universo como dicen, inmenso. Pero si no existiera no se lo extrañaría…
+**[6]** ≡ `LIBRO · La gratitud, corazon de la plegaria · pág. 110` · *Br. David* · "La gratitud, corazon de la plegaria"  
+> Una persona agradecida primero dice “¡gracias!”, y después abre el paquete 109 p ara ver el regalo. Tener fe es tener el valor de responder agradecidamente a cualquier situación que se presente, movidos por la confianza en el Dador. Gratuito odrá ser el universo P como dicen, inmenso. Pero si no existiera no se lo extr…
 
 ### B · híbrida
 
-**[1]** ✚ `ARTÍCULO` · *Br. David* · "El valor de un regalo"  
+**[1]** ≡ `ARTÍCULO` · *Br. David* · "El valor de un regalo"  
 > David Steindl-Rast Cercanos a las Fiestas de fin de año, compartimos reflexiones de Br. David en torno al gesto de hacer regalos. Cuando despertamos a la realidad de que todo es un regalo, entonces “círculos de conciencia cada vez más amplios hacen que nuestro mundo reviva”. U n arco iris siempre se nos presenta como u…
 
 **[2]** ≡ `ARTÍCULO` · *Br. David* · "Detenernos, mirar, actuar"  
@@ -134,16 +174,36 @@ para armar la pieza?* No hace falta mirar puntajes.
 **[3]** ≡ `ARTÍCULO` · *Br. David* · "Detenernos, mirar, actuar"  
 > Si somos conscientes de ello, y vivimos cada momento de nuestras vidas tomando conciencia de que el mayor regalo nos es dado ahora, y ahora, y ahora… entonces viviremos agradecidos. ¿Cómo podemos aprender a ser agradecidos, no solo en momentos como éste, cuando todo es hermoso, sino en todo momento? En primer lugar deb…
 
-**[4]** ✚ `ARTÍCULO` · *Br. David* · "Un Buen Día"  
+**[4]**  `ARTÍCULO` · *Br. David* · "Un Buen Día"  
 > David Steindl-Rast Un hermoso video que nos invita a abrir nuestros ojos y nuestro corazón a las innumerables bendiciones que se nos regalan, y hacerlas fluir a través nuestro hacia los demás. Son las claves para hacer del día de hoy un Buen Día. Texto completo del video ¿Crees que éste es un día más en tu vida? No, no…
 
-**[5]** ≡ `ARTÍCULO` · *Br. David* · "Palabras clave para una vida plena"  
+**[5]**  `ARTÍCULO` · *Br. David* · "Palabras clave para una vida plena"  
 > Una persona agradecida primero dice “¡gracias!”, y después abre el paquete para ver el regalo. Tener fe es tener el valor de responder agradecidamente a cualquier situación que se presente, movidos por la confianza en el Dador. Gratuito Podrá ser el universo como dicen, inmenso. Pero si no existiera no se lo extrañaría…
 
 **[6]** ≡ `LIBRO · La gratitud, corazon de la plegaria · pág. 110` · *Br. David* · "La gratitud, corazon de la plegaria"  
 > Una persona agradecida primero dice “¡gracias!”, y después abre el paquete 109 p ara ver el regalo. Tener fe es tener el valor de responder agradecidamente a cualquier situación que se presente, movidos por la confianza en el Dador. Gratuito odrá ser el universo P como dicen, inmenso. Pero si no existiera no se lo extr…
 
-**Resumen:** 4 pasajes en común · A: 2 propios · B: 2 propios
+### B2 · híbrida + limpieza
+
+**[1]** ≡ `ARTÍCULO` · *Br. David* · "El valor de un regalo"  
+> David Steindl-Rast Cercanos a las Fiestas de fin de año, compartimos reflexiones de Br. David en torno al gesto de hacer regalos. Cuando despertamos a la realidad de que todo es un regalo, entonces “círculos de conciencia cada vez más amplios hacen que nuestro mundo reviva”. U n arco iris siempre se nos presenta como u…
+
+**[2]** ≡ `ARTÍCULO` · *Br. David* · "Detenernos, mirar, actuar"  
+> La gratitud es la clave de la felicidad. El presente es el regalo más valioso. Si somos conscientes de ello, y vivimos cada momento de nuestras vidas tomando conciencia de que el mayor regalo nos es dado ahora, y ahora, y ahora… entonces viviremos agradecidos. ¿Cómo podemos aprender a ser agradecidos, no solo en moment…
+
+**[3]** ≡ `ARTÍCULO` · *Br. David* · "Detenernos, mirar, actuar"  
+> Si somos conscientes de ello, y vivimos cada momento de nuestras vidas tomando conciencia de que el mayor regalo nos es dado ahora, y ahora, y ahora… entonces viviremos agradecidos. ¿Cómo podemos aprender a ser agradecidos, no solo en momentos como éste, cuando todo es hermoso, sino en todo momento? En primer lugar deb…
+
+**[4]**  `ARTÍCULO` · *Br. David* · "Un Buen Día"  
+> David Steindl-Rast Un hermoso video que nos invita a abrir nuestros ojos y nuestro corazón a las innumerables bendiciones que se nos regalan, y hacerlas fluir a través nuestro hacia los demás. Son las claves para hacer del día de hoy un Buen Día. Texto completo del video ¿Crees que éste es un día más en tu vida? No, no…
+
+**[5]**  `ARTÍCULO` · *Br. David* · "Palabras clave para una vida plena"  
+> Una persona agradecida primero dice “¡gracias!”, y después abre el paquete para ver el regalo. Tener fe es tener el valor de responder agradecidamente a cualquier situación que se presente, movidos por la confianza en el Dador. Gratuito Podrá ser el universo como dicen, inmenso. Pero si no existiera no se lo extrañaría…
+
+**[6]** ≡ `LIBRO · La gratitud, corazon de la plegaria · pág. 110` · *Br. David* · "La gratitud, corazon de la plegaria"  
+> Una persona agradecida primero dice “¡gracias!”, y después abre el paquete 109 p ara ver el regalo. Tener fe es tener el valor de responder agradecidamente a cualquier situación que se presente, movidos por la confianza en el Dador. Gratuito odrá ser el universo P como dicen, inmenso. Pero si no existiera no se lo extr…
+
+**Resumen:** 4 pasajes en común · A: 2 propios · B: 0 propios · B2: 0 propios
 
 ---
 
@@ -180,16 +240,36 @@ para armar la pieza?* No hace falta mirar puntajes.
 **[3]** ≡ `ARTÍCULO` · *Br. David* · "Palabras clave para una vida plena"  
 > Una acción de gracias genuina involucra a toda la persona: el intelecto reconoce el don como un don (dar las gracias presupone pensar), la voluntad acepta la interdependencia entre el dador y el receptor, y los sentimientos celebran la alegría de esa pertenencia mutua. Sólo cuando la inteligencia, la voluntad y los sen…
 
-**[4]** ✚ `LIBRO · Confiar plenamente en la vida · pág. 32` · *Br. David* · "Confiar plenamente en la vida"  
+**[4]**  `LIBRO · Confiar plenamente en la vida · pág. 32` · *Br. David* · "Confiar plenamente en la vida"  
 > Si la salud se convierte en enfermedad; la riqueza, en pobreza; la fortuna, en desgracia, en medio de todos estos vaivenes, la gratitud llena nuestro corazón con una alegría constante y serena. No podemos sentirnos felices si estamos en cama gravemente enfermos. Sin embargo, podemos enfrentar la situación en forma crea…
 
-**[5]** ✚ `LIBRO · El Padrenuestro · pág. 4` · *Br. David* · "El Padrenuestro"  
+**[5]**  `LIBRO · El Padrenuestro · pág. 4` · *Br. David* · "El Padrenuestro"  
 > La alegría es el tipo de felicidad que no depende de lo que nos ocurre, sino que depende de lo agradecidos que estemos por lo que se nos ha dado, sea lo que sea. Así, tenemos la llave de la alegría de vivir en nuestras manos. La gratitud es más intensa cuando puede dirigirse a una contraparte personal; la alegría obten…
 
-**[6]** ✚ `ARTÍCULO` · *Br. David* · "Pesimismo, optimismo y esperanza"  
+**[6]**  `ARTÍCULO` · *Br. David* · "Pesimismo, optimismo y esperanza"  
 > Nos sorprendemos a nosotros mismos cuando estamos a la altura de las expectativas de alguien que nos mira con ojos de esperanza, y así crea para nosotros el espacio en el que podemos crecer. Esta actitud maternal es la que tenemos que tener hacia quienes se ven envueltos en el pesimismo, la oscuridad o la desesperación…
 
-**Resumen:** 3 pasajes en común · A: 3 propios · B: 3 propios
+### B2 · híbrida + limpieza
+
+**[1]**  `ARTÍCULO` · *Br. David* · "Pesimismo, optimismo y esperanza"  
+> Nos sorprendemos a nosotros mismos cuando estamos a la altura de las expectativas de alguien que nos mira con ojos de esperanza, y así crea para nosotros el espacio en el que podemos crecer. Esta actitud maternal es la que tenemos que tener hacia quienes se ven envueltos en el pesimismo, la oscuridad o la desesperación…
+
+**[2]** ≡ `ARTÍCULO` · *Br. David* · "Palabras clave para una vida plena"  
+> Una acción de gracias genuina involucra a toda la persona: el intelecto reconoce el don como un don (dar las gracias presupone pensar), la voluntad acepta la interdependencia entre el dador y el receptor, y los sentimientos celebran la alegría de esa pertenencia mutua. Sólo cuando la inteligencia, la voluntad y los sen…
+
+**[3]** ≡ `LIBRO · La gratitud, corazon de la plegaria · pág. 17` · *Br. David* · "La gratitud, corazon de la plegaria"  
+> Pero eso difícilmente sea tener plena conciencia de la realidad. Lo que deberíamos tener en mente cuando decimos que algo es “dado”, es que es un regalo. La verdadera toma de conciencia nos revela la gratuidad de todo lo que nos rodea. Cuando nuestro intelecto aprende a reconocer el aspecto de obsequio que el mundo tie…
+
+**[4]** ≡ `LIBRO · Responder - El tercer paso a la gratitud · pág. 83` · *Br. David* · "Responder - El tercer paso a la gratitud"  
+> Puedo agasajarme a mí mismo, pero por más acrobacias mentales que haga, no puedo agradecerme a mí mismo. En esto radica la diferencia entre la felicidad que da origen a la gratitud y cualquier otra felicidad. La gratitud se refiere a un otro; más concretamente, a otra persona. No podemos, en el pleno sentido de la pala…
+
+**[5]**  `LIBRO · El Padrenuestro · pág. 4` · *Br. David* · "El Padrenuestro"  
+> La alegría es el tipo de felicidad que no depende de lo que nos ocurre, sino que depende de lo agradecidos que estemos por lo que se nos ha dado, sea lo que sea. Así, tenemos la llave de la alegría de vivir en nuestras manos. La gratitud es más intensa cuando puede dirigirse a una contraparte personal; la alegría obten…
+
+**[6]**  `LIBRO · Confiar plenamente en la vida · pág. 32` · *Br. David* · "Confiar plenamente en la vida"  
+> Si la salud se convierte en enfermedad; la riqueza, en pobreza; la fortuna, en desgracia, en medio de todos estos vaivenes, la gratitud llena nuestro corazón con una alegría constante y serena. No podemos sentirnos felices si estamos en cama gravemente enfermos. Sin embargo, podemos enfrentar la situación en forma crea…
+
+**Resumen:** 3 pasajes en común · A: 3 propios · B: 0 propios · B2: 0 propios
 
 ---
 
@@ -229,13 +309,33 @@ para armar la pieza?* No hace falta mirar puntajes.
 **[4]** ≡ `ARTÍCULO` · *Br. David* · "Una reverencia profunda (continuación)"  
 > Como esta libertad puede perderse, el desapego se hace necesario. La obediencia es nuestro estar atentos, nuestra disponibilidad para seguir los impulsos del corazón en su vuelo ascendente. El desapego libera las alas de nuestro corazón para que así nos elevemos hasta el gozo agradecido de una vida plena. Debemos abrir…
 
-**[5]** ✚ `LIBRO · Mirar - El segundo paso a la gratitud · pág. 98` · *Br. David* · "Mirar - El segundo paso a la gratitud"  
+**[5]**  `LIBRO · Mirar - El segundo paso a la gratitud · pág. 98` · *Br. David* · "Mirar - El segundo paso a la gratitud"  
 > La obediencia a menudo se aprende haciendo libre y voluntariamente (durante un determinado tiempo y bajo circunstancias especiales) lo que alguien nos manda hacer. En esto consiste la obediencia como método; pero en cuanto método, tiene un objetivo: la obediencia como virtud. Esta obediencia virtuosa es obediencia en e…
 
-**[6]** ✚ `ARTÍCULO` · *Br. David* · "La gratitud, camino a la Presencia – Primera parte"  
+**[6]**  `ARTÍCULO` · *Br. David* · "La gratitud, camino a la Presencia – Primera parte"  
 > ¿Qué hacemos? Si escuchamos atentamente esta palabra que nos lleva al silencio del que procede. Comprender es el proceso por el que escuchamos tan profundamente la palabra, que nos lleva al silencio del que procede. Esa es una tercera forma en la que interactuamos con ese gran misterio, ese misterio divino hacia el que…
 
-**Resumen:** 4 pasajes en común · A: 2 propios · B: 2 propios
+### B2 · híbrida + limpieza
+
+**[1]** ≡ `LIBRO · Orientacion para una vida plena · pág. 203` · *Br. David* · "Orientacion para una vida plena"  
+> La obediencia humana en el sentido pleno de la palabra es una escucha profunda con el corazón y una [ 203 ] disposición a responder. Según su raíz latina, ob-audire, la palabra obediencia significa ‘escucha intensa’, en definitiva, una escucha amorosa de la Vida. En ciertos momentos, la Vida nos dice algo y nos exige a…
+
+**[2]** ≡ `ARTÍCULO` · *Br. David* · "Amor y obediencia"  
+> Ella implica, en última instancia, escuchar con el corazón. Obedecer indica intensidad en la escucha; es la forma más intensa de escuchar (1) . Lo opuesto a la obediencia es la irresponsabilidad: quien actúa irresponsablemente no escucha, y por lo tanto, no responde adecuadamente. Una ética que no está enraizada en la …
+
+**[3]** ≡ `ARTÍCULO` · *Br. David* · "Palabras sobre la oración"  
+> San Benito llama “obediencia” a esta escucha atenta. A menudo pensamos en la obediencia como el cumplimiento de una orden, lo cual haría de Dios una especie de sargento. Mi experiencia me dice que la mayoría de las veces Dios no nos manda, sino que más bien nos canta; y yo trato de responder a su canto. El canto al que…
+
+**[4]** ≡ `ARTÍCULO` · *Br. David* · "Una reverencia profunda (continuación)"  
+> Como esta libertad puede perderse, el desapego se hace necesario. La obediencia es nuestro estar atentos, nuestra disponibilidad para seguir los impulsos del corazón en su vuelo ascendente. El desapego libera las alas de nuestro corazón para que así nos elevemos hasta el gozo agradecido de una vida plena. Debemos abrir…
+
+**[5]**  `LIBRO · Mirar - El segundo paso a la gratitud · pág. 98` · *Br. David* · "Mirar - El segundo paso a la gratitud"  
+> La obediencia a menudo se aprende haciendo libre y voluntariamente (durante un determinado tiempo y bajo circunstancias especiales) lo que alguien nos manda hacer. En esto consiste la obediencia como método; pero en cuanto método, tiene un objetivo: la obediencia como virtud. Esta obediencia virtuosa es obediencia en e…
+
+**[6]**  `ARTÍCULO` · *Br. David* · "La gratitud, camino a la Presencia – Primera parte"  
+> ¿Qué hacemos? Si escuchamos atentamente esta palabra que nos lleva al silencio del que procede. Comprender es el proceso por el que escuchamos tan profundamente la palabra, que nos lleva al silencio del que procede. Esa es una tercera forma en la que interactuamos con ese gran misterio, ese misterio divino hacia el que…
+
+**Resumen:** 4 pasajes en común · A: 2 propios · B: 0 propios · B2: 0 propios
 
 ---
 
@@ -272,13 +372,33 @@ para armar la pieza?* No hace falta mirar puntajes.
 **[3]** ≡ `LIBRO · Orientacion para una vida plena · pág. 211` · *Br. David* · "Orientacion para una vida plena"  
 > Esta quietud interior tiene dos formas de expresarse: a través del silencio y a través de la palabra. Así, un corazón que ha alcanzado la quietud puede optar por hablar o callar, según lo que la Vida pida a cada momento. La palabra justa, en el momento justo, es una palabra que no rompe el silencio, sino que deja que l…
 
-**[4]** ✚ `ARTÍCULO` · *Br. David* · "Palabras clave para una vida plena"  
+**[4]**  `ARTÍCULO` · *Br. David* · "Palabras clave para una vida plena"  
 > La palabra, a diferencia del parloteo, no rompe el silencio; la palabra genuina nace del silencio, mientras que en el conocimiento genuino, la palabra regresa a casa en el silencio. Para quienes sólo conocen el mundo de las palabras, el silencio es meramente un vacío, mientras que un corazón silente reconoce esta parad…
 
-**[5]** ✚ `ARTÍCULO` · *Br. David* · "El regalo del silencio"  
+**[5]**  `ARTÍCULO` · *Br. David* · "El regalo del silencio"  
 > David Steindl-Rast En su carta de Navidad, el hermano David destaca el silencio como un regalo que nos dejó este difícil 2020; silencio que es clave para lograr escuchar lo que nuestro mundo necesita. Q ueridos amigos: Una flor de granada, más que cualquier otra estrella, parece ser el emblema apropiado para esta época…
 
 **[6]** ≡ `ARTÍCULO` · *Br. David* · "Momentos de meditación"  
 > David Steindl-Rast En este video, Br. David invita a la búsqueda del silencio, y nos recuerda que la contemplación y la acción van íntimamente unidas. “Nos sentimos más en calma y dispuestos a actuar después de haber descendido a nuestro interior”. Texto completo del video Creo que lo descubrí de pequeño. Pienso que lo…
 
-**Resumen:** 4 pasajes en común · A: 2 propios · B: 2 propios
+### B2 · híbrida + limpieza
+
+**[1]** ≡ `ARTÍCULO` · *Br. David* · "¡Detente, mira, avanza!"  
+> Con la práctica, pronto podremos sentirnos como en casa cuando estemos en silencio. Así, ese centro de silencio interior se volverá una fuente de profunda dicha. En la calma, “el oído del corazón”, tal como lo llama San Benito, podremos escuchar a la vida atentamente, y así seremos capaces de responder ; esos son los p…
+
+**[2]** ≡ `ARTÍCULO` · *Br. David* · "Actuar desde el silencio"  
+> David Steindl-Rast Compartimos la carta que el hermano David Steindl-Rast envía a su comunidad benedictina. Una invitación a buscar el silencio interior, y desde ese silencio responder a los desafíos que nos plantea la Vida en estos momentos. Q ueridos Hermanos, esta pandemia es una oportunidad única para detenernos, v…
+
+**[3]** ≡ `LIBRO · Orientacion para una vida plena · pág. 211` · *Br. David* · "Orientacion para una vida plena"  
+> Esta quietud interior tiene dos formas de expresarse: a través del silencio y a través de la palabra. Así, un corazón que ha alcanzado la quietud puede optar por hablar o callar, según lo que la Vida pida a cada momento. La palabra justa, en el momento justo, es una palabra que no rompe el silencio, sino que deja que l…
+
+**[4]**  `ARTÍCULO` · *Br. David* · "Palabras clave para una vida plena"  
+> La palabra, a diferencia del parloteo, no rompe el silencio; la palabra genuina nace del silencio, mientras que en el conocimiento genuino, la palabra regresa a casa en el silencio. Para quienes sólo conocen el mundo de las palabras, el silencio es meramente un vacío, mientras que un corazón silente reconoce esta parad…
+
+**[5]**  `ARTÍCULO` · *Br. David* · "El regalo del silencio"  
+> David Steindl-Rast En su carta de Navidad, el hermano David destaca el silencio como un regalo que nos dejó este difícil 2020; silencio que es clave para lograr escuchar lo que nuestro mundo necesita. Q ueridos amigos: Una flor de granada, más que cualquier otra estrella, parece ser el emblema apropiado para esta época…
+
+**[6]** ≡ `ARTÍCULO` · *Br. David* · "Momentos de meditación"  
+> David Steindl-Rast En este video, Br. David invita a la búsqueda del silencio, y nos recuerda que la contemplación y la acción van íntimamente unidas. “Nos sentimos más en calma y dispuestos a actuar después de haber descendido a nuestro interior”. Texto completo del video Creo que lo descubrí de pequeño. Pienso que lo…
+
+**Resumen:** 4 pasajes en común · A: 2 propios · B: 0 propios · B2: 0 propios

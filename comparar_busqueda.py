@@ -54,9 +54,10 @@ CONSULTAS_DEFAULT = [
 ]
 
 MODOS = {
-    "A · como está hoy":               {"BUSQUEDA_HIBRIDA": "0", "RERANK_CANDIDATOS": "15", "RERANK_CHARS": "150"},
-    "B · híbrida":                     {"BUSQUEDA_HIBRIDA": "1", "RERANK_CANDIDATOS": "15", "RERANK_CHARS": "150"},
-    "C · híbrida + reranker ampliado": {"BUSQUEDA_HIBRIDA": "1", "RERANK_CANDIDATOS": "50", "RERANK_CHARS": "400"},
+    "A · como está hoy":               {"BUSQUEDA_HIBRIDA": "0", "LIMPIEZA_EXTRA": "0", "RERANK_CANDIDATOS": "15", "RERANK_CHARS": "150"},
+    "B · híbrida":                     {"BUSQUEDA_HIBRIDA": "1", "LIMPIEZA_EXTRA": "0", "RERANK_CANDIDATOS": "15", "RERANK_CHARS": "150"},
+    "B2 · híbrida + limpieza":         {"BUSQUEDA_HIBRIDA": "1", "LIMPIEZA_EXTRA": "1", "RERANK_CANDIDATOS": "15", "RERANK_CHARS": "150"},
+    "C · híbrida + reranker ampliado": {"BUSQUEDA_HIBRIDA": "1", "LIMPIEZA_EXTRA": "1", "RERANK_CANDIDATOS": "50", "RERANK_CHARS": "400"},
 }
 
 
