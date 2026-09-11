@@ -46,6 +46,60 @@ def cargar():
     return _FRS, _EMB
 
 
+# ---------------------------------------------------------------------------
+# Búsqueda híbrida (T2 del plan de búsqueda): BM25 léxico + vectorial, fusión RRF.
+#
+# APAGADA POR DEFECTO. Se prende con BUSQUEDA_HIBRIDA=1 en el entorno
+# (.streamlit/secrets.toml o variables de Streamlit Cloud). Con la variable
+# ausente, la app se comporta exactamente igual que antes.
+#
+# Por qué: el vectorial difumina el vocabulario propio de Br. David (gratuidad,
+# Stop-Look-Go, esperanza ≠ expectativa). BM25 rescata la palabra exacta.
+# Medido con banco_de_pruebas.py (repo fva-transcripcion) antes de prender.
+# ---------------------------------------------------------------------------
+_BM25 = None
+_RRF_K = 60
+
+
+def _hibrida_activa():
+    return os.environ.get("BUSQUEDA_HIBRIDA", "0").strip() == "1"
+
+
+def _env_int(nombre, default):
+    """Lee un entero del entorno; si está vacío o mal escrito, usa el default (nunca rompe)."""
+    try:
+        return int(str(os.environ.get(nombre, default)).strip() or default)
+    except (TypeError, ValueError):
+        return int(default)
+
+
+def _norm_bm25(s):
+    import unicodedata
+    s = unicodedata.normalize("NFD", s or "")
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn").lower()
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9\s]+", " ", s)).strip()
+
+
+def _bm25():
+    """Índice BM25 sobre el corpus, armado una sola vez y solo si la híbrida está prendida."""
+    global _BM25
+    if _BM25 is None:
+        from rank_bm25 import BM25Okapi
+        FRS, _ = cargar()
+        _BM25 = BM25Okapi([_norm_bm25(f.get("texto") or "").split() for f in FRS])
+    return _BM25
+
+
+def _rrf(*rankings):
+    """Reciprocal Rank Fusion: cada lista aporta 1/(k + posición). Solo importan las posiciones."""
+    puntaje = {}
+    for lista in rankings:
+        for pos, idx in enumerate(lista):
+            idx = int(idx)
+            puntaje[idx] = puntaje.get(idx, 0.0) + 1.0 / (_RRF_K + pos + 1)
+    return np.array([i for i, _ in sorted(puntaje.items(), key=lambda x: -x[1])])
+
+
 SYSTEM_MSG = """Sos el asistente de contenido de la Fundación Vivir Agradecidos, especializado en el material del Hermano David Steindl-Rast (Br. David) y de los facilitadores de la Fundación. Ayudás al equipo a encontrar contenido y a armar piezas para los canales (Instagram, Facebook, YouTube, newsletter, email, WhatsApp, web), siempre a partir del material real.
 
 MISIÓN: la Fundación busca que las personas pasen del consumo pasivo a la acción concreta (responder: donar tiempo, ayudar al prójimo). Cuando sea apropiado, orientá con delicadeza hacia ese "responder", con tono contemplativo y agradecido, nunca comercial ni golpeador.
@@ -174,7 +228,10 @@ def _detectar_duracion_max(texto):
 
 def _rerank(consulta, candidatos, n):
     """Segundo paso: el modelo elige los n más precisos de una lista más amplia."""
-    lineas = [f"[{i}] {c['tag']} · {c['autor']} — {c['titulo']}: {c['texto'][:150]}"
+    # Cuánto texto de cada candidato ve el modelo. Default 150, igual que antes.
+    # Para distinguir esperanza de expectativa suele hacer falta más (RERANK_CHARS=400).
+    chars = _env_int("RERANK_CHARS", 150)
+    lineas = [f"[{i}] {c['tag']} · {c['autor']} — {c['titulo']}: {c['texto'][:chars]}"
               for i, c in enumerate(candidatos)]
     user = (f"Consulta del equipo: {consulta}\n\nFragmentos candidatos:\n" + "\n".join(lineas) +
             f"\n\nElegí los {n} MÁS relevantes y precisos para la consulta (mismo tema; si la consulta pide "
@@ -208,8 +265,18 @@ def buscar(consulta, n=6, excluir=None, fuente=None, autor=None, max_seg=None, r
     except Exception:
         pass
     orden = np.argsort(-sims)
+    if _hibrida_activa():
+        try:
+            tokens = _norm_bm25(consulta).split()
+            if tokens:
+                lexico = np.argsort(-_bm25().get_scores(tokens))
+                orden = _rrf(orden, lexico)
+        except Exception:
+            pass                           # si falta rank_bm25 o falla, sigue vectorial como siempre
     cand, vistos = [], set()
-    tope = max(n * 3, 15) if rerank else n
+    # Cuántos candidatos ve el reranker. Default 15 -> con n=6 da 18, igual que antes.
+    # El plan sugiere 50 (RERANK_CANDIDATOS=50). Cambiarlo no toca la recuperación.
+    tope = max(n * 3, _env_int("RERANK_CANDIDATOS", 15)) if rerank else n
     for k in orden:
         f = FRS[int(k)]
         if fuente and f.get("fuente") != fuente:

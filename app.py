@@ -17,6 +17,12 @@ os.environ["ASISTENTE_MODELO"] = _sec("ASISTENTE_MODELO", "gpt-4o-mini")
 os.environ["SUPABASE_URL"] = _sec("SUPABASE_URL")
 os.environ["SUPABASE_KEY"] = _sec("SUPABASE_KEY")
 
+# ---------------- Interruptores del buscador (ver ARQUITECTURA-BUSCADOR.md) ----------------
+# Todos nacen apagados / con el valor de siempre. Se prenden desde los secrets de
+# Streamlit Cloud, sin tocar código. Si no están en secrets, no cambia nada.
+for _k, _d in (("BUSQUEDA_HIBRIDA", "0"), ("RERANK_CANDIDATOS", "15"), ("RERANK_CHARS", "150")):
+    os.environ[_k] = str(_sec(_k, _d))
+
 USUARIOS = dict(st.secrets.get("usuarios", {}))
 
 # ---------------- Login por usuario ----------------
