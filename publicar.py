@@ -37,8 +37,9 @@ BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REGISTRO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "registro_publicaciones.jsonl")
 MODOS_WP = ("apagado", "simulado", "borrador", "real")
 MODOS_IG = ("apagado", "simulado", "real")
-MODOS_FB = ("apagado", "simulado")            # Facebook no está conectado (24/9): solo simulado
+MODOS_FB = ("apagado", "simulado", "real")    # real requiere META_FB_PAGE_ID y META_FB_PAGE_TOKEN (24/9)
 IG_HOST = "https://graph.instagram.com/v21.0"
+FB_HOST = "https://graph.facebook.com/v21.0"
 
 # Gancho opcional: la app lo reemplaza para guardar el registro también en Supabase.
 REGISTRAR_EXTRA = None
@@ -77,12 +78,14 @@ class Config:
         self.wp_pass = g("WP_APP_PASSWORD")
         self.ig_token = g("META_IG_TOKEN")
         self.ig_id = g("META_IG_USER_ID")
+        self.fb_page_id = g("META_FB_PAGE_ID")
+        self.fb_token = g("META_FB_PAGE_TOKEN")
 
     def resumen(self):
         return {"wordpress": self.modo_wp, "instagram": self.modo_ig, "facebook": self.modo_fb,
                 "wp_configurado": bool(self.wp_site and self.wp_user and self.wp_pass),
                 "ig_configurado": bool(self.ig_token and self.ig_id),
-                "fb_configurado": False}
+                "fb_configurado": bool(self.fb_page_id and self.fb_token)}
 
 
 # ----------------------------------------------------------------------------- utilidades
@@ -271,19 +274,57 @@ def publicar_instagram(cfg, imagen_url, texto, quien=""):
 
 def publicar_facebook(cfg, imagen_url, texto, quien="", fecha=None):
     """
-    Facebook NO está conectado (24/9). Solo existe el modo simulado: arma la pieza y la registra.
-    Cuando se conecte la página (Graph API, pages_manage_posts) se agrega el modo real acá.
+    Publica en la página de Facebook de la Fundación (Graph API). Según el modo:
+      apagado  -> no hace nada
+      simulado -> arma la pieza y la muestra; no llama a la API
+      real     -> con imagen: POST /{page}/photos (url + caption); sin imagen: POST /{page}/feed (message).
+                  Con `fecha` futura (ISO): publicación PROGRAMADA por Facebook (published=false +
+                  scheduled_publish_time), entre 10 minutos y 30 días. LO VEN LOS SEGUIDORES al publicarse.
+    Requiere META_FB_PAGE_ID y META_FB_PAGE_TOKEN (token de página, permisos pages_manage_posts).
     """
     modo = cfg.modo_fb
     pieza = {"image_url": imagen_url, "message": texto, "fecha_programada": fecha}
     base = {"canal": "facebook", "accion": "post", "modo": modo, "quien": quien, "pieza": pieza}
-    if modo != "simulado":
+    if modo == "apagado":
         _registrar({**base, "resultado": "no se hizo nada (apagado)"})
         return {"ok": False, "modo": modo, "aviso": "Facebook está apagado.", "pieza": pieza}
-    _registrar({**base, "resultado": "simulado"})
-    return {"ok": True, "modo": modo, "pieza": pieza,
-            "aviso": "Simulado: así quedaría el posteo en Facebook. Facebook todavía no está conectado; "
-                     "para publicarlo hoy, copiá el texto y subilo desde la página."}
+    if modo == "simulado":
+        _registrar({**base, "resultado": "simulado"})
+        return {"ok": True, "modo": modo, "pieza": pieza,
+                "aviso": "Simulado: así quedaría el posteo en Facebook. No se mandó nada. "
+                         "Para publicarlo hoy: copiá el texto y subilo desde la página."}
+    if modo != "real":                     # regla dura
+        return {"ok": False, "modo": modo, "aviso": "Modo desconocido; no se publica.", "pieza": pieza}
+    if not (cfg.fb_page_id and cfg.fb_token):
+        return {"ok": False, "modo": modo, "aviso": "Faltan las claves de Facebook (META_FB_PAGE_ID / META_FB_PAGE_TOKEN).", "pieza": pieza}
+
+    params = {"access_token": cfg.fb_token}
+    if fecha:
+        try:
+            ts = int(datetime.datetime.fromisoformat(fecha).timestamp())
+        except Exception:
+            return {"ok": False, "modo": modo, "aviso": "Fecha inválida.", "pieza": pieza}
+        if ts < time.time() + 600:
+            return {"ok": False, "modo": modo, "aviso": "Facebook exige programar con al menos 10 minutos de anticipación.", "pieza": pieza}
+        params.update({"published": "false", "scheduled_publish_time": str(ts)})
+    if imagen_url:
+        if not imagen_url.startswith("https://"):
+            return {"ok": False, "modo": modo, "aviso": "Facebook necesita una URL pública https de la imagen.", "pieza": pieza}
+        params.update({"url": imagen_url, "caption": texto})
+        path = f"{cfg.fb_page_id}/photos"
+    else:
+        params.update({"message": texto})
+        path = f"{cfg.fb_page_id}/feed"
+    data = urllib.parse.urlencode(params).encode()
+    r, err = _http(f"{FB_HOST}/{path}", "POST", {"Content-Type": "application/x-www-form-urlencoded"}, data)
+    if not r:
+        _registrar({**base, "resultado": "error", "error": err})
+        return {"ok": False, "modo": modo, "aviso": "Facebook no aceptó el posteo: " + json.dumps(err, ensure_ascii=False)[:200], "pieza": pieza}
+    post_id = r.get("post_id") or r.get("id")
+    _registrar({**base, "resultado": "PROGRAMADO" if fecha else "PUBLICADO", "id": post_id})
+    return {"ok": True, "modo": modo, "id": post_id, "pieza": pieza,
+            "permalink": f"https://www.facebook.com/{post_id}" if post_id else None,
+            "aviso": (f"PROGRAMADO en Facebook para {fecha}." if fecha else "PUBLICADO en Facebook.")}
 
 
 # ----------------------------------------------------------------------------- uso desde la terminal

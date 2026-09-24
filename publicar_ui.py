@@ -94,8 +94,12 @@ def render(usuario):
         aviso = f"**Modo REAL:** se publica en {canal} de verdad."
         if fecha_iso and canal == "WordPress":
             aviso = f"**Modo REAL:** se programa en WordPress para el {fecha_iso[:16].replace('T', ' ')} y sale sola ese día (y por newsletter)."
-    if fecha_iso and canal != "WordPress":
-        aviso += " ⚠ La programación en redes todavía no existe: la fecha queda anotada en el registro, nada más."
+        if fecha_iso and canal == "Facebook":
+            aviso = f"**Modo REAL:** se programa en Facebook para el {fecha_iso[:16].replace('T', ' ')} (Facebook la publica solo ese día; mínimo 10 minutos de anticipación)."
+    if fecha_iso and canal == "Instagram":
+        aviso += " ⚠ Instagram no permite programar por API: la fecha queda anotada en el registro, nada más."
+    if fecha_iso and canal == "Facebook" and modo == "simulado":
+        aviso += " (En modo real, Facebook sí acepta programación.)"
     st.info(aviso)
 
     if modo == "real":
