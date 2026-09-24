@@ -61,9 +61,15 @@ def render(usuario):
     clave = {"WordPress": "wordpress", "Instagram": "instagram", "Facebook": "facebook"}[canal]
     modo = r[clave]
 
-    titulo = st.text_input("Título" + (" (obligatorio en WordPress)" if canal == "WordPress" else " (opcional, solo para el registro)"))
-    texto = st.text_area("Texto de la pieza", height=220,
-                         placeholder="Pegá acá el texto que armaste con el asistente. En WordPress podés usar HTML simple (<p>, <strong>, <a>).")
+    # Texto traído desde el chat con "Llevar a Publicar" (sin copiar y pegar)
+    prefill = st.session_state.pop("pub_prefill", None)
+    if prefill is not None:
+        st.session_state["pub_texto"] = prefill
+        st.success("Texto traído desde el chat. Ajustalo si hace falta y elegí el canal.")
+    titulo = st.text_input("Título" + (" (obligatorio en WordPress)" if canal == "WordPress" else " (opcional, solo para el registro)"),
+                           key="pub_titulo")
+    texto = st.text_area("Texto de la pieza", height=220, key="pub_texto",
+                         placeholder="Escribí o traé el texto desde el chat con el botón «Llevar a Publicar». En WordPress podés usar HTML simple (<p>, <strong>, <a>).")
     archivo = st.file_uploader("Imagen (opcional)", type=["jpg", "jpeg", "png", "webp"])
     url_imagen = st.text_input("…o pegá la URL de una imagen que ya está en el sitio (opcional)")
 

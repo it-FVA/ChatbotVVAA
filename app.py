@@ -201,12 +201,23 @@ def render_mats(mats):
             unsafe_allow_html=True)
 
 
-for m in st.session_state.messages:
+def boton_publicar(texto, key):
+    """Debajo de cada respuesta: lleva el texto a la pestaña Publicar sin copiar y pegar."""
+    if PUEDE_PUBLICAR and texto.strip():
+        if st.button("📤 Llevar a Publicar", key=key, help="Abre la pestaña Publicar con este texto ya cargado"):
+            st.session_state.pub_prefill = texto
+            st.session_state.vista = "publicar"
+            st.rerun()
+
+
+for i, m in enumerate(st.session_state.messages):
     rol = "user" if m.get("role") == "user" else "assistant"
     with st.chat_message(rol, avatar=(AVATAR_USER if rol == "user" else AVATAR_BOT)):
         st.markdown(m.get("content", ""))
         if m.get("mats"):
             render_mats(m["mats"])
+        if rol == "assistant":
+            boton_publicar(m.get("content", ""), key=f"pub_{i}")
 
 if prompt := st.chat_input("Escribí acá… (ej: 'estoy pensando una campaña sobre gratitud, ¿por dónde arrancarías?')"):
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -222,3 +233,4 @@ if prompt := st.chat_input("Escribí acá… (ej: 'estoy pensando una campaña s
             render_mats(mats)
     st.session_state.messages.append({"role": "assistant", "content": texto, "mats": mats})
     guardar()
+    st.rerun()          # vuelve a dibujar con el botón "Llevar a Publicar" bajo la respuesta nueva
