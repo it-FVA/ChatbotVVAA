@@ -130,6 +130,64 @@ def _wp_api(cfg, path):
     return f"https://{cfg.wp_site}/wp-json/wp/v2/{path}"
 
 
+# ----------------------------------------------------------------------------- Banco de imágenes
+# (24/9) El banco es la biblioteca de medios de WordPress: URL pública (Instagram la exige), una
+# imagen sirve para todos los canales, y las etiquetas van en el título/alt/descripción del adjunto.
+# Julián arma carpetas en Drive con etiquetas en el nombre; un script las sube acá (card Trello).
+
+def buscar_imagenes_banco(cfg, consulta, n=6):
+    """Busca imágenes en la biblioteca de medios por palabras (título, alt, descripción).
+    Devuelve [{id, url, miniatura, titulo}]. Sin credenciales o sin resultados: lista vacía.
+    Prueba primero la consulta entera; si no hay nada, palabra por palabra (unión)."""
+    if not cfg.wp_site:
+        return []
+    consulta = (consulta or "").strip()
+    palabras = [p for p in consulta.replace(",", " ").split() if len(p) > 2]
+    intentos = [consulta] + palabras if consulta else []
+    vistos, out = set(), []
+    for q in intentos:
+        if len(out) >= n:
+            break
+        url = _wp_api(cfg, "media") + "?" + urllib.parse.urlencode({
+            "search": q, "media_type": "image", "per_page": n, "orderby": "date", "order": "desc",
+            "_fields": "id,source_url,title,alt_text,media_details"})
+        r, err = _http(url, headers=_wp_headers(cfg) if cfg.wp_user and cfg.wp_pass else {"User-Agent": "fva-herramienta/0.1"})
+        if not r:
+            continue
+        for m in r:
+            if m["id"] in vistos:
+                continue
+            vistos.add(m["id"])
+            sizes = ((m.get("media_details") or {}).get("sizes") or {})
+            mini = (sizes.get("medium") or sizes.get("thumbnail") or {}).get("source_url") or m["source_url"]
+            out.append({"id": m["id"], "url": m["source_url"], "miniatura": mini,
+                        "titulo": ((m.get("title") or {}).get("rendered") or m.get("alt_text") or "")[:80]})
+            if len(out) >= n:
+                break
+    return out
+
+
+def imagenes_recientes_banco(cfg, n=6):
+    """Las últimas imágenes subidas, para cuando la búsqueda no encuentra nada."""
+    return buscar_imagenes_banco(cfg, "", n) or _recientes(cfg, n)
+
+
+def _recientes(cfg, n):
+    if not cfg.wp_site:
+        return []
+    url = _wp_api(cfg, "media") + "?" + urllib.parse.urlencode({
+        "media_type": "image", "per_page": n, "orderby": "date", "order": "desc",
+        "_fields": "id,source_url,title,alt_text,media_details"})
+    r, err = _http(url, headers=_wp_headers(cfg) if cfg.wp_user and cfg.wp_pass else {"User-Agent": "fva-herramienta/0.1"})
+    out = []
+    for m in (r or []):
+        sizes = ((m.get("media_details") or {}).get("sizes") or {})
+        mini = (sizes.get("medium") or sizes.get("thumbnail") or {}).get("source_url") or m["source_url"]
+        out.append({"id": m["id"], "url": m["source_url"], "miniatura": mini,
+                    "titulo": ((m.get("title") or {}).get("rendered") or m.get("alt_text") or "")[:80]})
+    return out
+
+
 # ----------------------------------------------------------------------------- WordPress
 
 def subir_imagen_wordpress(cfg, ruta_o_bytes, nombre, titulo="", etiquetas=None, quien="", pieza=""):

@@ -93,10 +93,15 @@ def abrir(cid):
 # ---------------- Sidebar (estilo ChatGPT) ----------------
 with st.sidebar:
     st.markdown(f"**👤 {USUARIO}**")
-    if PUEDE_PUBLICAR:
-        _v = st.radio("Vista", ["💬 Chat", "📤 Publicar"], horizontal=True, label_visibility="collapsed",
-                      index=0 if st.session_state.vista == "chat" else 1)
-        st.session_state.vista = "chat" if _v.startswith("💬") else "publicar"
+    # (24/9 noche) Publicar pasa dentro del chat: el bot propone el recuadro cuando la pieza está lista.
+    # La pantalla "Publicar" suelta ya no se muestra; queda solo con ?vista=publicar en la dirección,
+    # para cargar algo que no salió de una conversación.
+    if PUEDE_PUBLICAR and st.query_params.get("vista") == "publicar":
+        st.session_state.vista = "publicar"
+        if st.button("💬 Volver al chat", use_container_width=True):
+            st.query_params.clear()
+            st.session_state.vista = "chat"
+            st.rerun()
     if st.button("➕ Nueva conversación", use_container_width=True, type="primary"):
         st.session_state.vista = "chat"
         st.session_state.messages = []
@@ -202,15 +207,16 @@ def render_mats(mats):
             unsafe_allow_html=True)
 
 
-def boton_publicar(texto, key):
-    """Debajo de cada respuesta: lleva el texto a la pestaña Publicar sin copiar y pegar."""
-    if PUEDE_PUBLICAR and texto.strip():
-        if st.button("📤 Llevar a Publicar", key=key, help="Abre la pestaña Publicar con este texto ya cargado"):
-            st.session_state.pub_prefill = texto
-            st.session_state.vista = "publicar"
-            st.rerun()
+def publicar_en_chat(m, i, ultimo):
+    """(24/9) Publicar desde adentro del chat: cuando el bot decide que la pieza está lista
+    (herramienta proponer_publicacion), debajo de su respuesta aparece el recuadro precompletado
+    con texto, título, canal, fecha e imágenes del banco. Si no es una pieza, no hay nada."""
+    if PUEDE_PUBLICAR and m.get("pieza"):
+        import publicar_ui
+        publicar_ui.recuadro(USUARIO, m["pieza"], key=f"m{i}", abierto=ultimo)
 
 
+_n = len(st.session_state.messages)
 for i, m in enumerate(st.session_state.messages):
     rol = "user" if m.get("role") == "user" else "assistant"
     with st.chat_message(rol, avatar=(AVATAR_USER if rol == "user" else AVATAR_BOT)):
@@ -218,7 +224,7 @@ for i, m in enumerate(st.session_state.messages):
         if m.get("mats"):
             render_mats(m["mats"])
         if rol == "assistant":
-            boton_publicar(m.get("content", ""), key=f"pub_{i}")
+            publicar_en_chat(m, i, ultimo=(i == _n - 1))
 
 if prompt := st.chat_input("Escribí acá… (ej: 'estoy pensando una campaña sobre gratitud, ¿por dónde arrancarías?')"):
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -228,10 +234,10 @@ if prompt := st.chat_input("Escribí acá… (ej: 'estoy pensando una campaña s
         with st.spinner("Pensando…"):
             historial = [{"role": m.get("role", "user"), "content": m.get("content", ""),
                           "mats": m.get("mats")} for m in st.session_state.messages]
-            texto, mats, _ = nucleo.responder(historial)
+            texto, mats, _, pieza = nucleo.responder_con_pieza(historial)
         st.markdown(texto)
         if mats:
             render_mats(mats)
-    st.session_state.messages.append({"role": "assistant", "content": texto, "mats": mats})
+    st.session_state.messages.append({"role": "assistant", "content": texto, "mats": mats, "pieza": pieza})
     guardar()
-    st.rerun()          # vuelve a dibujar con el botón "Llevar a Publicar" bajo la respuesta nueva
+    st.rerun()          # vuelve a dibujar con el recuadro "Publicar esta pieza" bajo la respuesta nueva

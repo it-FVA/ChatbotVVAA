@@ -51,6 +51,7 @@ def normalizar(mensajes):
         out.append({"role": role,
                     "content": m.get("content", m.get("texto", "")),
                     "mats": m.get("mats") or [],
+                    "pieza": m.get("pieza") or None,     # (24/9) recuadro "Publicar esta pieza"
                     "query": m.get("query", "")})
     return out
 

@@ -274,10 +274,19 @@ _REGLA_TEXTO_PROPIO = """
 Si la persona te pega un texto suyo (un artículo, un guion, un borrador) y te pide usarlo, ese texto es una fuente más y vale la misma regla de fidelidad: lo que presentes como tomado de ahí tiene que ser TEXTUAL. Si lo adaptás, resumís o combinás con otra cosa, decilo de entrada ("esto es una síntesis mía, no cita textual") en vez de esperar a que te pregunten. Si te piden "respetar el texto original", usá solo fragmentos textuales y poné tu texto editorial (título, cierre, datos del evento) claramente aparte."""
 
 
+_REGLA_PUBLICAR = """
+═══ PUBLICAR DESDE EL CHAT ═══
+Tenés la herramienta proponer_publicacion: prepara, debajo de tu respuesta, un recuadro con la pieza cargada para que la persona la ajuste y la publique o programe sin salir del chat.
+- Cuando entregás un borrador TERMINADO de una pieza (posteo, frase, carrusel, entrada, copy), cerrá con una sola pregunta: "¿Lo dejamos así y lo publicamos, o lo seguimos ajustando?". No llames la herramienta todavía.
+- Llamá proponer_publicacion SOLO cuando la persona da el ok o pide publicar/programar ("dale, así", "me gusta", "publicalo", "programalo para el sábado", "mandalo a Instagram"). Pasale el texto que se publica (para redes: texto plano, sin markdown, sin rótulos, sin links; la cita entre comillas con autor y nombre de la fuente), aparte el texto que va sobre la imagen si lo hay, el título aparte, el canal solo si lo dijo, la fecha si la dijo, y 2-4 palabras para buscar la imagen.
+- Nunca la llames mientras se piensa, se elige material o se corrige; nunca con una lista de fragmentos.
+- Después de llamarla, respondé en una o dos líneas ("Abajo tenés el recuadro para ajustar y publicar"); no repitas la pieza."""
+
+
 def system_msg():
     """El system message vigente según el interruptor SYSTEM_MSG_V2, más las reglas y datos fijos comunes."""
     base = SYSTEM_MSG_V2 if os.environ.get("SYSTEM_MSG_V2", "0").strip() == "1" else SYSTEM_MSG
-    msg = base + "\n" + _REGLA_TEXTO_PROPIO
+    msg = base + "\n" + _REGLA_TEXTO_PROPIO + "\n" + _REGLA_PUBLICAR
     df = datos_fijos()
     if df:
         msg += ("\n\n═══ DATOS FIJOS DE LA FUNDACIÓN ═══\n"
@@ -616,6 +625,24 @@ TOOLS = [
             "autor": {"type": "string", "description": "Filtrá por autor cuando la persona pide material de alguien puntual (ej. 'Br. David', 'Fondevila', 'Gawel', 'Grehan'). Dejalo vacío si no especifica autor."}},
             "required": ["consulta"]}}},
     {"type": "function", "function": {
+        "name": "proponer_publicacion",
+        "description": ("Prepara el recuadro 'Publicar esta pieza' debajo de tu respuesta, con la pieza ya cargada "
+                        "para que la persona la ajuste y la publique o programe sin salir del chat. Llamala SOLO cuando "
+                        "la pieza está terminada y la persona dio el ok o pidió publicarla/programarla ('dale, así', "
+                        "'me gusta', 'publicalo', 'programalo para el sábado', 'mandalo a Instagram'). NUNCA mientras "
+                        "se está pensando, eligiendo material o corrigiendo. NUNCA con una lista de fragmentos: solo "
+                        "con una pieza final (posteo, frase, carrusel, entrada, copy)."),
+        "parameters": {"type": "object", "properties": {
+            "texto": {"type": "string", "description": "El texto que se publica (el caption en Instagram/Facebook; el cuerpo de la entrada en WordPress). Para redes: TEXTO PLANO listo para pegar, sin markdown (sin **, #, >), sin rótulos como 'Copy:' ni 'Texto para la imagen:', sin links; la cita va entre comillas seguida del autor y el nombre de la fuente (ej. — Br. David, '¿Cuán grande es nuestra familia?'). Para WordPress puede llevar HTML simple y el link a la fuente. Sin introducción ni pregunta final. Para un carrusel, las slides separadas por '---'."},
+            "texto_imagen": {"type": "string", "description": "Si la pieza tiene un texto que va SOBRE la imagen (una frase corta, la cita para el diseño), ponelo acá, solo eso, sin comillas de markdown. Vacío si no aplica."},
+            "titulo": {"type": "string", "description": "Título corto de la pieza (obligatorio si es entrada de WordPress; en redes es solo para el registro). No repetir el texto."},
+            "canal": {"type": "string", "enum": ["wordpress", "instagram", "facebook", ""],
+                      "description": "Canal SOLO si la persona lo dijo (entrada/blog/artículo/newsletter → wordpress). Si no lo dijo, dejalo vacío: el recuadro se lo pide."},
+            "fecha": {"type": "string", "description": "YYYY-MM-DD si la persona pidió un día ('el sábado', 'mañana', '15/11'); vacío si no."},
+            "hora": {"type": "string", "description": "HH:MM si la persona pidió una hora; vacío si no."},
+            "imagen_busqueda": {"type": "string", "description": "2 a 4 palabras en español con el tema visual para buscar una imagen en el banco (ej. 'amanecer montaña calma')."}},
+            "required": ["texto", "titulo", "canal", "imagen_busqueda"]}}},
+    {"type": "function", "function": {
         "name": "analizar_corpus",
         "description": ("Cuenta y analiza sobre el corpus: cuántos autores o contenidos hablan de un tema, "
                         "quiénes, cantidades. Usalo cuando la persona pide conteos o pregunta "
@@ -635,6 +662,26 @@ def _ejecutar_tool(nombre, args):
                   "articulo": "web", "artículo": "web", "web": "web"}.get(tipo)
         res = buscar(consulta, n, fuente=fuente, autor=(args.get("autor") or None), max_seg=args.get("max_seg"))
         return contexto(res), res
+    if nombre == "proponer_publicacion":
+        import datetime
+        canal = (args.get("canal") or "").strip().lower()
+        fecha = (args.get("fecha") or "").strip()
+        hora = (args.get("hora") or "").strip()
+        pieza = {"canal": canal if canal in ("wordpress", "instagram", "facebook") else "",
+                 "fecha": fecha if re.fullmatch(r"\d{4}-\d{2}-\d{2}", fecha) else "",
+                 "hora": hora if re.fullmatch(r"\d{1,2}:\d{2}", hora) else "",
+                 "titulo": (args.get("titulo") or "").strip()[:150],
+                 "texto": (args.get("texto") or "").strip(),
+                 "texto_imagen": (args.get("texto_imagen") or "").strip()[:400],
+                 "imagen_busqueda": (args.get("imagen_busqueda") or "").strip()[:60]}
+        if not pieza["texto"]:
+            return "No se preparó el recuadro: faltó el texto de la pieza.", []
+        aviso = ("Recuadro 'Publicar esta pieza' preparado debajo de tu respuesta, con el texto, el título"
+                 + (f", el canal {pieza['canal']}" if pieza["canal"] else ", SIN canal (la persona lo elige ahí)")
+                 + (f" y la fecha {pieza['fecha']} {pieza['hora']}".rstrip() if pieza["fecha"] else "")
+                 + ". Respondé en UNA o dos líneas: decile que abajo tiene el recuadro para ajustar y publicar"
+                 + (" y que elija el canal" if not pieza["canal"] else "") + ". NO repitas la pieza.")
+        return aviso, {"__pieza__": pieza}
     if nombre == "analizar_corpus":
         resumen, res = analizar(consulta)
         return "CONTEOS REALES del corpus (exactos, NO los recalcules):\n" + resumen + "\n\n" + contexto(res), res
@@ -642,9 +689,16 @@ def _ejecutar_tool(nombre, args):
 
 
 def responder(historial):
+    """Compatibilidad: devuelve (texto, materiales, query). Ver responder_con_pieza."""
+    texto, mostrar, query, _pieza = responder_con_pieza(historial)
+    return texto, mostrar, query
+
+
+def responder_con_pieza(historial):
     """historial: lista de {'role','content'} (los mensajes del asistente pueden traer
-    'mats' con el material que ya se mostró en la charla). El modelo decide si buscar o
-    conversar. Devuelve (texto, materiales_para_mostrar, query_usada)."""
+    'mats' con el material que ya se mostró en la charla). El modelo decide si buscar,
+    conversar o proponer publicar. Devuelve (texto, materiales_para_mostrar, query_usada, pieza):
+    pieza es None o el dict para el recuadro 'Publicar esta pieza' (24/9)."""
     mensajes = [{"role": "system", "content": system_msg()}] + [
         {"role": m["role"], "content": m["content"]} for m in historial]
     # Fix 2: recordar el material YA encontrado en la conversación (último turno con mats),
@@ -675,15 +729,16 @@ def responder(historial):
             break
     dur_hint = _detectar_duracion_max(" ".join(usuarios[-2:]))
     mostrar = []
+    pieza = None
     cl = _get_client()
     try:
         resp = _chat(cl, mensajes, tools=TOOLS, tool_choice="auto",
-                     temperature=0.5, max_tokens=1000)
+                     temperature=0.5, max_tokens=2500)
     except Exception as e:
-        return f"Error llamando al modelo: {e}", mostrar, query
+        return f"Error llamando al modelo: {e}", mostrar, query, pieza
     msg = resp.choices[0].message
     if not msg.tool_calls:
-        return (msg.content or ""), mostrar, query
+        return (msg.content or ""), mostrar, query, pieza
     mensajes.append({
         "role": "assistant", "content": msg.content or "",
         "tool_calls": [{"id": tc.id, "type": "function",
@@ -702,11 +757,13 @@ def responder(historial):
             if dur_hint and not args.get("max_seg"):
                 args["max_seg"] = dur_hint       # tope de duración si pidieron videos cortos
         texto_tool, res = _ejecutar_tool(tc.function.name, args)
-        if res:
+        if isinstance(res, dict) and res.get("__pieza__"):
+            pieza = res["__pieza__"]
+        elif res:
             mostrar = res
         mensajes.append({"role": "tool", "tool_call_id": tc.id, "content": texto_tool})
     try:
         resp2 = _chat(cl, mensajes, temperature=0.5, max_tokens=1300)
-        return (resp2.choices[0].message.content or ""), mostrar, query
+        return (resp2.choices[0].message.content or ""), mostrar, query, pieza
     except Exception as e:
-        return f"Error llamando al modelo: {e}", mostrar, query
+        return f"Error llamando al modelo: {e}", mostrar, query, pieza
