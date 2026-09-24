@@ -49,6 +49,13 @@ st.session_state.setdefault("messages", [])
 st.session_state.setdefault("conv_id", None)
 st.session_state.setdefault("conv_titulo", None)
 
+# ---------------- Pestaña "Publicar" (24/9): solo para los usuarios listados ----------------
+# PUBLICAR_USUARIOS = "franco,julian" en secrets. Los switches por canal (PUBLICAR_WORDPRESS,
+# PUBLICAR_INSTAGRAM, PUBLICAR_FACEBOOK) también viven en secrets; ver publicar.py.
+_PUB_USUARIOS = [u.strip() for u in str(_sec("PUBLICAR_USUARIOS", "franco,julian")).split(",") if u.strip()]
+PUEDE_PUBLICAR = USUARIO in _PUB_USUARIOS
+st.session_state.setdefault("vista", "chat")
+
 
 @st.cache_resource(show_spinner="Cargando el corpus…")
 def _init():
@@ -85,7 +92,12 @@ def abrir(cid):
 # ---------------- Sidebar (estilo ChatGPT) ----------------
 with st.sidebar:
     st.markdown(f"**👤 {USUARIO}**")
+    if PUEDE_PUBLICAR:
+        _v = st.radio("Vista", ["💬 Chat", "📤 Publicar"], horizontal=True, label_visibility="collapsed",
+                      index=0 if st.session_state.vista == "chat" else 1)
+        st.session_state.vista = "chat" if _v.startswith("💬") else "publicar"
     if st.button("➕ Nueva conversación", use_container_width=True, type="primary"):
+        st.session_state.vista = "chat"
         st.session_state.messages = []
         st.session_state.conv_id = None
         st.session_state.conv_titulo = None
@@ -165,6 +177,11 @@ st.markdown(
     '<p class="vac-h-s">Br. David · Vivir Agradecidos</p></div></div>'
     '<hr class="vac-rule">', unsafe_allow_html=True)
 st.caption("Búsqueda y armado fundados solo en el material real de la Fundación. Los borradores son para revisión del equipo.")
+
+if PUEDE_PUBLICAR and st.session_state.vista == "publicar":
+    import publicar_ui
+    publicar_ui.render(USUARIO)
+    st.stop()
 
 
 def render_mats(mats):

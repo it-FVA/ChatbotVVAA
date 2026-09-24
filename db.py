@@ -55,9 +55,9 @@ def normalizar(mensajes):
     return out
 
 
-def _req(method, params="", body=None):
+def _req(method, params="", body=None, tabla="conversaciones"):
     url, key = _cfg()
-    full = f"{url}/rest/v1/conversaciones{params}"
+    full = f"{url}/rest/v1/{tabla}{params}"
     data = json.dumps(body).encode("utf-8") if body is not None else None
     req = urllib.request.Request(full, data=data, method=method, headers={
         "apikey": key, "Authorization": "Bearer " + key,
@@ -132,3 +132,26 @@ def guardar_mensajes(cid, mensajes):
 
 def borrar_conversacion(cid):
     _req("DELETE", f"?id=eq.{cid}")
+
+
+# ---------------- Publicaciones (pestaña Publicar) ----------------
+# Tabla creada el 24/9 (migración crear_publicaciones):
+#   publicaciones(id, creado, usuario, canal, modo, titulo, texto, imagen_url,
+#                 fecha_programada, estado, resultado jsonb)
+def registrar_publicacion(usuario, canal, modo, titulo, texto, imagen_url, fecha_programada, estado, resultado):
+    if not disponible():
+        return None
+    fila = {"usuario": usuario, "canal": canal, "modo": modo, "titulo": titulo, "texto": texto,
+            "imagen_url": imagen_url, "fecha_programada": fecha_programada, "estado": estado,
+            "resultado": resultado or {}}
+    r = _req("POST", "", fila, tabla="publicaciones")
+    return r[0]["id"] if r else None
+
+
+def listar_publicaciones(usuario=None, limite=30):
+    if not disponible():
+        return []
+    q = f"?select=id,creado,usuario,canal,modo,titulo,estado,fecha_programada&order=creado.desc&limit={limite}"
+    if usuario:
+        q += "&usuario=eq." + urllib.parse.quote(usuario)
+    return _req("GET", q, tabla="publicaciones")
