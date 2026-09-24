@@ -230,11 +230,61 @@ Cuando armás un posteo, una frase, un clip con copy o una sección de newslette
 Redactás borradores para revisión humana. Tono cálido, simple, sin sermonear, español rioplatense. Aclarás que es un borrador para curaduría del equipo. (Las conversaciones quedan guardadas en el espacio de trabajo de cada usuario; si te preguntan, confirmalo.)"""
 
 
+# ---------------------------------------------------------------------------
+# DATOS FIJOS (24/9). Julián le pegó al bot los datos de un evento y le pidió
+# "esta información no te la olvides"; el bot no tiene memoria entre chats.
+# Solución: un bloque corto que se suma al system message en cada respuesta.
+# Fuente, en este orden: DATOS_FIJOS_URL (secrets; un Sheet publicado como CSV/TXT
+# o cualquier URL de texto) si está y responde; si no, datos_fijos.md del repo.
+# Se relee cada 10 minutos, así un cambio de Julián entra sin redesplegar.
+# ---------------------------------------------------------------------------
+_DATOS_FIJOS_CACHE = {"t": 0.0, "txt": ""}
+
+
+def datos_fijos():
+    import time
+    ahora = time.time()
+    if ahora - _DATOS_FIJOS_CACHE["t"] < 600 and _DATOS_FIJOS_CACHE["txt"]:
+        return _DATOS_FIJOS_CACHE["txt"]
+    txt = ""
+    url = os.environ.get("DATOS_FIJOS_URL", "").strip()
+    if url:
+        try:
+            import urllib.request
+            with urllib.request.urlopen(url, timeout=6) as r:
+                txt = r.read().decode("utf-8", "replace")
+        except Exception:
+            txt = ""
+    if not txt:
+        try:
+            with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "datos_fijos.md"), encoding="utf-8") as f:
+                txt = f.read()
+        except Exception:
+            txt = ""
+    txt = txt.strip()[:6000]
+    _DATOS_FIJOS_CACHE.update(t=ahora, txt=txt)
+    return txt
+
+
+# Regla que sale de la primera pieza real de Julián (24/9): el bot presentó como
+# "bajadas" del artículo original frases que eran síntesis suyas, y solo lo
+# reconoció cuando Julián preguntó. Vale para los dos system messages.
+_REGLA_TEXTO_PROPIO = """
+═══ TEXTO QUE LA PERSONA TE PEGA ═══
+Si la persona te pega un texto suyo (un artículo, un guion, un borrador) y te pide usarlo, ese texto es una fuente más y vale la misma regla de fidelidad: lo que presentes como tomado de ahí tiene que ser TEXTUAL. Si lo adaptás, resumís o combinás con otra cosa, decilo de entrada ("esto es una síntesis mía, no cita textual") en vez de esperar a que te pregunten. Si te piden "respetar el texto original", usá solo fragmentos textuales y poné tu texto editorial (título, cierre, datos del evento) claramente aparte."""
+
+
 def system_msg():
-    """El system message vigente según el interruptor SYSTEM_MSG_V2."""
-    if os.environ.get("SYSTEM_MSG_V2", "0").strip() == "1":
-        return SYSTEM_MSG_V2
-    return SYSTEM_MSG
+    """El system message vigente según el interruptor SYSTEM_MSG_V2, más las reglas y datos fijos comunes."""
+    base = SYSTEM_MSG_V2 if os.environ.get("SYSTEM_MSG_V2", "0").strip() == "1" else SYSTEM_MSG
+    msg = base + "\n" + _REGLA_TEXTO_PROPIO
+    df = datos_fijos()
+    if df:
+        msg += ("\n\n═══ DATOS FIJOS DE LA FUNDACIÓN ═══\n"
+                "Datos operativos vigentes (eventos, lugares, nombres, contacto). Usalos tal cual cuando hagan falta; "
+                "no son material de Br. David ni se citan como fuente. Si la persona te da un dato que contradice esto, "
+                "usá el de la persona y avisale que el dato fijo está desactualizado.\n" + df)
+    return msg
 
 JUNK = re.compile(r"(suscr[íi]b|clic[k]?\s*(aqu[íi]|ac[áa])|haz\s*clic|hac[ée]\s*clic|inscrib[íi]|para mayor informaci|hasta la pr[óo]xima|dejo un momento a solas|los invito a volver|d[ée]jen(me)? sus comentarios|gracias por (acompañ|hacerme compañ)|much[íi]sim[ao]s?\s+gracias|un placer|nos vemos|desmute|pongan? las? c[áa]mara|una peque[ñn]a encuesta|levant[áa]?\s+la\s+mano|cerr[áa]\s+los\s+ojos|inhal|exhal|vamos a (dejar|girar|movernos)|hacia el otro lado|en c[áa]mara lenta|un par de giros)", re.I)
 
