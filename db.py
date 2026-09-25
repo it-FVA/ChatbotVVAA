@@ -149,6 +149,45 @@ def registrar_publicacion(usuario, canal, modo, titulo, texto, imagen_url, fecha
     return r[0]["id"] if r else None
 
 
+# ---------------- Cola de publicación (25/9) ----------------
+# Una pieza con fecha en un canal que no programa solo (Instagram; Facebook fuera de modo real)
+# se guarda con estado 'pendiente'. procesar_cola.py la publica cuando vence y la deja en
+# 'publicada' / 'simulada' / 'error'. Desde la app se puede cancelar ('cancelada').
+
+def encolar_publicacion(usuario, canal, modo, titulo, texto, imagen_url, fecha_programada, extra=None):
+    if not disponible():
+        return None
+    fila = {"usuario": usuario, "canal": canal, "modo": modo, "titulo": titulo, "texto": texto,
+            "imagen_url": imagen_url, "fecha_programada": fecha_programada, "estado": "pendiente",
+            "resultado": dict(extra or {}, encolada_por=usuario)}
+    r = _req("POST", "", fila, tabla="publicaciones")
+    return r[0]["id"] if r else None
+
+
+def listar_pendientes(vencidas=False, limite=50):
+    """Piezas en cola. vencidas=True: solo las que ya tienen que salir (fecha <= ahora)."""
+    if not disponible():
+        return []
+    q = (f"?estado=eq.pendiente&select=id,creado,usuario,canal,modo,titulo,texto,imagen_url,fecha_programada,intentos,resultado"
+         f"&order=fecha_programada.asc&limit={limite}")
+    if vencidas:
+        ahora = datetime.now(timezone.utc).isoformat()
+        q += "&fecha_programada=lte." + urllib.parse.quote(ahora)
+    return _req("GET", q, tabla="publicaciones")
+
+
+def actualizar_publicacion(pid, campos):
+    if not disponible():
+        return None
+    return _req("PATCH", f"?id=eq.{pid}", campos, tabla="publicaciones")
+
+
+def cancelar_publicacion(pid, usuario):
+    return actualizar_publicacion(pid, {"estado": "cancelada",
+                                        "procesado_en": datetime.now(timezone.utc).isoformat(),
+                                        "resultado": {"cancelada_por": usuario}})
+
+
 def listar_publicaciones(usuario=None, limite=30):
     if not disponible():
         return []

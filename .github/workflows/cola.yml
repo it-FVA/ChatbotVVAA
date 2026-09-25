@@ -1,0 +1,35 @@
+# Cola de publicación (25/9): una vez por hora saca las piezas pendientes que ya vencieron.
+# Los secrets se cargan en GitHub → Settings → Secrets and variables → Actions (ver README-cola.md).
+# El switch por canal vive acá también: cambiar PUBLICAR_* en los secrets del repo cambia lo que
+# hace la cola, sin tocar código. Sin `real` exacto, nada se publica.
+name: cola-de-publicacion
+
+on:
+  schedule:
+    - cron: "5 * * * *"        # cada hora, minuto 5 (UTC)
+  workflow_dispatch:           # botón "Run workflow" para correrla a mano
+
+jobs:
+  procesar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Procesar la cola
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          PUBLICAR_WORDPRESS: ${{ secrets.PUBLICAR_WORDPRESS }}
+          PUBLICAR_INSTAGRAM: ${{ secrets.PUBLICAR_INSTAGRAM }}
+          PUBLICAR_FACEBOOK: ${{ secrets.PUBLICAR_FACEBOOK }}
+          WP_SITE: ${{ secrets.WP_SITE }}
+          WP_USER: ${{ secrets.WP_USER }}
+          WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
+          META_IG_TOKEN: ${{ secrets.META_IG_TOKEN }}
+          META_IG_USER_ID: ${{ secrets.META_IG_USER_ID }}
+          META_FB_PAGE_ID: ${{ secrets.META_FB_PAGE_ID }}
+          META_FB_PAGE_TOKEN: ${{ secrets.META_FB_PAGE_TOKEN }}
+        run: python procesar_cola.py

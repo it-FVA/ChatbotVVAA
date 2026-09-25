@@ -636,8 +636,8 @@ TOOLS = [
             "texto": {"type": "string", "description": "El texto que se publica (el caption en Instagram/Facebook; el cuerpo de la entrada en WordPress). Para redes: TEXTO PLANO listo para pegar, sin markdown (sin **, #, >), sin rótulos como 'Copy:' ni 'Texto para la imagen:', sin links; la cita va entre comillas seguida del autor y el nombre de la fuente (ej. — Br. David, '¿Cuán grande es nuestra familia?'). Para WordPress puede llevar HTML simple y el link a la fuente. Sin introducción ni pregunta final. Para un carrusel, las slides separadas por '---'."},
             "texto_imagen": {"type": "string", "description": "Si la pieza tiene un texto que va SOBRE la imagen (una frase corta, la cita para el diseño), ponelo acá, solo eso, sin comillas de markdown. Vacío si no aplica."},
             "titulo": {"type": "string", "description": "Título corto de la pieza (obligatorio si es entrada de WordPress; en redes es solo para el registro). No repetir el texto."},
-            "canal": {"type": "string", "enum": ["wordpress", "instagram", "facebook", ""],
-                      "description": "Canal SOLO si la persona lo dijo (entrada/blog/artículo/newsletter → wordpress). Si no lo dijo, dejalo vacío: el recuadro se lo pide."},
+            "canal": {"type": "string", "enum": ["wordpress", "instagram", "facebook", "youtube", ""],
+                      "description": "Canal SOLO si la persona lo dijo (entrada/blog/artículo/newsletter → wordpress; video/clip para YouTube → youtube, y entonces texto = la descripción del video). Si no lo dijo, dejalo vacío: el recuadro se lo pide."},
             "fecha": {"type": "string", "description": "YYYY-MM-DD si la persona pidió un día ('el sábado', 'mañana', '15/11'); vacío si no."},
             "hora": {"type": "string", "description": "HH:MM si la persona pidió una hora; vacío si no."},
             "imagen_busqueda": {"type": "string", "description": "2 a 4 palabras en español con el tema visual para buscar una imagen en el banco (ej. 'amanecer montaña calma')."}},
@@ -667,7 +667,7 @@ def _ejecutar_tool(nombre, args):
         canal = (args.get("canal") or "").strip().lower()
         fecha = (args.get("fecha") or "").strip()
         hora = (args.get("hora") or "").strip()
-        pieza = {"canal": canal if canal in ("wordpress", "instagram", "facebook") else "",
+        pieza = {"canal": canal if canal in ("wordpress", "instagram", "facebook", "youtube") else "",
                  "fecha": fecha if re.fullmatch(r"\d{4}-\d{2}-\d{2}", fecha) else "",
                  "hora": hora if re.fullmatch(r"\d{1,2}:\d{2}", hora) else "",
                  "titulo": (args.get("titulo") or "").strip()[:150],

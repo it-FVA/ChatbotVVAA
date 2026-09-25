@@ -38,6 +38,9 @@ REGISTRO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "registro_pu
 MODOS_WP = ("apagado", "simulado", "borrador", "real")
 MODOS_IG = ("apagado", "simulado", "real")
 MODOS_FB = ("apagado", "simulado", "real")    # real requiere META_FB_PAGE_ID y META_FB_PAGE_TOKEN (24/9)
+MODOS_YT = ("apagado", "simulado", "privado", "real")   # (25/9) privado = sube el video como PRIVADO (se revisa en YouTube Studio)
+YT_TOKEN_URL = "https://oauth2.googleapis.com/token"
+YT_UPLOAD_URL = "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status"
 IG_HOST = "https://graph.instagram.com/v21.0"
 FB_HOST = "https://graph.facebook.com/v21.0"
 
@@ -72,7 +75,20 @@ class Config:
         if self.modo_ig not in MODOS_IG:
             self.modo_ig = "apagado"
         if self.modo_fb not in MODOS_FB:
-            self.modo_fb = "apagado"       # "real" en Facebook todavía no existe: cae a apagado
+            self.modo_fb = "apagado"
+        self.modo_yt = g("PUBLICAR_YOUTUBE").lower() or "apagado"
+        if self.modo_yt not in MODOS_YT:
+            self.modo_yt = "apagado"
+        # YouTube: el permiso otorgado (youtube_token.json) puede venir pegado en un secret
+        # (YOUTUBE_TOKEN_JSON) o como archivo al lado de clave.env. Nunca se imprime.
+        self.yt_token_json = g("YOUTUBE_TOKEN_JSON")
+        if not self.yt_token_json:
+            for p in (os.path.join(BASE, "youtube_token.json"),
+                      os.path.join(BASE, "fva-transcripcion", "youtube_token.json"),
+                      os.path.join(os.path.dirname(BASE), "fva-transcripcion", "youtube_token.json")):
+                if os.path.exists(p):
+                    self.yt_token_json = open(p, encoding="utf-8").read()
+                    break
         self.wp_site = g("WP_SITE").replace("https://", "").replace("http://", "").strip("/")
         self.wp_user = g("WP_USER")
         self.wp_pass = g("WP_APP_PASSWORD")
@@ -82,7 +98,8 @@ class Config:
         self.fb_token = g("META_FB_PAGE_TOKEN")
 
     def resumen(self):
-        return {"wordpress": self.modo_wp, "instagram": self.modo_ig, "facebook": self.modo_fb,
+        return {"wordpress": self.modo_wp, "instagram": self.modo_ig, "facebook": self.modo_fb, "youtube": self.modo_yt,
+                "yt_configurado": bool(self.yt_token_json),
                 "wp_configurado": bool(self.wp_site and self.wp_user and self.wp_pass),
                 "ig_configurado": bool(self.ig_token and self.ig_id),
                 "fb_configurado": bool(self.fb_page_id and self.fb_token)}
@@ -391,3 +408,100 @@ if __name__ == "__main__":
     cfg = Config()
     print("Modos activos:", json.dumps(cfg.resumen(), ensure_ascii=False))
     print("Registro:", REGISTRO)
+
+
+# ----------------------------------------------------------------------------- YouTube (25/9)
+
+def _yt_access_token(cfg):
+    """Cambia el refresh_token guardado por un access_token vigente (1 h). Sin librerías de Google."""
+    try:
+        t = json.loads(cfg.yt_token_json)
+    except Exception:
+        return None, {"message": "YOUTUBE_TOKEN_JSON / youtube_token.json no es un JSON válido"}
+    data = urllib.parse.urlencode({"client_id": t.get("client_id"), "client_secret": t.get("client_secret"),
+                                   "refresh_token": t.get("refresh_token"), "grant_type": "refresh_token"}).encode()
+    r, err = _http(YT_TOKEN_URL, "POST", {"Content-Type": "application/x-www-form-urlencoded"}, data)
+    if not r or not r.get("access_token"):
+        return None, err or r
+    return r["access_token"], None
+
+
+def publicar_youtube(cfg, video_bytes, titulo, descripcion, quien="", fecha=None, etiquetas=None, nombre_archivo="video.mp4"):
+    """Sube un video al canal. Modos:
+       apagado  -> nada
+       simulado -> arma la ficha (título, descripción) y la muestra; no sube
+       privado  -> sube el video como PRIVADO (se revisa y se publica desde YouTube Studio)
+       real     -> sube como PÚBLICO; con fecha futura lo deja privado con publishAt (YouTube lo publica solo)
+    Con la app de Google en modo Prueba, YouTube deja los videos subidos por API en privado
+    hasta que la app pase la verificación, aunque se pida público."""
+    modo = cfg.modo_yt
+    pieza = {"title": (titulo or "")[:100], "description": (descripcion or "")[:5000],
+             "tags": list(etiquetas or [])[:20], "fecha_programada": fecha}
+    base = {"canal": "youtube", "accion": "video", "modo": modo, "quien": quien, "titulo": pieza["title"],
+            "archivo": nombre_archivo, "bytes": len(video_bytes or b"")}
+    if modo == "apagado":
+        _registrar({**base, "resultado": "no se hizo nada (apagado)"})
+        return {"ok": False, "modo": modo, "aviso": "YouTube está apagado.", "pieza": pieza}
+    if modo == "simulado":
+        _registrar({**base, "resultado": "simulado", "pieza": pieza})
+        return {"ok": True, "modo": modo, "pieza": pieza,
+                "aviso": "Simulado: así quedaría la ficha del video en YouTube. No se subió nada."}
+    if modo not in ("privado", "real"):
+        return {"ok": False, "modo": modo, "aviso": "Modo desconocido; no se sube.", "pieza": pieza}
+    if not cfg.yt_token_json:
+        return {"ok": False, "modo": modo, "aviso": "Falta el permiso de YouTube (YOUTUBE_TOKEN_JSON o youtube_token.json).", "pieza": pieza}
+    if not video_bytes:
+        return {"ok": False, "modo": modo, "aviso": "Falta el archivo de video.", "pieza": pieza}
+    if not pieza["title"]:
+        return {"ok": False, "modo": modo, "aviso": "YouTube exige un título.", "pieza": pieza}
+    token, err = _yt_access_token(cfg)
+    if not token:
+        _registrar({**base, "resultado": "error", "error": err})
+        return {"ok": False, "modo": modo, "aviso": "No pude renovar el permiso de YouTube: " + json.dumps(err, ensure_ascii=False)[:200], "pieza": pieza}
+    status = {"privacyStatus": "private", "selfDeclaredMadeForKids": False}
+    if modo == "real":
+        if fecha:
+            try:
+                dt = datetime.datetime.fromisoformat(fecha)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=datetime.timezone(datetime.timedelta(hours=-3)))
+                status["publishAt"] = dt.astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            except Exception:
+                return {"ok": False, "modo": modo, "aviso": "Fecha inválida.", "pieza": pieza}
+        else:
+            status["privacyStatus"] = "public"
+    meta = {"snippet": {"title": pieza["title"], "description": pieza["description"], "tags": pieza["tags"],
+                        "categoryId": "22"}, "status": status}
+    mime = mimetypes.guess_type(nombre_archivo)[0] or "video/mp4"
+    # 1) abrir la sesión de subida reanudable
+    req = urllib.request.Request(YT_UPLOAD_URL, data=json.dumps(meta).encode("utf-8"), method="POST", headers={
+        "Authorization": "Bearer " + token, "Content-Type": "application/json; charset=UTF-8",
+        "X-Upload-Content-Type": mime, "X-Upload-Content-Length": str(len(video_bytes))})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            upload_url = r.headers.get("Location")
+    except urllib.error.HTTPError as e:
+        err = e.read().decode("utf-8", "replace")[:300]
+        _registrar({**base, "resultado": "error", "error": err})
+        return {"ok": False, "modo": modo, "aviso": "YouTube no abrió la subida: " + err, "pieza": pieza}
+    if not upload_url:
+        return {"ok": False, "modo": modo, "aviso": "YouTube no devolvió la URL de subida.", "pieza": pieza}
+    # 2) mandar los bytes
+    req2 = urllib.request.Request(upload_url, data=video_bytes, method="PUT",
+                                  headers={"Content-Type": mime, "Content-Length": str(len(video_bytes))})
+    try:
+        with urllib.request.urlopen(req2, timeout=900) as r:
+            res = json.load(r)
+    except urllib.error.HTTPError as e:
+        err = e.read().decode("utf-8", "replace")[:300]
+        _registrar({**base, "resultado": "error", "error": err})
+        return {"ok": False, "modo": modo, "aviso": "YouTube rechazó el video: " + err, "pieza": pieza}
+    vid = res.get("id")
+    estado = (res.get("status") or {}).get("privacyStatus")
+    link = f"https://www.youtube.com/watch?v={vid}" if vid else None
+    _registrar({**base, "resultado": "SUBIDO", "id": vid, "privacidad": estado, "link": link, "pieza": pieza})
+    aviso = {"private": "Subido como PRIVADO: revisalo y publicalo desde YouTube Studio.",
+             "public": "Subido y PÚBLICO.", "unlisted": "Subido como no listado."}.get(estado, f"Subido ({estado}).")
+    if status.get("publishAt"):
+        aviso = f"Subido y programado: YouTube lo publica solo el {fecha[:16].replace('T', ' ')}."
+    return {"ok": True, "modo": modo, "id": vid, "link": link, "privacidad": estado, "pieza": pieza, "aviso": aviso}

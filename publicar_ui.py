@@ -26,10 +26,11 @@ MODO_TXT = {
     "apagado": ("⚫", "apagado: este canal no está disponible"),
     "simulado": ("🟡", "simulado: arma la pieza y la muestra, NO la manda"),
     "borrador": ("🟠", "borrador: la crea en WordPress sin publicar; vos la publicás desde el panel"),
+    "privado": ("🟠", "privado: sube el video como privado; vos lo publicás desde YouTube Studio"),
     "real": ("🔴", "REAL: publica de verdad"),
 }
-CANALES = ["WordPress", "Instagram", "Facebook"]
-CLAVE = {"WordPress": "wordpress", "Instagram": "instagram", "Facebook": "facebook"}
+CANALES = ["WordPress", "Instagram", "Facebook", "YouTube"]
+CLAVE = {"WordPress": "wordpress", "Instagram": "instagram", "Facebook": "facebook", "YouTube": "youtube"}
 
 
 def _cfg():
@@ -42,7 +43,7 @@ def _hook_registro(usuario):
         db.registrar_publicacion(
             usuario=usuario, canal=entrada.get("canal", ""), modo=entrada.get("modo", ""),
             titulo=(pieza.get("title") or entrada.get("titulo") or CONTEXTO_REGISTRO.get("titulo") or "")[:200],
-            texto=(pieza.get("content") or pieza.get("caption") or pieza.get("message") or "")[:5000],
+            texto=(pieza.get("content") or pieza.get("caption") or pieza.get("message") or pieza.get("description") or "")[:5000],
             imagen_url=pieza.get("image_url") or entrada.get("url"),
             fecha_programada=pieza.get("date") or pieza.get("fecha_programada") or CONTEXTO_REGISTRO.get("fecha"),
             estado=str(entrada.get("resultado", ""))[:60],
@@ -58,6 +59,8 @@ def _aviso(canal, modo, fecha_iso):
         a = f"Se arma la pieza tal cual saldría en {canal} y se muestra acá. **No se manda.**"
         if fecha_iso and canal == "Facebook":
             a += " (En modo real, Facebook sí acepta programación.)"
+    elif modo == "privado":
+        a = "Se sube el video a YouTube **como privado**. No lo ve nadie hasta que vos lo publiques desde YouTube Studio."
     elif modo == "borrador":
         a = "Se crea la entrada **en borrador** en viviragradecidos.org. No se publica ni sale por newsletter hasta que vos la publiques desde WordPress."
         if fecha_iso:
@@ -68,8 +71,13 @@ def _aviso(canal, modo, fecha_iso):
             a = f"**Modo REAL:** se programa en WordPress para el {fecha_iso[:16].replace('T', ' ')} y sale sola ese día (y por newsletter)."
         if fecha_iso and canal == "Facebook":
             a = f"**Modo REAL:** se programa en Facebook para el {fecha_iso[:16].replace('T', ' ')} (mínimo 10 minutos de anticipación)."
-    if fecha_iso and canal == "Instagram":
-        a += " ⚠ Instagram no permite programar por API: la fecha queda anotada en el registro."
+        if fecha_iso and canal == "YouTube":
+            a = f"**Modo REAL:** se sube ahora y YouTube lo publica solo el {fecha_iso[:16].replace('T', ' ')}."
+    if canal == "YouTube" and modo in ("privado", "real"):
+        a += " (Mientras la app de Google esté en modo Prueba, YouTube deja los videos subidos por API en privado.)"
+    if fecha_iso and _va_a_la_cola(canal, modo):
+        a = (f"**Queda en la cola** para el {fecha_iso[:16].replace('T', ' ')}: no se manda ahora. Ese día sale sola por {canal} "
+             f"con el modo que tenga el canal en ese momento (hoy **{modo}**" + (": se arma y se muestra, no se publica" if modo == "simulado" else "") + ").")
     return a
 
 
@@ -105,7 +113,7 @@ def _texto_plano(t):
 CONTEXTO_REGISTRO = {}   # título y texto_imagen del envío en curso, para el registro
 
 
-def _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, texto_imagen=""):
+def _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, texto_imagen="", video=None):
     """Ejecuta la publicación según el switch. Devuelve (res, imagen_url_final)."""
     imagen_id = None
     if canal in ("Instagram", "Facebook"):
@@ -121,17 +129,66 @@ def _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, 
             st.success("Imagen subida a la biblioteca de medios (ya queda en el banco).")
         elif res_img.get("aviso"):
             st.warning(res_img["aviso"] + " (para Instagram/Facebook la imagen tiene que estar en internet)")
+    # (25/9) Cola: si hay fecha y el canal no programa solo (Instagram siempre; Facebook fuera de
+    # modo real), la pieza NO se manda ahora: queda 'pendiente' y procesar_cola.py la saca ese día
+    # con el modo que tenga el canal en ese momento.
+    modo = cfg.resumen()[CLAVE[canal]]
+    if fecha_iso and _va_a_la_cola(canal, modo):
+        try:
+            pid = db.encolar_publicacion(usuario, CLAVE[canal], modo, titulo, texto, imagen_url,
+                                         fecha_iso + ZONA_HORARIA, extra={"texto_imagen": texto_imagen or None})
+        except Exception as e:
+            return {"ok": False, "modo": modo, "aviso": f"No pude guardar la pieza en la cola: {e}"}, imagen_url
+        if not pid:
+            return {"ok": False, "modo": modo, "aviso": "No pude guardar la pieza en la cola (¿falta Supabase en los secrets?)."}, imagen_url
+        cuando = fecha_iso[:16].replace("T", " ")
+        return {"ok": True, "modo": modo, "encolada": True, "id": pid,
+                "aviso": f"Quedó en la cola para el {cuando}. Ese día sale sola por {canal}, con el modo que tenga el canal en ese momento (hoy: {modo}). "
+                         "Podés cancelarla desde «Piezas en cola» en la barra lateral.",
+                "pieza": {"image_url": imagen_url, "caption" if canal == "Instagram" else "message": texto, "fecha_programada": fecha_iso}}, imagen_url
     with st.spinner("Armando la pieza…"):
         if canal == "WordPress":
             res = publicar.publicar_wordpress(cfg, titulo.strip(), texto, imagen_id=imagen_id,
                                               quien=usuario, fecha=fecha_iso)
         elif canal == "Instagram":
             res = publicar.publicar_instagram(cfg, imagen_url or "", texto, quien=usuario)
-            if fecha_iso and res.get("pieza") is not None:
-                res["pieza"]["fecha_programada"] = fecha_iso
+        elif canal == "YouTube":
+            res = publicar.publicar_youtube(cfg, video.getvalue() if video is not None else b"", titulo.strip(), texto,
+                                            quien=usuario, fecha=fecha_iso,
+                                            nombre_archivo=(video.name if video is not None else "video.mp4"))
         else:
             res = publicar.publicar_facebook(cfg, imagen_url, texto, quien=usuario, fecha=fecha_iso)
     return res, imagen_url
+
+
+ZONA_HORARIA = "-03:00"   # Argentina; las fechas del recuadro son hora local
+
+
+def _va_a_la_cola(canal, modo):
+    if modo in ("apagado",):
+        return False
+    if canal == "Instagram":
+        return True                      # la API de Instagram no programa
+    if canal == "Facebook":
+        return modo != "real"            # en real programa Facebook mismo
+    return False                         # WordPress y YouTube programan nativo (o el video no se puede guardar en cola)                         # WordPress programa nativo (borrador con fecha / future)
+
+
+def piezas_en_cola_sidebar(usuario):
+    """Expander en la barra lateral con las pendientes y un botón para cancelar cada una."""
+    try:
+        pend = db.listar_pendientes()
+    except Exception:
+        return
+    if not pend:
+        return
+    with st.expander(f"🗓 Piezas en cola ({len(pend)})"):
+        for p in pend:
+            f = str(p.get("fecha_programada") or "")[:16].replace("T", " ")
+            st.markdown(f"**{f}** · {p.get('canal')} · {(p.get('titulo') or p.get('texto') or '')[:40]}")
+            if st.button("Cancelar", key=f"cancel_{p['id']}"):
+                db.cancelar_publicacion(p["id"], usuario)
+                st.rerun()
 
 
 def _mostrar_resultado(res, canal, modo, titulo, texto, archivo, imagen_url, fecha_iso, texto_imagen=""):
@@ -141,6 +198,8 @@ def _mostrar_resultado(res, canal, modo, titulo, texto, archivo, imagen_url, fec
         st.error(res.get("aviso", "No se pudo."))
     if res.get("link_editar"):
         st.markdown(f"[Abrir el borrador en WordPress ↗]({res['link_editar']})")
+    if res.get("link") and canal == "YouTube":
+        st.markdown(f"[Ver el video en YouTube ↗]({res['link']})")
     if modo == "simulado" or res.get("pieza"):
         with st.container(border=True):
             st.markdown(f"**Así quedaría en {canal}:**")
@@ -169,7 +228,7 @@ def formulario(usuario, key, pieza=None, compacto=False):
     k = lambda s: f"pub_{key}_{s}"
 
     # Canal: precompletado solo si la persona lo dijo; si no, hay que elegirlo
-    idx = {"wordpress": 0, "instagram": 1, "facebook": 2}.get(pieza.get("canal") or "", None)
+    idx = {"wordpress": 0, "instagram": 1, "facebook": 2, "youtube": 3}.get(pieza.get("canal") or "", None)
     canal = st.radio("Canal", CANALES, horizontal=True, index=idx, key=k("canal"))
     if canal is None:
         st.caption("Elegí el canal para ver qué va a pasar al enviar.")
@@ -180,18 +239,22 @@ def formulario(usuario, key, pieza=None, compacto=False):
         st.caption(f"{icono} {canal} en modo **{modo}** — {txt}")
 
     # Título y texto
-    titulo = st.text_input("Título" + (" (obligatorio en WordPress)" if canal == "WordPress" else " (opcional, para el registro)"),
+    titulo = st.text_input("Título" + (" (obligatorio)" if canal in ("WordPress", "YouTube") else " (opcional, para el registro)"),
                            value=pieza.get("titulo", ""), key=k("titulo"))
     texto_imagen = ""
     if pieza.get("texto_imagen") or not compacto:
         texto_imagen = st.text_input("Texto sobre la imagen (para el diseño; no se publica como caption)",
                                      value=pieza.get("texto_imagen", ""), key=k("timg"))
-    texto = st.text_area("Texto de la pieza" + (" (el caption)" if canal in ("Instagram", "Facebook") else ""),
+    texto = st.text_area("Texto de la pieza" + (" (el caption)" if canal in ("Instagram", "Facebook") else " (la descripción del video)" if canal == "YouTube" else ""),
                          value=pieza.get("texto", ""), height=160 if compacto else 220, key=k("texto"),
                          placeholder="Escribí la pieza o pedísela al bot en el chat. En WordPress podés usar HTML simple.")
 
+    # YouTube: el archivo de video (no hay banco de videos)
+    video = None
+    if canal == "YouTube":
+        video = st.file_uploader("Video (mp4, mov)", type=["mp4", "mov", "m4v", "webm"], key=k("video"))
     # Imagen: banco primero; URL o archivo como excepción
-    st.markdown("**Imagen**")
+    st.markdown("**Imagen**" + (" (opcional en YouTube: queda solo en el registro)" if canal == "YouTube" else ""))
     cb1, cb2 = st.columns([4, 1])
     consulta = cb1.text_input("Buscar en el banco de imágenes", value=pieza.get("imagen_busqueda", ""), key=k("busq"),
                               placeholder="ej. amanecer montaña calma", label_visibility="collapsed")
@@ -243,10 +306,13 @@ def formulario(usuario, key, pieza=None, compacto=False):
         if not texto.strip():
             st.error("Falta el texto de la pieza.")
             return
-        if canal == "WordPress" and not titulo.strip():
-            st.error("En WordPress hace falta un título.")
+        if canal in ("WordPress", "YouTube") and not titulo.strip():
+            st.error(f"En {canal} hace falta un título.")
             return
-        res, imagen_url = _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, texto_imagen)
+        if canal == "YouTube" and video is None and modo != "simulado":
+            st.error("Falta el archivo de video.")
+            return
+        res, imagen_url = _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, texto_imagen, video=video)
         _mostrar_resultado(res, canal, modo, titulo, texto if canal == "WordPress" else _texto_plano(texto),
                            archivo, imagen_url, fecha_iso, texto_imagen)
 
@@ -269,7 +335,7 @@ def render(usuario):
     st.markdown("### 📤 Publicar una pieza")
     st.caption("Lo normal es publicar desde el chat, debajo de la respuesta del bot. Esta pantalla es para piezas que no salen de una conversación.")
     with st.container(border=True):
-        cols = st.columns(3)
+        cols = st.columns(4)
         for col, nombre in zip(cols, CANALES):
             modo = r[CLAVE[nombre]]
             icono, txt = MODO_TXT.get(modo, ("⚫", modo))

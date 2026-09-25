@@ -102,6 +102,9 @@ with st.sidebar:
             st.query_params.clear()
             st.session_state.vista = "chat"
             st.rerun()
+    if PUEDE_PUBLICAR:
+        import publicar_ui
+        publicar_ui.piezas_en_cola_sidebar(USUARIO)
     if st.button("➕ Nueva conversación", use_container_width=True, type="primary"):
         st.session_state.vista = "chat"
         st.session_state.messages = []
