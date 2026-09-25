@@ -6,8 +6,8 @@ name: cola-de-publicacion
 
 on:
   schedule:
-    - cron: "5 * * * *"        # cada hora, minuto 5 (UTC)
-  workflow_dispatch:           # botón "Run workflow" para correrla a mano
+    - cron: "*/15 * * * *"     # cada 15 min pedido; GitHub lo corre "cuando puede" (25/9: demoras de horas vistas)
+  workflow_dispatch:           # botón "Run workflow" para correrla a mano; también lo dispara un cron externo (cron-job.org)
 
 jobs:
   procesar:
