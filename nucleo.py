@@ -450,11 +450,16 @@ def buscar(consulta, n=6, excluir=None, fuente=None, autor=None, max_seg=None, r
 
 
 def contexto(res):
+    """El material que ve el modelo. Hasta el 26/9 se mandaban solo los primeros 280 caracteres
+    de cada fragmento (y los fragmentos tienen ~950): el bot no podía citar lo que no veía y decía
+    que el pasaje "aparece recortado" (hallazgo de la vigilancia del 26/9, consulta de Pato sobre
+    Dignidad Humana). Ahora va el fragmento entero; CONTEXTO_CHARS en secrets lo acota si hace falta."""
+    tope = _env_int("CONTEXTO_CHARS", 1200)
     lines = ["MATERIAL DISPONIBLE (usá solo esto):"]
     for i, r in enumerate(res, 1):
         ref = r.get("ir") or r.get("url") or r["tag"]
         lines.append(f'[{i}] {r["tag"]} · {r["autor"]} · "{r["titulo"]}" · {ref}')
-        lines.append(f'    "{r["texto"][:280]}"')
+        lines.append(f'    "{r["texto"][:tope]}"')
     return "\n".join(lines)
 
 
