@@ -605,7 +605,8 @@ TOOLS = [
                         "con una pieza final (posteo, frase, carrusel, entrada, copy)."),
         "parameters": {"type": "object", "properties": {
             "texto": {"type": "string", "description": "El texto que se publica (el caption en Instagram/Facebook; el cuerpo de la entrada en WordPress). Para redes: TEXTO PLANO listo para pegar, sin markdown (sin **, #, >), sin rótulos como 'Copy:' ni 'Texto para la imagen:', sin links; la cita va entre comillas seguida del autor y el nombre de la fuente (ej. — Br. David, '¿Cuán grande es nuestra familia?'). Para WordPress puede llevar HTML simple y el link a la fuente. Sin introducción ni pregunta final. Para un carrusel, las slides separadas por '---'."},
-            "texto_imagen": {"type": "string", "description": "Si la pieza tiene un texto que va SOBRE la imagen (una frase corta, la cita para el diseño), ponelo acá, solo eso, sin comillas de markdown. Vacío si no aplica."},
+            "texto_imagen": {"type": "string", "description": "Si la pieza tiene un texto que va SOBRE la imagen (una frase corta, la cita para el diseño), ponelo acá, solo eso, sin comillas de markdown y SIN la firma (la firma va aparte). Vacío si no aplica."},
+            "firma": {"type": "string", "description": "Quién dice la frase de la imagen, como se firma en la pieza: '— Br. David' por defecto; si es de un facilitador, su nombre ('— Andy Saporiti'). Vacío si no hay texto sobre la imagen."},
             "titulo": {"type": "string", "description": "Título corto de la pieza (obligatorio si es entrada de WordPress; en redes es solo para el registro). No repetir el texto."},
             "canal": {"type": "string", "enum": ["wordpress", "instagram", "facebook", "youtube", ""],
                       "description": "Canal SOLO si la persona lo dijo (entrada/blog/artículo/newsletter → wordpress; video/clip para YouTube → youtube, y entonces texto = la descripción del video). Si no lo dijo, dejalo vacío: el recuadro se lo pide."},
@@ -644,6 +645,7 @@ def _ejecutar_tool(nombre, args):
                  "titulo": (args.get("titulo") or "").strip()[:150],
                  "texto": (args.get("texto") or "").strip(),
                  "texto_imagen": (args.get("texto_imagen") or "").strip()[:400],
+                 "firma": (args.get("firma") or "").strip()[:60],
                  "imagen_busqueda": (args.get("imagen_busqueda") or "").strip()[:60]}
         if not pieza["texto"]:
             return "No se preparó el recuadro: faltó el texto de la pieza.", []

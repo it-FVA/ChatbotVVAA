@@ -9,6 +9,9 @@ Dos lugares, un solo formulario:
      que no nacen de una conversación.
 
 Una pieza = título (opcional), texto, imagen (del banco, por URL o archivo), canal, fecha (opcional).
+(28/9) Si hay "texto sobre la imagen" y el canal es Instagram o Facebook, el recuadro muestra la foto
+con la frase encima (imagen.py) y publica ESA imagen: se sube a la biblioteca de WordPress para tener
+URL pública y esa URL viaja a la red o a la cola. "Publicar así" destildado → va la foto sola.
 El botón hace lo que diga el switch de secrets.toml, y la pantalla dice siempre qué va a pasar:
     PUBLICAR_WORDPRESS = "borrador"   -> crea la entrada en borrador en viviragradecidos.org
     PUBLICAR_INSTAGRAM = "simulado"   -> arma el posteo y lo muestra; no lo manda
@@ -113,12 +116,55 @@ def _texto_plano(t):
 CONTEXTO_REGISTRO = {}   # título y texto_imagen del envío en curso, para el registro
 
 
-def _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, texto_imagen="", video=None):
+# (28/9) Texto sobre imagen: la pieza de redes es la foto del banco con la frase encima.
+# imagen.componer_imagen lo arma (Pillow); acá se cachea por contenido para no recomponer
+# en cada redibujo del formulario, y se decide qué imagen viaja a Instagram/Facebook.
+def _componer(fuente, texto_imagen, firma, formato):
+    """fuente: bytes o URL. Devuelve bytes JPEG con la frase encima, o None si falla."""
+    import hashlib
+    import imagen
+    h = hashlib.md5(fuente).hexdigest() if isinstance(fuente, (bytes, bytearray)) else str(fuente)
+    clave = f"{h}|{texto_imagen}|{firma}|{formato}"
+    cache = st.session_state.setdefault("compuesta_cache", {})
+    if clave not in cache:
+        try:
+            cache[clave] = imagen.componer_imagen(fuente, texto_imagen, firma=firma, formato=formato)
+        except Exception as e:
+            cache[clave] = None
+            st.warning(f"No pude componer la imagen: {e}")
+    return cache[clave]
+
+
+def _sin_firma_repetida(texto_imagen, firma):
+    """Si el bot ya puso '— Br. David' al final del texto de la imagen, no lo duplicamos."""
+    t = (texto_imagen or "").rstrip()
+    f = (firma or "").strip()
+    if f and t.endswith(f):
+        t = t[: -len(f)].rstrip(" \n—-–")
+    return t
+
+
+def _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, texto_imagen="", video=None, compuesta=None):
     """Ejecuta la publicación según el switch. Devuelve (res, imagen_url_final)."""
     imagen_id = None
     if canal in ("Instagram", "Facebook"):
         texto = _texto_plano(texto)
     CONTEXTO_REGISTRO.update(titulo=titulo, texto_imagen=texto_imagen, fecha=fecha_iso)
+    if compuesta is not None and canal in ("Instagram", "Facebook"):
+        # La imagen compuesta tiene que estar en internet para IG/FB: va a la biblioteca de WP.
+        nombre = f"pieza-{datetime.date.today().isoformat()}-{(titulo or texto)[:40]}".strip()
+        nombre = "".join(ch if ch.isalnum() or ch in "-_" else "-" for ch in nombre).strip("-") + ".jpg"
+        with st.spinner("Subiendo la imagen con la frase a la biblioteca de WordPress…"):
+            res_img = publicar.subir_imagen_wordpress(cfg, compuesta, nombre, titulo=titulo or texto[:60],
+                                                      quien=usuario, pieza=titulo or texto[:60],
+                                                      etiquetas=["pieza-compuesta"])
+        if res_img.get("url"):
+            imagen_url = res_img["url"]
+            archivo = None   # ya no hace falta subir la cruda
+        else:
+            st.warning((res_img.get("aviso") or "No se pudo subir la imagen compuesta.")
+                       + " Se publica la foto sin la frase encima."
+                       + (" (Para que funcione, WordPress tiene que estar en modo borrador o real.)" if res_img.get("modo") in ("apagado", "simulado") else ""))
     if archivo is not None:
         with st.spinner("Subiendo la imagen a la biblioteca de WordPress…"):
             res_img = publicar.subir_imagen_wordpress(cfg, archivo.getvalue(), archivo.name,
@@ -191,7 +237,7 @@ def piezas_en_cola_sidebar(usuario):
                 st.rerun()
 
 
-def _mostrar_resultado(res, canal, modo, titulo, texto, archivo, imagen_url, fecha_iso, texto_imagen=""):
+def _mostrar_resultado(res, canal, modo, titulo, texto, archivo, imagen_url, fecha_iso, texto_imagen="", compuesta=None):
     if res.get("ok"):
         st.success(res.get("aviso", "Listo."))
     else:
@@ -203,11 +249,13 @@ def _mostrar_resultado(res, canal, modo, titulo, texto, archivo, imagen_url, fec
     if modo == "simulado" or res.get("pieza"):
         with st.container(border=True):
             st.markdown(f"**Así quedaría en {canal}:**")
-            if archivo is not None:
+            if compuesta is not None:
+                st.image(compuesta, width=360)
+            elif archivo is not None:
                 st.image(archivo.getvalue(), width=360)
             elif imagen_url:
                 st.image(imagen_url, width=360)
-            if texto_imagen:
+            if texto_imagen and compuesta is None:
                 st.caption(f"Sobre la imagen: «{texto_imagen}»")
             if canal == "WordPress":
                 st.markdown(f"#### {titulo}")
@@ -280,6 +328,22 @@ def formulario(usuario, key, pieza=None, compacto=False):
     if url_manual.strip():
         imagen_url = url_manual.strip()
 
+    # (28/9) La frase encima de la foto: vista previa y elección de publicar así
+    compuesta = None
+    fuente = archivo.getvalue() if archivo is not None else imagen_url
+    if canal in ("Instagram", "Facebook") and fuente and texto_imagen.strip():
+        st.markdown("**Con la frase encima**")
+        cf1, cf2, cf3 = st.columns([2, 1, 1])
+        firma = cf1.text_input("Firma", value=pieza.get("firma") or "— Br. David", key=k("firma"))
+        formato = cf2.selectbox("Formato", ["cuadrado", "vertical", "historia"], key=k("fmt"))
+        usar = cf3.checkbox("Publicar así", value=True, key=k("usar_comp"),
+                            help="Si lo destildás, se publica la foto sola y el texto queda solo en el registro.")
+        compuesta = _componer(fuente, _sin_firma_repetida(texto_imagen.strip(), firma), firma.strip(), formato)
+        if compuesta is not None:
+            st.image(compuesta, width=360)
+            if not usar:
+                compuesta = None
+
     # Fecha
     c1, c2 = st.columns(2)
     programar = c1.checkbox("Programar para una fecha", value=bool(pieza.get("fecha")), key=k("prog"))
@@ -312,9 +376,10 @@ def formulario(usuario, key, pieza=None, compacto=False):
         if canal == "YouTube" and video is None and modo != "simulado":
             st.error("Falta el archivo de video.")
             return
-        res, imagen_url = _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, texto_imagen, video=video)
+        res, imagen_url = _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, texto_imagen,
+                                  video=video, compuesta=compuesta)
         _mostrar_resultado(res, canal, modo, titulo, texto if canal == "WordPress" else _texto_plano(texto),
-                           archivo, imagen_url, fecha_iso, texto_imagen)
+                           archivo, imagen_url, fecha_iso, texto_imagen, compuesta=compuesta)
 
 
 def recuadro(usuario, pieza, key, abierto=True):
