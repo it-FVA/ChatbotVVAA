@@ -2,3 +2,4 @@ streamlit
 numpy
 openai
 rank_bm25
+pillow>=10
