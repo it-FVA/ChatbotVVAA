@@ -152,15 +152,7 @@ QUIÉN HABLA. Hay facilitadores (Gawel, Fondevila, Mujica, Grehan, Saporiti, Mor
 - Si la persona no aclaró autor, buscá sin filtro, pero al mostrar dejá claro quién es quién: qué es de Br. David y qué es de un facilitador.
 - Si la consulta fue en español y un fragmento que vas a mostrar está en inglés, avisalo.
 
-═══ DISTINCIONES ═══
-Br. David traza distinciones que NO se mezclan. Si una consulta pide un lado, no traigas ni cites el otro como si fuera lo mismo:
-- Esperanza ≠ expectativa. La expectativa se dirige a algo que podemos imaginar; la esperanza es apertura a lo inimaginable, a la sorpresa. Lo opuesto a expectativa es desilusión; lo opuesto a esperanza es desesperación.
-- Gozo ≠ felicidad ordinaria. La felicidad depende de la buena suerte; el gozo brota de un corazón agradecido y no depende de las circunstancias.
-- Agradecido EN ≠ agradecido POR. No se puede estar agradecido por el sufrimiento o la pérdida; sí se puede estar agradecido en cada momento, por la oportunidad que contiene.
-- Fe ≠ creencias o dogmas. La fe es confianza valiente y radical en la Vida; no es adherir a doctrinas.
-- Confianza ≠ miedo. Lo opuesto a la confianza no es el descreimiento sino el temor.
-- Miedo ≠ angustia. La angustia es inevitable; el miedo es opcional.
-- Gratitud de Br. David ≠ pensamiento positivo o autoayuda. Se parecen en las palabras y son distintos en el fondo: la gratitud se dirige a un otro, a un dador; no es una técnica para sentirse mejor.
+{DISTINCIONES}
 
 ═══ CÓMO CONVERSÁS ═══
 Sos un COPILOTO que piensa CON la persona, no un buscador que escupe información. Tu modo por defecto es CONVERSAR: hacé preguntas, ofrecé ángulos, ayudá a dar forma a la idea, de a un paso y CORTO (una o dos ideas, o UNA pregunta por vez). Preferí una pregunta breve antes que una respuesta larga.
@@ -187,6 +179,79 @@ Cuando armás un posteo, una frase, un clip con copy o una sección de newslette
 - Si te piden armar contenido sobre un clip o rango puntual que NO tenés en el material, decilo; podés ofrecer un copy con tus palabras, SIN inventar citas.
 
 Redactás borradores para revisión humana. Tono cálido, simple, sin sermonear, español rioplatense. Aclarás que es un borrador para curaduría del equipo. (Las conversaciones quedan guardadas en el espacio de trabajo de cada usuario; si te preguntan, confirmalo.)"""
+
+
+# ---------------------------------------------------------------------------
+# DISTINCIONES (28/9). Pato completó la pestaña Distinciones del Sheet Taxonomía — MAESTRO
+# (22 pares "X ≠ Y" con síntesis y cita). Hasta hoy el bot tenía 7 escritas a mano acá.
+# Ahora las lee del Sheet publicado como CSV (DISTINCIONES_URL en secrets), igual que los
+# datos fijos: si Pato corrige una síntesis, entra sola. Se releen cada 10 minutos.
+# Si la URL falta o falla, quedan las 7 de respaldo.
+# ---------------------------------------------------------------------------
+_DISTINCIONES_RESPALDO = """- Esperanza ≠ expectativa. La expectativa se dirige a algo que podemos imaginar; la esperanza es apertura a lo inimaginable, a la sorpresa. Lo opuesto a expectativa es desilusión; lo opuesto a esperanza es desesperación.
+- Gozo ≠ felicidad ordinaria. La felicidad depende de la buena suerte; el gozo brota de un corazón agradecido y no depende de las circunstancias.
+- Agradecido EN ≠ agradecido POR. No se puede estar agradecido por el sufrimiento o la pérdida; sí se puede estar agradecido en cada momento, por la oportunidad que contiene.
+- Fe ≠ creencias o dogmas. La fe es confianza valiente y radical en la Vida; no es adherir a doctrinas.
+- Confianza ≠ miedo. Lo opuesto a la confianza no es el descreimiento sino el temor.
+- Miedo ≠ angustia. La angustia es inevitable; el miedo es opcional.
+- Gratitud de Br. David ≠ pensamiento positivo o autoayuda. Se parecen en las palabras y son distintos en el fondo: la gratitud se dirige a un otro, a un dador; no es una técnica para sentirse mejor."""
+_DISTINCIONES_CACHE = {"t": 0.0, "txt": ""}
+
+
+def _leer_distinciones_csv(texto_csv):
+    """CSV de la pestaña Distinciones → líneas '- Concepto ≠ Se distingue de. Síntesis'.
+    Columnas por nombre (no por posición): Concepto, Se distingue de, Síntesis…, Estado.
+    Se saltean las filas con Estado 'Descartar' y las que no tienen síntesis."""
+    import csv, io
+    filas = list(csv.reader(io.StringIO(texto_csv)))
+    if not filas:
+        return ""
+    enc = [c.strip().lower() for c in filas[0]]
+    def col(nombre):
+        for i, c in enumerate(enc):
+            if c.startswith(nombre):
+                return i
+        return None
+    ic, id_, isin, iest = col("concepto"), col("se distingue"), col("síntesis"), col("estado")
+    if ic is None or id_ is None or isin is None:
+        return ""
+    out = []
+    for f in filas[1:]:
+        if len(f) <= max(ic, id_, isin):
+            continue
+        c, d, sin = f[ic].strip(), f[id_].strip(), " ".join(f[isin].split())
+        est = f[iest].strip().lower() if iest is not None and len(f) > iest else ""
+        if not c or not d or not sin or est.startswith("descartar"):
+            continue
+        out.append(f"- {c} ≠ {d}. {sin}")
+    return "\n".join(out)
+
+
+def distinciones():
+    import time
+    ahora = time.time()
+    if ahora - _DISTINCIONES_CACHE["t"] < 600 and _DISTINCIONES_CACHE["txt"]:
+        return _DISTINCIONES_CACHE["txt"]
+    txt = ""
+    url = os.environ.get("DISTINCIONES_URL", "").strip()
+    if url:
+        try:
+            import urllib.request
+            with urllib.request.urlopen(url, timeout=8) as r:
+                txt = _leer_distinciones_csv(r.read().decode("utf-8", "replace"))
+        except Exception:
+            txt = ""
+    if not txt:
+        txt = _DISTINCIONES_RESPALDO
+    _DISTINCIONES_CACHE.update(t=ahora, txt=txt)
+    return txt
+
+
+def _bloque_distinciones():
+    return ("═══ DISTINCIONES ═══\n"
+            "Br. David traza distinciones que NO se mezclan. Si una consulta pide un lado, no traigas ni cites el otro "
+            "como si fuera lo mismo. Si la persona usa una palabra del lado \"equivocado\" (pide \"expectativas\" queriendo "
+            "decir esperanza), señalá la distinción en una línea antes de seguir:\n" + distinciones())
 
 
 # ---------------------------------------------------------------------------
@@ -252,7 +317,7 @@ Tenés la herramienta proponer_publicacion: prepara, debajo de tu respuesta, un 
 
 def system_msg():
     """El system message: el unificado (SYSTEM_MSG_V2) más las reglas y datos fijos comunes."""
-    msg = SYSTEM_MSG_V2 + "\n" + _REGLA_TEXTO_PROPIO + "\n" + _REGLA_PUBLICAR
+    msg = SYSTEM_MSG_V2.replace("{DISTINCIONES}", _bloque_distinciones()) + "\n" + _REGLA_TEXTO_PROPIO + "\n" + _REGLA_PUBLICAR
     df = datos_fijos()
     if df:
         msg += ("\n\n═══ DATOS FIJOS DE LA FUNDACIÓN ═══\n"

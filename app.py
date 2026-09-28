@@ -22,7 +22,8 @@ os.environ["SUPABASE_KEY"] = _sec("SUPABASE_KEY")
 # Streamlit Cloud, sin tocar código. Si no están en secrets, no cambia nada.
 for _k, _d in (("BUSQUEDA_HIBRIDA", "0"), ("LIMPIEZA_EXTRA", "0"),
                ("RERANK_CANDIDATOS", "15"), ("RERANK_CHARS", "150"), ("CONTEXTO_CHARS", "1200"),
-               ("DATOS_FIJOS_URL", "")):   # opcional: Sheet publicado; si está vacío, lee datos_fijos.md
+               ("DATOS_FIJOS_URL", ""),    # opcional: Sheet publicado; si está vacío, lee datos_fijos.md
+               ("DISTINCIONES_URL", "")):  # opcional: pestaña Distinciones publicada como CSV; si falta, 7 de respaldo
     os.environ[_k] = str(_sec(_k, _d))
 
 USUARIOS = dict(st.secrets.get("usuarios", {}))
