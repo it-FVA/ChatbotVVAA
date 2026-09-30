@@ -40,6 +40,13 @@ def _cfg():
     return publicar.Config(st.secrets)
 
 
+def _con_zona(fecha):
+    """La fecha del recuadro es hora Argentina sin zona; en la base va con -03:00 (29/9: se guardaba como UTC)."""
+    if fecha and len(fecha) >= 16 and fecha[-6] not in "+-" and not fecha.endswith("Z"):
+        return fecha + ZONA_HORARIA
+    return fecha
+
+
 def _hook_registro(usuario):
     def _f(entrada):
         pieza = entrada.get("pieza") or {}
@@ -48,7 +55,7 @@ def _hook_registro(usuario):
             titulo=(pieza.get("title") or entrada.get("titulo") or CONTEXTO_REGISTRO.get("titulo") or "")[:200],
             texto=(pieza.get("content") or pieza.get("caption") or pieza.get("message") or pieza.get("description") or "")[:5000],
             imagen_url=pieza.get("image_url") or entrada.get("url"),
-            fecha_programada=pieza.get("date") or pieza.get("fecha_programada") or CONTEXTO_REGISTRO.get("fecha"),
+            fecha_programada=_con_zona(pieza.get("date") or pieza.get("fecha_programada") or CONTEXTO_REGISTRO.get("fecha")),
             estado=str(entrada.get("resultado", ""))[:60],
             resultado=dict({k: v for k, v in entrada.items() if k not in ("pieza",)},
                            texto_imagen=CONTEXTO_REGISTRO.get("texto_imagen") or None))
@@ -154,10 +161,18 @@ def _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, 
         # La imagen compuesta tiene que estar en internet para IG/FB: va a la biblioteca de WP.
         nombre = f"pieza-{datetime.date.today().isoformat()}-{(titulo or texto)[:40]}".strip()
         nombre = "".join(ch if ch.isalnum() or ch in "-_" else "-" for ch in nombre).strip("-") + ".jpg"
-        with st.spinner("Subiendo la imagen con la frase a la biblioteca de WordPress…"):
-            res_img = publicar.subir_imagen_wordpress(cfg, compuesta, nombre, titulo=titulo or texto[:60],
-                                                      quien=usuario, pieza=titulo or texto[:60],
-                                                      etiquetas=["pieza-compuesta"])
+        import hashlib
+        subidas = st.session_state.setdefault("compuesta_subidas", {})   # md5 → url (29/9: 3 intentos = 3 copias en WP)
+        h = hashlib.md5(compuesta).hexdigest()
+        if h in subidas:
+            res_img = {"url": subidas[h]}
+        else:
+            with st.spinner("Subiendo la imagen con la frase a la biblioteca de WordPress…"):
+                res_img = publicar.subir_imagen_wordpress(cfg, compuesta, nombre, titulo=titulo or texto[:60],
+                                                          quien=usuario, pieza=titulo or texto[:60],
+                                                          etiquetas=["pieza-compuesta"])
+            if res_img.get("url"):
+                subidas[h] = res_img["url"]
         if res_img.get("url"):
             imagen_url = res_img["url"]
             archivo = None   # ya no hace falta subir la cruda

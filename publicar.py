@@ -50,6 +50,25 @@ REGISTRAR_EXTRA = None
 
 # ----------------------------------------------------------------------------- configuración
 
+
+ZONA_ARGENTINA = datetime.timezone(datetime.timedelta(hours=-3))
+
+
+def _fecha_local(fecha):
+    """'AAAA-MM-DDTHH:MM[:SS]' (hora Argentina, sin zona) → datetime con zona -03:00.
+    (29/9) Julián programó para las 12:50 y Facebook dijo "10 minutos de anticipación": el recuadro
+    manda la hora local sin zona y el servidor de Streamlit Cloud está en UTC, así que 12:50 se
+    tomaba como 09:50 de Argentina. Todo lo que compara fechas pasa por acá."""
+    dt = datetime.datetime.fromisoformat(fecha)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=ZONA_ARGENTINA)
+    return dt
+
+
+def _ahora_local():
+    return datetime.datetime.now(ZONA_ARGENTINA)
+
+
 def _cargar_env(path):
     if os.path.exists(path):
         for ln in open(path, encoding="utf-8"):
@@ -254,7 +273,7 @@ def publicar_wordpress(cfg, titulo, contenido_html, imagen_id=None, categorias=N
     pieza = {"title": titulo, "content": contenido_html, "status": "publish" if modo == "real" else "draft"}
     if fecha:
         pieza["date"] = fecha
-        if modo == "real" and fecha > datetime.datetime.now().isoformat(timespec="seconds"):
+        if modo == "real" and _fecha_local(fecha) > _ahora_local():
             pieza["status"] = "future"
     if imagen_id:
         pieza["featured_media"] = imagen_id
@@ -376,7 +395,7 @@ def publicar_facebook(cfg, imagen_url, texto, quien="", fecha=None):
     params = {"access_token": cfg.fb_token}
     if fecha:
         try:
-            ts = int(datetime.datetime.fromisoformat(fecha).timestamp())
+            ts = int(_fecha_local(fecha).timestamp())
         except Exception:
             return {"ok": False, "modo": modo, "aviso": "Fecha inválida.", "pieza": pieza}
         if ts < time.time() + 600:
@@ -462,9 +481,7 @@ def publicar_youtube(cfg, video_bytes, titulo, descripcion, quien="", fecha=None
     if modo == "real":
         if fecha:
             try:
-                dt = datetime.datetime.fromisoformat(fecha)
-                if dt.tzinfo is None:
-                    dt = dt.replace(tzinfo=datetime.timezone(datetime.timedelta(hours=-3)))
+                dt = _fecha_local(fecha)
                 status["publishAt"] = dt.astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
             except Exception:
                 return {"ok": False, "modo": modo, "aviso": "Fecha inválida.", "pieza": pieza}
