@@ -60,6 +60,23 @@ MODOS = {
     "C · híbrida + reranker ampliado": {"BUSQUEDA_HIBRIDA": "1", "LIMPIEZA_EXTRA": "1", "RERANK_CANDIDATOS": "50", "RERANK_CHARS": "400"},
 }
 
+# (5/10) Expansión de consulta: producción tal cual está hoy, con y sin los Conceptos relacionados
+# de Pato (CONCEPTOS_URL tiene que estar en secrets.toml). Se usa con --expansion.
+MODOS_EXPANSION = {
+    "P · producción sin expansión": {"EXPANSION_CONSULTA": "0"},
+    "X · producción con expansión": {"EXPANSION_CONSULTA": "1"},
+}
+CONSULTAS_EXPANSION = [
+    "¿Qué dice Br. David sobre la responsabilidad?",
+    "Material para una pieza sobre el Día del Voluntariado (servir, gratitud en acción)",
+    "¿Cómo encontrar mi vocación?",
+    "Una frase sobre el desarraigo y la necesidad de echar raíces",
+    "Material para un posteo sobre el silencio interior",
+    "¿Qué es la obediencia entendida como escucha?",
+    "¿Qué significa el ego para Br. David?",
+    "¿Qué es el ocio para Br. David?",
+]
+
 
 def _norm(s):
     s = unicodedata.normalize("NFD", s or "")
@@ -107,6 +124,8 @@ def main():
     ap.add_argument("--con-reranker", action="store_true", help="agregar el modo C")
     ap.add_argument("--n", type=int, default=6, help="resultados por modo (la app usa 6)")
     ap.add_argument("--autor", default="Br. David", help='filtro de autor; "" para no filtrar')
+    ap.add_argument("--expansion", action="store_true",
+                    help="comparar producción con y sin expansión de consulta (Conceptos relacionados)")
     args = ap.parse_args()
 
     if not os.environ.get("OPENAI_API_KEY"):
@@ -114,11 +133,18 @@ def main():
 
     import nucleo
 
-    modos = dict(MODOS)
-    if not args.con_reranker:
-        modos.pop("C · híbrida + reranker ampliado")
-
-    consultas = args.consulta or (consultas_dificiles() if args.dificiles else CONSULTAS_DEFAULT)
+    if args.expansion:
+        if not os.environ.get("CONCEPTOS_URL"):
+            raise SystemExit("Falta CONCEPTOS_URL en secrets.toml: sin eso la expansión no hace nada.")
+        modos = dict(MODOS_EXPANSION)
+        consultas = args.consulta or CONSULTAS_EXPANSION
+        salida = "comparacion-expansion.md"
+    else:
+        modos = dict(MODOS)
+        if not args.con_reranker:
+            modos.pop("C · híbrida + reranker ampliado")
+        consultas = args.consulta or (consultas_dificiles() if args.dificiles else CONSULTAS_DEFAULT)
+        salida = "comparacion-busqueda.md"
 
     # --- prueba de humo: una consulta por modo; si algo revienta, se ve acá ---
     print("Prueba de humo…")
@@ -152,6 +178,9 @@ def main():
         en_todos = set.intersection(*docs_por_modo.values()) if docs_por_modo else set()
 
         lineas.append(f"---\n\n## {q}\n")
+        if args.expansion:
+            extra = nucleo.expandir_consulta(q)
+            lineas.append(f"_Términos que sumó la expansión:_ **{extra or '(ninguno: la consulta no toca ninguna faceta cargada)'}**\n")
         for nombre, rs in res.items():
             lineas.append(f"### {nombre}\n")
             if not rs:
@@ -165,10 +194,10 @@ def main():
         resumen = " · ".join(f"{m.split(' ·')[0]}: {len(v)} propios" for m, v in solo.items())
         lineas.append(f"**Resumen:** {len(en_todos)} pasajes en común · {resumen}\n")
 
-    out = os.path.join(HERE, "comparacion-busqueda.md")
+    out = os.path.join(HERE, salida)
     with open(out, "w", encoding="utf-8") as f:
         f.write("\n".join(lineas))
-    poner_modo(MODOS["A · como está hoy"])   # dejar el entorno como estaba
+    poner_modo(MODOS["A · como está hoy"] if not args.expansion else {"EXPANSION_CONSULTA": "1"})   # dejar el entorno como estaba
     print(f"\nInforme: {out}")
     print("Abrilo y leé las columnas. La que trae pasajes que sirven, gana.")
 
