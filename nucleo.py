@@ -255,6 +255,131 @@ def _bloque_distinciones():
 
 
 # ---------------------------------------------------------------------------
+# EXPANSIÓN DE CONSULTA (5/10). La columna "Conceptos relacionados" de la pestaña
+# Facetas (Pato, 44 de 111 al 5/10) trae, para cada faceta, los 2-3 términos con que
+# Br. David nombra lo mismo. Si la consulta menciona el subtema, la faceta o uno de
+# esos términos, se agregan los demás a la búsqueda (vectorial: segundo embedding
+# fusionado por máximo, igual que la traducción al inglés; léxica: tokens extra en
+# BM25). No toca el system message ni lo que ve el modelo: solo qué se recupera.
+# Fuente: CONCEPTOS_URL (pestaña Facetas publicada como CSV), releída cada 10 min.
+# Interruptor: EXPANSION_CONSULTA ("1" = activa si hay URL; "0" = apagada).
+# ---------------------------------------------------------------------------
+_CONCEPTOS_CACHE = {"t": 0.0, "mapa": None}
+_ULTIMA_EXPANSION = {"consulta": "", "extra": ""}
+
+
+def _norm_simple(s):
+    import unicodedata
+    s = unicodedata.normalize("NFD", s or "")
+    return " ".join("".join(c for c in s if unicodedata.category(c) != "Mn").lower().split())
+
+
+def _leer_conceptos_csv(texto_csv):
+    """CSV de Facetas → lista de (claves, términos). claves = subtema + faceta + los propios
+    términos (normalizados, sin tildes); términos = los de "Conceptos relacionados".
+    Columnas por nombre: Subtema, Faceta, Conceptos relacionados, Estado (saltea "Descartar")."""
+    import csv, io
+    filas = list(csv.reader(io.StringIO(texto_csv)))
+    if not filas:
+        return []
+    enc = [c.strip().lower() for c in filas[0]]
+    def col(nombre):
+        for i, c in enumerate(enc):
+            if c.startswith(nombre):
+                return i
+        return None
+    isub, ifac, icon, iest = col("subtema"), col("faceta"), col("conceptos relacionados"), col("estado")
+    if icon is None:
+        return []
+    out = []
+    for f in filas[1:]:
+        if len(f) <= icon or not f[icon].strip():
+            continue
+        est = f[iest].strip().lower() if iest is not None and len(f) > iest else ""
+        if est.startswith("descartar"):
+            continue
+        terminos = [" ".join(t.split()) for t in re.split(r"[;\n]", f[icon]) if t.strip()]
+        terminos = [t for t in terminos if 1 <= len(t.split()) <= 5][:10]
+        if not terminos:
+            continue
+        # Claves que disparan la fila: el subtema entero y sus palabras de peso ("responsabilidad"
+        # en "Responsabilidad ante la vida"), la faceta entera, y los términos de 2+ palabras.
+        # Un término de una sola palabra ("Gratitud") NO dispara: aparece en muchas filas y
+        # arrastraría conceptos ajenos.
+        # Cada clave lleva un rango: 0 = subtema entero, 1 = palabra del subtema, 2 = faceta o término.
+        # Las filas que matchean por rango más bajo van primero al armar la expansión.
+        claves = []
+        if isub is not None and len(f) > isub and f[isub].strip():
+            sub = _norm_simple(re.sub(r"\(.*?\)", " ", f[isub]))
+            claves.append((0, sub))
+            if len(sub.split()) <= 8:          # subtemas muy largos no sueltan palabras
+                claves += [(1, w) for w in re.split(r"[^a-z0-9]+", sub) if len(w) >= 7 and w not in _STOP_EXP]
+        if ifac is not None and len(f) > ifac and f[ifac].strip():
+            claves.append((2, _norm_simple(f[ifac])))
+        claves += [(2, _norm_simple(t)) for t in terminos if len(t.split()) >= 2]
+        out.append(([(r, c) for r, c in claves if len(c) >= 4], terminos))
+    return out
+
+
+_STOP_EXP = {"frente", "contra", "nuestra", "nuestro", "humana", "humano", "epoca", "experiencia", "preguntas", "existenciales"}
+
+
+def conceptos():
+    import time
+    ahora = time.time()
+    if _CONCEPTOS_CACHE["mapa"] is not None and ahora - _CONCEPTOS_CACHE["t"] < 600:
+        return _CONCEPTOS_CACHE["mapa"]
+    mapa = []
+    url = os.environ.get("CONCEPTOS_URL", "").strip()
+    if url:
+        try:
+            import urllib.request
+            with urllib.request.urlopen(url, timeout=8) as r:
+                mapa = _leer_conceptos_csv(r.read().decode("utf-8", "replace"))
+        except Exception:
+            mapa = []
+    _CONCEPTOS_CACHE.update(t=ahora, mapa=mapa)
+    return mapa
+
+
+def _expansion_activa():
+    return os.environ.get("EXPANSION_CONSULTA", "1").strip() != "0" and bool(os.environ.get("CONCEPTOS_URL", "").strip())
+
+
+def expandir_consulta(consulta, max_terminos=8):
+    """Devuelve los términos a sumar a la búsqueda ('' si no hay nada que sumar).
+    Una clave matchea si aparece entera (palabra completa) en la consulta normalizada."""
+    if not _expansion_activa():
+        return ""
+    q = " " + re.sub(r"[^a-z0-9 ]+", " ", _norm_simple(consulta)) + " "
+    q = re.sub(r"\s+", " ", q)
+    if len(q.strip()) < 4:
+        return ""
+    ya = set(w for w in q.split())
+    hits = []
+    for claves, terminos in conceptos():
+        rangos = [r for r, c in claves if " " + c + " " in q]
+        if rangos:
+            hits.append((min(rangos), terminos))
+    hits.sort(key=lambda h: h[0])
+    extra, vistos = [], set()
+    for _, terminos in hits:
+        for t in terminos:
+            tn = _norm_simple(t)
+            if tn in vistos or " " + tn + " " in q or tn in ya:
+                continue
+            vistos.add(tn)
+            extra.append(t)
+            if len(extra) >= max_terminos:
+                break
+        if len(extra) >= max_terminos:
+            break
+    res = " ".join(extra)
+    _ULTIMA_EXPANSION.update(consulta=consulta, extra=res)
+    return res
+
+
+# ---------------------------------------------------------------------------
 # DATOS FIJOS (24/9). Julián le pegó al bot los datos de un evento y le pidió
 # "esta información no te la olvides"; el bot no tiene memoria entre chats.
 # Solución: un bloque corto que se suma al system message en cada respuesta.
@@ -459,10 +584,17 @@ def buscar(consulta, n=6, excluir=None, fuente=None, autor=None, max_seg=None, r
             sims = np.maximum(sims, EMB @ embed_query(en))
     except Exception:
         pass
+    extra = ""
+    try:                                   # expansión al vocabulario de Br. David (5/10): ver expandir_consulta
+        extra = expandir_consulta(consulta)
+        if extra:
+            sims = np.maximum(sims, EMB @ embed_query(f"{consulta} {extra}"))
+    except Exception:
+        extra = ""
     orden = np.argsort(-sims)
     if _hibrida_activa():
         try:
-            tokens = _norm_bm25(consulta).split()
+            tokens = _norm_bm25(f"{consulta} {extra}").split()
             if tokens:
                 lexico = np.argsort(-_bm25().get_scores(tokens))
                 orden = _rrf(orden, lexico)
