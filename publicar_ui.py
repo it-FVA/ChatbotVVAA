@@ -91,13 +91,32 @@ def _aviso(canal, modo, fecha_iso):
     return a
 
 
-def _banco(cfg, consulta, key):
-    """Busca en el banco y cachea por recuadro, para no pegarle a WordPress en cada redibujo."""
+# (5/10) Formato de la pieza → etiqueta con que subir_banco.py marca cada imagen del banco.
+# Julián carga el banco en carpetas FB / IG / Stories con las medidas en el nombre; el script las
+# traduce a estas tres palabras. Si el recuadro ya tiene elegido un formato (selector "Formato"),
+# se usa ese; si no, el que corresponde al canal.
+FORMATO_POR_CANAL = {"Facebook": "cuadrado", "Instagram": "vertical"}
+
+
+def _formato_busqueda(canal, key):
+    f = st.session_state.get(f"pub_{key}_fmt")          # misma clave que el selector "Formato" del recuadro (k("fmt"))
+    return f if f in ("cuadrado", "vertical", "historia") else FORMATO_POR_CANAL.get(canal)
+
+
+def _banco(cfg, consulta, key, formato=None):
+    """Busca en el banco y cachea por recuadro, para no pegarle a WordPress en cada redibujo.
+    Con `formato`, primero busca las imágenes etiquetadas con ese formato (consulta + formato);
+    si no hay, cae a la búsqueda sin formato, y después a las recientes."""
     cache = st.session_state.setdefault("banco_cache", {})
-    k = f"{key}|{consulta.strip().lower()}"
+    k = f"{key}|{consulta.strip().lower()}|{formato or ''}"
     if k not in cache:
         try:
-            res = publicar.buscar_imagenes_banco(cfg, consulta, n=6) if consulta.strip() else []
+            res = []
+            if formato and formato not in consulta.lower():
+                res = publicar.buscar_imagenes_banco(cfg, f"{consulta.strip()} {formato}".strip(), n=6)
+                res = [r for r in res if formato in (r.get("titulo") or "").lower()]   # solo las del formato pedido
+            if not res and consulta.strip():
+                res = publicar.buscar_imagenes_banco(cfg, consulta, n=6)
             if not res:
                 res = publicar.imagenes_recientes_banco(cfg, n=6)
             cache[k] = res
@@ -321,9 +340,10 @@ def formulario(usuario, key, pieza=None, compacto=False):
     cb1, cb2 = st.columns([4, 1])
     consulta = cb1.text_input("Buscar en el banco de imágenes", value=pieza.get("imagen_busqueda", ""), key=k("busq"),
                               placeholder="ej. amanecer montaña calma", label_visibility="collapsed")
+    formato_b = _formato_busqueda(canal, key)
     if cb2.button("Buscar", key=k("buscar_btn"), width="stretch"):
-        st.session_state.get("banco_cache", {}).pop(f"{key}|{consulta.strip().lower()}", None)
-    candidatas = _banco(cfg, consulta, key)
+        st.session_state.get("banco_cache", {}).pop(f"{key}|{consulta.strip().lower()}|{formato_b or ''}", None)
+    candidatas = _banco(cfg, consulta, key, formato_b)
     imagen_url = None
     if candidatas:
         cols = st.columns(len(candidatas))
