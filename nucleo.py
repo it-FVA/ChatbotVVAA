@@ -587,7 +587,10 @@ def buscar(consulta, n=6, excluir=None, fuente=None, autor=None, max_seg=None, r
     extra = ""
     try:                                   # expansión al vocabulario de Br. David (5/10): ver expandir_consulta
         extra = expandir_consulta(consulta)
-        if extra:
+        # EXPANSION_MODO: "ambas" = los términos entran al embedding (fusión por máximo) y a BM25;
+        # "lexica" = solo a BM25 (la medición del 5/10 mostró que el embedding con términos genéricos
+        # como "Pertenencia" o "Amor" diluye consultas puntuales como "ego").
+        if extra and os.environ.get("EXPANSION_MODO", "ambas").strip() != "lexica":
             sims = np.maximum(sims, EMB @ embed_query(f"{consulta} {extra}"))
     except Exception:
         extra = ""

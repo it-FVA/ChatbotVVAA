@@ -63,8 +63,9 @@ MODOS = {
 # (5/10) Expansión de consulta: producción tal cual está hoy, con y sin los Conceptos relacionados
 # de Pato (CONCEPTOS_URL tiene que estar en secrets.toml). Se usa con --expansion.
 MODOS_EXPANSION = {
-    "P · producción sin expansión": {"EXPANSION_CONSULTA": "0"},
-    "X · producción con expansión": {"EXPANSION_CONSULTA": "1"},
+    "P · producción sin expansión":      {"EXPANSION_CONSULTA": "0", "EXPANSION_MODO": "ambas"},
+    "L · expansión solo léxica (BM25)":  {"EXPANSION_CONSULTA": "1", "EXPANSION_MODO": "lexica"},
+    "X · expansión léxica + embedding":  {"EXPANSION_CONSULTA": "1", "EXPANSION_MODO": "ambas"},
 }
 CONSULTAS_EXPANSION = [
     "¿Qué dice Br. David sobre la responsabilidad?",
@@ -106,9 +107,9 @@ def poner_modo(cfg):
         os.environ[k] = v
 
 
-def buscar_en_modo(nucleo, consulta, cfg, n, autor):
+def buscar_en_modo(nucleo, consulta, cfg, n, autor, rerank=True):
     poner_modo(cfg)
-    return nucleo.buscar(consulta, n=n, autor=autor or None)
+    return nucleo.buscar(consulta, n=n, autor=autor or None, rerank=rerank)
 
 
 def fmt_resultado(i, r, marca):
