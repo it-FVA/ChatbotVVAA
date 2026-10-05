@@ -63,7 +63,8 @@ def main():
         print(f"- {pid} · {canal} · {p.get('fecha_programada')} · «{(titulo or texto)[:50]}» (intento {intentos})")
         try:
             if canal == "instagram":
-                res = publicar.publicar_instagram(cfg, imagen or "", texto, quien="cola")
+                historia = ((p.get("resultado") or {}).get("formato") == "historia")
+                res = publicar.publicar_instagram(cfg, imagen or "", texto, quien="cola", historia=historia)
             elif canal == "facebook":
                 res = publicar.publicar_facebook(cfg, imagen, texto, quien="cola")
             elif canal == "wordpress":

@@ -306,25 +306,28 @@ def publicar_wordpress(cfg, titulo, contenido_html, imagen_id=None, categorias=N
 
 # ----------------------------------------------------------------------------- Instagram
 
-def publicar_instagram(cfg, imagen_url, texto, quien=""):
+def publicar_instagram(cfg, imagen_url, texto, quien="", historia=False):
     """
     Publica una imagen con texto. Según el modo:
       apagado  -> no hace nada
       simulado -> devuelve la pieza armada (imagen + texto tal cual saldría), no llama a la API
       real     -> contenedor + media_publish. LO VEN LOS SEGUIDORES.
+    historia=True (5/10): la publica como HISTORIA (media_type=STORIES, 24 h, sin caption: Instagram
+    no acepta texto en historias por API; la frase va dentro de la imagen, formato 1080x1920).
     Instagram no tiene borradores. Devuelve {"ok", "modo", "id", "permalink", "aviso", "pieza"}.
     """
     modo = cfg.modo_ig
-    pieza = {"image_url": imagen_url, "caption": texto}
-    base = {"canal": "instagram", "accion": "imagen", "modo": modo, "quien": quien, "pieza": pieza}
+    pieza = {"image_url": imagen_url, "caption": "" if historia else texto, "historia": bool(historia)}
+    base = {"canal": "instagram", "accion": "historia" if historia else "imagen", "modo": modo, "quien": quien, "pieza": pieza}
     if modo == "apagado":
         _registrar({**base, "resultado": "no se hizo nada (apagado)"})
         return {"ok": False, "modo": modo, "aviso": "Instagram está apagado.", "pieza": pieza}
     if modo == "simulado":
         _registrar({**base, "resultado": "simulado"})
         return {"ok": True, "modo": modo, "pieza": pieza,
-                "aviso": "Simulado: así quedaría el posteo. No se mandó nada a Instagram. "
-                         "Para publicarlo hoy: bajar la imagen, copiar el texto y subirlo desde el teléfono."}
+                "aviso": ("Simulado: así quedaría la historia. No se mandó nada a Instagram." if historia else
+                          "Simulado: así quedaría el posteo. No se mandó nada a Instagram. "
+                          "Para publicarlo hoy: bajar la imagen, copiar el texto y subirlo desde el teléfono.")}
     if modo != "real":                     # regla dura: no hay otro camino a la API
         return {"ok": False, "modo": modo, "aviso": "Modo desconocido; no se publica.", "pieza": pieza}
     if not (cfg.ig_token and cfg.ig_id):
@@ -340,7 +343,8 @@ def publicar_instagram(cfg, imagen_url, texto, quien=""):
             return _http(url + "?" + data.decode(), "GET")
         return _http(url, "POST", {"Content-Type": "application/x-www-form-urlencoded"}, data)
 
-    r, err = call(f"{cfg.ig_id}/media", {"image_url": imagen_url, "caption": texto})
+    params_media = {"image_url": imagen_url, "media_type": "STORIES"} if historia else {"image_url": imagen_url, "caption": texto}
+    r, err = call(f"{cfg.ig_id}/media", params_media)
     if not r:
         _registrar({**base, "resultado": "error contenedor", "error": err})
         return {"ok": False, "modo": modo, "aviso": "Instagram no aceptó la imagen: " + json.dumps(err, ensure_ascii=False)[:200], "pieza": pieza}
@@ -361,7 +365,7 @@ def publicar_instagram(cfg, imagen_url, texto, quien=""):
     permalink = (m or {}).get("permalink")
     _registrar({**base, "resultado": "PUBLICADO", "id": r["id"], "permalink": permalink})
     return {"ok": True, "modo": modo, "id": r["id"], "permalink": permalink, "pieza": pieza,
-            "aviso": "PUBLICADO en Instagram."}
+            "aviso": "PUBLICADA como historia en Instagram (dura 24 h)." if historia else "PUBLICADO en Instagram."}
 
 
 # ----------------------------------------------------------------------------- Facebook (solo simulado)

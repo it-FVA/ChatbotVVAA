@@ -170,7 +170,7 @@ def _sin_firma_repetida(texto_imagen, firma):
     return t
 
 
-def _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, texto_imagen="", video=None, compuesta=None):
+def _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, texto_imagen="", video=None, compuesta=None, formato=None):
     """Ejecuta la publicación según el switch. Devuelve (res, imagen_url_final)."""
     imagen_id = None
     if canal in ("Instagram", "Facebook"):
@@ -216,7 +216,8 @@ def _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, 
     if fecha_iso and _va_a_la_cola(canal, modo):
         try:
             pid = db.encolar_publicacion(usuario, CLAVE[canal], modo, titulo, texto, imagen_url,
-                                         fecha_iso + ZONA_HORARIA, extra={"texto_imagen": texto_imagen or None})
+                                         fecha_iso + ZONA_HORARIA, extra={"texto_imagen": texto_imagen or None,
+                                                                          "formato": formato or None})
         except Exception as e:
             return {"ok": False, "modo": modo, "aviso": f"No pude guardar la pieza en la cola: {e}"}, imagen_url
         if not pid:
@@ -231,7 +232,8 @@ def _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, 
             res = publicar.publicar_wordpress(cfg, titulo.strip(), texto, imagen_id=imagen_id,
                                               quien=usuario, fecha=fecha_iso)
         elif canal == "Instagram":
-            res = publicar.publicar_instagram(cfg, imagen_url or "", texto, quien=usuario)
+            res = publicar.publicar_instagram(cfg, imagen_url or "", texto, quien=usuario,
+                                              historia=(formato == "historia"))
         elif canal == "YouTube":
             res = publicar.publicar_youtube(cfg, video.getvalue() if video is not None else b"", titulo.strip(), texto,
                                             quien=usuario, fecha=fecha_iso,
@@ -370,7 +372,11 @@ def formulario(usuario, key, pieza=None, compacto=False):
         st.markdown("**Con la frase encima**")
         cf1, cf2, cf3 = st.columns([2, 1, 1])
         firma = cf1.text_input("Firma", value=pieza.get("firma") or "— Br. David", key=k("firma"))
-        formato = cf2.selectbox("Formato", ["cuadrado", "vertical", "historia"], key=k("fmt"))
+        formato = cf2.selectbox("Formato", ["cuadrado", "vertical", "historia"], key=k("fmt"),
+                                help="«historia» en Instagram publica una HISTORIA (24 h, sin caption; la frase va en la imagen).")
+        if canal == "Instagram" and formato == "historia":
+            st.caption("📱 Historia de Instagram: dura 24 h y no lleva caption (Instagram no lo permite por API). "
+                       "El texto de la pieza queda solo en el registro.")
         usar = cf3.checkbox("Publicar así", value=True, key=k("usar_comp"),
                             help="Si lo destildás, se publica la foto sola y el texto queda solo en el registro.")
         compuesta = _componer(fuente, _sin_firma_repetida(texto_imagen.strip(), firma), firma.strip(), formato)
@@ -412,7 +418,8 @@ def formulario(usuario, key, pieza=None, compacto=False):
             st.error("Falta el archivo de video.")
             return
         res, imagen_url = _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, texto_imagen,
-                                  video=video, compuesta=compuesta)
+                                  video=video, compuesta=compuesta,
+                                  formato=st.session_state.get(k("fmt")) if compuesta is not None else None)
         _mostrar_resultado(res, canal, modo, titulo, texto if canal == "WordPress" else _texto_plano(texto),
                            archivo, imagen_url, fecha_iso, texto_imagen, compuesta=compuesta)
 
