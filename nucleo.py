@@ -152,6 +152,13 @@ QUIÉN HABLA. Hay facilitadores (Gawel, Fondevila, Mujica, Grehan, Saporiti, Mor
 - Si la persona no aclaró autor, buscá sin filtro, pero al mostrar dejá claro quién es quién: qué es de Br. David y qué es de un facilitador.
 - Si la consulta fue en español y un fragmento que vas a mostrar está en inglés, avisalo.
 
+═══ IDIOMA (7/10: comunidades de habla inglesa y alemana) ═══
+- Respondé en el idioma en que te escriben (español, inglés, alemán u otro). La interfaz está en español; el contenido de tu respuesta, en el idioma de la persona.
+- Las CITAS van siempre en el idioma original del fragmento, entre comillas, textuales. Nunca presentes una traducción tuya como si fuera cita. Si traducís para ayudar, ponelo aparte y marcado ("my translation:", "meine Übersetzung:").
+- Si la persona escribe en inglés o pide citas en inglés, buscá con idioma="en" para traer primero el material ORIGINAL en inglés (seis libros de Br. David, decenas de charlas); muchas citas en español son traducciones y la persona prefiere el original. Si no hay nada en inglés sobre el tema, volvé a buscar sin filtro y avisá que la cita está en español.
+- No hay material original en alemán ni en otros idiomas: decilo con naturalidad la primera vez y seguí con citas en inglés o español marcadas como tales.
+- Los títulos de libros se citan como figuran en el fragmento (el título de la edición en que está la cita). Los números de página son de esa edición.
+
 {DISTINCIONES}
 
 ═══ CÓMO CONVERSÁS ═══
@@ -574,7 +581,21 @@ def _rerank(consulta, candidatos, n):
     return orden[:n]
 
 
-def buscar(consulta, n=6, excluir=None, fuente=None, autor=None, max_seg=None, rerank=True):
+def buscar(consulta, n=6, excluir=None, fuente=None, autor=None, max_seg=None, rerank=True, idioma=None):
+    """idioma (7/10): 'en' o 'es' trae PRIMERO los fragmentos en ese idioma; si no alcanzan para n,
+    completa con el resto. No es un filtro duro: una persona de habla inglesa que pregunta por un tema
+    que solo está en español igual recibe material (el system message le avisa el idioma)."""
+    if idioma:
+        pref = _buscar(consulta, n, excluir, fuente, autor, max_seg, rerank, idioma)
+        if len(pref) >= n:
+            return pref
+        vistos = {r["doc"] for r in pref}
+        resto = [r for r in _buscar(consulta, n, excluir, fuente, autor, max_seg, rerank, None) if r["doc"] not in vistos]
+        return (pref + resto)[:n]
+    return _buscar(consulta, n, excluir, fuente, autor, max_seg, rerank, None)
+
+
+def _buscar(consulta, n, excluir, fuente, autor, max_seg, rerank, idioma):
     FRS, EMB = cargar()
     excluir = set(excluir or [])
     qv = embed_query(consulta)
@@ -612,6 +633,8 @@ def buscar(consulta, n=6, excluir=None, fuente=None, autor=None, max_seg=None, r
     for k in orden:
         f = FRS[int(k)]
         if fuente and f.get("fuente") != fuente:
+            continue
+        if idioma and (f.get("idioma") or "es") != idioma:
             continue
         if autor and not _coincide_autor(f.get("autor"), autor):
             continue
@@ -794,7 +817,9 @@ TOOLS = [
             "n": {"type": "integer", "description": "Cuántos fragmentos traer (6 por defecto, máximo 12)."},
             "tipo": {"type": "string", "enum": ["libro", "clip", "articulo", "cualquiera"],
                      "description": "Filtrá por tipo de fuente cuando la persona lo pide: 'libro', 'clip' (videos), 'articulo'. Usá 'cualquiera' o vacío si no especifica."},
-            "autor": {"type": "string", "description": "Filtrá por autor cuando la persona pide material de alguien puntual (ej. 'Br. David', 'Fondevila', 'Gawel', 'Grehan'). Dejalo vacío si no especifica autor."}},
+            "autor": {"type": "string", "description": "Filtrá por autor cuando la persona pide material de alguien puntual (ej. 'Br. David', 'Fondevila', 'Gawel', 'Grehan'). Dejalo vacío si no especifica autor."},
+            "idioma": {"type": "string", "enum": ["es", "en", "cualquiera"],
+                       "description": "Idioma del material a traer primero. Pasá 'en' cuando la persona escribe en inglés o pide citas en inglés (trae el original en inglés antes que las traducciones al español). Vacío o 'cualquiera' si no importa."}},
             "required": ["consulta"]}}},
     {"type": "function", "function": {
         "name": "proponer_publicacion",
@@ -833,7 +858,10 @@ def _ejecutar_tool(nombre, args):
         tipo = (args.get("tipo") or "").lower()
         fuente = {"libro": "libro", "clip": "youtube", "video": "youtube",
                   "articulo": "web", "artículo": "web", "web": "web"}.get(tipo)
-        res = buscar(consulta, n, fuente=fuente, autor=(args.get("autor") or None), max_seg=args.get("max_seg"))
+        idioma = (args.get("idioma") or "").lower()
+        idioma = idioma if idioma in ("es", "en") else None
+        res = buscar(consulta, n, fuente=fuente, autor=(args.get("autor") or None), max_seg=args.get("max_seg"),
+                     idioma=idioma)
         return contexto(res), res
     if nombre == "proponer_publicacion":
         import datetime
