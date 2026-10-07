@@ -896,13 +896,27 @@ def responder(historial):
     return texto, mostrar, query
 
 
-def responder_con_pieza(historial):
+_NOTA_IDIOMA = {
+    "en": ("NOTA DE CUENTA: la persona entra con una cuenta de la comunidad de habla inglesa de Br. David "
+           "(gratefulness.org). Respondé en inglés salvo que te escriba en otro idioma, y buscá con idioma=\"en\" "
+           "por defecto para darle los originales en inglés."),
+    "de": ("NOTA DE CUENTA: la persona entra con una cuenta de la comunidad de habla alemana de Br. David "
+           "(dankbar-leben.org). Respondé en alemán salvo que te escriba en otro idioma. Hay material original en alemán "
+           "(99 Namen Gottes; Segenstexte 1-99) y mucho más en inglés y español: buscá sin filtro de idioma, mostrá primero lo "
+           "que esté en alemán si lo hay, y las demás citas en su idioma original con tu traducción marcada aparte."),
+}
+
+
+def responder_con_pieza(historial, idioma=None):
     """historial: lista de {'role','content'} (los mensajes del asistente pueden traer
     'mats' con el material que ya se mostró en la charla). El modelo decide si buscar,
     conversar o proponer publicar. Devuelve (texto, materiales_para_mostrar, query_usada, pieza):
-    pieza es None o el dict para el recuadro 'Publicar esta pieza' (24/9)."""
+    pieza es None o el dict para el recuadro 'Publicar esta pieza' (24/9).
+    idioma (7/10): 'en' o 'de' cuando la cuenta es de una comunidad; agrega una nota al system message."""
     mensajes = [{"role": "system", "content": system_msg()}] + [
         {"role": m["role"], "content": m["content"]} for m in historial]
+    if idioma in _NOTA_IDIOMA:
+        mensajes.insert(1, {"role": "system", "content": _NOTA_IDIOMA[idioma]})
     # Fix 2: recordar el material YA encontrado en la conversación (último turno con mats),
     # para poder armar la pieza sin volver a buscar ni negarse.
     prev_mats = None

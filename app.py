@@ -49,6 +49,33 @@ if not st.session_state.get("usuario"):
     st.stop()
 
 USUARIO = st.session_state.usuario
+
+# (7/10) Idioma de la interfaz por usuario (pedido de Beto: comunidades inglesa y alemana).
+# Se define en secrets, sección [idiomas] (usuario = "en" | "de"); sin entrada, español.
+# El bot responde en el idioma en que le escriben igual; esto solo traduce los textos fijos
+# de la pantalla y le avisa al bot de qué comunidad viene la persona.
+_IDIOMAS_DEFAULT = {"gratefulness": "en", "dankbarleben": "de"}
+IDIOMA = str(dict(st.secrets.get("idiomas", {})).get(USUARIO, _IDIOMAS_DEFAULT.get(USUARIO, "es"))).lower()
+if IDIOMA not in ("es", "en", "de"):
+    IDIOMA = "es"
+_T = {
+    "nueva": {"es": "➕ Nueva conversación", "en": "➕ New conversation", "de": "➕ Neues Gespräch"},
+    "tus": {"es": "Tus conversaciones", "en": "Your conversations", "de": "Deine Gespräche"},
+    "salir": {"es": "Salir", "en": "Log out", "de": "Abmelden"},
+    "volver": {"es": "💬 Volver al chat", "en": "💬 Back to chat", "de": "💬 Zurück zum Chat"},
+    "renombrar": {"es": "Renombrar", "en": "Rename", "de": "Umbenennen"},
+    "borrar": {"es": "🗑️ Borrar conversación", "en": "🗑️ Delete conversation", "de": "🗑️ Gespräch löschen"},
+    "sub": {"es": "Búsqueda y armado fundados solo en el material real de la Fundación. Los borradores son para revisión del equipo.",
+            "en": "Search and drafting grounded only in the Foundation's real material (Br. David and facilitators). Drafts are for the team's review. Quotes are shown in their original language.",
+            "de": "Suche und Entwürfe gründen ausschließlich auf dem echten Material der Stiftung (Br. David und Begleiter). Entwürfe sind zur Durchsicht. Zitate erscheinen in ihrer Originalsprache."},
+    "placeholder": {"es": "Escribí acá… (ej: 'estoy pensando una campaña sobre gratitud, ¿por dónde arrancarías?')",
+                    "en": "Write here… (e.g. 'what does Br. David say about hope and expectation?')",
+                    "de": "Hier schreiben… (z. B. 'Was sagt Bruder David über Dankbarkeit und Angst?')"},
+    "pensando": {"es": "Pensando…", "en": "Thinking…", "de": "Denke nach…"},
+}
+def T(k):
+    return _T[k].get(IDIOMA, _T[k]["es"])
+
 st.session_state.setdefault("messages", [])
 st.session_state.setdefault("conv_id", None)
 st.session_state.setdefault("conv_titulo", None)
@@ -101,14 +128,14 @@ with st.sidebar:
     # para cargar algo que no salió de una conversación.
     if PUEDE_PUBLICAR and st.query_params.get("vista") == "publicar":
         st.session_state.vista = "publicar"
-        if st.button("💬 Volver al chat", use_container_width=True):
+        if st.button(T("volver"), use_container_width=True):
             st.query_params.clear()
             st.session_state.vista = "chat"
             st.rerun()
     if PUEDE_PUBLICAR:
         import publicar_ui
         publicar_ui.piezas_en_cola_sidebar(USUARIO)
-    if st.button("➕ Nueva conversación", use_container_width=True, type="primary"):
+    if st.button(T("nueva"), use_container_width=True, type="primary"):
         st.session_state.vista = "chat"
         st.session_state.messages = []
         st.session_state.conv_id = None
@@ -116,7 +143,7 @@ with st.sidebar:
         st.rerun()
 
     st.divider()
-    st.caption("Tus conversaciones")
+    st.caption(T("tus"))
     if db.disponible():
         try:
             for c in db.listar_conversaciones(USUARIO)[:30]:
@@ -188,7 +215,7 @@ st.markdown(
     '<div><p class="vac-h-t">Asistente de contenido</p>'
     '<p class="vac-h-s">Br. David · Vivir Agradecidos</p></div></div>'
     '<hr class="vac-rule">', unsafe_allow_html=True)
-st.caption("Búsqueda y armado fundados solo en el material real de la Fundación. Los borradores son para revisión del equipo.")
+st.caption(T("sub"))
 
 if PUEDE_PUBLICAR and st.session_state.vista == "publicar":
     import publicar_ui
@@ -232,15 +259,15 @@ for i, m in enumerate(st.session_state.messages):
         if rol == "assistant":
             publicar_en_chat(m, i, ultimo=(i == _n - 1))
 
-if prompt := st.chat_input("Escribí acá… (ej: 'estoy pensando una campaña sobre gratitud, ¿por dónde arrancarías?')"):
+if prompt := st.chat_input(T("placeholder")):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user", avatar=AVATAR_USER):
         st.markdown(prompt)
     with st.chat_message("assistant", avatar=AVATAR_BOT):
-        with st.spinner("Pensando…"):
+        with st.spinner(T("pensando")):
             historial = [{"role": m.get("role", "user"), "content": m.get("content", ""),
                           "mats": m.get("mats")} for m in st.session_state.messages]
-            texto, mats, _, pieza = nucleo.responder_con_pieza(historial)
+            texto, mats, _, pieza = nucleo.responder_con_pieza(historial, idioma=(IDIOMA if IDIOMA != "es" else None))
         st.markdown(texto)
         if mats:
             render_mats(mats)
