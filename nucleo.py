@@ -699,6 +699,42 @@ def contexto(res):
     return "\n".join(lines)
 
 
+_TRAD_CACHE = {}
+
+
+def traducir_tarjetas(mats, idioma):
+    """(8/10) Para las cuentas que no leen español: traduce título y extracto de cada tarjeta de fuente
+    al idioma de la persona, en UNA llamada al modelo por respuesta, cacheada por contenido.
+    Devuelve una lista paralela de {"titulo": ..., "texto": ...} (vacía si falla: la tarjeta queda en original)."""
+    if idioma not in ("en", "de") or not mats:
+        return []
+    nombre = {"en": "inglés", "de": "alemán"}[idioma]
+    pendientes, out = [], []
+    for r in mats:
+        k = (idioma, r.get("titulo") or "", (r.get("texto") or "")[:300])
+        out.append(_TRAD_CACHE.get(k))
+        if out[-1] is None:
+            pendientes.append(k)
+    if pendientes:
+        try:
+            import json as _json
+            items = [{"i": n, "titulo": k[1], "texto": k[2]} for n, k in enumerate(pendientes)]
+            r = _llm([{"role": "system", "content":
+                       f"Traducí al {nombre} el título y el texto de cada ítem. Traducción fiel, sin agregar nada. "
+                       f"Si el texto ya está en {nombre}, devolvelo igual. Respondé SOLO un JSON: lista de objetos "
+                       f"{{\"i\": n, \"titulo\": \"...\", \"texto\": \"...\"}} en el mismo orden."},
+                      {"role": "user", "content": _json.dumps(items, ensure_ascii=False)}], 1800)
+            m = re.search(r"\[.*\]", r or "", re.S)
+            for it in _json.loads(m.group(0)) if m else []:
+                k = pendientes[int(it.get("i", -1))] if 0 <= int(it.get("i", -1)) < len(pendientes) else None
+                if k:
+                    _TRAD_CACHE[k] = {"titulo": str(it.get("titulo") or ""), "texto": str(it.get("texto") or "")}
+        except Exception:
+            pass
+        out = [_TRAD_CACHE.get((idioma, r.get("titulo") or "", (r.get("texto") or "")[:300])) for r in mats]
+    return [o or {} for o in out]
+
+
 _PANORAMA_CACHE = {"n": None, "txt": ""}
 
 

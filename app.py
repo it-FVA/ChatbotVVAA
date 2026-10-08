@@ -196,6 +196,7 @@ st.markdown("""
 .vac-autor { font-size:.8rem; opacity:.7; }
 .vac-titulo { font-weight:700; font-size:.95rem; margin:1px 0 4px; }
 .vac-quote { font-style:italic; opacity:.92; line-height:1.45; margin:0 0 8px; }
+.vac-trad { font-style:normal; opacity:.75; font-size:.92em; }
 .vac-src { font-size:.82rem; color:#d98a0f !important; text-decoration:none; font-weight:700; }
 .vac-src:hover { text-decoration:underline; }
 </style>
@@ -223,20 +224,41 @@ if PUEDE_PUBLICAR and st.session_state.vista == "publicar":
     st.stop()
 
 
-def render_mats(mats):
-    for r in mats:
-        tag = html.escape(r.get("tag") or "")
+_TAGS = {"en": {"ARTÍCULO": "ARTICLE", "CLIP": "CLIP", "LIBRO": "BOOK", "pág.": "p."},
+         "de": {"ARTÍCULO": "ARTIKEL", "CLIP": "CLIP", "LIBRO": "BUCH", "pág.": "S."}}
+_VER = {"es": "Ver fuente ↗", "en": "View source ↗", "de": "Quelle öffnen ↗"}
+_TRAD_LABEL = {"en": "translation", "de": "Übersetzung"}
+
+
+def render_mats(mats, idioma="es"):
+    """Tarjetas de fuentes. (8/10) Para las cuentas en inglés/alemán: etiquetas traducidas, título original
+    + [traducción], y extracto original seguido de su traducción marcada (nucleo.traducir_tarjetas, una
+    llamada por respuesta, cacheada). Si la traducción falla, la tarjeta queda en original."""
+    trads = nucleo.traducir_tarjetas(mats, idioma) if idioma in ("en", "de") else []
+    for n, r in enumerate(mats):
+        tag = r.get("tag") or ""
+        if idioma in _TAGS:
+            for a, b in _TAGS[idioma].items():
+                tag = tag.replace(a, b)
+        tag = html.escape(tag)
         autor = html.escape(r.get("autor") or "")
         titulo = html.escape(r.get("titulo") or "")
         texto = html.escape((r.get("texto") or "")[:300])
+        tr = trads[n] if n < len(trads) else {}
+        if tr.get("titulo") and tr["titulo"].strip().lower() != (r.get("titulo") or "").strip().lower():
+            titulo += f' <span class="vac-trad">[{html.escape(tr["titulo"])}]</span>'
+        quote = f'<div class="vac-quote">“{texto}”</div>'
+        if tr.get("texto") and tr["texto"].strip()[:60].lower() != (r.get("texto") or "").strip()[:60].lower():
+            quote += (f'<div class="vac-quote vac-trad">({_TRAD_LABEL.get(idioma, "")}) '
+                      f'{html.escape(tr["texto"][:400])}</div>')
         href = r.get("ir") or ""
-        src = (f'<a class="vac-src" href="{html.escape(href)}" target="_blank">Ver fuente ↗</a>'
+        src = (f'<a class="vac-src" href="{html.escape(href)}" target="_blank">{_VER.get(idioma, _VER["es"])}</a>'
                if href else "")
         st.markdown(
             f'<div class="vac-card"><div class="vac-top">'
             f'<span class="vac-tag">{tag}</span><span class="vac-autor">{autor}</span></div>'
             f'<div class="vac-titulo">{titulo}</div>'
-            f'<div class="vac-quote">“{texto}”</div>{src}</div>',
+            f'{quote}{src}</div>',
             unsafe_allow_html=True)
 
 
@@ -255,7 +277,7 @@ for i, m in enumerate(st.session_state.messages):
     with st.chat_message(rol, avatar=(AVATAR_USER if rol == "user" else AVATAR_BOT)):
         st.markdown(m.get("content", ""))
         if m.get("mats"):
-            render_mats(m["mats"])
+            render_mats(m["mats"], IDIOMA)
         if rol == "assistant":
             publicar_en_chat(m, i, ultimo=(i == _n - 1))
 
@@ -270,7 +292,7 @@ if prompt := st.chat_input(T("placeholder")):
             texto, mats, _, pieza = nucleo.responder_con_pieza(historial, idioma=(IDIOMA if IDIOMA != "es" else None))
         st.markdown(texto)
         if mats:
-            render_mats(mats)
+            render_mats(mats, IDIOMA)
     st.session_state.messages.append({"role": "assistant", "content": texto, "mats": mats, "pieza": pieza})
     guardar()
     st.rerun()          # vuelve a dibujar con el recuadro "Publicar esta pieza" bajo la respuesta nueva
