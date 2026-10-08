@@ -738,6 +738,28 @@ def traducir_tarjetas(mats, idioma):
 _PANORAMA_CACHE = {"n": None, "txt": ""}
 
 
+def documentos_en_idioma(idioma):
+    """(8/10) Lista de documentos en un idioma (título, autor, tipo), para "what do you have in English?".
+    Son pocos fuera del español (90 en inglés, 3 en alemán, 1 en italiano), así que se listan enteros."""
+    FRS, _ = cargar()
+    vistos, out = set(), []
+    for f in FRS:
+        d = f.get("documento_id")
+        if d in vistos or (f.get("idioma") or "es") != idioma:
+            continue
+        vistos.add(d)
+        out.append((f.get("fuente") or "?", f.get("autor") or "—", f.get("titulo") or "", f.get("url") or ""))
+    nombres = {"web": "artículo", "youtube": "video", "libro": "libro", "articulo": "artículo"}
+    por_tipo = {}
+    for fu, a, t, u in sorted(out, key=lambda x: (x[0], x[2].lower())):
+        por_tipo.setdefault(nombres.get(fu, fu), []).append(f"- {t} — {a}" + (f" · {u}" if u else ""))
+    txt = [f"Documentos en idioma '{idioma}': {len(out)}."]
+    for tipo, lista in por_tipo.items():
+        txt.append(f"{tipo.upper()} ({len(lista)}):")
+        txt += lista
+    return "\n".join(txt)
+
+
 def analizar_todo():
     """(8/10) Panorama del corpus ENTERO, sin tema: documentos por autor, por fuente y por idioma.
     Para "quiénes están en el corpus", "qué autores hay", "cuánto hay en inglés". `analizar()` cuenta
@@ -927,7 +949,9 @@ TOOLS = [
         "parameters": {"type": "object", "properties": {
             "consulta": {"type": "string", "description": "Tema a analizar (vacío si el alcance es 'todo')."},
             "alcance": {"type": "string", "enum": ["tema", "todo"],
-                        "description": "'tema' (por defecto) o 'todo' para el panorama general del corpus."}},
+                        "description": "'tema' (por defecto) o 'todo' para el panorama general del corpus."},
+            "idioma": {"type": "string", "enum": ["es", "en", "de", "it"],
+                       "description": "Con alcance 'todo': además del panorama, lista TODOS los documentos que están en ese idioma (título, autor, link). Usalo para 'what do you have in English?' / 'was gibt es auf Deutsch?'."}},
             "required": ["consulta"]}}},
 ]
 
@@ -967,8 +991,12 @@ def _ejecutar_tool(nombre, args):
         return aviso, {"__pieza__": pieza}
     if nombre == "analizar_corpus":
         if (args.get("alcance") or "").lower() == "todo" or not consulta:
-            return ("PANORAMA REAL del corpus entero (conteos exactos, NO los recalcules; son documentos, no fragmentos):\n"
-                    + analizar_todo()), []
+            txt = ("PANORAMA REAL del corpus entero (conteos exactos, NO los recalcules; son documentos, no fragmentos):\n"
+                   + analizar_todo())
+            idi = (args.get("idioma") or "").lower()
+            if idi in ("en", "de", "it"):
+                txt += "\n\nLISTA COMPLETA (real) de documentos en ese idioma:\n" + documentos_en_idioma(idi)
+            return txt, []
         resumen, res = analizar(consulta)
         return "CONTEOS REALES del corpus (exactos, NO los recalcules):\n" + resumen + "\n\n" + contexto(res), res
     return "", []
@@ -983,11 +1011,18 @@ def responder(historial):
 _NOTA_IDIOMA = {
     "en": ("NOTA DE CUENTA: la persona entra con una cuenta de la comunidad de habla inglesa de Br. David "
            "(gratefulness.org). Respondé en inglés salvo que te escriba en otro idioma, y buscá con idioma=\"en\" "
-           "por defecto para darle los originales en inglés."),
+           "por defecto para darle los originales en inglés. Esta cuenta NO publica en redes ni arma piezas para los canales "
+           "de la Fundación: si pregunta para qué sirve este chat, explicá que es para explorar el material de Br. David y "
+           "los facilitadores (buscar, citar con fuente, entender temas), sin mencionar Instagram, newsletters ni publicación. "
+           "Si pregunta qué hay en inglés (o en su idioma), usá analizar_corpus con alcance=\"todo\" e idioma=\"en\" y "
+           "mostrá la lista de títulos originales en inglés."),
     "de": ("NOTA DE CUENTA: la persona entra con una cuenta de la comunidad de habla alemana de Br. David "
            "(dankbar-leben.org). Respondé en alemán salvo que te escriba en otro idioma. Hay material original en alemán "
            "(99 Namen Gottes; Segenstexte 1-99) y mucho más en inglés y español: buscá sin filtro de idioma, mostrá primero lo "
-           "que esté en alemán si lo hay, y las demás citas en su idioma original con tu traducción marcada aparte."),
+           "que esté en alemán si lo hay, y las demás citas en su idioma original con tu traducción marcada aparte. Esta cuenta "
+           "NO publica en redes ni arma piezas para los canales de la Fundación: si pregunta para qué sirve este chat, explicá que "
+           "es para explorar el material de Br. David y los facilitadores. Si pregunta qué hay en alemán, usá analizar_corpus con "
+           "alcance=\"todo\" e idioma=\"de\"."),
 }
 
 

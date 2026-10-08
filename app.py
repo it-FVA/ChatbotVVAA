@@ -281,18 +281,29 @@ for i, m in enumerate(st.session_state.messages):
         if rol == "assistant":
             publicar_en_chat(m, i, ultimo=(i == _n - 1))
 
+# (8/10) Dos pasos: primero el mensaje de la persona entra al historial y se redibuja (así se ve enseguida);
+# después, si el último mensaje es de la persona y no tiene respuesta, se genera. Antes todo pasaba dentro
+# del `if prompt`, y si la persona mandaba otro mensaje mientras el bot pensaba, Streamlit cortaba el script:
+# quedaban dos mensajes seguidos sin respuesta, o el mismo duplicado (visto en la cuenta gratefulness el 8/10).
 if prompt := st.chat_input(T("placeholder")):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user", avatar=AVATAR_USER):
-        st.markdown(prompt)
+    msgs = st.session_state.messages
+    ultimo = msgs[-1] if msgs else None
+    repetido = (ultimo and ultimo.get("role") == "user"
+                and " ".join(ultimo.get("content", "").split()) == " ".join(prompt.split()))
+    if not repetido:
+        msgs.append({"role": "user", "content": prompt})
+    st.rerun()
+
+_msgs = st.session_state.messages
+if _msgs and _msgs[-1].get("role") == "user":
     with st.chat_message("assistant", avatar=AVATAR_BOT):
         with st.spinner(T("pensando")):
             historial = [{"role": m.get("role", "user"), "content": m.get("content", ""),
-                          "mats": m.get("mats")} for m in st.session_state.messages]
+                          "mats": m.get("mats")} for m in _msgs]
             texto, mats, _, pieza = nucleo.responder_con_pieza(historial, idioma=(IDIOMA if IDIOMA != "es" else None))
         st.markdown(texto)
         if mats:
             render_mats(mats, IDIOMA)
-    st.session_state.messages.append({"role": "assistant", "content": texto, "mats": mats, "pieza": pieza})
+    _msgs.append({"role": "assistant", "content": texto, "mats": mats, "pieza": pieza})
     guardar()
     st.rerun()          # vuelve a dibujar con el recuadro "Publicar esta pieza" bajo la respuesta nueva
