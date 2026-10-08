@@ -802,7 +802,8 @@ def titular(mensajes):
     primer = re.sub(r"\s+", " ", primer).strip()[:400]
     if not primer:
         return "Conversación"
-    t = _llm([{"role": "system", "content": "Devolvé SOLO un título corto (3 a 6 palabras, sin comillas, sin markdown ni signos) que resuma de qué trata este pedido, en español."},
+    # (8/10) El título va en el idioma del pedido: a la cuenta inglesa le salían títulos en español.
+    t = _llm([{"role": "system", "content": "Devolvé SOLO un título corto (3 a 6 palabras, sin comillas, sin markdown ni signos) que resuma de qué trata este pedido, EN EL MISMO IDIOMA en que está escrito el pedido (si está en inglés, título en inglés; en alemán, en alemán; en español, en español)."},
               {"role": "user", "content": primer}], 20)
     t = re.sub(r"\s+", " ", (t or "")).strip().strip('"').strip("'").strip("*#-• ").strip()
     return t[:50] or "Conversación"
