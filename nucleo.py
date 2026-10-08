@@ -699,6 +699,41 @@ def contexto(res):
     return "\n".join(lines)
 
 
+_PANORAMA_CACHE = {"n": None, "txt": ""}
+
+
+def analizar_todo():
+    """(8/10) Panorama del corpus ENTERO, sin tema: documentos por autor, por fuente y por idioma.
+    Para "quiénes están en el corpus", "qué autores hay", "cuánto hay en inglés". `analizar()` cuenta
+    solo el vecindario de un tema; con una consulta genérica daba números falsos (Gawel: 9, cuando
+    tiene 150 documentos). Cacheado por tamaño del corpus."""
+    FRS, _ = cargar()
+    if _PANORAMA_CACHE["n"] == len(FRS):
+        return _PANORAMA_CACHE["txt"]
+    from collections import Counter, defaultdict
+    docs = {}
+    for f in FRS:
+        d = f.get("documento_id")
+        if d not in docs:
+            docs[d] = (f.get("autor") or "—", f.get("fuente") or "?", f.get("idioma") or "es")
+    por_autor, por_fuente, por_idioma = Counter(), Counter(), Counter()
+    idiomas_autor = defaultdict(Counter)
+    for a, fu, idi in docs.values():
+        por_autor[a] += 1; por_fuente[fu] += 1; por_idioma[idi] += 1; idiomas_autor[a][idi] += 1
+    nombres = {"web": "artículos del sitio", "youtube": "videos", "libro": "libros", "articulo": "artículos sueltos"}
+    txt = [f"Documentos en el corpus: {len(docs)} ({len(FRS)} fragmentos)."]
+    txt.append("Por tipo: " + ", ".join(f"{nombres.get(k, k)} {v}" for k, v in por_fuente.most_common()) + ".")
+    txt.append("Por idioma: " + ", ".join(f"{k} {v}" for k, v in por_idioma.most_common()) + ".")
+    txt.append(f"Autores o fuentes distintos: {len(por_autor)} (sin autor atribuido: {por_autor.get('—', 0)}). Los 30 con más documentos:")
+    for a, n in por_autor.most_common(31):
+        if a == "—":
+            continue
+        idi = ", ".join(f"{k} {v}" for k, v in idiomas_autor[a].most_common())
+        txt.append(f"- {a}: {n} documento(s) [{idi}]")
+    _PANORAMA_CACHE.update(n=len(FRS), txt="\n".join(txt))
+    return _PANORAMA_CACHE["txt"]
+
+
 def analizar(consulta):
     FRS, EMB = cargar()
     qv = embed_query(consulta)
@@ -847,11 +882,16 @@ TOOLS = [
             "required": ["texto", "titulo", "canal", "imagen_busqueda"]}}},
     {"type": "function", "function": {
         "name": "analizar_corpus",
-        "description": ("Cuenta y analiza sobre el corpus: cuántos autores o contenidos hablan de un tema, "
-                        "quiénes, cantidades. Usalo cuando la persona pide conteos o pregunta "
-                        "'¿cuántos/quiénes...?'."),
+        "description": ("Cuenta y analiza sobre el corpus. Dos alcances: 'tema' = cuántos autores o contenidos hablan de "
+                        "un tema concreto, quiénes, cantidades; 'todo' = panorama del corpus entero sin tema (quiénes "
+                        "están, qué autores hay además de Br. David, cuántos documentos por autor, por tipo y por idioma). "
+                        "Usalo cuando la persona pide conteos o pregunta '¿cuántos/quiénes...?'. Si pregunta por el "
+                        "corpus en general ('who else is in the corpus', 'qué autores hay', 'cuánto hay en inglés'), "
+                        "usá alcance 'todo': los conteos por tema NO sirven para eso."),
         "parameters": {"type": "object", "properties": {
-            "consulta": {"type": "string", "description": "Tema a analizar."}},
+            "consulta": {"type": "string", "description": "Tema a analizar (vacío si el alcance es 'todo')."},
+            "alcance": {"type": "string", "enum": ["tema", "todo"],
+                        "description": "'tema' (por defecto) o 'todo' para el panorama general del corpus."}},
             "required": ["consulta"]}}},
 ]
 
@@ -890,6 +930,9 @@ def _ejecutar_tool(nombre, args):
                  + (" y que elija el canal" if not pieza["canal"] else "") + ". NO repitas la pieza.")
         return aviso, {"__pieza__": pieza}
     if nombre == "analizar_corpus":
+        if (args.get("alcance") or "").lower() == "todo" or not consulta:
+            return ("PANORAMA REAL del corpus entero (conteos exactos, NO los recalcules; son documentos, no fragmentos):\n"
+                    + analizar_todo()), []
         resumen, res = analizar(consulta)
         return "CONTEOS REALES del corpus (exactos, NO los recalcules):\n" + resumen + "\n\n" + contexto(res), res
     return "", []
