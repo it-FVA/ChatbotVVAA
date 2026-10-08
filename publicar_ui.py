@@ -145,16 +145,17 @@ CONTEXTO_REGISTRO = {}   # título y texto_imagen del envío en curso, para el r
 # (28/9) Texto sobre imagen: la pieza de redes es la foto del banco con la frase encima.
 # imagen.componer_imagen lo arma (Pillow); acá se cachea por contenido para no recomponer
 # en cada redibujo del formulario, y se decide qué imagen viaja a Instagram/Facebook.
-def _componer(fuente, texto_imagen, firma, formato):
+def _componer(fuente, texto_imagen, firma, formato, tipografia="Lora", posicion="centro", alineacion="centro"):
     """fuente: bytes o URL. Devuelve bytes JPEG con la frase encima, o None si falla."""
     import hashlib
     import imagen
     h = hashlib.md5(fuente).hexdigest() if isinstance(fuente, (bytes, bytearray)) else str(fuente)
-    clave = f"{h}|{texto_imagen}|{firma}|{formato}"
+    clave = f"{h}|{texto_imagen}|{firma}|{formato}|{tipografia}|{posicion}|{alineacion}"
     cache = st.session_state.setdefault("compuesta_cache", {})
     if clave not in cache:
         try:
-            cache[clave] = imagen.componer_imagen(fuente, texto_imagen, firma=firma, formato=formato)
+            cache[clave] = imagen.componer_imagen(fuente, texto_imagen, firma=firma, formato=formato,
+                                                  tipografia=tipografia, posicion=posicion, alineacion=alineacion)
         except Exception as e:
             cache[clave] = None
             st.warning(f"No pude componer la imagen: {e}")
@@ -365,25 +366,39 @@ def formulario(usuario, key, pieza=None, compacto=False):
     if url_manual.strip():
         imagen_url = url_manual.strip()
 
-    # (28/9) La frase encima de la foto: vista previa y elección de publicar así
+    # (28/9) La frase encima de la foto: vista previa y elección de publicar así.
+    # (8/10) El formato se elige aunque la foto vaya sola: antes, al destildar «Publicar así»
+    # se perdía y una historia salía al feed (prueba real de Julián). Tipografía, posición y
+    # alineación del texto, también pedidas por Julián.
     compuesta = None
+    formato = None
     fuente = archivo.getvalue() if archivo is not None else imagen_url
-    if canal in ("Instagram", "Facebook") and fuente and texto_imagen.strip():
-        st.markdown("**Con la frase encima**")
+    if canal in ("Instagram", "Facebook") and fuente:
+        import imagen as _im
+        con_frase = bool(texto_imagen.strip())
+        st.markdown("**Con la frase encima**" if con_frase else "**Formato**")
         cf1, cf2, cf3 = st.columns([2, 1, 1])
-        firma = cf1.text_input("Firma", value=pieza.get("firma") or "— Br. David", key=k("firma"))
+        firma = cf1.text_input("Firma", value=pieza.get("firma") or "— Br. David", key=k("firma")) if con_frase else ""
         formato = cf2.selectbox("Formato", ["cuadrado", "vertical", "historia"], key=k("fmt"),
                                 help="«historia» en Instagram publica una HISTORIA (24 h, sin caption; la frase va en la imagen).")
+        usar = cf3.checkbox("Publicar así", value=True, key=k("usar_comp"),
+                            help="Si lo destildás, se publica la foto sola y el texto queda solo en el registro.") if con_frase else False
         if canal == "Instagram" and formato == "historia":
             st.caption("📱 Historia de Instagram: dura 24 h y no lleva caption (Instagram no lo permite por API). "
-                       "El texto de la pieza queda solo en el registro.")
-        usar = cf3.checkbox("Publicar así", value=True, key=k("usar_comp"),
-                            help="Si lo destildás, se publica la foto sola y el texto queda solo en el registro.")
-        compuesta = _componer(fuente, _sin_firma_repetida(texto_imagen.strip(), firma), firma.strip(), formato)
-        if compuesta is not None:
-            st.image(compuesta, width=360)
-            if not usar:
-                compuesta = None
+                       "El texto de la pieza queda solo en el registro."
+                       + ("" if con_frase and usar else " La foto sale tal cual; si no es vertical 9:16, Instagram la recorta."))
+        if con_frase:
+            cd1, cd2, cd3 = st.columns(3)
+            tipografia = cd1.selectbox("Tipografía", list(_im.TIPOGRAFIAS), key=k("tipo"),
+                                       help="Lora: serif, la de siempre. Lato: sans. Para sumar otra, pasarle el .ttf a Franco.")
+            posicion = cd2.selectbox("Posición del texto", list(_im.POSICIONES), key=k("pos"))
+            alineacion = cd3.selectbox("Alineación", list(_im.ALINEACIONES), key=k("ali"))
+            compuesta = _componer(fuente, _sin_firma_repetida(texto_imagen.strip(), firma), firma.strip(), formato,
+                                  tipografia, posicion, alineacion)
+            if compuesta is not None:
+                st.image(compuesta, width=360)
+                if not usar:
+                    compuesta = None
 
     # Fecha
     c1, c2 = st.columns(2)
@@ -419,7 +434,7 @@ def formulario(usuario, key, pieza=None, compacto=False):
             return
         res, imagen_url = _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, texto_imagen,
                                   video=video, compuesta=compuesta,
-                                  formato=st.session_state.get(k("fmt")) if compuesta is not None else None)
+                                  formato=formato)
         _mostrar_resultado(res, canal, modo, titulo, texto if canal == "WordPress" else _texto_plano(texto),
                            archivo, imagen_url, fecha_iso, texto_imagen, compuesta=compuesta)
 

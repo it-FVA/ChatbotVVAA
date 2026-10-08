@@ -15,7 +15,10 @@ Uso:
 Cómo compone: recorta la foto para cubrir el lienzo (sin deformar), oscurece con un degradado suave
 para que el texto blanco se lea sobre cualquier fondo, elige el tamaño de letra más grande con el
 que la frase entra en la caja (máx. 7 líneas), la centra, y abajo pone la firma en cursiva.
-Tipografías en `fuentes/` (Lora para la cita, Lato para la firma; licencia OFL).
+Tipografías en `fuentes/` (licencia OFL). `tipografia`: "Lora" (serif, la de siempre) o "Lato"
+(sans); para sumar otra, poner el .ttf en `fuentes/` y agregarla a TIPOGRAFIAS. `posicion`: "centro"
+(como siempre), "arriba" o "abajo"; el degradado oscuro acompaña a la posición. `alineacion`:
+"centro" o "izquierda". (8/10, pedido de Julián tras la primera prueba real.)
 """
 import io
 import os
@@ -31,6 +34,13 @@ FORMATOS = {
     "vertical": (1080, 1350),
     "historia": (1080, 1920),
 }
+# nombre visible → (archivo de la cita, archivo de la firma en cursiva)
+TIPOGRAFIAS = {
+    "Lora": ("Lora-Variable.ttf", "Lato-Italic.ttf"),
+    "Lato": ("Lato-Regular.ttf", "Lato-Italic.ttf"),
+}
+POSICIONES = ("centro", "arriba", "abajo")
+ALINEACIONES = ("centro", "izquierda")
 
 
 def _fuente(nombre, tam):
@@ -88,9 +98,13 @@ def _ajustar(texto, draw, ancho_max, alto_max, fuente_nombre, tam_max=64, tam_mi
     return f, lineas, int(tam_min * 1.32)
 
 
-def componer_imagen(foto, texto, firma="— Br. David", formato="cuadrado", oscurecer=0.45, calidad=90):
-    """Devuelve bytes JPEG: la foto recortada al formato, oscurecida, con el texto centrado y la firma."""
+def componer_imagen(foto, texto, firma="— Br. David", formato="cuadrado", oscurecer=0.45, calidad=90,
+                    tipografia="Lora", posicion="centro", alineacion="centro"):
+    """Devuelve bytes JPEG: la foto recortada al formato, oscurecida, con el texto y la firma."""
     ancho, alto = FORMATOS.get(formato, FORMATOS["cuadrado"])
+    f_cita_nombre, f_firma_nombre = TIPOGRAFIAS.get(tipografia, TIPOGRAFIAS["Lora"])
+    posicion = posicion if posicion in POSICIONES else "centro"
+    alineacion = alineacion if alineacion in ALINEACIONES else "centro"
     img = _abrir(foto)
     img = ImageOps.exif_transpose(img).convert("RGB")
     img = ImageOps.fit(img, (ancho, alto), method=Image.LANCZOS, centering=(0.5, 0.5))
@@ -99,7 +113,9 @@ def componer_imagen(foto, texto, firma="— Br. David", formato="cuadrado", oscu
     velo = Image.new("L", (1, alto))
     for y in range(alto):
         t = y / max(alto - 1, 1)
-        # 0.55·oscurecer arriba → oscurecer pleno desde el 35% hacia abajo
+        if posicion == "arriba":
+            t = 1.0 - t   # el texto va arriba: ahí va lo más oscuro
+        # 0.55·oscurecer en el extremo lejano → oscurecer pleno desde el 35% hacia el texto
         peso = oscurecer * (0.55 + 0.45 * min(t / 0.35, 1.0))
         velo.putpixel((0, y), int(255 * peso))
     velo = velo.resize((ancho, alto))
@@ -112,19 +128,27 @@ def componer_imagen(foto, texto, firma="— Br. David", formato="cuadrado", oscu
     alto_caja = int(alto * 0.62)
 
     texto = (texto or "").strip()
-    f_cita, lineas, inter = _ajustar(texto, draw, ancho_caja, alto_caja, "Lora-Variable.ttf")
-    f_firma = _fuente("Lato-Italic.ttf", max(int(f_cita.size * 0.55), 26))
+    f_cita, lineas, inter = _ajustar(texto, draw, ancho_caja, alto_caja, f_cita_nombre)
+    f_firma = _fuente(f_firma_nombre, max(int(f_cita.size * 0.55), 26))
 
     alto_texto = inter * len(lineas)
     sep_firma = int(inter * 0.9) if firma else 0
     alto_firma = int(f_firma.size * 1.3) if firma else 0
     bloque = alto_texto + sep_firma + alto_firma
-    y = (alto - bloque) // 2 + int(alto * 0.03)
+    if posicion == "arriba":
+        y = int(alto * 0.10)
+    elif posicion == "abajo":
+        y = alto - bloque - int(alto * 0.10)
+    else:
+        y = (alto - bloque) // 2 + int(alto * 0.03)
+
+    def _x(w):
+        return margen if alineacion == "izquierda" else (ancho - w) / 2
 
     sombra = (0, 0, 0)
     for linea in lineas:
         w = draw.textlength(linea, font=f_cita)
-        x = (ancho - w) / 2
+        x = _x(w)
         draw.text((x + 2, y + 2), linea, font=f_cita, fill=sombra)
         draw.text((x, y), linea, font=f_cita, fill=(255, 255, 255))
         y += inter
@@ -132,7 +156,7 @@ def componer_imagen(foto, texto, firma="— Br. David", formato="cuadrado", oscu
     if firma:
         y += sep_firma
         w = draw.textlength(firma, font=f_firma)
-        x = (ancho - w) / 2
+        x = _x(w)
         draw.text((x + 1, y + 1), firma, font=f_firma, fill=sombra)
         draw.text((x, y), firma, font=f_firma, fill=(235, 235, 235))
 
