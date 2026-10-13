@@ -39,19 +39,28 @@ def _norm(s):
     return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]+", " ", s)).strip()
 
 
-def leer_set(solo_dificiles=False):
-    """[{n, consulta, dificultad, titulos:[...]}]"""
+def leer_set(solo_dificiles=False, ruta=None, solo_validadas=False):
+    """[{n, consulta, dificultad, titulos:[...]}]
+    solo_validadas (13/10): usa solo los pasajes que Pato marcó OK en la columna Validación y descarta
+    las consultas que todavía no tienen ninguna fila validada (sacar / cambiar / vacío no cuentan)."""
     out, actual = [], None
-    with open(SET, encoding="utf-8-sig", newline="") as f:
+    with open(ruta or SET, encoding="utf-8-sig", newline="") as f:
         for fila in csv.DictReader(f):
             n = (fila.get("N°") or fila.get("Nº") or "").strip()
             titulo = (fila.get("Título del contenido") or "").strip()
+            val = (fila.get("Validación") or "").strip().upper()
             if n:
                 actual = {"n": n, "consulta": (fila.get("Consulta") or "").strip(),
-                          "dificultad": (fila.get("Dificultad") or "").strip(), "titulos": []}
+                          "dificultad": (fila.get("Dificultad") or "").strip(), "titulos": [], "validada": False}
                 out.append(actual)
             if actual is not None and titulo:
+                if val:
+                    actual["validada"] = True
+                if solo_validadas and val != "OK":
+                    continue
                 actual["titulos"].append(titulo)
+    if solo_validadas:
+        out = [c for c in out if c["validada"]]
     out = [c for c in out if c["consulta"] and c["titulos"]]
     if solo_dificiles:
         out = [c for c in out if _norm(c["dificultad"]).startswith("dif")]
@@ -78,16 +87,19 @@ def main():
     ap.add_argument("--con-reranker", action="store_true")
     ap.add_argument("--solo-dificiles", action="store_true")
     ap.add_argument("--autor", default="", help='filtro de autor; vacío = sin filtro (el set dorado mezcla autores)')
+    ap.add_argument("--set", default="", help="otro CSV del set dorado (por defecto el borrador)")
+    ap.add_argument("--solo-validadas", action="store_true", help="solo pasajes OK de la columna Validación y consultas ya revisadas")
     ap.add_argument("--modos", choices=["expansion", "plan"], default="expansion",
                     help="expansion: P/L/X (Conceptos relacionados) · plan: A/B/B2/C del plan del buscador (híbrida, limpieza, reranker ampliado)")
     args = ap.parse_args()
     if not os.environ.get("OPENAI_API_KEY"):
         raise SystemExit("Falta OPENAI_API_KEY.")
-    if not os.path.exists(SET):
-        raise SystemExit(f"No encuentro el set dorado en {SET}")
+    ruta_set = args.set or SET
+    if not os.path.exists(ruta_set):
+        raise SystemExit(f"No encuentro el set dorado en {ruta_set}")
 
     import nucleo
-    consultas = leer_set(args.solo_dificiles)
+    consultas = leer_set(args.solo_dificiles, ruta=ruta_set, solo_validadas=args.solo_validadas)
     print(f"{len(consultas)} consultas del set dorado · acierto@{args.n}")
 
     if args.modos == "plan":
@@ -98,6 +110,8 @@ def main():
         modos = dict(MODOS_EXPANSION)
         variantes = [("sin reranker", False)] + ([("con reranker", True)] if args.con_reranker else [])
     salida = "medicion-set-dorado.md" if args.modos == "expansion" else "medicion-set-dorado-plan.md"
+    if args.solo_validadas:
+        salida = salida.replace(".md", "-validado.md")
 
     tabla = {}      # (modo, variante) -> {"aciertos": int, "pos": [..], "fallas": [n...]}
     detalle = {}    # n -> {(modo, variante): pos}
@@ -119,7 +133,8 @@ def main():
             print(f"  {nombre:36} {vnombre:13} aciertos {t['aciertos']}/{len(consultas)}")
 
     lineas = [f"# Medición con el set dorado — {datetime.now():%Y-%m-%d %H:%M}", "",
-              f"{len(consultas)} consultas{' (solo difíciles)' if args.solo_dificiles else ''} · acierto@{args.n} = "
+              f"{len(consultas)} consultas{' (solo difíciles)' if args.solo_dificiles else ''}"
+              f"{' · solo pasajes validados OK por Pato (' + os.path.basename(ruta_set) + ')' if args.solo_validadas else ''} · acierto@{args.n} = "
               "al menos un título esperado entre los primeros resultados · filtro de autor: "
               f"**{args.autor or 'ninguno'}**", "",
               "| Modo | Variante | Aciertos | Posición media del primer acierto |", "|---|---|---|---|"]
