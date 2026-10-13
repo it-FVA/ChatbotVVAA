@@ -63,6 +63,7 @@ _T = {
     "tus": {"es": "Tus conversaciones", "en": "Your conversations", "de": "Deine Gespräche"},
     "salir": {"es": "Salir", "en": "Log out", "de": "Abmelden"},
     "volver": {"es": "💬 Volver al chat", "en": "💬 Back to chat", "de": "💬 Zurück zum Chat"},
+    "mis": {"es": "📋 Mis publicaciones", "en": "📋 My posts", "de": "📋 Meine Beiträge"},
     "renombrar": {"es": "Renombrar", "en": "Rename", "de": "Umbenennen"},
     "borrar": {"es": "🗑️ Borrar conversación", "en": "🗑️ Delete conversation", "de": "🗑️ Gespräch löschen"},
     "sub": {"es": "Búsqueda y armado fundados solo en el material real de la Fundación. Los borradores son para revisión del equipo.",
@@ -129,23 +130,25 @@ with st.sidebar:
     # (24/9 noche) Publicar pasa dentro del chat: el bot propone el recuadro cuando la pieza está lista.
     # La pantalla "Publicar" suelta ya no se muestra; queda solo con ?vista=publicar en la dirección,
     # para cargar algo que no salió de una conversación.
-    if st.query_params.get("vista") in ("publicar", "aprobar"):
+    if st.query_params.get("vista") in ("publicar", "aprobar", "mis"):
         st.session_state.vista = st.query_params.get("vista")
-    if st.session_state.vista in ("publicar", "aprobar"):
+    if st.session_state.vista in ("publicar", "aprobar", "mis"):
         if st.button(T("volver"), use_container_width=True):
             st.query_params.clear()
             st.session_state.vista = "chat"
             st.rerun()
+    # (13/10) Roles: todos tienen "Mis publicaciones"; los aprobadores, además, el panel admin.
+    if st.button(T("mis"), use_container_width=True):
+        st.session_state.vista = "mis"
+        st.rerun()
     if ROL["aprueba"]:
         try:
             _n_apr = len(db.listar_a_aprobar())
         except Exception:
             _n_apr = 0
-        if st.button(f"✅ Aprobaciones ({_n_apr})", use_container_width=True, type="primary" if _n_apr else "secondary"):
+        if st.button(f"🛠 Panel admin · {_n_apr} para aprobar", use_container_width=True, type="primary" if _n_apr else "secondary"):
             st.session_state.vista = "aprobar"
             st.rerun()
-        publicar_ui.piezas_en_cola_sidebar(USUARIO)
-    publicar_ui.mis_propuestas_sidebar(USUARIO)
     if st.button(T("nueva"), use_container_width=True, type="primary"):
         st.session_state.vista = "chat"
         st.session_state.messages = []
@@ -231,6 +234,9 @@ st.caption(T("sub"))
 
 if st.session_state.vista == "publicar":
     publicar_ui.render(USUARIO)
+    st.stop()
+if st.session_state.vista == "mis":
+    publicar_ui.mis_publicaciones(USUARIO)
     st.stop()
 if st.session_state.vista == "aprobar":
     publicar_ui.panel_aprobacion(USUARIO)

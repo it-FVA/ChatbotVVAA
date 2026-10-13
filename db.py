@@ -234,6 +234,24 @@ def rechazar_publicacion(pid, usuario, nota, resultado_previo=None):
                                                           rechazada_en=datetime.now(timezone.utc).isoformat(timespec="seconds"))})
 
 
+def listar_mias(usuario, limite=50):
+    """(13/10) Todo lo que esta persona creó: propuestas, piezas aprobadas, publicadas, simuladas."""
+    if not disponible():
+        return []
+    q = (f"?select=id,creado,canal,modo,titulo,texto,imagen_url,estado,fecha_programada,procesado_en,resultado"
+         f"&usuario=eq.{urllib.parse.quote(usuario)}&order=creado.desc&limit={limite}")
+    return _req("GET", q, tabla="publicaciones")
+
+
+def listar_registro(limite=60):
+    """(13/10) Registro completo para el panel admin: quién creó, quién aprobó o rechazó, qué pasó."""
+    if not disponible():
+        return []
+    q = (f"?select=id,creado,usuario,canal,modo,titulo,texto,estado,fecha_programada,procesado_en,resultado"
+         f"&order=creado.desc&limit={limite}")
+    return _req("GET", q, tabla="publicaciones")
+
+
 def listar_mis_propuestas(usuario, limite=10):
     """Las piezas que esta persona mandó a aprobación, con su estado actual."""
     if not disponible():

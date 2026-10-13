@@ -41,16 +41,20 @@ def _lista(clave, defecto):
 
 
 def roles(usuario):
-    """(13/10, reunión) Niveles de permiso:
-    - todos: ven el recuadro y la pestaña Publicar en SIMULADO (arman la pieza, nada sale) y pueden
-      mandarla a aprobación;
-    - APROBADORES: ven el panel de aprobación, aprueban (va a la cola) o rechazan;
-    - PUBLICAR_USUARIOS: publican de verdad con el modo real de cada canal (Julián).
+    """(13/10, reunión + pedido de Franco) Tres niveles, acumulativos:
+    - CREADOR DE CONTENIDO (todos): chat, arma piezas en simulado, elige fecha y hora y las manda a
+      aprobación; sigue su estado en "Mis publicaciones".
+    - APROBADOR / ADMIN (secret APROBADORES): panel admin: aprueba (puede cambiar fecha y hora), rechaza
+      con nota, ve la cola y el registro completo.
+    - PUBLICACIÓN DIRECTA (secret PUBLICACION_DIRECTA; por defecto = los aprobadores): publica de verdad
+      desde el recuadro sin pasar por aprobación (bypass).
     Se cambian en secrets sin tocar código."""
-    real = _lista("PUBLICAR_USUARIOS", "julian")
-    aprob = _lista("APROBADORES", ",".join(real))
-    return {"publica": usuario in real, "aprueba": usuario in aprob or usuario in real,
-            "aprobadores": aprob, "publicadores": real}
+    aprob = _lista("APROBADORES", "julian,franco,beto")
+    directa = _lista("PUBLICACION_DIRECTA", ",".join(aprob))
+    aprueba = usuario in aprob
+    return {"crea": True, "aprueba": aprueba, "publica": usuario in directa,
+            "nombre": "aprobador / admin" if aprueba else "creador de contenido",
+            "aprobadores": aprob, "publicadores": directa}
 
 
 def _cfg(usuario=None):
@@ -299,8 +303,75 @@ def _va_a_la_cola(canal, modo):
     return False                         # WordPress y YouTube programan nativo (o el video no se puede guardar en cola)                         # WordPress programa nativo (borrador con fecha / future)
 
 
-ESTADO_TXT = {"a_aprobar": "⏳ esperando aprobación", "pendiente": "🗓 aprobada, en cola", "rechazada": "✖ rechazada",
-              "publicada": "✅ publicada", "simulada": "👁 simulada", "error": "⚠ error", "cancelada": "✖ cancelada"}
+ESTADO_TXT = {"a_aprobar": "⏳ pendiente de aprobación", "pendiente": "✅ aprobada · programada", "rechazada": "✖ rechazada",
+              "publicada": "📣 publicada", "simulada": "👁 simulada", "error": "⚠ error", "cancelada": "✖ cancelada",
+              "subida": "🖼 imagen subida", "draft": "📝 borrador en WordPress", "programada": "🗓 programada",
+              "PUBLICADO": "📣 publicada"}
+
+
+def _fecha(v):
+    v = str(v or "")
+    return v[:16].replace("T", " ") if v else ""
+
+
+def _fila_publicacion(p, mostrar_usuario=False):
+    """Una pieza del registro, en un recuadro: estado, canal, texto, fechas y quién hizo qué."""
+    res = p.get("resultado") or {}
+    est = p.get("estado") or ""
+    with st.container(border=True):
+        c1, c2 = st.columns([1, 4])
+        if p.get("imagen_url"):
+            c1.image(p["imagen_url"], use_container_width=True)
+        cab = f"**{ESTADO_TXT.get(est, est)}** · {p.get('canal')} · creada {_fecha(p.get('creado'))}"
+        if mostrar_usuario:
+            cab += f" · por **{p.get('usuario')}**"
+        c2.markdown(cab)
+        if p.get("titulo"):
+            c2.markdown(f"**{p['titulo']}**")
+        if p.get("texto"):
+            c2.caption((p["texto"] or "")[:220] + ("…" if len(p.get("texto") or "") > 220 else ""))
+        detalle = []
+        if p.get("fecha_programada"):
+            detalle.append(f"sale el {_fecha(p['fecha_programada'])}")
+        if res.get("aprobada_por"):
+            detalle.append(f"aprobó **{res['aprobada_por']}** ({_fecha(res.get('aprobada_en'))})")
+        if res.get("rechazada_por"):
+            detalle.append(f"rechazó **{res['rechazada_por']}** ({_fecha(res.get('rechazada_en'))})")
+        if res.get("nota"):
+            detalle.append(f"nota: _{res['nota']}_")
+        if res.get("cancelada_por"):
+            detalle.append(f"canceló **{res['cancelada_por']}**")
+        if est in ("publicada", "PUBLICADO") and (res.get("ultimo") or {}).get("permalink"):
+            detalle.append(f"[ver publicación ↗]({res['ultimo']['permalink']})")
+        if est == "error":
+            detalle.append(f"error: {str((res.get('ultimo') or {}).get('aviso', ''))[:120]}")
+        if detalle:
+            c2.markdown(" · ".join(detalle))
+
+
+def mis_publicaciones(usuario):
+    """(13/10) Pantalla "Mis publicaciones", para todos: lo que creé y en qué estado está."""
+    rol = roles(usuario)
+    st.markdown("### 📋 Mis publicaciones")
+    st.caption(f"Tu rol: **{rol['nombre']}**" + (" · con publicación directa" if rol["publica"] else "")
+               + ". Acá quedan todas las piezas que mandaste: pendientes, aprobadas, rechazadas y publicadas.")
+    try:
+        mias = db.listar_mias(usuario)
+    except Exception as e:
+        st.error(f"No pude leer tus piezas: {e}")
+        return
+    mias = [p for p in mias if p.get("estado") != "subida"]     # las subidas de imagen no son piezas
+    if not mias:
+        st.caption("Todavía no mandaste ninguna pieza.")
+        return
+    filtro = st.radio("Ver", ["todas", "pendientes", "aprobadas", "rechazadas", "publicadas"], horizontal=True,
+                      key="mis_filtro", label_visibility="collapsed")
+    grupos = {"pendientes": ("a_aprobar",), "aprobadas": ("pendiente", "programada"),
+              "rechazadas": ("rechazada", "cancelada"), "publicadas": ("publicada", "PUBLICADO", "draft")}
+    if filtro != "todas":
+        mias = [p for p in mias if p.get("estado") in grupos[filtro]]
+    for p in mias:
+        _fila_publicacion(p)
 
 
 def mis_propuestas_sidebar(usuario):
@@ -320,19 +391,40 @@ def mis_propuestas_sidebar(usuario):
 
 
 def panel_aprobacion(usuario):
-    """(13/10) Pantalla de los aprobadores: piezas 'a_aprobar' con vista previa; aprobar (→ cola) o rechazar."""
-    st.markdown("### ✅ Aprobaciones")
+    """(13/10) Panel admin de los aprobadores: para aprobar · en cola · registro completo."""
+    st.markdown("### 🛠 Panel admin")
     rol = roles(usuario)
     if not rol["aprueba"]:
-        st.warning("Esta pantalla es para quienes aprueban.")
+        st.warning("Esta pantalla es para los aprobadores.")
         return
     try:
         pend = db.listar_a_aprobar()
     except Exception as e:
         st.error(f"No pude leer las piezas: {e}")
         return
+    t1, t2, t3 = st.tabs([f"⏳ Para aprobar ({len(pend)})", "🗓 En cola", "📒 Registro"])
+    with t2:
+        try:
+            cola = db.listar_pendientes()
+        except Exception:
+            cola = []
+        if not cola:
+            st.caption("No hay piezas en cola.")
+        for p in cola:
+            _fila_publicacion(p, mostrar_usuario=True)
+            if st.button("Cancelar", key=f"adm_cancel_{p['id']}"):
+                db.cancelar_publicacion(p["id"], usuario)
+                st.rerun()
+    with t3:
+        st.caption("Quién creó cada pieza, quién la aprobó o rechazó, y qué pasó. Las últimas 60.")
+        try:
+            for p in db.listar_registro():
+                if p.get("estado") != "subida":
+                    _fila_publicacion(p, mostrar_usuario=True)
+        except Exception as e:
+            st.caption(f"(sin registro: {e})")
     if not pend:
-        st.caption("No hay piezas esperando aprobación.")
+        t1.caption("No hay piezas esperando aprobación.")
         return
     cfg_real = publicar.Config(st.secrets)
     r = cfg_real.resumen()
@@ -340,7 +432,7 @@ def panel_aprobacion(usuario):
         pid = p["id"]
         res = p.get("resultado") or {}
         canal = p.get("canal") or ""
-        with st.container(border=True):
+        with t1.container(border=True):
             c1, c2 = st.columns([1, 2])
             if p.get("imagen_url"):
                 c1.image(p["imagen_url"], use_container_width=True)
@@ -353,8 +445,8 @@ def panel_aprobacion(usuario):
             if res.get("texto_imagen"):
                 c2.caption(f"Sobre la imagen: «{res['texto_imagen']}»")
             fp = str(p.get("fecha_programada") or "")
-            c2.caption("Fecha pedida: " + (fp[:16].replace("T", " ") if fp else "cuanto antes")
-                       + f" · el canal hoy está en modo **{r.get(canal, '?')}**")
+            c2.caption("Fecha y hora que pidió: " + (fp[:16].replace("T", " ") if fp else "cuanto antes")
+                       + f" · el canal hoy está en modo **{r.get(canal, '?')}** · podés cambiarla antes de aprobar")
             try:
                 f0 = datetime.date.fromisoformat(fp[:10]) if fp else datetime.date.today()
                 h0 = datetime.time(int(fp[11:13]), int(fp[14:16])) if fp else (datetime.datetime.now() + datetime.timedelta(minutes=20)).time().replace(second=0, microsecond=0)
@@ -563,8 +655,9 @@ def formulario(usuario, key, pieza=None, compacto=False):
     puede_proponer = (canal in ("WordPress", "Instagram", "Facebook") and not rol["publica"]
                       and modo_real in ("real", "borrador"))
     if puede_proponer:
-        st.caption("Vos lo ves en simulado. Para que salga de verdad, mandalo a aprobación: lo revisa "
-                   + (", ".join(rol["aprobadores"]) or "un aprobador") + " y sale por la cola.")
+        st.caption("Sos creador de contenido: acá lo ves en simulado. Elegí fecha y hora si querés y mandalo a aprobación: "
+                   "lo revisa un aprobador (" + (", ".join(rol["aprobadores"]) or "—") + ") y sale solo. "
+                   "Seguís el estado en «Mis publicaciones».")
     cb_env, cb_apr = st.columns(2) if puede_proponer else (st, None)
     enviar = cb_env.button(f"Enviar a {canal or '…'}" + (" (simulado)" if modo == "simulado" and canal else ""),
                            type="primary" if not puede_proponer else "secondary", key=k("enviar"),
