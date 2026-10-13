@@ -41,6 +41,53 @@ TIPOGRAFIAS = {
 }
 POSICIONES = ("centro", "arriba", "abajo")
 ALINEACIONES = ("centro", "izquierda")
+# (13/10) Logos que Julián subió a la biblioteca de WordPress (reunión 13/10: "qué logo querés" +
+# tamaño estándar por formato). nombre visible → URL. Tamaño: los apaisados ocupan el 22 % del ancho,
+# los cuadrados (la flor) el 10 % del alto; margen 5 % (8 % arriba/abajo en historias, por la interfaz de IG).
+LOGOS = {
+    "Sin logo": None,
+    "Amarillo": "https://viviragradecidos.org/wp-content/uploads/2026/10/Logo_VA_2026_amarillo_sombra.png",
+    "Blanco": "https://viviragradecidos.org/wp-content/uploads/2026/10/Logo_VA_2026_boanco_sombra.png",
+    "Flor amarilla": "https://viviragradecidos.org/wp-content/uploads/2026/10/Logo_VA_2026_flor_amarillo_sombra.png",
+    "Flor blanca": "https://viviragradecidos.org/wp-content/uploads/2026/10/Logo_VA_2026_flor_blanco_sombra.png",
+}
+POSICIONES_LOGO = ("abajo derecha", "abajo izquierda", "abajo centro", "arriba derecha", "arriba izquierda", "arriba centro")
+_LOGO_CACHE = {}
+
+
+def _logo_png(logo):
+    """logo: nombre de LOGOS, URL o bytes. Devuelve Image RGBA o None."""
+    if not logo:
+        return None
+    src = LOGOS.get(logo, logo) if isinstance(logo, str) else logo
+    if not src:
+        return None
+    k = src if isinstance(src, str) else hash(bytes(src))
+    if k not in _LOGO_CACHE:
+        _LOGO_CACHE[k] = _abrir(src).convert("RGBA")
+    return _LOGO_CACHE[k]
+
+
+def _pegar_logo(img, logo, posicion_logo, formato):
+    """Pega el logo con tamaño estándar. Devuelve (img, alto_ocupado_arriba, alto_ocupado_abajo)."""
+    lg = _logo_png(logo)
+    if lg is None:
+        return img, 0, 0
+    ancho, alto = img.size
+    if lg.width / max(lg.height, 1) > 1.5:
+        w = int(ancho * 0.22); h = int(lg.height * w / lg.width)
+    else:
+        h = int(alto * 0.10); w = int(lg.width * h / lg.height)
+    lg = lg.resize((max(w, 1), max(h, 1)), Image.LANCZOS)
+    mx = int(ancho * 0.05)
+    my = int(alto * (0.08 if formato == "historia" else 0.05))
+    pos = posicion_logo if posicion_logo in POSICIONES_LOGO else "abajo derecha"
+    vert, horiz = pos.split(" ", 1)
+    x = {"derecha": ancho - mx - w, "izquierda": mx, "centro": (ancho - w) // 2}[horiz]
+    y = alto - my - h if vert == "abajo" else my
+    img.paste(lg, (x, y), lg)
+    ocupado = my + h
+    return img, (ocupado if vert == "arriba" else 0), (ocupado if vert == "abajo" else 0)
 
 
 def _fuente(nombre, tam):
@@ -99,7 +146,7 @@ def _ajustar(texto, draw, ancho_max, alto_max, fuente_nombre, tam_max=64, tam_mi
 
 
 def componer_imagen(foto, texto, firma="— Br. David", formato="cuadrado", oscurecer=0.45, calidad=90,
-                    tipografia="Lora", posicion="centro", alineacion="centro"):
+                    tipografia="Lora", posicion="centro", alineacion="centro", logo=None, posicion_logo="abajo derecha"):
     """Devuelve bytes JPEG: la foto recortada al formato, oscurecida, con el texto y la firma."""
     ancho, alto = FORMATOS.get(formato, FORMATOS["cuadrado"])
     f_cita_nombre, f_firma_nombre = TIPOGRAFIAS.get(tipografia, TIPOGRAFIAS["Lora"])
@@ -122,12 +169,19 @@ def componer_imagen(foto, texto, firma="— Br. David", formato="cuadrado", oscu
     negro = Image.new("RGB", (ancho, alto), (0, 0, 0))
     img = Image.composite(negro, img, velo)
 
+    img, logo_arriba, logo_abajo = _pegar_logo(img, logo, posicion_logo, formato)
+
     draw = ImageDraw.Draw(img)
     margen = int(ancho * 0.09)
     ancho_caja = ancho - 2 * margen
     alto_caja = int(alto * 0.62)
 
     texto = (texto or "").strip()
+    if not texto:
+        # (13/10) foto + logo, sin frase
+        salida = io.BytesIO()
+        img.save(salida, format="JPEG", quality=calidad, optimize=True)
+        return salida.getvalue()
     f_cita, lineas, inter = _ajustar(texto, draw, ancho_caja, alto_caja, f_cita_nombre)
     f_firma = _fuente(f_firma_nombre, max(int(f_cita.size * 0.55), 26))
 
@@ -136,9 +190,9 @@ def componer_imagen(foto, texto, firma="— Br. David", formato="cuadrado", oscu
     alto_firma = int(f_firma.size * 1.3) if firma else 0
     bloque = alto_texto + sep_firma + alto_firma
     if posicion == "arriba":
-        y = int(alto * 0.10)
+        y = max(int(alto * 0.10), logo_arriba + int(alto * 0.03))
     elif posicion == "abajo":
-        y = alto - bloque - int(alto * 0.10)
+        y = alto - bloque - max(int(alto * 0.10), logo_abajo + int(alto * 0.03))
     else:
         y = (alto - bloque) // 2 + int(alto * 0.03)
 

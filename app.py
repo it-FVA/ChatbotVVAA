@@ -84,7 +84,9 @@ st.session_state.setdefault("conv_titulo", None)
 # PUBLICAR_USUARIOS = "franco,julian" en secrets. Los switches por canal (PUBLICAR_WORDPRESS,
 # PUBLICAR_INSTAGRAM, PUBLICAR_FACEBOOK) también viven en secrets; ver publicar.py.
 _PUB_USUARIOS = [u.strip() for u in str(_sec("PUBLICAR_USUARIOS", "franco,julian")).split(",") if u.strip()]
-PUEDE_PUBLICAR = USUARIO in _PUB_USUARIOS
+# (13/10) PUBLICAR_SIMULADO_USUARIOS: ven la pestaña y arman piezas, pero todos los canales les quedan en simulado.
+_PUB_SIMULADO = [u.strip() for u in str(_sec("PUBLICAR_SIMULADO_USUARIOS", "")).split(",") if u.strip()]
+PUEDE_PUBLICAR = USUARIO in _PUB_USUARIOS or USUARIO in _PUB_SIMULADO
 st.session_state.setdefault("vista", "chat")
 
 

@@ -36,8 +36,17 @@ CANALES = ["WordPress", "Instagram", "Facebook", "YouTube"]
 CLAVE = {"WordPress": "wordpress", "Instagram": "instagram", "Facebook": "facebook", "YouTube": "youtube"}
 
 
-def _cfg():
-    return publicar.Config(st.secrets)
+def _cfg(usuario=None):
+    """(13/10, reunión) Niveles: PUBLICAR_USUARIOS publican con el modo real de cada canal;
+    PUBLICAR_SIMULADO_USUARIOS (Beto) ven la misma pestaña pero todos los canales les quedan en
+    'simulado': arman y ven la pieza, nada sale. El rol 'aprobación' queda pendiente."""
+    cfg = publicar.Config(st.secrets)
+    sim = [u.strip() for u in str(st.secrets.get("PUBLICAR_SIMULADO_USUARIOS", "")).split(",") if u.strip()]
+    if usuario and usuario in sim:
+        for a in ("modo_wp", "modo_ig", "modo_fb", "modo_yt"):
+            if getattr(cfg, a) != "apagado":
+                setattr(cfg, a, "simulado")
+    return cfg
 
 
 def _con_zona(fecha):
@@ -145,17 +154,19 @@ CONTEXTO_REGISTRO = {}   # título y texto_imagen del envío en curso, para el r
 # (28/9) Texto sobre imagen: la pieza de redes es la foto del banco con la frase encima.
 # imagen.componer_imagen lo arma (Pillow); acá se cachea por contenido para no recomponer
 # en cada redibujo del formulario, y se decide qué imagen viaja a Instagram/Facebook.
-def _componer(fuente, texto_imagen, firma, formato, tipografia="Lora", posicion="centro", alineacion="centro"):
+def _componer(fuente, texto_imagen, firma, formato, tipografia="Lora", posicion="centro", alineacion="centro",
+              logo=None, posicion_logo="abajo derecha"):
     """fuente: bytes o URL. Devuelve bytes JPEG con la frase encima, o None si falla."""
     import hashlib
     import imagen
     h = hashlib.md5(fuente).hexdigest() if isinstance(fuente, (bytes, bytearray)) else str(fuente)
-    clave = f"{h}|{texto_imagen}|{firma}|{formato}|{tipografia}|{posicion}|{alineacion}"
+    clave = f"{h}|{texto_imagen}|{firma}|{formato}|{tipografia}|{posicion}|{alineacion}|{logo}|{posicion_logo}"
     cache = st.session_state.setdefault("compuesta_cache", {})
     if clave not in cache:
         try:
             cache[clave] = imagen.componer_imagen(fuente, texto_imagen, firma=firma, formato=formato,
-                                                  tipografia=tipografia, posicion=posicion, alineacion=alineacion)
+                                                  tipografia=tipografia, posicion=posicion, alineacion=alineacion,
+                                                  logo=logo, posicion_logo=posicion_logo)
         except Exception as e:
             cache[clave] = None
             st.warning(f"No pude componer la imagen: {e}")
@@ -306,7 +317,7 @@ def _mostrar_resultado(res, canal, modo, titulo, texto, archivo, imagen_url, fec
 def formulario(usuario, key, pieza=None, compacto=False):
     """El formulario de publicar. `pieza` (de la herramienta proponer_publicacion) lo precompleta.
     `key` distingue cada instancia (uno por mensaje del bot, o 'tab')."""
-    cfg = _cfg()
+    cfg = _cfg(usuario)
     publicar.REGISTRAR_EXTRA = _hook_registro(usuario)
     r = cfg.resumen()
     pieza = pieza or {}
@@ -376,25 +387,36 @@ def formulario(usuario, key, pieza=None, compacto=False):
     if canal in ("Instagram", "Facebook") and fuente:
         import imagen as _im
         con_frase = bool(texto_imagen.strip())
-        st.markdown("**Con la frase encima**" if con_frase else "**Formato**")
+        st.markdown("**Con la frase encima**" if con_frase else "**Formato y logo**")
         cf1, cf2, cf3 = st.columns([2, 1, 1])
         firma = cf1.text_input("Firma", value=pieza.get("firma") or "— Br. David", key=k("firma")) if con_frase else ""
         formato = cf2.selectbox("Formato", ["cuadrado", "vertical", "historia"], key=k("fmt"),
                                 help="«historia» en Instagram publica una HISTORIA (24 h, sin caption; la frase va en la imagen).")
         usar = cf3.checkbox("Publicar así", value=True, key=k("usar_comp"),
-                            help="Si lo destildás, se publica la foto sola y el texto queda solo en el registro.") if con_frase else False
+                            help="Si lo destildás, se publica la foto sola y el texto queda solo en el registro.") if con_frase else True
+        # (13/10) Logo con tamaño estándar por formato; se elige cuál y en qué esquina.
+        cl1, cl2 = st.columns(2)
+        logo = cl1.selectbox("Logo", list(_im.LOGOS), key=k("logo"),
+                             help="Los que Julián subió a WordPress (13/10). El tamaño es estándar por formato.")
+        posicion_logo = cl2.selectbox("Posición del logo", list(_im.POSICIONES_LOGO), key=k("plogo"),
+                                      disabled=(logo == "Sin logo"))
+        con_logo = logo != "Sin logo"
         if canal == "Instagram" and formato == "historia":
             st.caption("📱 Historia de Instagram: dura 24 h y no lleva caption (Instagram no lo permite por API). "
                        "El texto de la pieza queda solo en el registro."
-                       + ("" if con_frase and usar else " La foto sale tal cual; si no es vertical 9:16, Instagram la recorta."))
+                       + ("" if (con_frase or con_logo) and usar else " La foto sale tal cual; si no es vertical 9:16, Instagram la recorta."))
         if con_frase:
             cd1, cd2, cd3 = st.columns(3)
             tipografia = cd1.selectbox("Tipografía", list(_im.TIPOGRAFIAS), key=k("tipo"),
                                        help="Lora: serif, la de siempre. Lato: sans. Para sumar otra, pasarle el .ttf a Franco.")
             posicion = cd2.selectbox("Posición del texto", list(_im.POSICIONES), key=k("pos"))
             alineacion = cd3.selectbox("Alineación", list(_im.ALINEACIONES), key=k("ali"))
-            compuesta = _componer(fuente, _sin_firma_repetida(texto_imagen.strip(), firma), firma.strip(), formato,
-                                  tipografia, posicion, alineacion)
+        else:
+            tipografia, posicion, alineacion = "Lora", "centro", "centro"
+        if con_frase or con_logo:
+            compuesta = _componer(fuente, _sin_firma_repetida(texto_imagen.strip(), firma) if con_frase else "",
+                                  firma.strip(), formato, tipografia, posicion, alineacion,
+                                  logo if con_logo else None, posicion_logo)
             if compuesta is not None:
                 st.image(compuesta, width=360)
                 if not usar:
@@ -452,7 +474,7 @@ def recuadro(usuario, pieza, key, abierto=True):
 
 def render(usuario):
     """La pestaña 'Publicar' (respaldo)."""
-    cfg = _cfg()
+    cfg = _cfg(usuario)
     r = cfg.resumen()
     st.markdown("### 📤 Publicar una pieza")
     st.caption("Lo normal es publicar desde el chat, debajo de la respuesta del bot. Esta pantalla es para piezas que no salen de una conversación.")
@@ -463,7 +485,7 @@ def render(usuario):
             icono, txt = MODO_TXT.get(modo, ("⚫", modo))
             col.markdown(f"**{nombre}** {icono}  \n<small>{txt}</small>", unsafe_allow_html=True)
     formulario(usuario, "tab")
-    with st.expander("Últimas piezas registradas"):
+    with st.expander("Registro: quién hizo qué (últimas 15 acciones)"):
         try:
             for p in db.listar_publicaciones(limite=15):
                 st.markdown(f"- {str(p.get('creado', ''))[:16].replace('T', ' ')} · **{p.get('canal')}** · {p.get('modo')} · "
