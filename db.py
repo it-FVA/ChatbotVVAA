@@ -188,6 +188,61 @@ def cancelar_publicacion(pid, usuario):
                                         "resultado": {"cancelada_por": usuario}})
 
 
+# ---------------- Aprobación (13/10, reunión: niveles normal · aprobación · publicación) ----------------
+# Quien no publica en real manda la pieza con estado 'a_aprobar'. Un aprobador la ve en el panel,
+# la aprueba (pasa a 'pendiente' en la cola, con fecha) o la rechaza ('rechazada', con nota).
+# Todo queda en la misma tabla con quién hizo qué y cuándo.
+
+def proponer_publicacion(usuario, canal, modo, titulo, texto, imagen_url, fecha_programada, extra=None):
+    if not disponible():
+        return None
+    fila = {"usuario": usuario, "canal": canal, "modo": modo, "titulo": titulo, "texto": texto,
+            "imagen_url": imagen_url, "fecha_programada": fecha_programada, "estado": "a_aprobar",
+            "resultado": dict(extra or {}, propuesta_por=usuario,
+                              propuesta_en=datetime.now(timezone.utc).isoformat(timespec="seconds"))}
+    r = _req("POST", "", fila, tabla="publicaciones")
+    return r[0]["id"] if r else None
+
+
+def listar_a_aprobar(limite=50):
+    if not disponible():
+        return []
+    q = (f"?estado=eq.a_aprobar&select=id,creado,usuario,canal,modo,titulo,texto,imagen_url,fecha_programada,resultado"
+         f"&order=creado.asc&limit={limite}")
+    return _req("GET", q, tabla="publicaciones")
+
+
+def _resultado_actual(pid):
+    r = _req("GET", f"?id=eq.{pid}&select=resultado", tabla="publicaciones")
+    return (r[0].get("resultado") or {}) if r else {}
+
+
+def aprobar_publicacion(pid, usuario, fecha_programada, modo, resultado_previo=None):
+    if resultado_previo is None:
+        resultado_previo = _resultado_actual(pid)
+    return actualizar_publicacion(pid, {"estado": "pendiente", "fecha_programada": fecha_programada, "modo": modo,
+                                        "resultado": dict(resultado_previo or {}, aprobada_por=usuario,
+                                                          aprobada_en=datetime.now(timezone.utc).isoformat(timespec="seconds"))})
+
+
+def rechazar_publicacion(pid, usuario, nota, resultado_previo=None):
+    if resultado_previo is None:
+        resultado_previo = _resultado_actual(pid)
+    return actualizar_publicacion(pid, {"estado": "rechazada",
+                                        "procesado_en": datetime.now(timezone.utc).isoformat(),
+                                        "resultado": dict(resultado_previo or {}, rechazada_por=usuario, nota=nota or "",
+                                                          rechazada_en=datetime.now(timezone.utc).isoformat(timespec="seconds"))})
+
+
+def listar_mis_propuestas(usuario, limite=10):
+    """Las piezas que esta persona mandó a aprobación, con su estado actual."""
+    if not disponible():
+        return []
+    q = (f"?select=id,creado,canal,titulo,texto,estado,fecha_programada,resultado&usuario=eq.{urllib.parse.quote(usuario)}"
+         f"&resultado->>propuesta_por=eq.{urllib.parse.quote(usuario)}&order=creado.desc&limit={limite}")
+    return _req("GET", q, tabla="publicaciones")
+
+
 def listar_publicaciones(usuario=None, limite=30):
     if not disponible():
         return []

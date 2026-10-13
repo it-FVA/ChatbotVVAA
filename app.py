@@ -83,10 +83,11 @@ st.session_state.setdefault("conv_titulo", None)
 # ---------------- Pestaña "Publicar" (24/9): solo para los usuarios listados ----------------
 # PUBLICAR_USUARIOS = "franco,julian" en secrets. Los switches por canal (PUBLICAR_WORDPRESS,
 # PUBLICAR_INSTAGRAM, PUBLICAR_FACEBOOK) también viven en secrets; ver publicar.py.
-_PUB_USUARIOS = [u.strip() for u in str(_sec("PUBLICAR_USUARIOS", "franco,julian")).split(",") if u.strip()]
-# (13/10) PUBLICAR_SIMULADO_USUARIOS: ven la pestaña y arman piezas, pero todos los canales les quedan en simulado.
-_PUB_SIMULADO = [u.strip() for u in str(_sec("PUBLICAR_SIMULADO_USUARIOS", "")).split(",") if u.strip()]
-PUEDE_PUBLICAR = USUARIO in _PUB_USUARIOS or USUARIO in _PUB_SIMULADO
+# (13/10, reunión) Todos ven Publicar en simulado y pueden mandar a aprobación; APROBADORES aprueban;
+# PUBLICAR_USUARIOS publican en real. Ver publicar_ui.roles().
+import publicar_ui
+PUEDE_PUBLICAR = True
+ROL = publicar_ui.roles(USUARIO)
 st.session_state.setdefault("vista", "chat")
 
 
@@ -128,15 +129,23 @@ with st.sidebar:
     # (24/9 noche) Publicar pasa dentro del chat: el bot propone el recuadro cuando la pieza está lista.
     # La pantalla "Publicar" suelta ya no se muestra; queda solo con ?vista=publicar en la dirección,
     # para cargar algo que no salió de una conversación.
-    if PUEDE_PUBLICAR and st.query_params.get("vista") == "publicar":
-        st.session_state.vista = "publicar"
+    if st.query_params.get("vista") in ("publicar", "aprobar"):
+        st.session_state.vista = st.query_params.get("vista")
+    if st.session_state.vista in ("publicar", "aprobar"):
         if st.button(T("volver"), use_container_width=True):
             st.query_params.clear()
             st.session_state.vista = "chat"
             st.rerun()
-    if PUEDE_PUBLICAR:
-        import publicar_ui
+    if ROL["aprueba"]:
+        try:
+            _n_apr = len(db.listar_a_aprobar())
+        except Exception:
+            _n_apr = 0
+        if st.button(f"✅ Aprobaciones ({_n_apr})", use_container_width=True, type="primary" if _n_apr else "secondary"):
+            st.session_state.vista = "aprobar"
+            st.rerun()
         publicar_ui.piezas_en_cola_sidebar(USUARIO)
+    publicar_ui.mis_propuestas_sidebar(USUARIO)
     if st.button(T("nueva"), use_container_width=True, type="primary"):
         st.session_state.vista = "chat"
         st.session_state.messages = []
@@ -220,9 +229,11 @@ st.markdown(
     '<hr class="vac-rule">', unsafe_allow_html=True)
 st.caption(T("sub"))
 
-if PUEDE_PUBLICAR and st.session_state.vista == "publicar":
-    import publicar_ui
+if st.session_state.vista == "publicar":
     publicar_ui.render(USUARIO)
+    st.stop()
+if st.session_state.vista == "aprobar":
+    publicar_ui.panel_aprobacion(USUARIO)
     st.stop()
 
 

@@ -36,13 +36,27 @@ CANALES = ["WordPress", "Instagram", "Facebook", "YouTube"]
 CLAVE = {"WordPress": "wordpress", "Instagram": "instagram", "Facebook": "facebook", "YouTube": "youtube"}
 
 
+def _lista(clave, defecto):
+    return [u.strip() for u in str(st.secrets.get(clave, defecto)).split(",") if u.strip()]
+
+
+def roles(usuario):
+    """(13/10, reunión) Niveles de permiso:
+    - todos: ven el recuadro y la pestaña Publicar en SIMULADO (arman la pieza, nada sale) y pueden
+      mandarla a aprobación;
+    - APROBADORES: ven el panel de aprobación, aprueban (va a la cola) o rechazan;
+    - PUBLICAR_USUARIOS: publican de verdad con el modo real de cada canal (Julián).
+    Se cambian en secrets sin tocar código."""
+    real = _lista("PUBLICAR_USUARIOS", "julian")
+    aprob = _lista("APROBADORES", ",".join(real))
+    return {"publica": usuario in real, "aprueba": usuario in aprob or usuario in real,
+            "aprobadores": aprob, "publicadores": real}
+
+
 def _cfg(usuario=None):
-    """(13/10, reunión) Niveles: PUBLICAR_USUARIOS publican con el modo real de cada canal;
-    PUBLICAR_SIMULADO_USUARIOS (Beto) ven la misma pestaña pero todos los canales les quedan en
-    'simulado': arman y ven la pieza, nada sale. El rol 'aprobación' queda pendiente."""
+    """La configuración que ve esta persona: quien no publica en real tiene todos los canales en simulado."""
     cfg = publicar.Config(st.secrets)
-    sim = [u.strip() for u in str(st.secrets.get("PUBLICAR_SIMULADO_USUARIOS", "")).split(",") if u.strip()]
-    if usuario and usuario in sim:
+    if usuario and not roles(usuario)["publica"]:
         for a in ("modo_wp", "modo_ig", "modo_fb", "modo_yt"):
             if getattr(cfg, a) != "apagado":
                 setattr(cfg, a, "simulado")
@@ -182,8 +196,10 @@ def _sin_firma_repetida(texto_imagen, firma):
     return t
 
 
-def _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, texto_imagen="", video=None, compuesta=None, formato=None):
-    """Ejecuta la publicación según el switch. Devuelve (res, imagen_url_final)."""
+def _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, texto_imagen="", video=None, compuesta=None, formato=None,
+            aprobacion=False):
+    """Ejecuta la publicación según el switch. Devuelve (res, imagen_url_final).
+    aprobacion=True (13/10): no publica; sube la imagen y deja la pieza 'a_aprobar' para el panel."""
     imagen_id = None
     if canal in ("Instagram", "Facebook"):
         texto = _texto_plano(texto)
@@ -221,10 +237,25 @@ def _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, 
             st.success("Imagen subida a la biblioteca de medios (ya queda en el banco).")
         elif res_img.get("aviso"):
             st.warning(res_img["aviso"] + " (para Instagram/Facebook la imagen tiene que estar en internet)")
+    modo = cfg.resumen()[CLAVE[canal]]
+    if aprobacion:
+        try:
+            pid = db.proponer_publicacion(usuario, CLAVE[canal], modo, titulo, texto, imagen_url,
+                                          (fecha_iso + ZONA_HORARIA) if fecha_iso else None,
+                                          extra={"texto_imagen": texto_imagen or None, "formato": formato or None})
+        except Exception as e:
+            return {"ok": False, "modo": "aprobacion", "aviso": f"No pude guardar la pieza para aprobación: {e}"}, imagen_url
+        if not pid:
+            return {"ok": False, "modo": "aprobacion", "aviso": "No pude guardar la pieza para aprobación (¿falta Supabase en los secrets?)."}, imagen_url
+        quien = ", ".join(roles(usuario)["aprobadores"]) or "un aprobador"
+        return {"ok": True, "modo": "aprobacion", "id": pid,
+                "aviso": f"Quedó pendiente de aprobación ({quien}). Si la aprueban, sale por {canal}"
+                         + (f" el {fecha_iso[:16].replace('T', ' ')}" if fecha_iso else " en la próxima corrida de la cola")
+                         + ". Podés ver el estado en «Mis piezas enviadas», en la barra lateral.",
+                "pieza": {"image_url": imagen_url, "caption" if canal == "Instagram" else "message": texto, "fecha_programada": fecha_iso}}, imagen_url
     # (25/9) Cola: si hay fecha y el canal no programa solo (Instagram siempre; Facebook fuera de
     # modo real), la pieza NO se manda ahora: queda 'pendiente' y procesar_cola.py la saca ese día
     # con el modo que tenga el canal en ese momento.
-    modo = cfg.resumen()[CLAVE[canal]]
     if fecha_iso and _va_a_la_cola(canal, modo):
         try:
             pid = db.encolar_publicacion(usuario, CLAVE[canal], modo, titulo, texto, imagen_url,
@@ -266,6 +297,83 @@ def _va_a_la_cola(canal, modo):
     if canal == "Facebook":
         return modo != "real"            # en real programa Facebook mismo
     return False                         # WordPress y YouTube programan nativo (o el video no se puede guardar en cola)                         # WordPress programa nativo (borrador con fecha / future)
+
+
+ESTADO_TXT = {"a_aprobar": "⏳ esperando aprobación", "pendiente": "🗓 aprobada, en cola", "rechazada": "✖ rechazada",
+              "publicada": "✅ publicada", "simulada": "👁 simulada", "error": "⚠ error", "cancelada": "✖ cancelada"}
+
+
+def mis_propuestas_sidebar(usuario):
+    """(13/10) Lo que esta persona mandó a aprobación y en qué estado está."""
+    try:
+        mias = db.listar_mis_propuestas(usuario)
+    except Exception:
+        return
+    if not mias:
+        return
+    with st.expander(f"📨 Mis piezas enviadas ({len(mias)})"):
+        for p in mias:
+            est = p.get("estado") or ""
+            nota = (p.get("resultado") or {}).get("nota")
+            st.markdown(f"{ESTADO_TXT.get(est, est)} · {p.get('canal')} · {(p.get('titulo') or p.get('texto') or '')[:40]}"
+                        + (f"  \n_{nota}_" if nota else ""))
+
+
+def panel_aprobacion(usuario):
+    """(13/10) Pantalla de los aprobadores: piezas 'a_aprobar' con vista previa; aprobar (→ cola) o rechazar."""
+    st.markdown("### ✅ Aprobaciones")
+    rol = roles(usuario)
+    if not rol["aprueba"]:
+        st.warning("Esta pantalla es para quienes aprueban.")
+        return
+    try:
+        pend = db.listar_a_aprobar()
+    except Exception as e:
+        st.error(f"No pude leer las piezas: {e}")
+        return
+    if not pend:
+        st.caption("No hay piezas esperando aprobación.")
+        return
+    cfg_real = publicar.Config(st.secrets)
+    r = cfg_real.resumen()
+    for p in pend:
+        pid = p["id"]
+        res = p.get("resultado") or {}
+        canal = p.get("canal") or ""
+        with st.container(border=True):
+            c1, c2 = st.columns([1, 2])
+            if p.get("imagen_url"):
+                c1.image(p["imagen_url"], use_container_width=True)
+            c2.markdown(f"**{canal}** · propuso **{res.get('propuesta_por') or p.get('usuario')}** · "
+                        f"{str(p.get('creado', ''))[:16].replace('T', ' ')}"
+                        + (f" · formato {res['formato']}" if res.get("formato") else ""))
+            if p.get("titulo"):
+                c2.markdown(f"#### {p['titulo']}")
+            c2.text(p.get("texto") or "")
+            if res.get("texto_imagen"):
+                c2.caption(f"Sobre la imagen: «{res['texto_imagen']}»")
+            fp = str(p.get("fecha_programada") or "")
+            c2.caption("Fecha pedida: " + (fp[:16].replace("T", " ") if fp else "cuanto antes")
+                       + f" · el canal hoy está en modo **{r.get(canal, '?')}**")
+            try:
+                f0 = datetime.date.fromisoformat(fp[:10]) if fp else datetime.date.today()
+                h0 = datetime.time(int(fp[11:13]), int(fp[14:16])) if fp else (datetime.datetime.now() + datetime.timedelta(minutes=20)).time().replace(second=0, microsecond=0)
+            except Exception:
+                f0, h0 = datetime.date.today(), datetime.time(9, 0)
+            d1, d2, d3 = st.columns([1, 1, 2])
+            fecha = d1.date_input("Sale el", value=f0, key=f"apr_f_{pid}")
+            hora = d2.time_input("a las", value=h0, key=f"apr_h_{pid}")
+            nota = d3.text_input("Nota (si rechazás, decí por qué)", key=f"apr_n_{pid}")
+            b1, b2 = st.columns(2)
+            if b1.button("✅ Aprobar y programar", type="primary", key=f"apr_ok_{pid}"):
+                fecha_iso = f"{fecha.isoformat()}T{hora.strftime('%H:%M:%S')}{ZONA_HORARIA}"
+                db.aprobar_publicacion(pid, usuario, fecha_iso, r.get(canal, ""), res)
+                st.success("Aprobada. Sale por la cola en esa fecha (la cola corre cada 15 min).")
+                st.rerun()
+            if b2.button("✖ Rechazar", key=f"apr_no_{pid}"):
+                db.rechazar_publicacion(pid, usuario, nota, res)
+                st.info("Rechazada. Quien la propuso lo ve en «Mis piezas enviadas».")
+                st.rerun()
 
 
 def piezas_en_cola_sidebar(usuario):
@@ -318,6 +426,8 @@ def formulario(usuario, key, pieza=None, compacto=False):
     """El formulario de publicar. `pieza` (de la herramienta proponer_publicacion) lo precompleta.
     `key` distingue cada instancia (uno por mensaje del bot, o 'tab')."""
     cfg = _cfg(usuario)
+    cfg_real = publicar.Config(st.secrets)      # los modos reales de cada canal (para mandar a aprobación)
+    rol = roles(usuario)
     publicar.REGISTRAR_EXTRA = _hook_registro(usuario)
     r = cfg.resumen()
     pieza = pieza or {}
@@ -390,7 +500,11 @@ def formulario(usuario, key, pieza=None, compacto=False):
         st.markdown("**Con la frase encima**" if con_frase else "**Formato y logo**")
         cf1, cf2, cf3 = st.columns([2, 1, 1])
         firma = cf1.text_input("Firma", value=pieza.get("firma") or "— Br. David", key=k("firma")) if con_frase else ""
-        formato = cf2.selectbox("Formato", ["cuadrado", "vertical", "historia"], key=k("fmt"),
+        # (13/10) arranca en el formato con el que se buscó en el banco; si no, al elegir cambia la lista
+        # de candidatas y la foto elegida pasa a ser otra (visto en la prueba del circuito de aprobación).
+        _fmts = ["cuadrado", "vertical", "historia"]
+        formato = cf2.selectbox("Formato", _fmts, key=k("fmt"),
+                                index=_fmts.index(FORMATO_POR_CANAL.get(canal, "cuadrado")),
                                 help="«historia» en Instagram publica una HISTORIA (24 h, sin caption; la frase va en la imagen).")
         usar = cf3.checkbox("Publicar así", value=True, key=k("usar_comp"),
                             help="Si lo destildás, se publica la foto sola y el texto queda solo en el registro.") if con_frase else True
@@ -444,7 +558,19 @@ def formulario(usuario, key, pieza=None, compacto=False):
         st.info(_aviso(canal, modo, fecha_iso))
     confirmar = st.checkbox("Entiendo que esto publica de verdad", key=k("conf")) if modo == "real" else True
 
-    if st.button(f"Enviar a {canal or '…'}", type="primary", key=k("enviar"), disabled=(canal is None or modo == "apagado" or not confirmar)):
+    # (13/10) Quien no publica en real ve el envío simulado y, al lado, "Enviar a aprobación".
+    modo_real = cfg_real.resumen()[CLAVE[canal]] if canal else "apagado"
+    puede_proponer = (canal in ("WordPress", "Instagram", "Facebook") and not rol["publica"]
+                      and modo_real in ("real", "borrador"))
+    if puede_proponer:
+        st.caption("Vos lo ves en simulado. Para que salga de verdad, mandalo a aprobación: lo revisa "
+                   + (", ".join(rol["aprobadores"]) or "un aprobador") + " y sale por la cola.")
+    cb_env, cb_apr = st.columns(2) if puede_proponer else (st, None)
+    enviar = cb_env.button(f"Enviar a {canal or '…'}" + (" (simulado)" if modo == "simulado" and canal else ""),
+                           type="primary" if not puede_proponer else "secondary", key=k("enviar"),
+                           disabled=(canal is None or modo == "apagado" or not confirmar))
+    proponer = cb_apr.button("📨 Enviar a aprobación", type="primary", key=k("aprob")) if puede_proponer else False
+    if enviar or proponer:
         if not texto.strip():
             st.error("Falta el texto de la pieza.")
             return
@@ -453,6 +579,12 @@ def formulario(usuario, key, pieza=None, compacto=False):
             return
         if canal == "YouTube" and video is None and modo != "simulado":
             st.error("Falta el archivo de video.")
+            return
+        if proponer:
+            res, imagen_url = _enviar(cfg_real, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, texto_imagen,
+                                      video=video, compuesta=compuesta, formato=formato, aprobacion=True)
+            _mostrar_resultado(res, canal, "simulado", titulo, texto if canal == "WordPress" else _texto_plano(texto),
+                               archivo, imagen_url, fecha_iso, texto_imagen, compuesta=compuesta)
             return
         res, imagen_url = _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, texto_imagen,
                                   video=video, compuesta=compuesta,
