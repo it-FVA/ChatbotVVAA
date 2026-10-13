@@ -68,7 +68,9 @@ def main():
             elif canal == "facebook":
                 res = publicar.publicar_facebook(cfg, imagen, texto, quien="cola")
             elif canal == "wordpress":
-                res = publicar.publicar_wordpress(cfg, titulo, texto, quien="cola")
+                # (13/10) piezas aprobadas: la imagen ya está en la biblioteca; va como destacada
+                res = publicar.publicar_wordpress(cfg, titulo, texto, quien="cola",
+                                                  imagen_id=publicar.media_id_por_url(cfg, imagen))
             else:
                 res = {"ok": False, "aviso": f"canal desconocido: {canal}"}
         except Exception as e:

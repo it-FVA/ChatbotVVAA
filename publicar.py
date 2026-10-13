@@ -258,6 +258,24 @@ def subir_imagen_wordpress(cfg, ruta_o_bytes, nombre, titulo="", etiquetas=None,
     return {"ok": True, "modo": modo, "url": r.get("source_url"), "id": r["id"]}
 
 
+def media_id_por_url(cfg, url):
+    """(13/10) Busca en la biblioteca de WP el id de una imagen a partir de su URL (por nombre de archivo).
+    Lo usa la cola para poner la imagen destacada en una pieza de WordPress aprobada."""
+    if not (url and cfg.wp_site and cfg.wp_user and cfg.wp_pass):
+        return None
+    nombre = url.rsplit("/", 1)[-1]
+    base = nombre.rsplit(".", 1)[0]
+    try:
+        r, err = _http(_wp_api(cfg, "media") + "?per_page=20&search=" + urllib.parse.quote(base),
+                       "GET", _wp_headers(cfg, {}))
+        for m in r or []:
+            if (m.get("source_url") or "").rsplit("/", 1)[-1] == nombre:
+                return m.get("id")
+    except Exception:
+        pass
+    return None
+
+
 def publicar_wordpress(cfg, titulo, contenido_html, imagen_id=None, categorias=None, quien="", fecha=None):
     """
     Crea una entrada. Según el modo:
