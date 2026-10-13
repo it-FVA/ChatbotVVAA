@@ -130,12 +130,15 @@ with st.sidebar:
     # (24/9 noche) Publicar pasa dentro del chat: el bot propone el recuadro cuando la pieza está lista.
     # La pantalla "Publicar" suelta ya no se muestra; queda solo con ?vista=publicar en la dirección,
     # para cargar algo que no salió de una conversación.
-    if st.query_params.get("vista") in ("publicar", "aprobar", "mis"):
+    # (13/10) ?vista=... en la dirección se aplica una sola vez; después mandan los botones de la barra.
+    if st.query_params.get("vista") in ("publicar", "aprobar", "mis") and not st.session_state.get("vista_qp"):
         st.session_state.vista = st.query_params.get("vista")
+        st.session_state["vista_qp"] = True
     if st.session_state.vista in ("publicar", "aprobar", "mis"):
         if st.button(T("volver"), use_container_width=True):
             st.query_params.clear()
             st.session_state.vista = "chat"
+            st.session_state.pop("retomar", None)
             st.rerun()
     # (13/10) Roles: todos tienen "Mis publicaciones"; los aprobadores, además, el panel admin.
     if st.button(T("mis"), use_container_width=True):

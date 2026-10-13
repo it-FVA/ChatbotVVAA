@@ -243,6 +243,37 @@ def listar_mias(usuario, limite=50):
     return _req("GET", q, tabla="publicaciones")
 
 
+# ---------------- Borradores y limpieza (13/10, pedido de Franco) ----------------
+# Una pieza que no va a ningún lado todavía se guarda como 'borrador' (con todos sus parámetros en
+# resultado.pieza) y se retoma desde "Mis publicaciones". Lo que no sirve se elimina: borradores,
+# pruebas simuladas y rechazadas propias. Lo publicado / aprobado / propuesto no se borra (registro).
+ELIMINABLES = ("borrador", "prueba", "simulada", "simulado", "rechazada", "cancelada", "error")
+
+
+def guardar_borrador(usuario, canal, titulo, texto, imagen_url, fecha_programada, pieza, pid=None):
+    if not disponible():
+        return None
+    fila = {"usuario": usuario, "canal": canal, "modo": "borrador", "titulo": titulo, "texto": texto,
+            "imagen_url": imagen_url, "fecha_programada": fecha_programada, "estado": "borrador",
+            "resultado": {"pieza": pieza, "guardado_en": datetime.now(timezone.utc).isoformat(timespec="seconds")}}
+    if pid:
+        r = _req("PATCH", f"?id=eq.{pid}", fila, tabla="publicaciones")
+        return pid if r is not None else None
+    r = _req("POST", "", fila, tabla="publicaciones")
+    return r[0]["id"] if r else None
+
+
+def eliminar_publicacion(pid, usuario):
+    """Borra de verdad, solo si es de esta persona y está en un estado eliminable."""
+    if not disponible():
+        return False
+    r = _req("GET", f"?id=eq.{pid}&select=usuario,estado", tabla="publicaciones")
+    if not r or r[0].get("usuario") != usuario or r[0].get("estado") not in ELIMINABLES:
+        return False
+    _req("DELETE", f"?id=eq.{pid}", tabla="publicaciones")
+    return True
+
+
 def listar_registro(limite=60):
     """(13/10) Registro completo para el panel admin: quién creó, quién aprobó o rechazó, qué pasó."""
     if not disponible():

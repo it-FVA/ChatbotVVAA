@@ -83,7 +83,7 @@ def _hook_registro(usuario):
             texto=(pieza.get("content") or pieza.get("caption") or pieza.get("message") or pieza.get("description") or "")[:5000],
             imagen_url=pieza.get("image_url") or entrada.get("url"),
             fecha_programada=_con_zona(pieza.get("date") or pieza.get("fecha_programada") or CONTEXTO_REGISTRO.get("fecha")),
-            estado=str(entrada.get("resultado", ""))[:60],
+            estado="prueba" if entrada.get("modo") == "simulado" else str(entrada.get("resultado", ""))[:60],
             resultado=dict({k: v for k, v in entrada.items() if k not in ("pieza",)},
                            texto_imagen=CONTEXTO_REGISTRO.get("texto_imagen") or None))
     return _f
@@ -306,7 +306,8 @@ def _va_a_la_cola(canal, modo):
 ESTADO_TXT = {"a_aprobar": "⏳ pendiente de aprobación", "pendiente": "✅ aprobada · programada", "rechazada": "✖ rechazada",
               "publicada": "📣 publicada", "simulada": "👁 simulada", "error": "⚠ error", "cancelada": "✖ cancelada",
               "subida": "🖼 imagen subida", "draft": "📝 borrador en WordPress", "programada": "🗓 programada",
-              "PUBLICADO": "📣 publicada"}
+              "PUBLICADO": "📣 publicada", "borrador": "📝 borrador", "prueba": "🧪 prueba (simulado)"}
+NO_SON_PIEZAS = ("subida", "prueba", "borrador", "simulada", "simulado")   # fuera del registro del panel
 
 
 def _fecha(v):
@@ -364,14 +365,26 @@ def mis_publicaciones(usuario):
     if not mias:
         st.caption("Todavía no mandaste ninguna pieza.")
         return
-    filtro = st.radio("Ver", ["todas", "pendientes", "aprobadas", "rechazadas", "publicadas"], horizontal=True,
-                      key="mis_filtro", label_visibility="collapsed")
-    grupos = {"pendientes": ("a_aprobar",), "aprobadas": ("pendiente", "programada"),
-              "rechazadas": ("rechazada", "cancelada"), "publicadas": ("publicada", "PUBLICADO", "draft")}
+    filtro = st.radio("Ver", ["todas", "borradores", "pendientes", "aprobadas", "rechazadas", "publicadas", "pruebas"],
+                      horizontal=True, key="mis_filtro", label_visibility="collapsed")
+    grupos = {"borradores": ("borrador",), "pendientes": ("a_aprobar",), "aprobadas": ("pendiente", "programada"),
+              "rechazadas": ("rechazada", "cancelada"), "publicadas": ("publicada", "PUBLICADO", "draft"),
+              "pruebas": ("prueba", "simulada", "simulado")}
     if filtro != "todas":
         mias = [p for p in mias if p.get("estado") in grupos[filtro]]
     for p in mias:
         _fila_publicacion(p)
+        est = p.get("estado")
+        c1, c2, _ = st.columns([1, 1, 4])
+        if est == "borrador" and c1.button("✏️ Retomar", key=f"ret_{p['id']}"):
+            st.session_state["retomar"] = p
+            st.session_state["vista"] = "publicar"
+            st.rerun()
+        if est in db.ELIMINABLES and c2.button("🗑 Eliminar", key=f"del_{p['id']}"):
+            if db.eliminar_publicacion(p["id"], usuario):
+                st.rerun()
+            else:
+                st.warning("Esa pieza no se puede eliminar.")
 
 
 def mis_propuestas_sidebar(usuario):
@@ -419,7 +432,7 @@ def panel_aprobacion(usuario):
         st.caption("Quién creó cada pieza, quién la aprobó o rechazó, y qué pasó. Las últimas 60.")
         try:
             for p in db.listar_registro():
-                if p.get("estado") != "subida":
+                if p.get("estado") not in NO_SON_PIEZAS:
                     _fila_publicacion(p, mostrar_usuario=True)
         except Exception as e:
             st.caption(f"(sin registro: {e})")
@@ -524,6 +537,25 @@ def formulario(usuario, key, pieza=None, compacto=False):
     r = cfg.resumen()
     pieza = pieza or {}
     k = lambda s: f"pub_{key}_{s}"
+    # (13/10) Borrador retomado: los selectores se precargan vía session_state una sola vez por borrador.
+    borrador_id = pieza.get("_pid")
+    if borrador_id and st.session_state.get(k("borrador_cargado")) != borrador_id:
+        st.session_state[k("borrador_cargado")] = borrador_id
+        for campo in ("fmt", "logo", "plogo", "tipo", "pos", "ali", "url", "firma", "busq"):
+            if pieza.get(campo) is not None:
+                st.session_state[k(campo)] = pieza[campo]
+        st.session_state[k("prog")] = bool(pieza.get("fecha"))
+        if pieza.get("fecha"):
+            try:
+                st.session_state[k("fecha")] = datetime.date.fromisoformat(pieza["fecha"])
+                hh, mm = (pieza.get("hora") or "09:00").split(":")
+                st.session_state[k("hora")] = datetime.time(int(hh), int(mm))
+            except Exception:
+                pass
+        for campo in ("titulo", "timg", "texto"):
+            st.session_state.pop(k(campo), None)
+    if borrador_id:
+        st.info("📝 Estás retomando un borrador. Al guardar se actualiza el mismo; al enviarlo o mandarlo a aprobación, el borrador se elimina.")
 
     # Canal: precompletado solo si la persona lo dijo; si no, hay que elegirlo
     idx = {"wordpress": 0, "instagram": 1, "facebook": 2, "youtube": 3}.get(pieza.get("canal") or "", None)
@@ -658,11 +690,32 @@ def formulario(usuario, key, pieza=None, compacto=False):
         st.caption("Sos creador de contenido: acá lo ves en simulado. Elegí fecha y hora si querés y mandalo a aprobación: "
                    "lo revisa un aprobador (" + (", ".join(rol["aprobadores"]) or "—") + ") y sale solo. "
                    "Seguís el estado en «Mis publicaciones».")
-    cb_env, cb_apr = st.columns(2) if puede_proponer else (st, None)
+    _cols = st.columns(3) if puede_proponer else st.columns(2)
+    cb_env, cb_apr, cb_bor = (_cols[0], _cols[1], _cols[2]) if puede_proponer else (_cols[0], None, _cols[1])
     enviar = cb_env.button(f"Enviar a {canal or '…'}" + (" (simulado)" if modo == "simulado" and canal else ""),
                            type="primary" if not puede_proponer else "secondary", key=k("enviar"),
                            disabled=(canal is None or modo == "apagado" or not confirmar))
     proponer = cb_apr.button("📨 Enviar a aprobación", type="primary", key=k("aprob")) if puede_proponer else False
+    # (13/10) Borrador: guarda todo lo del formulario sin mandar nada; se retoma desde "Mis publicaciones".
+    if cb_bor.button("💾 Guardar como borrador", key=k("borrador"), disabled=(canal is None)):
+        datos = {"canal": CLAVE.get(canal, ""), "titulo": titulo, "texto": texto, "texto_imagen": texto_imagen,
+                 "url": imagen_url or "", "busq": st.session_state.get(k("busq"), ""),
+                 "firma": st.session_state.get(k("firma")), "fmt": formato, "logo": st.session_state.get(k("logo")),
+                 "plogo": st.session_state.get(k("plogo")), "tipo": st.session_state.get(k("tipo")),
+                 "pos": st.session_state.get(k("pos")), "ali": st.session_state.get(k("ali")),
+                 "fecha": fecha_iso[:10] if fecha_iso else None, "hora": fecha_iso[11:16] if fecha_iso else None}
+        pid = db.guardar_borrador(usuario, CLAVE[canal], titulo, texto, imagen_url or None,
+                                  (fecha_iso + ZONA_HORARIA) if fecha_iso else None, datos, pid=borrador_id)
+        if pid:
+            st.success("Guardado como borrador. Lo retomás desde «Mis publicaciones», filtro Borradores.")
+        else:
+            st.error("No pude guardar el borrador (¿falta Supabase en los secrets?).")
+    if (enviar or proponer) and borrador_id:
+        try:
+            db._req("DELETE", f"?id=eq.{borrador_id}&estado=eq.borrador", tabla="publicaciones")
+        except Exception:
+            pass
+        st.session_state.pop("retomar", None)
     if enviar or proponer:
         if not texto.strip():
             st.error("Falta el texto de la pieza.")
@@ -697,6 +750,18 @@ def recuadro(usuario, pieza, key, abierto=True):
         formulario(usuario, key, pieza=pieza, compacto=True)
 
 
+def _pieza_de_borrador(p):
+    """Convierte una fila 'borrador' en el dict `pieza` que entiende formulario()."""
+    d = dict(((p.get("resultado") or {}).get("pieza") or {}))
+    d["_pid"] = p["id"]
+    d.setdefault("canal", p.get("canal"))
+    d.setdefault("titulo", p.get("titulo") or "")
+    d.setdefault("texto", p.get("texto") or "")
+    d.setdefault("url", p.get("imagen_url") or "")
+    d["imagen_busqueda"] = d.get("busq") or ""
+    return d
+
+
 def render(usuario):
     """La pestaña 'Publicar' (respaldo)."""
     cfg = _cfg(usuario)
@@ -709,7 +774,8 @@ def render(usuario):
             modo = r[CLAVE[nombre]]
             icono, txt = MODO_TXT.get(modo, ("⚫", modo))
             col.markdown(f"**{nombre}** {icono}  \n<small>{txt}</small>", unsafe_allow_html=True)
-    formulario(usuario, "tab")
+    ret = st.session_state.get("retomar")
+    formulario(usuario, "tab", pieza=_pieza_de_borrador(ret) if ret else None)
     with st.expander("Registro: quién hizo qué (últimas 15 acciones)"):
         try:
             for p in db.listar_publicaciones(limite=15):
