@@ -35,10 +35,15 @@ FORMATOS = {
     "historia": (1080, 1920),
 }
 # nombre visible → (archivo de la cita, archivo de la firma en cursiva)
+# (15/10) Raleway es la tipografía de la Fundación (Julián la mandó; es la misma de Google Fonts, OFL).
+# Es variable: el peso se elige con PESOS. Va primera = la que sale por defecto.
 TIPOGRAFIAS = {
+    "Raleway (Fundación)": ("Raleway-Variable.ttf", "Raleway-Italic-Variable.ttf"),
     "Lora": ("Lora-Variable.ttf", "Lato-Italic.ttf"),
     "Lato": ("Lato-Regular.ttf", "Lato-Italic.ttf"),
 }
+PESOS = {"normal": 400, "fina": 300, "negrita": 700}   # eje wght de las fuentes variables; Lato (fija) lo ignora
+TIPOGRAFIA_DEFAULT = "Raleway (Fundación)"
 POSICIONES = ("centro", "arriba", "abajo")
 ALINEACIONES = ("centro", "izquierda")
 # (13/10) Logos que Julián subió a la biblioteca de WordPress (reunión 13/10: "qué logo querés" +
@@ -90,12 +95,19 @@ def _pegar_logo(img, logo, posicion_logo, formato):
     return img, (ocupado if vert == "arriba" else 0), (ocupado if vert == "abajo" else 0)
 
 
-def _fuente(nombre, tam):
+def _fuente(nombre, tam, peso=400):
     ruta = os.path.join(FUENTES, nombre)
     try:
-        return ImageFont.truetype(ruta, tam)
+        f = ImageFont.truetype(ruta, tam)
     except OSError:
         return ImageFont.load_default()
+    # Fuentes variables: la instancia por defecto puede ser "Thin" (Raleway); fijamos el peso pedido.
+    try:
+        if f.get_variation_axes():
+            f.set_variation_by_axes([peso])
+    except Exception:
+        pass
+    return f
 
 
 def _abrir(foto):
@@ -129,16 +141,16 @@ def _partir(texto, fuente, ancho_max, draw):
     return lineas
 
 
-def _ajustar(texto, draw, ancho_max, alto_max, fuente_nombre, tam_max=64, tam_min=34, max_lineas=9):
+def _ajustar(texto, draw, ancho_max, alto_max, fuente_nombre, tam_max=64, tam_min=34, max_lineas=9, peso=400):
     """Busca el tamaño de letra más grande con el que el texto entra en la caja."""
     for tam in range(tam_max, tam_min - 1, -2):
-        f = _fuente(fuente_nombre, tam)
+        f = _fuente(fuente_nombre, tam, peso)
         lineas = _partir(texto, f, ancho_max, draw)
         interlineado = int(tam * 1.32)
         alto = interlineado * len(lineas)
         if len(lineas) <= max_lineas and alto <= alto_max:
             return f, lineas, interlineado
-    f = _fuente(fuente_nombre, tam_min)
+    f = _fuente(fuente_nombre, tam_min, peso)
     lineas = _partir(texto, f, ancho_max, draw)[:max_lineas]
     if len(lineas) == max_lineas and not lineas[-1].endswith("…"):
         lineas[-1] = lineas[-1].rstrip(".,;:") + "…"
@@ -146,10 +158,13 @@ def _ajustar(texto, draw, ancho_max, alto_max, fuente_nombre, tam_max=64, tam_mi
 
 
 def componer_imagen(foto, texto, firma="— Br. David", formato="cuadrado", oscurecer=0.45, calidad=90,
-                    tipografia="Lora", posicion="centro", alineacion="centro", logo=None, posicion_logo="abajo derecha"):
+                    tipografia=None, posicion="centro", alineacion="centro", logo=None, posicion_logo="abajo derecha",
+                    peso="normal"):
     """Devuelve bytes JPEG: la foto recortada al formato, oscurecida, con el texto y la firma."""
+    tipografia = tipografia or TIPOGRAFIA_DEFAULT
+    wght = PESOS.get(peso, 400)
     ancho, alto = FORMATOS.get(formato, FORMATOS["cuadrado"])
-    f_cita_nombre, f_firma_nombre = TIPOGRAFIAS.get(tipografia, TIPOGRAFIAS["Lora"])
+    f_cita_nombre, f_firma_nombre = TIPOGRAFIAS.get(tipografia, TIPOGRAFIAS[TIPOGRAFIA_DEFAULT])
     posicion = posicion if posicion in POSICIONES else "centro"
     alineacion = alineacion if alineacion in ALINEACIONES else "centro"
     img = _abrir(foto)
@@ -182,8 +197,8 @@ def componer_imagen(foto, texto, firma="— Br. David", formato="cuadrado", oscu
         salida = io.BytesIO()
         img.save(salida, format="JPEG", quality=calidad, optimize=True)
         return salida.getvalue()
-    f_cita, lineas, inter = _ajustar(texto, draw, ancho_caja, alto_caja, f_cita_nombre)
-    f_firma = _fuente(f_firma_nombre, max(int(f_cita.size * 0.55), 26))
+    f_cita, lineas, inter = _ajustar(texto, draw, ancho_caja, alto_caja, f_cita_nombre, peso=wght)
+    f_firma = _fuente(f_firma_nombre, max(int(f_cita.size * 0.55), 26), 400)
 
     alto_texto = inter * len(lineas)
     sep_firma = int(inter * 0.9) if firma else 0

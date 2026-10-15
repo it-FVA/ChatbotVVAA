@@ -172,18 +172,18 @@ CONTEXTO_REGISTRO = {}   # título y texto_imagen del envío en curso, para el r
 # (28/9) Texto sobre imagen: la pieza de redes es la foto del banco con la frase encima.
 # imagen.componer_imagen lo arma (Pillow); acá se cachea por contenido para no recomponer
 # en cada redibujo del formulario, y se decide qué imagen viaja a Instagram/Facebook.
-def _componer(fuente, texto_imagen, firma, formato, tipografia="Lora", posicion="centro", alineacion="centro",
-              logo=None, posicion_logo="abajo derecha"):
+def _componer(fuente, texto_imagen, firma, formato, tipografia=None, posicion="centro", alineacion="centro",
+              logo=None, posicion_logo="abajo derecha", peso="normal"):
     """fuente: bytes o URL. Devuelve bytes JPEG con la frase encima, o None si falla."""
     import hashlib
     import imagen
     h = hashlib.md5(fuente).hexdigest() if isinstance(fuente, (bytes, bytearray)) else str(fuente)
-    clave = f"{h}|{texto_imagen}|{firma}|{formato}|{tipografia}|{posicion}|{alineacion}|{logo}|{posicion_logo}"
+    clave = f"{h}|{texto_imagen}|{firma}|{formato}|{tipografia}|{posicion}|{alineacion}|{logo}|{posicion_logo}|{peso}"
     cache = st.session_state.setdefault("compuesta_cache", {})
     if clave not in cache:
         try:
             cache[clave] = imagen.componer_imagen(fuente, texto_imagen, firma=firma, formato=formato,
-                                                  tipografia=tipografia, posicion=posicion, alineacion=alineacion,
+                                                  tipografia=tipografia, posicion=posicion, alineacion=alineacion, peso=peso,
                                                   logo=logo, posicion_logo=posicion_logo)
         except Exception as e:
             cache[clave] = None
@@ -541,7 +541,7 @@ def formulario(usuario, key, pieza=None, compacto=False):
     borrador_id = pieza.get("_pid")
     if borrador_id and st.session_state.get(k("borrador_cargado")) != borrador_id:
         st.session_state[k("borrador_cargado")] = borrador_id
-        for campo in ("fmt", "logo", "plogo", "tipo", "pos", "ali", "url", "firma", "busq"):
+        for campo in ("fmt", "logo", "plogo", "tipo", "peso", "pos", "ali", "url", "firma", "busq"):
             if pieza.get(campo) is not None:
                 st.session_state[k(campo)] = pieza[campo]
         st.session_state[k("prog")] = bool(pieza.get("fecha"))
@@ -644,17 +644,18 @@ def formulario(usuario, key, pieza=None, compacto=False):
                        "El texto de la pieza queda solo en el registro."
                        + ("" if (con_frase or con_logo) and usar else " La foto sale tal cual; si no es vertical 9:16, Instagram la recorta."))
         if con_frase:
-            cd1, cd2, cd3 = st.columns(3)
+            cd1, cd2, cd3, cd4 = st.columns(4)
             tipografia = cd1.selectbox("Tipografía", list(_im.TIPOGRAFIAS), key=k("tipo"),
-                                       help="Lora: serif, la de siempre. Lato: sans. Para sumar otra, pasarle el .ttf a Franco.")
-            posicion = cd2.selectbox("Posición del texto", list(_im.POSICIONES), key=k("pos"))
-            alineacion = cd3.selectbox("Alineación", list(_im.ALINEACIONES), key=k("ali"))
+                                       help="Raleway es la de la Fundación (15/10). Lora: serif. Lato: sans.")
+            peso = cd2.selectbox("Peso", list(_im.PESOS), key=k("peso"), help="Fina, normal o negrita (Lato no tiene variantes).")
+            posicion = cd3.selectbox("Posición del texto", list(_im.POSICIONES), key=k("pos"))
+            alineacion = cd4.selectbox("Alineación", list(_im.ALINEACIONES), key=k("ali"))
         else:
-            tipografia, posicion, alineacion = "Lora", "centro", "centro"
+            tipografia, peso, posicion, alineacion = _im.TIPOGRAFIA_DEFAULT, "normal", "centro", "centro"
         if con_frase or con_logo:
             compuesta = _componer(fuente, _sin_firma_repetida(texto_imagen.strip(), firma) if con_frase else "",
                                   firma.strip(), formato, tipografia, posicion, alineacion,
-                                  logo if con_logo else None, posicion_logo)
+                                  logo if con_logo else None, posicion_logo, peso)
             if compuesta is not None:
                 st.image(compuesta, width=360)
                 if not usar:
@@ -702,6 +703,7 @@ def formulario(usuario, key, pieza=None, compacto=False):
                  "url": imagen_url or "", "busq": st.session_state.get(k("busq"), ""),
                  "firma": st.session_state.get(k("firma")), "fmt": formato, "logo": st.session_state.get(k("logo")),
                  "plogo": st.session_state.get(k("plogo")), "tipo": st.session_state.get(k("tipo")),
+                 "peso": st.session_state.get(k("peso")),
                  "pos": st.session_state.get(k("pos")), "ali": st.session_state.get(k("ali")),
                  "fecha": fecha_iso[:10] if fecha_iso else None, "hora": fecha_iso[11:16] if fecha_iso else None}
         pid = db.guardar_borrador(usuario, CLAVE[canal], titulo, texto, imagen_url or None,
