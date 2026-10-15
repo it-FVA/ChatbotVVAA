@@ -1,0 +1,46 @@
+# Recorte exacto de un clip (15/10): baja el original de Drive, corta el tramo y lo sube a WordPress.
+# Se dispara a mano (Run workflow) o por API con los datos del fragmento. Sin computadora nuestra.
+name: recortar-clip
+
+on:
+  workflow_dispatch:
+    inputs:
+      drive_id:
+        description: "Id del archivo original en Drive (carpeta Videos originales)"
+        required: true
+      inicio:
+        description: "Inicio del tramo, en segundos (ej. 58.669)"
+        required: true
+      fin:
+        description: "Fin del tramo, en segundos (ej. 106.627)"
+        required: true
+      nombre:
+        description: "Id de YouTube del video (nombre base del clip)"
+        required: true
+      titulo:
+        description: "Título para la biblioteca de WordPress"
+        required: false
+        default: ""
+
+jobs:
+  recortar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg > /dev/null
+      - name: Recortar y subir
+        env:
+          WP_SITE: ${{ secrets.WP_SITE }}
+          WP_USER: ${{ secrets.WP_USER }}
+          WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
+          PUBLICAR_WORDPRESS: ${{ secrets.PUBLICAR_WORDPRESS }}
+        run: |
+          pip install -q gdown
+          python recortar_clip.py --drive-id "${{ inputs.drive_id }}" --inicio "${{ inputs.inicio }}" --fin "${{ inputs.fin }}" --nombre "${{ inputs.nombre }}" --titulo "${{ inputs.titulo }}"
+      - name: Resultado
+        run: echo "Clip en: $(cat clip_url.txt)" >> $GITHUB_STEP_SUMMARY
