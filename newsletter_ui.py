@@ -121,6 +121,49 @@ def _editor_revivi(d):
     d["firma"] = st.text_area("Firma", value=d.get("firma") or "", key=_k("firma"), height=70)
 
 
+def _destinos(d, plantilla):
+    """Dónde puede ir una foto, según la plantilla: etiqueta → función que la guarda en `d`."""
+    if plantilla == "revivi":
+        return {f"Episodio {i + 1}": (lambda i=i: lambda u: d["episodios"][i].__setitem__("imagen_url", u))()
+                for i in range(len(d.get("episodios") or []))}
+    dest = {"Cabecera": lambda u: d.__setitem__("cabecera_url", u),
+            "Encuentro destacado": lambda u: d["encuentro"].__setitem__("imagen_url", u),
+            "Recursos": lambda u: d["recursos"].__setitem__("imagen_url", u)}
+    for i, a in enumerate(d.get("agenda") or []):
+        dest[f"Actividad {i + 1}" + (f" · {a['titulo'][:25]}" if a.get("titulo") else "")] = (lambda i=i: lambda u: d["agenda"][i].__setitem__("imagen_url", u))()
+    return dest
+
+
+def _selector_fotos(d, plantilla):
+    """(15/10) Fotos desde el banco de WordPress con miniaturas: buscar, elegir dónde va, usar."""
+    with st.expander("🖼 Fotos del banco", expanded=False):
+        import publicar
+        cfg = publicar.Config(st.secrets)
+        c1, c2 = st.columns([3, 2])
+        consulta = c1.text_input("Buscar en el banco", key="nl_banco_q", placeholder="ej. amanecer montaña · brother · círculo")
+        dest = _destinos(d, plantilla)
+        destino = c2.selectbox("Poner en", list(dest), key="nl_banco_dest")
+        cache = st.session_state.setdefault("nl_banco_cache", {})
+        if consulta.strip() and consulta not in cache:
+            try:
+                cache[consulta] = publicar.buscar_imagenes_banco(cfg, consulta.strip(), n=8) or []
+            except Exception as e:
+                cache[consulta] = []
+                st.caption(f"(no pude buscar: {e})")
+        fotos = cache.get(consulta.strip(), []) if consulta.strip() else []
+        if consulta.strip() and not fotos:
+            st.caption("Nada con esas palabras. Probá otras, o pegá la URL en el campo del bloque.")
+        cols = st.columns(4)
+        for i, f in enumerate(fotos[:8]):
+            with cols[i % 4]:
+                st.image(f.get("miniatura") or f["url"], use_container_width=True)
+                st.caption((f.get("titulo") or "")[:40])
+                if st.button("Usar", key=f"nl_usar_{f['id']}"):
+                    dest[destino](f["url"])
+                    _limpiar_widgets()
+                    st.rerun()
+
+
 def _limpiar_widgets():
     st.session_state["nl_gen"] = st.session_state.get("nl_gen", 0) + 1
     gen_viejo = f"nl_{st.session_state['nl_gen'] - 1}_"
@@ -161,6 +204,8 @@ def render(usuario):
         with st.expander("Material que usó el bot"):
             for m in st.session_state["nl_mats"]:
                 st.markdown(f"- **{m.get('titulo')}** · {m.get('autor')} · {m.get('tag')}" + (f" · [ver]({m['ir'] or m['url']})" if (m.get("ir") or m.get("url")) else ""))
+
+    _selector_fotos(d, plantilla)
 
     col_ed, col_pv = st.columns([1, 1])
     with col_ed:
