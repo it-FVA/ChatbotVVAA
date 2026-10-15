@@ -39,7 +39,7 @@ jobs:
           PUBLICAR_WORDPRESS: ${{ secrets.PUBLICAR_WORDPRESS }}
         run: |
           pip install -q google-auth google-auth-oauthlib google-api-python-client
-          python recortar_clip.py --youtube "${{ inputs.youtube }}" --inicio "${{ inputs.inicio }}" --fin "${{ inputs.fin }}" --titulo "${{ inputs.titulo }}"
+          python recortar_clip.py "--youtube=${{ inputs.youtube }}" "--inicio=${{ inputs.inicio }}" "--fin=${{ inputs.fin }}" "--titulo=${{ inputs.titulo }}"
       - name: Resultado
         run: |
           echo "Clip en $(cat clip_url.txt)" >> "$GITHUB_STEP_SUMMARY"

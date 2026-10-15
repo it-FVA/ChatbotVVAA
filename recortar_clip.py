@@ -9,7 +9,8 @@ cliente propio del Workspace, proyecto n8n1; autorizar_drive.py lo genera). Nada
 
 Uso:
     python recortar_clip.py --drive-id <id del archivo en Drive> --inicio 58.669 --fin 106.627 --nombre -064nr8Yy6M
-    python recortar_clip.py --youtube -064nr8Yy6M --inicio 58.669 --fin 106.627      # busca el original por nombre
+    python recortar_clip.py --youtube=-064nr8Yy6M --inicio 58.669 --fin 106.627     # busca el original por nombre
+    (los ids de YouTube pueden empezar con "-": por eso va con "=")
 Variables de entorno: DRIVE_TOKEN_JSON, WP_SITE, WP_USER, WP_APP_PASSWORD, PUBLICAR_WORDPRESS (borrador o real).
 Salida: imprime la URL del clip en WordPress y la deja en clip_url.txt.
 
