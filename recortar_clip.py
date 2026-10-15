@@ -53,9 +53,17 @@ def descargar_drive(svc, file_id, destino):
     return destino
 
 
-def cortar(entrada, salida, inicio, fin, ffmpeg="ffmpeg"):
+def cortar(entrada, salida, inicio, fin, ffmpeg="ffmpeg", formato="horizontal"):
+    """formato 'horizontal': el tramo tal cual (hasta 1280 de ancho). 'vertical' (15/10, pedido de Franco: shorts,
+    reels, historias): lienzo 1080x1920 con el video centrado y, de fondo, el mismo video desenfocado."""
+    if formato == "vertical":
+        vf = ("[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:5,eq=brightness=-0.08[bg];"
+              "[0:v]scale=1080:-2[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2,format=yuv420p")
+        filtro = ["-filter_complex", vf]
+    else:
+        filtro = ["-vf", "scale='min(1280,iw)':-2"]
     cmd = [ffmpeg, "-y", "-loglevel", "error", "-ss", f"{inicio:.3f}", "-to", f"{fin:.3f}", "-i", entrada,
-           "-vf", "scale='min(1280,iw)':-2", "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+           *filtro, "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
            "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", salida]
     subprocess.check_call(cmd)
 
@@ -68,6 +76,7 @@ def main():
     ap.add_argument("--fin", type=float, required=True, help="segundos")
     ap.add_argument("--nombre", default="", help="nombre base del clip (por defecto el id de YouTube)")
     ap.add_argument("--titulo", default="")
+    ap.add_argument("--formato", choices=["horizontal", "vertical"], default="horizontal")
     ap.add_argument("--ffmpeg", default=shutil.which("ffmpeg") or "ffmpeg")
     a = ap.parse_args()
     nombre = a.nombre or a.youtube or a.drive_id
@@ -78,14 +87,14 @@ def main():
 
     original = f"original_{nombre}.mp4"
     descargar_drive(svc, file_id, original)
-    clip = f"clip-{nombre}-{int(a.inicio)}-{int(a.fin)}.mp4"
-    cortar(original, clip, a.inicio, a.fin, a.ffmpeg)
+    clip = f"clip-{nombre}-{int(a.inicio)}-{int(a.fin)}{'-vertical' if a.formato == 'vertical' else ''}.mp4"
+    cortar(original, clip, a.inicio, a.fin, a.ffmpeg, a.formato)
     print(f"clip: {clip} ({os.path.getsize(clip) // 1024} KB)")
 
     import publicar
     cfg = publicar.Config(os.environ)
     r = publicar.subir_imagen_wordpress(cfg, open(clip, "rb").read(), clip,
-                                        titulo=a.titulo or f"Clip {nombre} {int(a.inicio)}-{int(a.fin)} s",
+                                        titulo=a.titulo or f"Clip {nombre} {int(a.inicio)}-{int(a.fin)} s" + (" (vertical)" if a.formato == "vertical" else ""),
                                         etiquetas=["clip-exacto"], quien="actions", pieza=a.titulo)
     print(r)
     if not r.get("url"):
