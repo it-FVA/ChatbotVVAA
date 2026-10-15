@@ -427,7 +427,33 @@ def panel_aprobacion(usuario):
     except Exception as e:
         st.error(f"No pude leer las piezas: {e}")
         return
-    t1, t2, t3, t4 = st.tabs([f"⏳ Para aprobar ({len(pend)})", "🗓 En cola", "📒 Registro", "🗑 Papelera"])
+    t1, t2, t3, t4, t5 = st.tabs([f"⏳ Para aprobar ({len(pend)})", "🗓 En cola", "📒 Registro", "🗑 Papelera", "🎬 Clips"])
+    with t5:
+        # (15/10) Clips exactos pedidos desde las tarjetas del chat: estado, link, error, reintentar.
+        st.caption("Recortes pedidos desde el chat. Los corta GitHub Actions cada 15 minutos desde los originales en Drive. "
+                   "Si un video todavía no está bajado, el pedido queda en error y se puede reintentar.")
+        try:
+            clips = db.listar_clips()
+        except Exception as e:
+            clips = []
+            st.caption(f"(sin acceso: {e})")
+        if not clips:
+            st.caption("Todavía no se pidió ningún recorte.")
+        _CLIP_EST = {"pedido": "⏳ pedido", "listo": "✅ listo", "error": "⚠ error"}
+        for c in clips:
+            col1, col2 = st.columns([5, 1])
+            tramo = f"{c['inicio_ms'] // 1000 // 60}:{c['inicio_ms'] // 1000 % 60:02d}–{c['fin_ms'] // 1000 // 60}:{c['fin_ms'] // 1000 % 60:02d}"
+            linea = (f"**{_CLIP_EST.get(c.get('estado'), c.get('estado'))}** · {c.get('formato')} · "
+                     f"[{(c.get('titulo') or c['video_id'])[:60]}](https://www.youtube.com/watch?v={c['video_id']}&t={c['inicio_ms'] // 1000}s) · "
+                     f"{tramo} · pidió {c.get('pedido_por') or '—'} · {_fecha(c.get('creado'))}")
+            if c.get("url"):
+                linea += f" · [ver el recorte ↗]({c['url']})"
+            if c.get("error"):
+                linea += "  \n⚠ _" + c["error"][:160] + "_"
+            col1.markdown(linea)
+            if c.get("estado") == "error" and col2.button("↻ Reintentar", key=f"clip_re_{c['id']}"):
+                db.actualizar_clip(c["id"], {"estado": "pedido", "error": None})
+                st.rerun()
     with t4:
         # (15/10) Conversaciones borradas por cualquier usuario: se pueden restaurar durante 30 días.
         st.caption(f"Conversaciones que alguien borró. Se restauran desde acá durante {db.PAPELERA_DIAS} días; después se borran de verdad.")

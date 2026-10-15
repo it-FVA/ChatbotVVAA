@@ -350,6 +350,13 @@ def clips_pedidos(limite=20):
     return _req("GET", f"?estado=eq.pedido&select=id,video_id,inicio_ms,fin_ms,formato,titulo,pedido_por&order=creado.asc&limit={limite}", tabla="clips") or []
 
 
+def listar_clips(limite=60):
+    """Todos los clips, más recientes primero (solapa Clips del panel admin)."""
+    if not disponible():
+        return []
+    return _req("GET", f"?select=id,creado,video_id,inicio_ms,fin_ms,formato,titulo,pedido_por,estado,url,error,procesado_en&order=creado.desc&limit={limite}", tabla="clips") or []
+
+
 def actualizar_clip(cid, campos):
     return _req("PATCH", f"?id=eq.{cid}", campos, tabla="clips")
 
