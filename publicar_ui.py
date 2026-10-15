@@ -608,7 +608,10 @@ def formulario(usuario, key, pieza=None, compacto=False):
 
     # Canal: precompletado solo si la persona lo dijo; si no, hay que elegirlo
     idx = {"wordpress": 0, "instagram": 1, "facebook": 2, "youtube": 3}.get(pieza.get("canal") or "", None)
-    canal = st.radio("Canal", CANALES, horizontal=True, index=idx, key=k("canal"))
+    # (15/10) Nombres que distinguen la entrada en la web del newsletter (que tiene su propio editor).
+    _NOMBRE = {"WordPress": "🌐 WordPress (entrada en la web)", "Instagram": "📸 Instagram", "Facebook": "📘 Facebook", "YouTube": "▶️ YouTube"}
+    canal = st.radio("Canal", CANALES, horizontal=True, index=idx, key=k("canal"), format_func=lambda c: _NOMBRE.get(c, c))
+    st.caption("Para el email a la comunidad usá «✉️ Newsletter» en la barra lateral: tiene sus plantillas y su vista previa.")
     if canal is None:
         st.caption("Elegí el canal para ver qué va a pasar al enviar.")
         modo = "apagado"
