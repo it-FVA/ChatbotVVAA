@@ -317,6 +317,43 @@ def listar_mis_propuestas(usuario, limite=10):
     return _req("GET", q, tabla="publicaciones")
 
 
+# ---------------- Clips exactos (15/10, pedido de Beto) ----------------
+# Tabla clips(video_id, inicio_ms, fin_ms, formato, estado, url, pedido_por, titulo, error, procesado_en).
+# Estados: 'pedido' (lo pidió alguien desde una tarjeta del chat) → 'listo' (recortar_pendientes.yml lo
+# cortó desde el original en Drive y lo subió a WordPress; url) o 'error'.
+
+def clips_de(video_ids):
+    """Todos los clips (en cualquier estado) de esos videos, para dibujar las tarjetas en una sola consulta."""
+    if not disponible() or not video_ids:
+        return []
+    ids = ",".join(urllib.parse.quote(v) for v in sorted(set(video_ids)))
+    return _req("GET", f"?video_id=in.({ids})&select=id,video_id,inicio_ms,fin_ms,formato,estado,url,error", tabla="clips") or []
+
+
+def pedir_clip(video_id, inicio_ms, fin_ms, formato, titulo, usuario):
+    if not disponible():
+        return None
+    fila = {"video_id": video_id, "inicio_ms": int(inicio_ms), "fin_ms": int(fin_ms), "formato": formato,
+            "titulo": (titulo or "")[:200], "pedido_por": usuario, "estado": "pedido"}
+    try:
+        r = _req("POST", "", fila, tabla="clips")
+        return r[0]["id"] if r else None
+    except RuntimeError as e:
+        if "duplicate" in str(e) or "23505" in str(e):
+            return "ya"
+        raise
+
+
+def clips_pedidos(limite=20):
+    if not disponible():
+        return []
+    return _req("GET", f"?estado=eq.pedido&select=id,video_id,inicio_ms,fin_ms,formato,titulo,pedido_por&order=creado.asc&limit={limite}", tabla="clips") or []
+
+
+def actualizar_clip(cid, campos):
+    return _req("PATCH", f"?id=eq.{cid}", campos, tabla="clips")
+
+
 def listar_publicaciones(usuario=None, limite=30):
     if not disponible():
         return []

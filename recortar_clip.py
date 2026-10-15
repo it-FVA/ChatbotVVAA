@@ -25,6 +25,8 @@ CARPETA_ORIGINALES = "Videos originales"
 def _drive():
     from google.oauth2.credentials import Credentials
     from googleapiclient.discovery import build
+    import socket
+    socket.setdefaulttimeout(600)   # archivos de cientos de MB: sin esto, httplib2 corta a los 60 s
     tok = json.loads(os.environ["DRIVE_TOKEN_JSON"])
     creds = Credentials.from_authorized_user_info(tok, ["https://www.googleapis.com/auth/drive.readonly"])
     return build("drive", "v3", credentials=creds, cache_discovery=False)
@@ -47,7 +49,7 @@ def descargar_drive(svc, file_id, destino):
         dl = MediaIoBaseDownload(fh, req, chunksize=32 * 1024 * 1024)
         done = False
         while not done:
-            status, done = dl.next_chunk()
+            status, done = dl.next_chunk(num_retries=5)
             if status:
                 print(f"  bajando original… {int(status.progress() * 100)}%", flush=True)
     return destino

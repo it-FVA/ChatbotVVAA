@@ -91,6 +91,7 @@ import publicar_ui
 PUEDE_PUBLICAR = True
 ROL = publicar_ui.roles(USUARIO)
 st.session_state.setdefault("vista", "chat")
+st.session_state["_clipbtn"] = 0   # (15/10) claves únicas de los botones de clips, por corrida
 
 
 @st.cache_resource(show_spinner="Cargando el corpus…")
@@ -266,6 +267,12 @@ def render_mats(mats, idioma="es"):
     + [traducción], y extracto original seguido de su traducción marcada (nucleo.traducir_tarjetas, una
     llamada por respuesta, cacheada). Si la traducción falla, la tarjeta queda en original."""
     trads = nucleo.traducir_tarjetas(mats, idioma) if idioma in ("en", "de") else []
+    # (15/10) Clips exactos: para las tarjetas de video, "ver el recorte" si ya está, o pedirlo (horizontal / vertical).
+    try:
+        _clips = db.clips_de([r.get("doc") for r in mats if r.get("fuente") == "youtube" and r.get("inicio_ms") is not None])
+    except Exception:
+        _clips = []
+    _por_tramo = {(c["video_id"], int(c["inicio_ms"]), int(c["fin_ms"]), c["formato"]): c for c in _clips}
     for n, r in enumerate(mats):
         tag = r.get("tag") or ""
         if idioma in _TAGS:
@@ -291,6 +298,34 @@ def render_mats(mats, idioma="es"):
             f'<div class="vac-titulo">{titulo}</div>'
             f'{quote}{src}</div>',
             unsafe_allow_html=True)
+        if IDIOMA == "es" and r.get("fuente") == "youtube" and r.get("inicio_ms") is not None and r.get("fin_ms"):
+            _botones_clip(r, _por_tramo)
+
+
+_CLIP_TXT = {"horizontal": "✂️ Pedir el recorte", "vertical": "📱 Pedir en vertical"}
+
+
+def _botones_clip(r, por_tramo):
+    """Debajo de una tarjeta de video: link al recorte exacto si existe, o botones para pedirlo.
+    El pedido queda en la tabla clips; recortar_pendientes.yml (GitHub Actions, cada 15 min) lo corta
+    desde el original en Drive y lo sube a WordPress."""
+    vid, ini, fin = r.get("doc"), int(r["inicio_ms"]), int(r["fin_ms"])
+    st.session_state["_clipbtn"] = st.session_state.get("_clipbtn", 0) + 1
+    base = f"clip_{st.session_state['_clipbtn']}"
+    cols = st.columns([1, 1, 3])
+    for i, formato in enumerate(("horizontal", "vertical")):
+        c = por_tramo.get((vid, ini, fin, formato))
+        if c and c.get("estado") == "listo" and c.get("url"):
+            cols[i].markdown(f'<a class="vac-src" href="{html.escape(c["url"])}" target="_blank">'
+                             f'{"🎬 Ver el recorte" if formato == "horizontal" else "📱 Ver en vertical"}</a>', unsafe_allow_html=True)
+        elif c and c.get("estado") == "pedido":
+            cols[i].caption(("✂️" if formato == "horizontal" else "📱") + " recorte pedido · en unos minutos")
+        elif c and c.get("estado") == "error":
+            cols[i].caption(("✂️" if formato == "horizontal" else "📱") + " no se pudo recortar (ver Panel admin)")
+        elif cols[i].button(_CLIP_TXT[formato], key=f"{base}_{formato}", help="Corta el tramo exacto desde el original en Drive y lo sube a la biblioteca de WordPress. Tarda unos minutos."):
+            res = db.pedir_clip(vid, ini, fin, formato, r.get("titulo"), USUARIO)
+            st.toast("Pedido. En unos minutos aparece «Ver el recorte» en esta tarjeta." if res else "No pude registrar el pedido.")
+            st.rerun()
 
 
 def publicar_en_chat(m, i, ultimo):

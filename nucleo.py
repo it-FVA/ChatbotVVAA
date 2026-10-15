@@ -674,7 +674,7 @@ def _buscar(consulta, n, excluir, fuente, autor, max_seg, rerank, idioma):
             "texto": re.sub(r"\s+", " ", f.get("texto") or "").strip(),
             "autor": f.get("autor") or "—", "fuente": fu,
             "url": f.get("url"), "doc": doc, "score": round(float(sims[int(k)]), 2),
-            "inicio_ms": f.get("inicio_ms"), "pagina": f.get("pagina"),
+            "inicio_ms": f.get("inicio_ms"), "fin_ms": f.get("fin_ms"), "pagina": f.get("pagina"),
         }
         d["ir"] = link_fuente(d)
         cand.append(d)
