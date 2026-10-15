@@ -23,7 +23,7 @@ Para el circuito de REVISIÓN (correr una sola vez en Supabase → SQL Editor):
     alter table conversaciones add column if not exists nota text;
 """
 import os, json, urllib.request, urllib.parse, urllib.error
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 
 def _cfg():
@@ -72,9 +72,9 @@ def _req(method, params="", body=None, tabla="conversaciones"):
 
 
 def listar_conversaciones(usuario):
-    """[{id, titulo, actualizado}] del usuario, más recientes primero."""
+    """[{id, titulo, actualizado}] del usuario, más recientes primero (sin las de la papelera)."""
     u = urllib.parse.quote(usuario)
-    return _req("GET", f"?usuario=eq.{u}&select=id,titulo,actualizado&order=actualizado.desc")
+    return _req("GET", f"?usuario=eq.{u}&borrada=is.null&select=id,titulo,actualizado&order=actualizado.desc")
 
 
 def cargar_conversacion(cid):
@@ -86,7 +86,7 @@ def listar_todas(limite=1000, solo_no_revisadas=False):
     """Conversaciones (para el panel de revisión). Más recientes primero.
     Con solo_no_revisadas=True trae solo las que faltan revisar."""
     filtro = "&revisado=is.false" if solo_no_revisadas else ""
-    return _req("GET", f"?select=id,usuario,titulo,actualizado,revisado{filtro}"
+    return _req("GET", f"?select=id,usuario,titulo,actualizado,revisado&borrada=is.null{filtro}"
                        f"&order=actualizado.desc&limit={limite}")
 
 
@@ -131,8 +131,33 @@ def guardar_mensajes(cid, mensajes):
     _req("PATCH", f"?id=eq.{cid}", body={"mensajes": mensajes, "actualizado": ahora})
 
 
+# ---------------- Papelera (15/10, pedido de Franco tras una conversación que Julián borró sin querer) ----------------
+# "Borrar" ya no borra: marca `borrada` con la fecha. La conversación desaparece de la lista de la persona,
+# los aprobadores la pueden restaurar desde el Panel admin durante PAPELERA_DIAS, y después se borra de verdad.
+PAPELERA_DIAS = 30
+
+
 def borrar_conversacion(cid):
-    _req("DELETE", f"?id=eq.{cid}")
+    _req("PATCH", f"?id=eq.{cid}", {"borrada": datetime.now(timezone.utc).isoformat()})
+
+
+def listar_papelera(limite=200):
+    return _req("GET", f"?borrada=not.is.null&select=id,usuario,titulo,actualizado,borrada&order=borrada.desc&limit={limite}")
+
+
+def restaurar_conversacion(cid):
+    return _req("PATCH", f"?id=eq.{cid}", {"borrada": None})
+
+
+def vaciar_papelera_vencida(dias=PAPELERA_DIAS):
+    """Borra de verdad lo que lleva más de `dias` en la papelera. Devuelve cuántas."""
+    if not disponible():
+        return 0
+    limite = (datetime.now(timezone.utc) - timedelta(days=dias)).isoformat()
+    viejas = _req("GET", f"?borrada=lt.{urllib.parse.quote(limite)}&select=id") or []
+    for c in viejas:
+        _req("DELETE", f"?id=eq.{c['id']}")
+    return len(viejas)
 
 
 # ---------------- Publicaciones (pestaña Publicar) ----------------

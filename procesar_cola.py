@@ -54,6 +54,12 @@ def main():
     r = cfg.resumen()
     ahora = datetime.datetime.now(datetime.timezone.utc)
     print(f"[{ahora.isoformat(timespec='minutes')}] modos: wordpress={r['wordpress']} instagram={r['instagram']} facebook={r['facebook']}")
+    try:   # (15/10) papelera de conversaciones: borrado definitivo pasados los 30 días
+        n = db.vaciar_papelera_vencida()
+        if n:
+            print(f"papelera: {n} conversaciones borradas definitivamente (más de {db.PAPELERA_DIAS} días)")
+    except Exception as e:
+        print(f"papelera: no pude vaciar: {e}")
     pend = db.listar_pendientes(vencidas=True)
     print(f"pendientes vencidas: {len(pend)}")
     for p in pend:

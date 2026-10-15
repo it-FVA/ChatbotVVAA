@@ -427,7 +427,24 @@ def panel_aprobacion(usuario):
     except Exception as e:
         st.error(f"No pude leer las piezas: {e}")
         return
-    t1, t2, t3 = st.tabs([f"⏳ Para aprobar ({len(pend)})", "🗓 En cola", "📒 Registro"])
+    t1, t2, t3, t4 = st.tabs([f"⏳ Para aprobar ({len(pend)})", "🗓 En cola", "📒 Registro", "🗑 Papelera"])
+    with t4:
+        # (15/10) Conversaciones borradas por cualquier usuario: se pueden restaurar durante 30 días.
+        st.caption(f"Conversaciones que alguien borró. Se restauran desde acá durante {db.PAPELERA_DIAS} días; después se borran de verdad.")
+        try:
+            pap = db.listar_papelera()
+        except Exception as e:
+            pap = []
+            st.caption(f"(sin acceso: {e})")
+        if not pap:
+            st.caption("La papelera está vacía.")
+        for c in pap:
+            c1, c2 = st.columns([4, 1])
+            c1.markdown(f"**{c.get('titulo') or '(sin título)'}** · {c.get('usuario')} · borrada {_fecha(c.get('borrada'))} · última actividad {_fecha(c.get('actualizado'))}")
+            if c2.button("↩ Restaurar", key=f"rest_{c['id']}"):
+                db.restaurar_conversacion(c["id"])
+                st.success("Restaurada: vuelve a aparecer en la lista de esa persona.")
+                st.rerun()
     with t2:
         try:
             cola = db.listar_pendientes()
