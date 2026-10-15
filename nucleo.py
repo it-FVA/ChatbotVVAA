@@ -932,8 +932,8 @@ TOOLS = [
             "texto_imagen": {"type": "string", "description": "Si la pieza tiene un texto que va SOBRE la imagen (una frase corta, la cita para el diseño), ponelo acá, solo eso, sin comillas de markdown y SIN la firma (la firma va aparte). Vacío si no aplica."},
             "firma": {"type": "string", "description": "Quién dice la frase de la imagen, como se firma en la pieza: '— Br. David' por defecto; si es de un facilitador, su nombre ('— Andy Saporiti'). Vacío si no hay texto sobre la imagen."},
             "titulo": {"type": "string", "description": "Título corto de la pieza (obligatorio si es entrada de WordPress; en redes es solo para el registro). No repetir el texto."},
-            "canal": {"type": "string", "enum": ["wordpress", "instagram", "facebook", "youtube", ""],
-                      "description": "Canal SOLO si la persona lo dijo (entrada/blog/artículo/newsletter → wordpress; video/clip para YouTube → youtube, y entonces texto = la descripción del video). Si no lo dijo, dejalo vacío: el recuadro se lo pide."},
+            "canal": {"type": "string", "enum": ["wordpress", "instagram", "facebook", "youtube", "newsletter", ""],
+                      "description": "Canal SOLO si la persona lo dijo (entrada/blog/artículo → wordpress; newsletter/mail a la comunidad → newsletter, y entonces texto = la reflexión principal; video/clip para YouTube → youtube, y entonces texto = la descripción del video). Si no lo dijo, dejalo vacío: el recuadro se lo pide."},
             "fecha": {"type": "string", "description": "YYYY-MM-DD si la persona pidió un día ('el sábado', 'mañana', '15/11'); vacío si no."},
             "hora": {"type": "string", "description": "HH:MM si la persona pidió una hora; vacío si no."},
             "imagen_busqueda": {"type": "string", "description": "2 a 4 palabras en español con el tema visual para buscar una imagen en el banco (ej. 'amanecer montaña calma')."}},
@@ -973,7 +973,7 @@ def _ejecutar_tool(nombre, args):
         canal = (args.get("canal") or "").strip().lower()
         fecha = (args.get("fecha") or "").strip()
         hora = (args.get("hora") or "").strip()
-        pieza = {"canal": canal if canal in ("wordpress", "instagram", "facebook", "youtube") else "",
+        pieza = {"canal": canal if canal in ("wordpress", "instagram", "facebook", "youtube", "newsletter") else "",
                  "fecha": fecha if re.fullmatch(r"\d{4}-\d{2}-\d{2}", fecha) else "",
                  "hora": hora if re.fullmatch(r"\d{1,2}:\d{2}", hora) else "",
                  "titulo": (args.get("titulo") or "").strip()[:150],

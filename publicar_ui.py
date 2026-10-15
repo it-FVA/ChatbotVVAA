@@ -306,7 +306,8 @@ def _va_a_la_cola(canal, modo):
 ESTADO_TXT = {"a_aprobar": "⏳ pendiente de aprobación", "pendiente": "✅ aprobada · programada", "rechazada": "✖ rechazada",
               "publicada": "📣 publicada", "simulada": "👁 simulada", "error": "⚠ error", "cancelada": "✖ cancelada",
               "subida": "🖼 imagen subida", "draft": "📝 borrador en WordPress", "programada": "🗓 programada",
-              "PUBLICADO": "📣 publicada", "borrador": "📝 borrador", "prueba": "🧪 prueba (simulado)"}
+              "PUBLICADO": "📣 publicada", "borrador": "📝 borrador", "prueba": "🧪 prueba (simulado)",
+              "lista": "✉️ lista para enviar (pegar en Perfit)"}
 NO_SON_PIEZAS = ("subida", "prueba", "borrador", "simulada", "simulado")   # fuera del registro del panel
 
 
@@ -329,7 +330,12 @@ def _fila_publicacion(p, mostrar_usuario=False):
         c2.markdown(cab)
         if p.get("titulo"):
             c2.markdown(f"**{p['titulo']}**")
-        if p.get("texto"):
+        if p.get("canal") == "newsletter":
+            c2.caption("Newsletter · plantilla " + str((res.get("pieza") or {}).get("plantilla") or res.get("plantilla") or "mensual"))
+            if p.get("texto"):
+                c2.download_button("⬇️ Descargar HTML", data=(p["texto"] or "").encode("utf-8"),
+                                   file_name=f"newsletter-{str(p.get('creado', ''))[:10]}.html", mime="text/html", key=f"dl_{p['id']}")
+        elif p.get("texto"):
             c2.caption((p["texto"] or "")[:220] + ("…" if len(p.get("texto") or "") > 220 else ""))
         detalle = []
         if p.get("fecha_programada"):
@@ -368,7 +374,7 @@ def mis_publicaciones(usuario):
     filtro = st.radio("Ver", ["todas", "borradores", "pendientes", "aprobadas", "rechazadas", "publicadas", "pruebas"],
                       horizontal=True, key="mis_filtro", label_visibility="collapsed")
     grupos = {"borradores": ("borrador",), "pendientes": ("a_aprobar",), "aprobadas": ("pendiente", "programada"),
-              "rechazadas": ("rechazada", "cancelada"), "publicadas": ("publicada", "PUBLICADO", "draft"),
+              "rechazadas": ("rechazada", "cancelada"), "publicadas": ("publicada", "PUBLICADO", "draft", "lista"),
               "pruebas": ("prueba", "simulada", "simulado")}
     if filtro != "todas":
         mias = [p for p in mias if p.get("estado") in grupos[filtro]]
@@ -377,8 +383,14 @@ def mis_publicaciones(usuario):
         est = p.get("estado")
         c1, c2, _ = st.columns([1, 1, 4])
         if est == "borrador" and c1.button("✏️ Retomar", key=f"ret_{p['id']}"):
-            st.session_state["retomar"] = p
-            st.session_state["vista"] = "publicar"
+            if p.get("canal") == "newsletter":
+                import newsletter_ui
+                pz = (p.get("resultado") or {}).get("pieza") or {}
+                newsletter_ui.cargar(pz.get("plantilla") or "mensual", pz.get("datos") or {}, p["id"])
+                st.session_state["vista"] = "newsletter"
+            else:
+                st.session_state["retomar"] = p
+                st.session_state["vista"] = "publicar"
             st.rerun()
         if est in db.ELIMINABLES and c2.button("🗑 Eliminar", key=f"del_{p['id']}"):
             if db.eliminar_publicacion(p["id"], usuario):
@@ -445,6 +457,26 @@ def panel_aprobacion(usuario):
         pid = p["id"]
         res = p.get("resultado") or {}
         canal = p.get("canal") or ""
+        if canal == "newsletter":
+            # (15/10) El newsletter no sale por la cola: aprobar = dejar el HTML listo para pegar en Perfit.
+            import streamlit.components.v1 as _components
+            with t1.container(border=True):
+                st.markdown(f"**✉️ Newsletter** · propuso **{res.get('propuesta_por') or p.get('usuario')}** · "
+                            f"{str(p.get('creado', ''))[:16].replace('T', ' ')} · **{p.get('titulo') or ''}**")
+                _components.html(p.get("texto") or "", height=600, scrolling=True)
+                nota = st.text_input("Nota (si rechazás, decí por qué)", key=f"apr_n_{pid}")
+                b1, b2, b3 = st.columns(3)
+                if b1.button("✅ Aprobar (queda listo para Perfit)", type="primary", key=f"apr_ok_{pid}"):
+                    db.actualizar_publicacion(pid, {"estado": "lista", "resultado": dict(res, aprobada_por=usuario,
+                                                    aprobada_en=datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"))})
+                    st.success("Aprobado. El HTML queda en «Mis publicaciones» de quien lo propuso y en el Registro, para descargar y pegar en Perfit.")
+                    st.rerun()
+                if b2.button("✖ Rechazar", key=f"apr_no_{pid}"):
+                    db.rechazar_publicacion(pid, usuario, nota, res)
+                    st.rerun()
+                b3.download_button("⬇️ Descargar HTML", data=(p.get("texto") or "").encode("utf-8"),
+                                   file_name=f"newsletter-{str(p.get('creado', ''))[:10]}.html", mime="text/html", key=f"apr_dl_{pid}")
+            continue
         with t1.container(border=True):
             c1, c2 = st.columns([1, 2])
             if p.get("imagen_url"):
@@ -749,6 +781,17 @@ def recuadro(usuario, pieza, key, abierto=True):
     if pieza.get("fecha"):
         etiqueta += f" · {pieza['fecha']}" + (f" {pieza['hora']}" if pieza.get("hora") else "")
     with st.expander(etiqueta, expanded=abierto):
+        if pieza.get("canal") == "newsletter":
+            # (15/10) El newsletter se arma en su editor; el texto del bot entra como reflexión / encuadre.
+            st.caption("Esta pieza es un newsletter. Se arma en el editor de Newsletter, con sus bloques y la vista previa.")
+            if st.button("✉️ Abrir en el editor de Newsletter", type="primary", key=f"pub_{key}_nl"):
+                import newsletter_ui
+                nl = newsletter_ui  # noqa
+                datos = {"asunto": pieza.get("titulo") or "", "reflexion": pieza.get("texto") or ""}
+                nl.cargar("mensual", datos, None)
+                st.session_state["vista"] = "newsletter"
+                st.rerun()
+            return
         formulario(usuario, key, pieza=pieza, compacto=True)
 
 

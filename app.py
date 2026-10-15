@@ -64,6 +64,7 @@ _T = {
     "salir": {"es": "Salir", "en": "Log out", "de": "Abmelden"},
     "volver": {"es": "💬 Volver al chat", "en": "💬 Back to chat", "de": "💬 Zurück zum Chat"},
     "mis": {"es": "📋 Mis publicaciones", "en": "📋 My posts", "de": "📋 Meine Beiträge"},
+    "newsletter": {"es": "✉️ Newsletter", "en": "✉️ Newsletter", "de": "✉️ Newsletter"},
     "renombrar": {"es": "Renombrar", "en": "Rename", "de": "Umbenennen"},
     "borrar": {"es": "🗑️ Borrar conversación", "en": "🗑️ Delete conversation", "de": "🗑️ Gespräch löschen"},
     "sub": {"es": "Búsqueda y armado fundados solo en el material real de la Fundación. Los borradores son para revisión del equipo.",
@@ -131,10 +132,10 @@ with st.sidebar:
     # La pantalla "Publicar" suelta ya no se muestra; queda solo con ?vista=publicar en la dirección,
     # para cargar algo que no salió de una conversación.
     # (13/10) ?vista=... en la dirección se aplica una sola vez; después mandan los botones de la barra.
-    if st.query_params.get("vista") in ("publicar", "aprobar", "mis") and not st.session_state.get("vista_qp"):
+    if st.query_params.get("vista") in ("publicar", "aprobar", "mis", "newsletter") and not st.session_state.get("vista_qp"):
         st.session_state.vista = st.query_params.get("vista")
         st.session_state["vista_qp"] = True
-    if st.session_state.vista in ("publicar", "aprobar", "mis"):
+    if st.session_state.vista in ("publicar", "aprobar", "mis", "newsletter"):
         if st.button(T("volver"), use_container_width=True):
             st.query_params.clear()
             st.session_state.vista = "chat"
@@ -143,6 +144,10 @@ with st.sidebar:
     # (13/10) Roles: todos tienen "Mis publicaciones"; los aprobadores, además, el panel admin.
     if st.button(T("mis"), use_container_width=True):
         st.session_state.vista = "mis"
+        st.rerun()
+    # (15/10) Canal Newsletter: editor con plantillas, para todos (pasa por aprobación como cualquier pieza).
+    if IDIOMA == "es" and st.button(T("newsletter"), use_container_width=True):
+        st.session_state.vista = "newsletter"
         st.rerun()
     if ROL["aprueba"]:
         try:
@@ -240,6 +245,10 @@ if st.session_state.vista == "publicar":
     st.stop()
 if st.session_state.vista == "mis":
     publicar_ui.mis_publicaciones(USUARIO)
+    st.stop()
+if st.session_state.vista == "newsletter":
+    import newsletter_ui
+    newsletter_ui.render(USUARIO)
     st.stop()
 if st.session_state.vista == "aprobar":
     publicar_ui.panel_aprobacion(USUARIO)
