@@ -46,7 +46,9 @@ def main():
             if not os.path.exists(original):
                 rc.descargar_drive(svc, file_id, original)
             clip = f"clip-{vid}-{int(ini)}-{int(fin)}{'-vertical' if fmt == 'vertical' else ''}.mp4"
-            rc.cortar(original, clip, ini, fin, ffmpeg, fmt)
+            palabras = rc.buscar_palabras(svc, vid) if rc.quiere_subtitulos(fmt) else None   # (15/10) subtítulos quemados en el vertical
+            if rc.cortar(original, clip, ini, fin, ffmpeg, fmt, palabras):
+                print("  con subtítulos quemados")
             titulo = (p.get("titulo") or vid)[:120] + f" · {int(ini)}-{int(fin)} s" + (" (vertical)" if fmt == "vertical" else "")
             r = publicar.subir_imagen_wordpress(cfg, open(clip, "rb").read(), clip, titulo=titulo,
                                                 etiquetas=["clip-exacto", fmt], quien=p.get("pedido_por") or "cola", pieza=titulo)

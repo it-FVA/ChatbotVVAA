@@ -7,3 +7,10 @@ conversaciones-todas.json
 no-revisadas.json
 registro_publicaciones.jsonl
 .streamlit/secrets.toml*
+
+# recortes locales de clips (recortar_clip.py)
+sub_fuentes/
+clip-*.mp4
+clip-*.srt
+original_*.mp4
+clip_url.txt
