@@ -41,7 +41,10 @@ def main():
         try:
             file_id = rc.buscar_original(svc, vid)
             if not file_id:
-                raise RuntimeError("no está el original en la carpeta Videos originales de Drive")
+                # (15/10) sigue en 'pedido' (no 'error'): se vuelve a intentar en cada corrida hasta que el original esté en Drive
+                db.actualizar_clip(cid, {"error": "esperando el original en Drive (todavía no se bajó)"})
+                print("  → esperando el original en Drive")
+                continue
             original = f"original_{vid}.mp4"
             if not os.path.exists(original):
                 rc.descargar_drive(svc, file_id, original)
