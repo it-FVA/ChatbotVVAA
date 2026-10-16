@@ -34,6 +34,12 @@ MODO_TXT = {
 }
 CANALES = ["WordPress", "Instagram", "Facebook", "YouTube"]
 CLAVE = {"WordPress": "wordpress", "Instagram": "instagram", "Facebook": "facebook", "YouTube": "youtube"}
+# (16/10, Franco) nombres visibles: la entrada en WordPress se llama "Blogpost"; el "Newsletter" es el mail a la comunidad.
+CANAL_TXT = {"wordpress": "Blogpost", "instagram": "Instagram", "facebook": "facebook".capitalize(), "youtube": "YouTube", "newsletter": "Newsletter"}
+
+
+def canal_txt(c):
+    return CANAL_TXT.get((c or "").lower(), c or "")
 
 
 def _lista(clave, defecto):
@@ -324,7 +330,7 @@ def _fila_publicacion(p, mostrar_usuario=False):
         c1, c2 = st.columns([1, 4])
         if p.get("imagen_url"):
             c1.image(p["imagen_url"], use_container_width=True)
-        cab = f"**{ESTADO_TXT.get(est, est)}** · {p.get('canal')} · creada {_fecha(p.get('creado'))}"
+        cab = f"**{ESTADO_TXT.get(est, est)}** · {canal_txt(p.get('canal'))} · creada {_fecha(p.get('creado'))}"
         if mostrar_usuario:
             cab += f" · por **{p.get('usuario')}**"
         c2.markdown(cab)
@@ -411,7 +417,7 @@ def mis_propuestas_sidebar(usuario):
         for p in mias:
             est = p.get("estado") or ""
             nota = (p.get("resultado") or {}).get("nota")
-            st.markdown(f"{ESTADO_TXT.get(est, est)} · {p.get('canal')} · {(p.get('titulo') or p.get('texto') or '')[:40]}"
+            st.markdown(f"{ESTADO_TXT.get(est, est)} · {canal_txt(p.get('canal'))} · {(p.get('titulo') or p.get('texto') or '')[:40]}"
                         + (f"  \n_{nota}_" if nota else ""))
 
 
@@ -567,7 +573,7 @@ def piezas_en_cola_sidebar(usuario):
     with st.expander(f"🗓 Piezas en cola ({len(pend)})"):
         for p in pend:
             f = str(p.get("fecha_programada") or "")[:16].replace("T", " ")
-            st.markdown(f"**{f}** · {p.get('canal')} · {(p.get('titulo') or p.get('texto') or '')[:40]}")
+            st.markdown(f"**{f}** · {canal_txt(p.get('canal'))} · {(p.get('titulo') or p.get('texto') or '')[:40]}")
             if st.button("Cancelar", key=f"cancel_{p['id']}"):
                 db.cancelar_publicacion(p["id"], usuario)
                 st.rerun()
@@ -635,7 +641,7 @@ def formulario(usuario, key, pieza=None, compacto=False):
     # Canal: precompletado solo si la persona lo dijo; si no, hay que elegirlo
     idx = {"wordpress": 0, "instagram": 1, "facebook": 2, "youtube": 3}.get(pieza.get("canal") or "", None)
     # (15/10) Nombres que distinguen la entrada en la web del newsletter (que tiene su propio editor).
-    _NOMBRE = {"WordPress": "🌐 WordPress (entrada en la web)", "Instagram": "📸 Instagram", "Facebook": "📘 Facebook", "YouTube": "▶️ YouTube"}
+    _NOMBRE = {"WordPress": "🌐 Blogpost (entrada en la web, WordPress)", "Instagram": "📸 Instagram", "Facebook": "📘 Facebook", "YouTube": "▶️ YouTube"}
     canal = st.radio("Canal", CANALES, horizontal=True, index=idx, key=k("canal"), format_func=lambda c: _NOMBRE.get(c, c))
     st.caption("Para el email a la comunidad usá «✉️ Newsletter» en la barra lateral: tiene sus plantillas y su vista previa.")
     if canal is None:
@@ -823,7 +829,7 @@ def recuadro(usuario, pieza, key, abierto=True):
     """Debajo de una respuesta del bot que es una pieza."""
     etiqueta = "📤 Publicar esta pieza"
     if pieza.get("canal"):
-        etiqueta += f" · {pieza['canal'].capitalize()}"
+        etiqueta += f" · {canal_txt(pieza['canal'])}"
     if pieza.get("fecha"):
         etiqueta += f" · {pieza['fecha']}" + (f" {pieza['hora']}" if pieza.get("hora") else "")
     with st.expander(etiqueta, expanded=abierto):
@@ -870,7 +876,7 @@ def render(usuario):
     with st.expander("Registro: quién hizo qué (últimas 15 acciones)"):
         try:
             for p in db.listar_publicaciones(limite=15):
-                st.markdown(f"- {str(p.get('creado', ''))[:16].replace('T', ' ')} · **{p.get('canal')}** · {p.get('modo')} · "
+                st.markdown(f"- {str(p.get('creado', ''))[:16].replace('T', ' ')} · **{canal_txt(p.get('canal'))}** · {p.get('modo')} · "
                             f"{(p.get('titulo') or '')[:60]} · {p.get('usuario')} · {p.get('estado')}")
         except Exception as e:
             st.caption(f"(sin registro: {e})")
