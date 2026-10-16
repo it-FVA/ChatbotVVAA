@@ -345,6 +345,13 @@ def _botones_clip(r, por_tramo):
             st.rerun()
 
 
+def mostrar_fuentes(mats, idioma, abierto):
+    """(16/10, revisión de UX) Las fuentes van plegadas en un expander: cuando el bot propone una pieza, lo importante
+    es el recuadro de publicar, que ahora va inmediatamente debajo de la respuesta. Sin pieza, quedan abiertas."""
+    with st.expander(f"📚 Fuentes ({len(mats)})", expanded=abierto):
+        render_mats(mats, idioma)
+
+
 def publicar_en_chat(m, i, ultimo):
     """(24/9) Publicar desde adentro del chat: cuando el bot decide que la pieza está lista
     (herramienta proponer_publicacion), debajo de su respuesta aparece el recuadro precompletado
@@ -359,10 +366,10 @@ for i, m in enumerate(st.session_state.messages):
     rol = "user" if m.get("role") == "user" else "assistant"
     with st.chat_message(rol, avatar=(AVATAR_USER if rol == "user" else AVATAR_BOT)):
         st.markdown(m.get("content", ""))
-        if m.get("mats"):
-            render_mats(m["mats"], IDIOMA)
         if rol == "assistant":
-            publicar_en_chat(m, i, ultimo=(i == _n - 1))
+            publicar_en_chat(m, i, ultimo=(i == _n - 1))     # (16/10) el recuadro va antes que las fuentes
+        if m.get("mats"):
+            mostrar_fuentes(m["mats"], IDIOMA, abierto=not (PUEDE_PUBLICAR and m.get("pieza")))
 
 # (8/10) Dos pasos: primero el mensaje de la persona entra al historial y se redibuja (así se ve enseguida);
 # después, si el último mensaje es de la persona y no tiene respuesta, se genera. Antes todo pasaba dentro
@@ -387,7 +394,7 @@ if _msgs and _msgs[-1].get("role") == "user":
             texto, mats, _, pieza = nucleo.responder_con_pieza(historial, idioma=(IDIOMA if IDIOMA != "es" else None))
         st.markdown(texto)
         if mats:
-            render_mats(mats, IDIOMA)
+            mostrar_fuentes(mats, IDIOMA, abierto=not pieza)
     _msgs.append({"role": "assistant", "content": texto, "mats": mats, "pieza": pieza})
     guardar()
     st.rerun()          # vuelve a dibujar con el recuadro "Publicar esta pieza" bajo la respuesta nueva
