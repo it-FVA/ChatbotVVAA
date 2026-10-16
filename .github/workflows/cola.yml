@@ -32,4 +32,6 @@ jobs:
           META_IG_USER_ID: ${{ secrets.META_IG_USER_ID }}
           META_FB_PAGE_ID: ${{ secrets.META_FB_PAGE_ID }}
           META_FB_PAGE_TOKEN: ${{ secrets.META_FB_PAGE_TOKEN }}
+          PUBLICAR_YOUTUBE: ${{ secrets.PUBLICAR_YOUTUBE }}
+          YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
         run: python procesar_cola.py

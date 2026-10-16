@@ -117,7 +117,7 @@ def _aviso(canal, modo, fecha_iso):
         if fecha_iso and canal == "YouTube":
             a = f"**Modo REAL:** se sube ahora y YouTube lo publica solo el {fecha_iso[:16].replace('T', ' ')}."
     if canal == "YouTube" and modo in ("privado", "real"):
-        a += " (Mientras la app de Google esté en modo Prueba, YouTube deja los videos subidos por API en privado.)"
+        a += " (Hasta que Google audite el proyecto, YouTube deja los videos subidos por API en privado: se publican desde YouTube Studio.)"
     if fecha_iso and _va_a_la_cola(canal, modo):
         a = (f"**Queda en la cola** para el {fecha_iso[:16].replace('T', ' ')}: no se manda ahora. Ese día sale sola por {canal} "
              f"con el modo que tenga el canal en ese momento (hoy **{modo}**" + (": se arma y se muestra, no se publica" if modo == "simulado" else "") + ").")
