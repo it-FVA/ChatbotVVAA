@@ -559,14 +559,44 @@ def _detectar_duracion_max(texto):
 
 
 def _rerank(consulta, candidatos, n):
-    """Segundo paso: el modelo elige los n más precisos de una lista más amplia."""
-    # Cuánto texto de cada candidato ve el modelo. Default 150, igual que antes.
-    # Para distinguir esperanza de expectativa suele hacer falta más (RERANK_CHARS=400).
+    """Segundo paso: el modelo reordena una lista amplia de candidatos (T3 del plan de búsqueda).
+    RERANK_MODO (16/10, medido contra el set dorado validado):
+      lista   -> como siempre: el modelo elige los n mejores y responde solo números.
+      puntaje -> el modelo puntúa cada candidato de 0 a 10 (JSON) leyendo más texto; el orden final suma
+                 el puntaje y un bonus por la posición de recuperación (los primeros de la búsqueda no se
+                 pierden por un capricho del modelo).
+      fusion  -> como 'lista', pero el orden final fusiona el del modelo con el de la búsqueda (RRF).
+    RERANK_CHARS: cuánto texto de cada candidato ve el modelo (150 histórico; 400 en producción desde 16/10)."""
+    modo = (os.environ.get("RERANK_MODO") or "lista").strip().lower()
     chars = _env_int("RERANK_CHARS", 150)
     lineas = [f"[{i}] {c['tag']} · {c['autor']} — {c['titulo']}: {c['texto'][:chars]}"
               for i, c in enumerate(candidatos)]
+    guia = ("Guía: si la consulta pide 'material para un posteo/pieza/newsletter sobre X', cualquier pasaje que "
+            "trate X de fondo sirve (no hace falta que repita las palabras de la consulta). Si pregunta qué dice "
+            "un autor sobre X, priorizá pasajes de ese autor que desarrollen X. Un artículo largo sobre el tema "
+            "vale más que una mención al pasar.")
+    if modo == "puntaje":
+        user = (f"Consulta del equipo: {consulta}\n\nFragmentos candidatos:\n" + "\n".join(lineas) +
+                f"\n\n{guia}\nPuntuá CADA fragmento de 0 (nada que ver) a 10 (responde exactamente la consulta). "
+                f"Respondé SOLO un JSON con la forma {{\"0\": 7, \"1\": 2, ...}} con los {len(candidatos)} índices.")
+        r = _llm([{"role": "system", "content": "Evaluás relevancia con criterio. Respondé solo JSON."},
+                  {"role": "user", "content": user}], 40 + 8 * len(candidatos))
+        puntajes = {}
+        try:
+            import json as _json
+            m = re.search(r"\{.*\}", r or "", re.S)
+            for k, v in _json.loads(m.group(0)).items():
+                puntajes[int(k)] = float(v)
+        except Exception:
+            pass
+        if not puntajes:
+            return candidatos[:n]          # si el modelo no responde bien, queda el orden de la búsqueda
+        # bonus por posición de recuperación: 1er candidato +1.5, decae; desempata y protege a los primeros
+        orden = sorted(range(len(candidatos)), key=lambda i: -(puntajes.get(i, 0) + 1.5 / (1 + i / 3)))
+        return [candidatos[i] for i in orden[:n]]
+
     user = (f"Consulta del equipo: {consulta}\n\nFragmentos candidatos:\n" + "\n".join(lineas) +
-            f"\n\nElegí los {n} MÁS relevantes y precisos para la consulta (mismo tema; si la consulta pide "
+            f"\n\n{guia}\nElegí los {n} MÁS relevantes y precisos para la consulta (mismo tema; si la consulta pide "
             f"un autor puntual, respetá ese autor). Respondé SOLO los números, del más al menos relevante, "
             f"separados por comas. Ej: 3,7,1,0,5,2")
     r = _llm([{"role": "system", "content": "Seleccionás fragmentos con precisión. Respondé solo con números."},
@@ -576,6 +606,14 @@ def _rerank(consulta, candidatos, n):
         i = int(x)
         if i < len(candidatos) and i not in idx:
             idx.append(i)
+    if modo == "fusion" and idx:
+        # RRF entre el orden del modelo y el de la búsqueda (k=10): un candidato 1º en la búsqueda y 8º para
+        # el modelo queda por encima de uno 20º en la búsqueda y 1º para el modelo.
+        pos_modelo = {i: p for p, i in enumerate(idx)}
+        def puntaje(i):
+            return 1 / (10 + i) + (1 / (10 + pos_modelo[i]) if i in pos_modelo else 0)
+        orden = sorted(range(len(candidatos)), key=lambda i: -puntaje(i))
+        return [candidatos[i] for i in orden[:n]]
     orden = [candidatos[i] for i in idx]
     for c in candidatos:
         if len(orden) >= n:

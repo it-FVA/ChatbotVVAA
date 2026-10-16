@@ -89,7 +89,7 @@ def main():
     ap.add_argument("--autor", default="", help='filtro de autor; vacío = sin filtro (el set dorado mezcla autores)')
     ap.add_argument("--set", default="", help="otro CSV del set dorado (por defecto el borrador)")
     ap.add_argument("--solo-validadas", action="store_true", help="solo pasajes OK de la columna Validación y consultas ya revisadas")
-    ap.add_argument("--modos", choices=["expansion", "plan"], default="expansion",
+    ap.add_argument("--modos", choices=["expansion", "plan", "reranker"], default="expansion",
                     help="expansion: P/L/X (Conceptos relacionados) · plan: A/B/B2/C del plan del buscador (híbrida, limpieza, reranker ampliado)")
     args = ap.parse_args()
     if not os.environ.get("OPENAI_API_KEY"):
@@ -106,10 +106,15 @@ def main():
         from comparar_busqueda import MODOS
         modos = {k: dict(v, EXPANSION_CONSULTA="0") for k, v in MODOS.items()}
         variantes = [("con reranker", True)]            # estos modos se distinguen justamente por el reranker
+    elif args.modos == "reranker":
+        from comparar_busqueda import MODOS_RERANK      # (16/10) T3: variantes del reranker sobre el modo C
+        modos = {k: dict(v, EXPANSION_CONSULTA="0") for k, v in MODOS_RERANK.items()}
+        variantes = [("con reranker", True)]
     else:
         modos = dict(MODOS_EXPANSION)
         variantes = [("sin reranker", False)] + ([("con reranker", True)] if args.con_reranker else [])
-    salida = "medicion-set-dorado.md" if args.modos == "expansion" else "medicion-set-dorado-plan.md"
+    salida = {"expansion": "medicion-set-dorado.md", "plan": "medicion-set-dorado-plan.md",
+              "reranker": "medicion-set-dorado-reranker.md"}[args.modos]
     if args.solo_validadas:
         salida = salida.replace(".md", "-validado.md")
 

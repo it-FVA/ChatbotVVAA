@@ -60,6 +60,16 @@ MODOS = {
     "C · híbrida + reranker ampliado": {"BUSQUEDA_HIBRIDA": "1", "LIMPIEZA_EXTRA": "1", "RERANK_CANDIDATOS": "50", "RERANK_CHARS": "400"},
 }
 
+# (16/10) Variantes del reranker (T3), sobre el modo C que quedó en producción. RERANK_MODO: lista (como
+# siempre), puntaje (puntúa cada candidato, más texto) y fusion (orden del modelo fusionado con el de la búsqueda).
+_C = {"BUSQUEDA_HIBRIDA": "1", "LIMPIEZA_EXTRA": "1", "RERANK_CANDIDATOS": "50"}
+MODOS_RERANK = {
+    "C · lista 400 (producción)":   dict(_C, RERANK_MODO="lista", RERANK_CHARS="400"),
+    "D · lista 1000 + guía":        dict(_C, RERANK_MODO="lista", RERANK_CHARS="1000"),
+    "E · fusión con la búsqueda":   dict(_C, RERANK_MODO="fusion", RERANK_CHARS="400"),
+    "F · puntaje 0-10, 1000 chars": dict(_C, RERANK_MODO="puntaje", RERANK_CHARS="1000"),
+}
+
 # (5/10) Expansión de consulta: producción tal cual está hoy, con y sin los Conceptos relacionados
 # de Pato (CONCEPTOS_URL tiene que estar en secrets.toml). Se usa con --expansion.
 MODOS_EXPANSION = {
