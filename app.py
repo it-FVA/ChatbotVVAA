@@ -141,6 +141,7 @@ with st.sidebar:
             st.query_params.clear()
             st.session_state.vista = "chat"
             st.session_state.pop("retomar", None)
+            st.session_state.pop("pieza_video", None)
             st.rerun()
     # (13/10) Roles: todos tienen "Mis publicaciones"; los aprobadores, además, el panel admin.
     if st.button(T("mis"), use_container_width=True):
@@ -312,12 +313,21 @@ def _botones_clip(r, por_tramo):
     vid, ini, fin = r.get("doc"), int(r["inicio_ms"]), int(r["fin_ms"])
     st.session_state["_clipbtn"] = st.session_state.get("_clipbtn", 0) + 1
     base = f"clip_{st.session_state['_clipbtn']}"
-    cols = st.columns([1, 1, 3])
+    cols = st.columns([1, 1, 1, 1])
     for i, formato in enumerate(("horizontal", "vertical")):
         c = por_tramo.get((vid, ini, fin, formato))
         if c and c.get("estado") == "listo" and c.get("url"):
             cols[i].markdown(f'<a class="vac-src" href="{html.escape(c["url"])}" target="_blank">'
                              f'{"🎬 Ver el recorte" if formato == "horizontal" else "📱 Ver en vertical"}</a>', unsafe_allow_html=True)
+            # (16/10) Publicar el recorte: abre el formulario con el video cargado (Instagram reel/historia,
+            # Facebook video, YouTube). Pasa por la misma aprobación y cola que las fotos.
+            if PUEDE_PUBLICAR and cols[i + 2].button("📣 Publicar" + (" el vertical" if formato == "vertical" else " el recorte"),
+                                                     key=f"{base}_pub_{formato}", help="Reel o historia en Instagram, video en Facebook o short en YouTube."):
+                st.session_state["pieza_video"] = {"video_url": c["url"], "video_formato": formato, "titulo": (r.get("titulo") or "")[:100],
+                                                   "texto": "", "canal": "instagram" if formato == "vertical" else ""}
+                st.session_state.pop("retomar", None)
+                st.session_state["vista"] = "publicar"
+                st.rerun()
         elif c and c.get("estado") == "pedido":
             cols[i].caption(("✂️" if formato == "horizontal" else "📱") + " recorte pedido · en unos minutos")
         elif c and c.get("estado") == "error":

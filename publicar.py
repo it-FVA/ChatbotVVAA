@@ -544,3 +544,118 @@ def publicar_youtube(cfg, video_bytes, titulo, descripcion, quien="", fecha=None
     if status.get("publishAt"):
         aviso = f"Subido y programado: YouTube lo publica solo el {fecha[:16].replace('T', ' ')}."
     return {"ok": True, "modo": modo, "id": vid, "link": link, "privacidad": estado, "pieza": pieza, "aviso": aviso}
+
+
+# ----------------------------------------------------------------------------- Video: reels, historias y videos de página (16/10)
+# Los recortes exactos (clips) ya están en la biblioteca de WordPress con URL pública https: Instagram y
+# Facebook los toman por URL, igual que las fotos. YouTube necesita los bytes: se bajan de esa URL.
+
+def bajar_bytes(url, timeout=300):
+    """Baja un archivo (el mp4 del recorte en WordPress) y devuelve los bytes, o (None, error)."""
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "fva-bot"}), timeout=timeout) as r:
+            return r.read(), None
+    except Exception as e:
+        return None, str(e)[:200]
+
+
+def publicar_instagram_video(cfg, video_url, texto, quien="", historia=False):
+    """Publica un video como REEL (sale en el feed y en Reels) o como HISTORIA (24 h, sin caption).
+    Mismos modos que publicar_instagram. Instagram procesa el video del lado de ellos: se espera hasta ~4 min."""
+    modo = cfg.modo_ig
+    pieza = {"video_url": video_url, "caption": "" if historia else texto, "historia": bool(historia)}
+    base = {"canal": "instagram", "accion": "historia-video" if historia else "reel", "modo": modo, "quien": quien, "pieza": pieza}
+    if modo == "apagado":
+        _registrar({**base, "resultado": "no se hizo nada (apagado)"})
+        return {"ok": False, "modo": modo, "aviso": "Instagram está apagado.", "pieza": pieza}
+    if modo == "simulado":
+        _registrar({**base, "resultado": "simulado"})
+        return {"ok": True, "modo": modo, "pieza": pieza,
+                "aviso": ("Simulado: así quedaría la historia con el video. No se mandó nada a Instagram." if historia else
+                          "Simulado: así quedaría el reel. No se mandó nada a Instagram.")}
+    if modo != "real":
+        return {"ok": False, "modo": modo, "aviso": "Modo desconocido; no se publica.", "pieza": pieza}
+    if not (cfg.ig_token and cfg.ig_id):
+        return {"ok": False, "modo": modo, "aviso": "Faltan las claves de Instagram.", "pieza": pieza}
+    if not (video_url or "").startswith("https://"):
+        return {"ok": False, "modo": modo, "aviso": "Instagram necesita una URL pública https del video.", "pieza": pieza}
+
+    def call(path, params, method="POST"):
+        params = dict(params, access_token=cfg.ig_token)
+        data = urllib.parse.urlencode(params).encode()
+        url = f"{IG_HOST}/{path}"
+        if method == "GET":
+            return _http(url + "?" + data.decode(), "GET")
+        return _http(url, "POST", {"Content-Type": "application/x-www-form-urlencoded"}, data)
+
+    params_media = ({"media_type": "STORIES", "video_url": video_url} if historia else
+                    {"media_type": "REELS", "video_url": video_url, "caption": texto, "share_to_feed": "true"})
+    r, err = call(f"{cfg.ig_id}/media", params_media)
+    if not r:
+        _registrar({**base, "resultado": "error contenedor", "error": err})
+        return {"ok": False, "modo": modo, "aviso": "Instagram no aceptó el video: " + json.dumps(err, ensure_ascii=False)[:200], "pieza": pieza}
+    cid = r["id"]
+    listo = False
+    for _ in range(48):                    # hasta ~4 minutos: Instagram transcodifica el video
+        s, _e = call(cid, {"fields": "status_code,status"}, "GET")
+        if s and s.get("status_code") == "FINISHED":
+            listo = True
+            break
+        if s and s.get("status_code") == "ERROR":
+            _registrar({**base, "resultado": "error procesando", "error": s})
+            return {"ok": False, "modo": modo, "aviso": "Instagram no pudo procesar el video: " + str(s.get("status"))[:200], "pieza": pieza}
+        time.sleep(5)
+    if not listo:
+        _registrar({**base, "resultado": "timeout procesando"})
+        return {"ok": False, "modo": modo, "aviso": "Instagram tardó demasiado en procesar el video. Probá de nuevo en unos minutos.", "pieza": pieza}
+    r, err = call(f"{cfg.ig_id}/media_publish", {"creation_id": cid})
+    if not r:
+        _registrar({**base, "resultado": "error publicar", "error": err})
+        return {"ok": False, "modo": modo, "aviso": "No se pudo publicar: " + json.dumps(err, ensure_ascii=False)[:200], "pieza": pieza}
+    m, _e = call(r["id"], {"fields": "permalink"}, "GET")
+    permalink = (m or {}).get("permalink")
+    _registrar({**base, "resultado": "PUBLICADO", "id": r["id"], "permalink": permalink})
+    return {"ok": True, "modo": modo, "id": r["id"], "permalink": permalink, "pieza": pieza,
+            "aviso": "PUBLICADA como historia en Instagram (dura 24 h)." if historia else "PUBLICADO como reel en Instagram."}
+
+
+def publicar_facebook_video(cfg, video_url, texto, quien="", fecha=None, titulo=""):
+    """Sube un video a la página de Facebook por URL (POST /{page}/videos, file_url). Con `fecha` futura
+    queda programado por Facebook (10 min a 30 días). Mismos modos que publicar_facebook."""
+    modo = cfg.modo_fb
+    pieza = {"video_url": video_url, "message": texto, "fecha_programada": fecha}
+    base = {"canal": "facebook", "accion": "video", "modo": modo, "quien": quien, "pieza": pieza}
+    if modo == "apagado":
+        _registrar({**base, "resultado": "no se hizo nada (apagado)"})
+        return {"ok": False, "modo": modo, "aviso": "Facebook está apagado.", "pieza": pieza}
+    if modo == "simulado":
+        _registrar({**base, "resultado": "simulado"})
+        return {"ok": True, "modo": modo, "pieza": pieza,
+                "aviso": "Simulado: así quedaría el video en Facebook. No se mandó nada."}
+    if modo != "real":
+        return {"ok": False, "modo": modo, "aviso": "Modo desconocido; no se publica.", "pieza": pieza}
+    if not (cfg.fb_page_id and cfg.fb_token):
+        return {"ok": False, "modo": modo, "aviso": "Faltan las claves de Facebook (META_FB_PAGE_ID / META_FB_PAGE_TOKEN).", "pieza": pieza}
+    if not (video_url or "").startswith("https://"):
+        return {"ok": False, "modo": modo, "aviso": "Facebook necesita una URL pública https del video.", "pieza": pieza}
+    params = {"access_token": cfg.fb_token, "file_url": video_url, "description": texto}
+    if titulo:
+        params["title"] = titulo[:100]
+    if fecha:
+        try:
+            ts = int(_fecha_local(fecha).timestamp())
+        except Exception:
+            return {"ok": False, "modo": modo, "aviso": "Fecha inválida.", "pieza": pieza}
+        if ts < time.time() + 600:
+            return {"ok": False, "modo": modo, "aviso": "Facebook exige programar con al menos 10 minutos de anticipación.", "pieza": pieza}
+        params.update({"published": "false", "scheduled_publish_time": str(ts)})
+    data = urllib.parse.urlencode(params).encode()
+    r, err = _http(f"{FB_HOST}/{cfg.fb_page_id}/videos", "POST", {"Content-Type": "application/x-www-form-urlencoded"}, data)
+    if not r:
+        _registrar({**base, "resultado": "error", "error": err})
+        return {"ok": False, "modo": modo, "aviso": "Facebook no aceptó el video: " + json.dumps(err, ensure_ascii=False)[:200], "pieza": pieza}
+    vid = r.get("id")
+    _registrar({**base, "resultado": "PROGRAMADO" if fecha else "PUBLICADO", "id": vid})
+    return {"ok": True, "modo": modo, "id": vid, "pieza": pieza,
+            "permalink": f"https://www.facebook.com/{cfg.fb_page_id}/videos/{vid}" if vid else None,
+            "aviso": (f"PROGRAMADO en Facebook para {fecha}." if fecha else "PUBLICADO el video en Facebook (puede tardar unos minutos en procesarse).")}

@@ -67,8 +67,18 @@ def main():
         imagen, titulo = p.get("imagen_url"), p.get("titulo") or ""
         intentos = int(p.get("intentos") or 0) + 1
         print(f"- {pid} · {canal} · {p.get('fecha_programada')} · «{(titulo or texto)[:50]}» (intento {intentos})")
+        video_url = (p.get("resultado") or {}).get("video_url")   # (16/10) pieza de video (recorte)
         try:
-            if canal == "instagram":
+            if video_url and canal == "instagram":
+                historia = ((p.get("resultado") or {}).get("formato") == "historia")
+                res = publicar.publicar_instagram_video(cfg, video_url, texto, quien="cola", historia=historia)
+            elif video_url and canal == "facebook":
+                res = publicar.publicar_facebook_video(cfg, video_url, texto, quien="cola", titulo=titulo)
+            elif video_url and canal == "youtube":
+                datos, err = publicar.bajar_bytes(video_url)
+                res = ({"ok": False, "aviso": f"no pude bajar el recorte: {err}"} if err else
+                       publicar.publicar_youtube(cfg, datos, titulo, texto, quien="cola", nombre_archivo=video_url.rsplit("/", 1)[-1]))
+            elif canal == "instagram":
                 historia = ((p.get("resultado") or {}).get("formato") == "historia")
                 res = publicar.publicar_instagram(cfg, imagen or "", texto, quien="cola", historia=historia)
             elif canal == "facebook":

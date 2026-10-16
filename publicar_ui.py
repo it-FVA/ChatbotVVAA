@@ -207,9 +207,11 @@ def _sin_firma_repetida(texto_imagen, firma):
 
 
 def _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, texto_imagen="", video=None, compuesta=None, formato=None,
-            aprobacion=False):
+            aprobacion=False, video_url=None):
     """Ejecuta la publicación según el switch. Devuelve (res, imagen_url_final).
-    aprobacion=True (13/10): no publica; sube la imagen y deja la pieza 'a_aprobar' para el panel."""
+    aprobacion=True (13/10): no publica; sube la imagen y deja la pieza 'a_aprobar' para el panel.
+    video_url (16/10): pieza de video (un recorte que ya está en WordPress): reel/historia en Instagram,
+    video en Facebook, short en YouTube. Sin imagen ni composición."""
     imagen_id = None
     if canal in ("Instagram", "Facebook"):
         texto = _texto_plano(texto)
@@ -252,7 +254,8 @@ def _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, 
         try:
             pid = db.proponer_publicacion(usuario, CLAVE[canal], modo, titulo, texto, imagen_url,
                                           (fecha_iso + ZONA_HORARIA) if fecha_iso else None,
-                                          extra={"texto_imagen": texto_imagen or None, "formato": formato or None})
+                                          extra={"texto_imagen": texto_imagen or None, "formato": formato or None,
+                                                 "video_url": video_url or None})
         except Exception as e:
             return {"ok": False, "modo": "aprobacion", "aviso": f"No pude guardar la pieza para aprobación: {e}"}, imagen_url
         if not pid:
@@ -270,7 +273,8 @@ def _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, 
         try:
             pid = db.encolar_publicacion(usuario, CLAVE[canal], modo, titulo, texto, imagen_url,
                                          fecha_iso + ZONA_HORARIA, extra={"texto_imagen": texto_imagen or None,
-                                                                          "formato": formato or None})
+                                                                          "formato": formato or None,
+                                                                          "video_url": video_url or None})
         except Exception as e:
             return {"ok": False, "modo": modo, "aviso": f"No pude guardar la pieza en la cola: {e}"}, imagen_url
         if not pid:
@@ -281,7 +285,20 @@ def _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, 
                          "Podés cancelarla desde «Piezas en cola» en la barra lateral.",
                 "pieza": {"image_url": imagen_url, "caption" if canal == "Instagram" else "message": texto, "fecha_programada": fecha_iso}}, imagen_url
     with st.spinner("Armando la pieza…"):
-        if canal == "WordPress":
+        if video_url and canal == "Instagram":
+            res = publicar.publicar_instagram_video(cfg, video_url, texto, quien=usuario, historia=(formato == "historia"))
+        elif video_url and canal == "Facebook":
+            res = publicar.publicar_facebook_video(cfg, video_url, texto, quien=usuario, fecha=fecha_iso, titulo=titulo.strip())
+        elif video_url and canal == "YouTube":
+            datos, err = (None, None)
+            if cfg.modo_yt in ("privado", "real"):
+                datos, err = publicar.bajar_bytes(video_url)
+            if err:
+                res = {"ok": False, "modo": cfg.modo_yt, "aviso": f"No pude bajar el recorte de WordPress: {err}"}
+            else:
+                res = publicar.publicar_youtube(cfg, datos or b"", titulo.strip(), texto, quien=usuario, fecha=fecha_iso,
+                                                nombre_archivo=video_url.rsplit("/", 1)[-1] or "clip.mp4")
+        elif canal == "WordPress":
             res = publicar.publicar_wordpress(cfg, titulo.strip(), texto, imagen_id=imagen_id,
                                               quien=usuario, fecha=fecha_iso)
         elif canal == "Instagram":
@@ -328,7 +345,9 @@ def _fila_publicacion(p, mostrar_usuario=False):
     est = p.get("estado") or ""
     with st.container(border=True):
         c1, c2 = st.columns([1, 4])
-        if p.get("imagen_url"):
+        if res.get("video_url"):
+            c1.video(res["video_url"])
+        elif p.get("imagen_url"):
             c1.image(p["imagen_url"], use_container_width=True)
         cab = f"**{ESTADO_TXT.get(est, est)}** · {canal_txt(p.get('canal'))} · creada {_fecha(p.get('creado'))}"
         if mostrar_usuario:
@@ -579,7 +598,7 @@ def piezas_en_cola_sidebar(usuario):
                 st.rerun()
 
 
-def _mostrar_resultado(res, canal, modo, titulo, texto, archivo, imagen_url, fecha_iso, texto_imagen="", compuesta=None):
+def _mostrar_resultado(res, canal, modo, titulo, texto, archivo, imagen_url, fecha_iso, texto_imagen="", compuesta=None, video_url=None):
     if res.get("ok"):
         st.success(res.get("aviso", "Listo."))
     else:
@@ -588,10 +607,14 @@ def _mostrar_resultado(res, canal, modo, titulo, texto, archivo, imagen_url, fec
         st.markdown(f"[Abrir el borrador en WordPress ↗]({res['link_editar']})")
     if res.get("link") and canal == "YouTube":
         st.markdown(f"[Ver el video en YouTube ↗]({res['link']})")
+    if res.get("permalink") and canal in ("Instagram", "Facebook"):
+        st.markdown(f"[Ver la publicación ↗]({res['permalink']})")
     if modo == "simulado" or res.get("pieza"):
         with st.container(border=True):
             st.markdown(f"**Así quedaría en {canal}:**")
-            if compuesta is not None:
+            if video_url:
+                st.video(video_url)
+            elif compuesta is not None:
                 st.image(compuesta, width=360)
             elif archivo is not None:
                 st.image(archivo.getvalue(), width=360)
@@ -638,12 +661,22 @@ def formulario(usuario, key, pieza=None, compacto=False):
     if borrador_id:
         st.info("📝 Estás retomando un borrador. Al guardar se actualiza el mismo; al enviarlo o mandarlo a aprobación, el borrador se elimina.")
 
+    # (16/10) Pieza de video: un recorte exacto que ya está en WordPress. Va a Instagram (reel o historia),
+    # Facebook (video) o YouTube (short). Sin imagen ni composición.
+    video_url = (pieza.get("video_url") or "").strip() or None
     # Canal: precompletado solo si la persona lo dijo; si no, hay que elegirlo
-    idx = {"wordpress": 0, "instagram": 1, "facebook": 2, "youtube": 3}.get(pieza.get("canal") or "", None)
     # (15/10) Nombres que distinguen la entrada en la web del newsletter (que tiene su propio editor).
     _NOMBRE = {"WordPress": "🌐 Blogpost (entrada en la web, WordPress)", "Instagram": "📸 Instagram", "Facebook": "📘 Facebook", "YouTube": "▶️ YouTube"}
-    canal = st.radio("Canal", CANALES, horizontal=True, index=idx, key=k("canal"), format_func=lambda c: _NOMBRE.get(c, c))
-    st.caption("Para el email a la comunidad usá «✉️ Newsletter» en la barra lateral: tiene sus plantillas y su vista previa.")
+    if video_url:
+        st.video(video_url)
+        st.caption("🎬 Recorte exacto" + (f" · {pieza['video_formato']}" if pieza.get("video_formato") else "") + ". Se publica tal cual está.")
+        _canales = ["Instagram", "Facebook", "YouTube"]
+        idx = {"instagram": 0, "facebook": 1, "youtube": 2}.get(pieza.get("canal") or "", None)
+        canal = st.radio("Canal", _canales, horizontal=True, index=idx, key=k("canal"), format_func=lambda c: _NOMBRE.get(c, c))
+    else:
+        idx = {"wordpress": 0, "instagram": 1, "facebook": 2, "youtube": 3}.get(pieza.get("canal") or "", None)
+        canal = st.radio("Canal", CANALES, horizontal=True, index=idx, key=k("canal"), format_func=lambda c: _NOMBRE.get(c, c))
+        st.caption("Para el email a la comunidad usá «✉️ Newsletter» en la barra lateral: tiene sus plantillas y su vista previa.")
     if canal is None:
         st.caption("Elegí el canal para ver qué va a pasar al enviar.")
         modo = "apagado"
@@ -656,7 +689,7 @@ def formulario(usuario, key, pieza=None, compacto=False):
     titulo = st.text_input("Título" + (" (obligatorio)" if canal in ("WordPress", "YouTube") else " (opcional, para el registro)"),
                            value=pieza.get("titulo", ""), key=k("titulo"))
     texto_imagen = ""
-    if pieza.get("texto_imagen") or not compacto:
+    if not video_url and (pieza.get("texto_imagen") or not compacto):
         texto_imagen = st.text_input("Texto sobre la imagen (para el diseño; no se publica como caption)",
                                      value=pieza.get("texto_imagen", ""), key=k("timg"))
     texto = st.text_area("Texto de la pieza" + (" (el caption)" if canal in ("Instagram", "Facebook") else " (la descripción del video)" if canal == "YouTube" else ""),
@@ -665,85 +698,104 @@ def formulario(usuario, key, pieza=None, compacto=False):
 
     # YouTube: el archivo de video (no hay banco de videos)
     video = None
-    if canal == "YouTube":
-        video = st.file_uploader("Video (mp4, mov)", type=["mp4", "mov", "m4v", "webm"], key=k("video"))
-    # Imagen: banco primero; URL o archivo como excepción
-    st.markdown("**Imagen**" + (" (opcional en YouTube: queda solo en el registro)" if canal == "YouTube" else ""))
-    cb1, cb2 = st.columns([4, 1])
-    consulta = cb1.text_input("Buscar en el banco de imágenes", value=pieza.get("imagen_busqueda", ""), key=k("busq"),
-                              placeholder="ej. amanecer montaña calma", label_visibility="collapsed")
-    formato_b = _formato_busqueda(canal, key)
-    if cb2.button("Buscar", key=k("buscar_btn"), width="stretch"):
-        st.session_state.get("banco_cache", {}).pop(f"{key}|{consulta.strip().lower()}|{formato_b or ''}", None)
-    candidatas = _banco(cfg, consulta, key, formato_b)
     imagen_url = None
-    if candidatas:
-        cols = st.columns(len(candidatas))
-        for i, (c, img) in enumerate(zip(cols, candidatas)):
-            c.image(img["miniatura"], width="stretch")
-            c.caption((img["titulo"] or f"#{img['id']}")[:28])
-        opciones = ["Sin imagen"] + [f"{i + 1}" for i in range(len(candidatas))]
-        eleg = st.radio("Elegí una", opciones, horizontal=True, index=1 if pieza.get("imagen_busqueda") else 0,
-                        key=k("eleg"), label_visibility="collapsed")
-        if eleg != "Sin imagen":
-            imagen_url = candidatas[int(eleg) - 1]["url"]
-    else:
-        st.caption("El banco no tiene nada para esa búsqueda todavía. Probá otras palabras, o cargá una excepción abajo.")
-    with st.expander("Otra imagen (URL o archivo) — excepción", expanded=False):
-        url_manual = st.text_input("URL de una imagen que ya está en internet", key=k("url"))
-        archivo = st.file_uploader("…o subí un archivo (va al banco de WordPress)", type=["jpg", "jpeg", "png", "webp"], key=k("file"))
-    if url_manual.strip():
-        imagen_url = url_manual.strip()
-
-    # (28/9) La frase encima de la foto: vista previa y elección de publicar así.
-    # (8/10) El formato se elige aunque la foto vaya sola: antes, al destildar «Publicar así»
-    # se perdía y una historia salía al feed (prueba real de Julián). Tipografía, posición y
-    # alineación del texto, también pedidas por Julián.
+    archivo = None
     compuesta = None
     formato = None
-    fuente = archivo.getvalue() if archivo is not None else imagen_url
-    if canal in ("Instagram", "Facebook") and fuente:
-        import imagen as _im
-        con_frase = bool(texto_imagen.strip())
-        st.markdown("**Con la frase encima**" if con_frase else "**Formato y logo**")
-        cf1, cf2, cf3 = st.columns([2, 1, 1])
-        firma = cf1.text_input("Firma", value=pieza.get("firma") or "— Br. David", key=k("firma")) if con_frase else ""
-        # (13/10) arranca en el formato con el que se buscó en el banco; si no, al elegir cambia la lista
-        # de candidatas y la foto elegida pasa a ser otra (visto en la prueba del circuito de aprobación).
-        _fmts = ["cuadrado", "vertical", "historia"]
-        formato = cf2.selectbox("Formato", _fmts, key=k("fmt"),
-                                index=_fmts.index(FORMATO_POR_CANAL.get(canal, "cuadrado")),
-                                help="«historia» en Instagram publica una HISTORIA (24 h, sin caption; la frase va en la imagen).")
-        usar = cf3.checkbox("Publicar así", value=True, key=k("usar_comp"),
-                            help="Si lo destildás, se publica la foto sola y el texto queda solo en el registro.") if con_frase else True
-        # (13/10) Logo con tamaño estándar por formato; se elige cuál y en qué esquina.
-        cl1, cl2 = st.columns(2)
-        logo = cl1.selectbox("Logo", list(_im.LOGOS), key=k("logo"),
-                             help="Los que Julián subió a WordPress (13/10). El tamaño es estándar por formato.")
-        posicion_logo = cl2.selectbox("Posición del logo", list(_im.POSICIONES_LOGO), key=k("plogo"),
-                                      disabled=(logo == "Sin logo"))
-        con_logo = logo != "Sin logo"
-        if canal == "Instagram" and formato == "historia":
-            st.caption("📱 Historia de Instagram: dura 24 h y no lleva caption (Instagram no lo permite por API). "
-                       "El texto de la pieza queda solo en el registro."
-                       + ("" if (con_frase or con_logo) and usar else " La foto sale tal cual; si no es vertical 9:16, Instagram la recorta."))
-        if con_frase:
-            cd1, cd2, cd3, cd4 = st.columns(4)
-            tipografia = cd1.selectbox("Tipografía", list(_im.TIPOGRAFIAS), key=k("tipo"),
-                                       help="Raleway es la de la Fundación (15/10). Lora: serif. Lato: sans.")
-            peso = cd2.selectbox("Peso", list(_im.PESOS), key=k("peso"), help="Fina, normal o negrita (Lato no tiene variantes).")
-            posicion = cd3.selectbox("Posición del texto", list(_im.POSICIONES), key=k("pos"))
-            alineacion = cd4.selectbox("Alineación", list(_im.ALINEACIONES), key=k("ali"))
-        else:
-            tipografia, peso, posicion, alineacion = _im.TIPOGRAFIA_DEFAULT, "normal", "centro", "centro"
-        if con_frase or con_logo:
-            compuesta = _componer(fuente, _sin_firma_repetida(texto_imagen.strip(), firma) if con_frase else "",
-                                  firma.strip(), formato, tipografia, posicion, alineacion,
-                                  logo if con_logo else None, posicion_logo, peso)
-            if compuesta is not None:
-                st.image(compuesta, width=360)
-                if not usar:
-                    compuesta = None
+    if video_url:
+        # (16/10) Pieza de video: sin imagen. En Instagram se elige reel (feed + Reels) o historia (24 h).
+        if canal == "Instagram":
+            formato = st.selectbox("Formato en Instagram", ["reel", "historia"], key=k("vfmt"),
+                                   index=0 if (pieza.get("vfmt") or "reel") == "reel" else 1,
+                                   help="Reel: sale en el feed y en Reels, con caption. Historia: dura 24 h y no lleva caption.")
+            if formato == "historia":
+                st.caption("📱 Historia con video: dura 24 h y no lleva caption (Instagram no lo permite por API). El texto queda solo en el registro.")
+            if pieza.get("video_formato") == "horizontal":
+                st.caption("Este recorte es horizontal. En Instagram se ve mejor el vertical (pedilo desde la misma tarjeta del chat).")
+        elif canal == "YouTube":
+            st.caption("Va al canal como video" + (" corto (short)" if pieza.get("video_formato") == "vertical" else "") + ". Título obligatorio.")
+    elif canal == "YouTube":
+        video = st.file_uploader("Video (mp4, mov)", type=["mp4", "mov", "m4v", "webm"], key=k("video"))
+    if video_url:
+        pass
+    else:
+      # Imagen: banco primero; URL o archivo como excepción
+      st.markdown("**Imagen**" + (" (opcional en YouTube: queda solo en el registro)" if canal == "YouTube" else ""))
+      cb1, cb2 = st.columns([4, 1])
+      consulta = cb1.text_input("Buscar en el banco de imágenes", value=pieza.get("imagen_busqueda", ""), key=k("busq"),
+                                placeholder="ej. amanecer montaña calma", label_visibility="collapsed")
+      formato_b = _formato_busqueda(canal, key)
+      if cb2.button("Buscar", key=k("buscar_btn"), width="stretch"):
+          st.session_state.get("banco_cache", {}).pop(f"{key}|{consulta.strip().lower()}|{formato_b or ''}", None)
+      candidatas = _banco(cfg, consulta, key, formato_b)
+      imagen_url = None
+      if candidatas:
+          cols = st.columns(len(candidatas))
+          for i, (c, img) in enumerate(zip(cols, candidatas)):
+              c.image(img["miniatura"], width="stretch")
+              c.caption((img["titulo"] or f"#{img['id']}")[:28])
+          opciones = ["Sin imagen"] + [f"{i + 1}" for i in range(len(candidatas))]
+          eleg = st.radio("Elegí una", opciones, horizontal=True, index=1 if pieza.get("imagen_busqueda") else 0,
+                          key=k("eleg"), label_visibility="collapsed")
+          if eleg != "Sin imagen":
+              imagen_url = candidatas[int(eleg) - 1]["url"]
+      else:
+          st.caption("El banco no tiene nada para esa búsqueda todavía. Probá otras palabras, o cargá una excepción abajo.")
+      with st.expander("Otra imagen (URL o archivo) — excepción", expanded=False):
+          url_manual = st.text_input("URL de una imagen que ya está en internet", key=k("url"))
+          archivo = st.file_uploader("…o subí un archivo (va al banco de WordPress)", type=["jpg", "jpeg", "png", "webp"], key=k("file"))
+      if url_manual.strip():
+          imagen_url = url_manual.strip()
+
+      # (28/9) La frase encima de la foto: vista previa y elección de publicar así.
+      # (8/10) El formato se elige aunque la foto vaya sola: antes, al destildar «Publicar así»
+      # se perdía y una historia salía al feed (prueba real de Julián). Tipografía, posición y
+      # alineación del texto, también pedidas por Julián.
+      compuesta = None
+      formato = None
+      fuente = archivo.getvalue() if archivo is not None else imagen_url
+      if canal in ("Instagram", "Facebook") and fuente:
+          import imagen as _im
+          con_frase = bool(texto_imagen.strip())
+          st.markdown("**Con la frase encima**" if con_frase else "**Formato y logo**")
+          cf1, cf2, cf3 = st.columns([2, 1, 1])
+          firma = cf1.text_input("Firma", value=pieza.get("firma") or "— Br. David", key=k("firma")) if con_frase else ""
+          # (13/10) arranca en el formato con el que se buscó en el banco; si no, al elegir cambia la lista
+          # de candidatas y la foto elegida pasa a ser otra (visto en la prueba del circuito de aprobación).
+          _fmts = ["cuadrado", "vertical", "historia"]
+          formato = cf2.selectbox("Formato", _fmts, key=k("fmt"),
+                                  index=_fmts.index(FORMATO_POR_CANAL.get(canal, "cuadrado")),
+                                  help="«historia» en Instagram publica una HISTORIA (24 h, sin caption; la frase va en la imagen).")
+          usar = cf3.checkbox("Publicar así", value=True, key=k("usar_comp"),
+                              help="Si lo destildás, se publica la foto sola y el texto queda solo en el registro.") if con_frase else True
+          # (13/10) Logo con tamaño estándar por formato; se elige cuál y en qué esquina.
+          cl1, cl2 = st.columns(2)
+          logo = cl1.selectbox("Logo", list(_im.LOGOS), key=k("logo"),
+                               help="Los que Julián subió a WordPress (13/10). El tamaño es estándar por formato.")
+          posicion_logo = cl2.selectbox("Posición del logo", list(_im.POSICIONES_LOGO), key=k("plogo"),
+                                        disabled=(logo == "Sin logo"))
+          con_logo = logo != "Sin logo"
+          if canal == "Instagram" and formato == "historia":
+              st.caption("📱 Historia de Instagram: dura 24 h y no lleva caption (Instagram no lo permite por API). "
+                         "El texto de la pieza queda solo en el registro."
+                         + ("" if (con_frase or con_logo) and usar else " La foto sale tal cual; si no es vertical 9:16, Instagram la recorta."))
+          if con_frase:
+              cd1, cd2, cd3, cd4 = st.columns(4)
+              tipografia = cd1.selectbox("Tipografía", list(_im.TIPOGRAFIAS), key=k("tipo"),
+                                         help="Raleway es la de la Fundación (15/10). Lora: serif. Lato: sans.")
+              peso = cd2.selectbox("Peso", list(_im.PESOS), key=k("peso"), help="Fina, normal o negrita (Lato no tiene variantes).")
+              posicion = cd3.selectbox("Posición del texto", list(_im.POSICIONES), key=k("pos"))
+              alineacion = cd4.selectbox("Alineación", list(_im.ALINEACIONES), key=k("ali"))
+          else:
+              tipografia, peso, posicion, alineacion = _im.TIPOGRAFIA_DEFAULT, "normal", "centro", "centro"
+          if con_frase or con_logo:
+              compuesta = _componer(fuente, _sin_firma_repetida(texto_imagen.strip(), firma) if con_frase else "",
+                                    firma.strip(), formato, tipografia, posicion, alineacion,
+                                    logo if con_logo else None, posicion_logo, peso)
+              if compuesta is not None:
+                  st.image(compuesta, width=360)
+                  if not usar:
+                      compuesta = None
 
     # Fecha
     c1, c2 = st.columns(2)
@@ -784,6 +836,7 @@ def formulario(usuario, key, pieza=None, compacto=False):
     # (13/10) Borrador: guarda todo lo del formulario sin mandar nada; se retoma desde "Mis publicaciones".
     if cb_bor.button("💾 Guardar como borrador", key=k("borrador"), disabled=(canal is None)):
         datos = {"canal": CLAVE.get(canal, ""), "titulo": titulo, "texto": texto, "texto_imagen": texto_imagen,
+                 "video_url": video_url, "video_formato": pieza.get("video_formato"), "vfmt": formato if video_url else None,
                  "url": imagen_url or "", "busq": st.session_state.get(k("busq"), ""),
                  "firma": st.session_state.get(k("firma")), "fmt": formato, "logo": st.session_state.get(k("logo")),
                  "plogo": st.session_state.get(k("plogo")), "tipo": st.session_state.get(k("tipo")),
@@ -809,20 +862,20 @@ def formulario(usuario, key, pieza=None, compacto=False):
         if canal in ("WordPress", "YouTube") and not titulo.strip():
             st.error(f"En {canal} hace falta un título.")
             return
-        if canal == "YouTube" and video is None and modo != "simulado":
+        if canal == "YouTube" and video is None and not video_url and modo != "simulado":
             st.error("Falta el archivo de video.")
             return
         if proponer:
             res, imagen_url = _enviar(cfg_real, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, texto_imagen,
-                                      video=video, compuesta=compuesta, formato=formato, aprobacion=True)
+                                      video=video, compuesta=compuesta, formato=formato, aprobacion=True, video_url=video_url)
             _mostrar_resultado(res, canal, "simulado", titulo, texto if canal == "WordPress" else _texto_plano(texto),
-                               archivo, imagen_url, fecha_iso, texto_imagen, compuesta=compuesta)
+                               archivo, imagen_url, fecha_iso, texto_imagen, compuesta=compuesta, video_url=video_url)
             return
         res, imagen_url = _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, texto_imagen,
                                   video=video, compuesta=compuesta,
-                                  formato=formato)
+                                  formato=formato, video_url=video_url)
         _mostrar_resultado(res, canal, modo, titulo, texto if canal == "WordPress" else _texto_plano(texto),
-                           archivo, imagen_url, fecha_iso, texto_imagen, compuesta=compuesta)
+                           archivo, imagen_url, fecha_iso, texto_imagen, compuesta=compuesta, video_url=video_url)
 
 
 def recuadro(usuario, pieza, key, abierto=True):
@@ -872,7 +925,10 @@ def render(usuario):
             icono, txt = MODO_TXT.get(modo, ("⚫", modo))
             col.markdown(f"**{nombre}** {icono}  \n<small>{txt}</small>", unsafe_allow_html=True)
     ret = st.session_state.get("retomar")
-    formulario(usuario, "tab", pieza=_pieza_de_borrador(ret) if ret else None)
+    pv = st.session_state.get("pieza_video")     # (16/10) «Publicar» desde la tarjeta de un recorte en el chat
+    if pv:
+        st.info("🎬 Recorte listo para publicar. Elegí el canal, escribí el texto y mandalo (o a aprobación).")
+    formulario(usuario, "tab", pieza=_pieza_de_borrador(ret) if ret else (pv or None))
     with st.expander("Registro: quién hizo qué (últimas 15 acciones)"):
         try:
             for p in db.listar_publicaciones(limite=15):
