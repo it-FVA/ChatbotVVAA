@@ -4,7 +4,8 @@ import streamlit as st
 import nucleo
 import db
 
-st.set_page_config(page_title="Asistente · Vivir Agradecidos", page_icon="🌼", layout="centered")
+# (16/10, revisión de UX) layout wide: el newsletter y el panel usan todo el ancho; el chat se limita por CSS.
+st.set_page_config(page_title="Asistente · Vivir Agradecidos", page_icon="🌼", layout="wide")
 
 
 def _sec(k, d=""):
@@ -32,21 +33,24 @@ USUARIOS = dict(st.secrets.get("usuarios", {}))
 
 # ---------------- Login por usuario ----------------
 if not st.session_state.get("usuario"):
-    st.markdown("### 🌼 Asistente de contenido · Vivir Agradecidos")
-    u = st.text_input("Usuario")
-    p = st.text_input("Contraseña", type="password")
-    if st.button("Entrar"):
-        if u in USUARIOS and str(USUARIOS[u]) == p:
-            st.session_state.usuario = u
-            st.session_state.messages = []
-            st.session_state.conv_id = None
-            st.session_state.conv_titulo = None
-            st.rerun()
-        else:
-            st.error("Usuario o contraseña incorrectos.")
-    if not USUARIOS:
-        st.caption("⚠ Falta configurar la lista de usuarios en los secrets ([usuarios]).")
-    st.stop()
+    # (16/10, revisión de UX) con layout wide, el login va centrado y angosto
+    _l, _c, _r = st.columns([1, 1.3, 1])
+    with _c:
+        st.markdown("### 🌼 Asistente de contenido · Vivir Agradecidos")
+        u = st.text_input("Usuario")
+        p = st.text_input("Contraseña", type="password")
+        if st.button("Entrar"):
+            if u in USUARIOS and str(USUARIOS[u]) == p:
+                st.session_state.usuario = u
+                st.session_state.messages = []
+                st.session_state.conv_id = None
+                st.session_state.conv_titulo = None
+                st.rerun()
+            else:
+                st.error("Usuario o contraseña incorrectos.")
+        if not USUARIOS:
+            st.caption("⚠ Falta configurar la lista de usuarios en los secrets ([usuarios]).")
+        st.stop()
 
 USUARIO = st.session_state.usuario
 
@@ -62,6 +66,7 @@ _T = {
     "nueva": {"es": "➕ Nueva conversación", "en": "➕ New conversation", "de": "➕ Neues Gespräch"},
     "tus": {"es": "Tus conversaciones", "en": "Your conversations", "de": "Deine Gespräche"},
     "salir": {"es": "Salir", "en": "Log out", "de": "Abmelden"},
+    "trabajo": {"es": "Mi trabajo", "en": "My work", "de": "Meine Arbeit"},
     "volver": {"es": "💬 Volver al chat", "en": "💬 Back to chat", "de": "💬 Zurück zum Chat"},
     "mis": {"es": "📋 Mis publicaciones", "en": "📋 My posts", "de": "📋 Meine Beiträge"},
     "newsletter": {"es": "✉️ Newsletter", "en": "✉️ Newsletter", "de": "✉️ Newsletter"},
@@ -128,15 +133,30 @@ def abrir(cid):
 
 
 # ---------------- Sidebar (estilo ChatGPT) ----------------
+# (16/10, revisión de UX) Orden: la acción principal (nueva conversación) y las conversaciones arriba; abajo
+# "Mi trabajo" (piezas, recortes, newsletter) y, para aprobadores, el panel. El botón de la pantalla activa
+# lleva "●". "Volver al chat" solo aparece fuera del chat.
+_ACTIVA = st.session_state.vista
+
+
+def _nav(etiqueta, vista, **kw):
+    """Botón de la barra que cambia de pantalla; marca la activa."""
+    activa = (_ACTIVA == vista)
+    return st.button(("● " if activa else "") + etiqueta, use_container_width=True, **kw)
+
+
 with st.sidebar:
     st.markdown(f"**👤 {USUARIO}**")
-    # (24/9 noche) Publicar pasa dentro del chat: el bot propone el recuadro cuando la pieza está lista.
-    # La pantalla "Publicar" suelta ya no se muestra; queda solo con ?vista=publicar en la dirección,
-    # para cargar algo que no salió de una conversación.
     # (13/10) ?vista=... en la dirección se aplica una sola vez; después mandan los botones de la barra.
     if st.query_params.get("vista") in ("publicar", "aprobar", "mis", "newsletter") and not st.session_state.get("vista_qp"):
         st.session_state.vista = st.query_params.get("vista")
         st.session_state["vista_qp"] = True
+    if st.button(T("nueva"), use_container_width=True, type="primary"):
+        st.session_state.vista = "chat"
+        st.session_state.messages = []
+        st.session_state.conv_id = None
+        st.session_state.conv_titulo = None
+        st.rerun()
     if st.session_state.vista in ("publicar", "aprobar", "mis", "newsletter"):
         if st.button(T("volver"), use_container_width=True):
             st.query_params.clear()
@@ -144,35 +164,6 @@ with st.sidebar:
             st.session_state.pop("retomar", None)
             st.session_state.pop("pieza_video", None)
             st.rerun()
-    # (13/10) Roles: todos tienen "Mis publicaciones"; los aprobadores, además, el panel admin.
-    if st.button(T("mis"), use_container_width=True):
-        st.session_state.vista = "mis"
-        st.rerun()
-    # (16/10, revisión de UX) "Mis recortes" con botón propio: como filtro adentro de Mis publicaciones no se encontraba.
-    if st.button(T("recortes"), use_container_width=True):
-        st.session_state.vista = "mis"
-        st.session_state["mis_filtro"] = "🎬 mis recortes"
-        st.rerun()
-    # (15/10) Canal Newsletter: editor con plantillas, para todos (pasa por aprobación como cualquier pieza).
-    if IDIOMA == "es" and st.button(T("newsletter"), use_container_width=True):
-        st.session_state.vista = "newsletter"
-        st.rerun()
-    if ROL["aprueba"]:
-        try:
-            _n_apr = len(db.listar_a_aprobar())
-        except Exception:
-            _n_apr = 0
-        if st.button(f"🛠 Panel admin · {_n_apr} para aprobar", use_container_width=True, type="primary" if _n_apr else "secondary"):
-            st.session_state.vista = "aprobar"
-            st.rerun()
-    if st.button(T("nueva"), use_container_width=True, type="primary"):
-        st.session_state.vista = "chat"
-        st.session_state.messages = []
-        st.session_state.conv_id = None
-        st.session_state.conv_titulo = None
-        st.rerun()
-
-    st.divider()
     st.caption(T("tus"))
     if db.disponible():
         try:
@@ -202,33 +193,59 @@ with st.sidebar:
             st.caption(f"(no pude leer el historial: {e})")
     else:
         st.caption("(guardado desactivado: falta configurar Supabase)")
+
     st.divider()
-    if st.button("Salir", use_container_width=True):
+    st.caption(T("trabajo"))
+    # (13/10) Roles: todos tienen "Mis publicaciones"; los aprobadores, además, el panel admin.
+    if _nav(T("mis"), "mis"):
+        st.session_state.vista = "mis"
+        st.session_state.pop("mis_filtro", None)
+        st.rerun()
+    # (16/10, revisión de UX) "Mis recortes" con botón propio: como filtro adentro de Mis publicaciones no se encontraba.
+    if st.button(T("recortes"), use_container_width=True):
+        st.session_state.vista = "mis"
+        st.session_state["mis_filtro"] = "🎬 mis recortes"
+        st.rerun()
+    # (15/10) Canal Newsletter: editor con plantillas, para todos (pasa por aprobación como cualquier pieza).
+    if IDIOMA == "es" and _nav(T("newsletter"), "newsletter"):
+        st.session_state.vista = "newsletter"
+        st.rerun()
+    if ROL["aprueba"]:
+        try:
+            _n_apr = len(db.listar_a_aprobar())
+        except Exception:
+            _n_apr = 0
+        if _nav(f"🛠 Panel admin · {_n_apr} para aprobar", "aprobar", type="primary" if _n_apr else "secondary"):
+            st.session_state.vista = "aprobar"
+            st.rerun()
+    st.divider()
+    if st.button(T("salir"), use_container_width=True):
         for k in ("usuario", "messages", "conv_id", "conv_titulo"):
             st.session_state.pop(k, None)
         st.rerun()
 
 # ---------------- Estilo de marca ----------------
-st.markdown("""
+_ANCHO = "900px" if st.session_state.vista == "chat" else "1400px"   # (16/10) el chat angosto; el resto, ancho
+st.markdown(f"""
 <style>
-.block-container { padding-top: 2.2rem; max-width: 820px; }
-[data-testid="stChatMessage"] { border-radius: 14px; padding: .35rem .2rem; }
-.vac-head { display:flex; align-items:center; gap:14px; margin:.1rem 0 .1rem; }
-.vac-head img { width:60px; height:60px; }
-.vac-h-t { font-size:1.55rem; font-weight:800; line-height:1.1; margin:0; }
-.vac-h-s { font-size:.9rem; opacity:.6; margin:2px 0 0; }
-.vac-rule { height:3px; border:none; margin:.55rem 0 .1rem;
-            background:linear-gradient(90deg,#F39C12,rgba(243,156,18,0)); border-radius:3px; }
-.vac-card { border:1px solid rgba(140,130,110,.28); border-left:3px solid #F39C12; border-radius:10px;
-            padding:11px 14px; margin:9px 0; background:rgba(243,156,18,.055); }
-.vac-top { display:flex; gap:10px; align-items:baseline; flex-wrap:wrap; margin-bottom:2px; }
-.vac-tag { color:#d98a0f; font-size:.7rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; }
-.vac-autor { font-size:.8rem; opacity:.7; }
-.vac-titulo { font-weight:700; font-size:.95rem; margin:1px 0 4px; }
-.vac-quote { font-style:italic; opacity:.92; line-height:1.45; margin:0 0 8px; }
-.vac-trad { font-style:normal; opacity:.75; font-size:.92em; }
-.vac-src { font-size:.82rem; color:#d98a0f !important; text-decoration:none; font-weight:700; }
-.vac-src:hover { text-decoration:underline; }
+.block-container {{ padding-top: 1.6rem; max-width: {_ANCHO}; }}
+[data-testid="stChatMessage"] {{ border-radius: 14px; padding: .35rem .2rem; }}
+.vac-head {{ display:flex; align-items:center; gap:14px; margin:.1rem 0 .1rem; }}
+.vac-head img {{ width:60px; height:60px; }}
+.vac-h-t {{ font-size:1.55rem; font-weight:800; line-height:1.1; margin:0; }}
+.vac-h-s {{ font-size:.9rem; opacity:.6; margin:2px 0 0; }}
+.vac-rule {{ height:3px; border:none; margin:.55rem 0 .1rem;
+            background:linear-gradient(90deg,#F39C12,rgba(243,156,18,0)); border-radius:3px; }}
+.vac-card {{ border:1px solid rgba(140,130,110,.28); border-left:3px solid #F39C12; border-radius:10px;
+            padding:11px 14px; margin:9px 0; background:rgba(243,156,18,.055); }}
+.vac-top {{ display:flex; gap:10px; align-items:baseline; flex-wrap:wrap; margin-bottom:2px; }}
+.vac-tag {{ color:#d98a0f; font-size:.7rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; }}
+.vac-autor {{ font-size:.8rem; opacity:.7; }}
+.vac-titulo {{ font-weight:700; font-size:.95rem; margin:1px 0 4px; }}
+.vac-quote {{ font-style:italic; opacity:.92; line-height:1.45; margin:0 0 8px; }}
+.vac-trad {{ font-style:normal; opacity:.75; font-size:.92em; }}
+.vac-src {{ font-size:.82rem; color:#d98a0f !important; text-decoration:none; font-weight:700; }}
+.vac-src:hover {{ text-decoration:underline; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -241,12 +258,13 @@ try:
     _logo_html = f'<img src="data:image/png;base64,{_logo64}" alt="logo">'
 except Exception:
     _logo_html = "🌼"
-st.markdown(
-    f'<div class="vac-head">{_logo_html}'
-    '<div><p class="vac-h-t">Asistente de contenido</p>'
-    '<p class="vac-h-s">Br. David · Vivir Agradecidos</p></div></div>'
-    '<hr class="vac-rule">', unsafe_allow_html=True)
-st.caption(T("sub"))
+if st.session_state.vista == "chat":          # (16/10) el encabezado solo en el chat; las otras pantallas tienen su título
+    st.markdown(
+        f'<div class="vac-head">{_logo_html}'
+        '<div><p class="vac-h-t">Asistente de contenido</p>'
+        '<p class="vac-h-s">Br. David · Vivir Agradecidos</p></div></div>'
+        '<hr class="vac-rule">', unsafe_allow_html=True)
+    st.caption(T("sub"))
 
 if st.session_state.vista == "publicar":
     publicar_ui.render(USUARIO)
