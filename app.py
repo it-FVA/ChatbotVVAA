@@ -237,12 +237,15 @@ st.markdown(f"""
 .vac-rule {{ height:3px; border:none; margin:.55rem 0 .1rem;
             background:linear-gradient(90deg,#F39C12,rgba(243,156,18,0)); border-radius:3px; }}
 .vac-card {{ border:1px solid rgba(140,130,110,.28); border-left:3px solid #F39C12; border-radius:10px;
-            padding:11px 14px; margin:9px 0; background:rgba(243,156,18,.055); }}
+            padding:8px 12px; margin:6px 0; background:rgba(243,156,18,.055); }}
 .vac-top {{ display:flex; gap:10px; align-items:baseline; flex-wrap:wrap; margin-bottom:2px; }}
 .vac-tag {{ color:#d98a0f; font-size:.7rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; }}
 .vac-autor {{ font-size:.8rem; opacity:.7; }}
 .vac-titulo {{ font-weight:700; font-size:.95rem; margin:1px 0 4px; }}
-.vac-quote {{ font-style:italic; opacity:.92; line-height:1.45; margin:0 0 8px; }}
+.vac-quote {{ font-style:italic; opacity:.92; line-height:1.4; margin:0 0 6px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }}
+.vac-card:hover .vac-quote {{ -webkit-line-clamp:unset; }}
+.vac-cit {{ border-left-color:#2e9e6e; background:rgba(46,158,110,.09); }}
+.vac-badge {{ font-size:.68rem; font-weight:800; color:#2e9e6e; letter-spacing:.04em; text-transform:uppercase; margin-left:auto; }}
 .vac-trad {{ font-style:normal; opacity:.75; font-size:.92em; }}
 .vac-src {{ font-size:.82rem; color:#d98a0f !important; text-decoration:none; font-weight:700; }}
 .vac-src:hover {{ text-decoration:underline; }}
@@ -287,7 +290,18 @@ _VER = {"es": "Ver fuente ↗", "en": "View source ↗", "de": "Quelle öffnen �
 _TRAD_LABEL = {"en": "translation", "de": "Übersetzung"}
 
 
-def render_mats(mats, idioma="es"):
+def _citadas(mats, texto):
+    """(16/10, UX) Qué tarjetas citó el bot en su respuesta: el título aparece en el texto."""
+    t = (texto or "").lower()
+    out = set()
+    for i, r in enumerate(mats):
+        tit = (r.get("titulo") or "").strip().lower()
+        if len(tit) >= 12 and tit[:40] in t:
+            out.add(i)
+    return out
+
+
+def render_mats(mats, idioma="es", citadas=None):
     """Tarjetas de fuentes. (8/10) Para las cuentas en inglés/alemán: etiquetas traducidas, título original
     + [traducción], y extracto original seguido de su traducción marcada (nucleo.traducir_tarjetas, una
     llamada por respuesta, cacheada). Si la traducción falla, la tarjeta queda en original."""
@@ -317,9 +331,11 @@ def render_mats(mats, idioma="es"):
         href = r.get("ir") or ""
         src = (f'<a class="vac-src" href="{html.escape(href)}" target="_blank">{_VER.get(idioma, _VER["es"])}</a>'
                if href else "")
+        cit = citadas and n in citadas
         st.markdown(
-            f'<div class="vac-card"><div class="vac-top">'
-            f'<span class="vac-tag">{tag}</span><span class="vac-autor">{autor}</span></div>'
+            f'<div class="vac-card{" vac-cit" if cit else ""}"><div class="vac-top">'
+            f'<span class="vac-tag">{tag}</span><span class="vac-autor">{autor}</span>'
+            + ('<span class="vac-badge">citado en la respuesta</span>' if cit else "") + '</div>'
             f'<div class="vac-titulo">{titulo}</div>'
             f'{quote}{src}</div>',
             unsafe_allow_html=True)
@@ -363,11 +379,14 @@ def _botones_clip(r, por_tramo):
             st.rerun()
 
 
-def mostrar_fuentes(mats, idioma, abierto):
+def mostrar_fuentes(mats, idioma, abierto, texto=""):
     """(16/10, revisión de UX) Las fuentes van plegadas en un expander: cuando el bot propone una pieza, lo importante
-    es el recuadro de publicar, que ahora va inmediatamente debajo de la respuesta. Sin pieza, quedan abiertas."""
-    with st.expander(f"📚 Fuentes ({len(mats)})", expanded=abierto):
-        render_mats(mats, idioma)
+    es el recuadro de publicar, que ahora va inmediatamente debajo de la respuesta. Sin pieza, quedan abiertas.
+    Las tarjetas son compactas (dos líneas de cita; se despliegan al pasar el mouse) y la que el bot citó va resaltada."""
+    cit = _citadas(mats, texto)
+    titulo = f"📚 Fuentes ({len(mats)})" + (f" · {len(cit)} citada{'s' if len(cit) > 1 else ''} en la respuesta" if cit else "")
+    with st.expander(titulo, expanded=abierto):
+        render_mats(mats, idioma, citadas=cit)
 
 
 def publicar_en_chat(m, i, ultimo):
@@ -387,7 +406,7 @@ for i, m in enumerate(st.session_state.messages):
         if rol == "assistant":
             publicar_en_chat(m, i, ultimo=(i == _n - 1))     # (16/10) el recuadro va antes que las fuentes
         if m.get("mats"):
-            mostrar_fuentes(m["mats"], IDIOMA, abierto=not (PUEDE_PUBLICAR and m.get("pieza")))
+            mostrar_fuentes(m["mats"], IDIOMA, abierto=not (PUEDE_PUBLICAR and m.get("pieza")), texto=m.get("content", ""))
 
 # (8/10) Dos pasos: primero el mensaje de la persona entra al historial y se redibuja (así se ve enseguida);
 # después, si el último mensaje es de la persona y no tiene respuesta, se genera. Antes todo pasaba dentro
@@ -412,7 +431,7 @@ if _msgs and _msgs[-1].get("role") == "user":
             texto, mats, _, pieza = nucleo.responder_con_pieza(historial, idioma=(IDIOMA if IDIOMA != "es" else None))
         st.markdown(texto)
         if mats:
-            mostrar_fuentes(mats, IDIOMA, abierto=not pieza)
+            mostrar_fuentes(mats, IDIOMA, abierto=not pieza, texto=texto)
     _msgs.append({"role": "assistant", "content": texto, "mats": mats, "pieza": pieza})
     guardar()
     st.rerun()          # vuelve a dibujar con el recuadro "Publicar esta pieza" bajo la respuesta nueva

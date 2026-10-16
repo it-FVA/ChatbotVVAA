@@ -339,7 +339,7 @@ def _fecha(v):
     return v[:16].replace("T", " ") if v else ""
 
 
-def _fila_publicacion(p, mostrar_usuario=False):
+def _fila_publicacion(p, mostrar_usuario=False, pref=""):
     """Una pieza del registro, en un recuadro: estado, canal, texto, fechas y quién hizo qué."""
     res = p.get("resultado") or {}
     est = p.get("estado") or ""
@@ -359,7 +359,7 @@ def _fila_publicacion(p, mostrar_usuario=False):
             c2.caption("Newsletter · plantilla " + str((res.get("pieza") or {}).get("plantilla") or res.get("plantilla") or "mensual"))
             if p.get("texto"):
                 c2.download_button("⬇️ Descargar HTML", data=(p["texto"] or "").encode("utf-8"),
-                                   file_name=f"newsletter-{str(p.get('creado', ''))[:10]}.html", mime="text/html", key=f"dl_{p['id']}")
+                                   file_name=f"newsletter-{str(p.get('creado', ''))[:10]}.html", mime="text/html", key=f"dl_{pref}{p['id']}")
         elif p.get("texto"):
             c2.caption((p["texto"] or "")[:220] + ("…" if len(p.get("texto") or "") > 220 else ""))
         detalle = []
@@ -381,16 +381,20 @@ def _fila_publicacion(p, mostrar_usuario=False):
             c2.markdown(" · ".join(detalle))
 
 
-def _mis_recortes(usuario):
+def _mis_recortes(usuario, todos=False):
     """(16/10, pedido de Franco) Los recortes que pidió la persona (desde las tarjetas del chat o pidiéndoselo al bot),
-    con estado, link y botón para publicar. Es la vista provisoria hasta pensar una UX mejor."""
+    con estado, link y botón para publicar. todos=True (Panel admin → Clips): los de todo el equipo, con quién lo pidió
+    y «Reintentar» en los que fallaron."""
     try:
-        filas = [c for c in db.listar_clips(100) if c.get("pedido_por") in (usuario, "bot")]
+        filas = db.listar_clips(100)
+        if not todos:
+            filas = [c for c in filas if c.get("pedido_por") in (usuario, "bot")]
     except Exception as e:
-        st.error(f"No pude leer tus recortes: {e}")
+        st.error(f"No pude leer los recortes: {e}")
         return
     if not filas:
-        st.caption("Todavía no pediste ningún recorte. Se piden desde los botones «✂️ Pedir el recorte» / «📱 Pedir en vertical» "
+        st.caption(("Todavía no se pidió ningún recorte." if todos else "Todavía no pediste ningún recorte.")
+                   + " Se piden desde los botones «✂️ Pedir el recorte» / «📱 Pedir en vertical» "
                    "debajo de cada video en el chat, o diciéndole al bot «pedime ese tramo en vertical».")
         return
     st.caption("Los recortes tardan unos 15 minutos. Cuando están listos aparece el link y el botón para publicar. "
@@ -404,9 +408,13 @@ def _mis_recortes(usuario):
                 c1.video(c["url"])
             fmt = "📱 vertical" if c.get("formato") == "vertical" else "🎬 horizontal"
             c2.markdown(f"**{(c.get('titulo') or c['video_id'])[:90]}**  \n"
-                        f"{_fecha(c.get('creado'))} · {fmt} · {mmss_(c['inicio_ms'])}–{mmss_(c['fin_ms'])} · {_EST.get(c.get('estado'), c.get('estado'))}")
+                        f"{_fecha(c.get('creado'))} · {fmt} · {mmss_(c['inicio_ms'])}–{mmss_(c['fin_ms'])} · {_EST.get(c.get('estado'), c.get('estado'))}"
+                        + (f" · pidió **{c.get('pedido_por') or '—'}**" if todos else ""))
             if c.get("estado") == "error" and c.get("error"):
                 c2.caption(c["error"][:160])
+                if todos and c2.button("↻ Reintentar", key=f"rec_re_{c['id']}"):
+                    db.actualizar_clip(c["id"], {"estado": "pedido", "error": None})
+                    st.rerun()
             # (16/10, Franco) Borrar: saca el archivo de WordPress y el registro. Avisa si una publicación lo usa.
             if c.get("estado") in ("error", "pedido") or not c.get("url"):
                 if c2.button("🗑 Borrar", key=f"rec_del_{c['id']}", help="Saca este pedido de la lista."):
@@ -447,8 +455,13 @@ def mmss_(ms):
 
 
 def mis_publicaciones(usuario):
-    """(13/10) Pantalla "Mis publicaciones", para todos: lo que creé y en qué estado está."""
+    """(13/10) Pantalla "Mis publicaciones", para todos: lo que creé y en qué estado está.
+    (16/10, UX) Con solapas por estado; «Mis recortes» es una pantalla aparte (botón de la barra)."""
     rol = roles(usuario)
+    if st.session_state.get("mis_filtro") == "🎬 mis recortes":
+        st.markdown("### 🎬 Mis recortes")
+        _mis_recortes(usuario)
+        return
     st.markdown("### 📋 Mis publicaciones")
     st.caption(f"Tu rol: **{rol['nombre']}**" + (" · con publicación directa" if rol["publica"] else "")
                + ". Acá quedan todas las piezas que mandaste: pendientes, aprobadas, rechazadas y publicadas.")
@@ -458,24 +471,29 @@ def mis_publicaciones(usuario):
         st.error(f"No pude leer tus piezas: {e}")
         return
     mias = [p for p in mias if p.get("estado") != "subida"]     # las subidas de imagen no son piezas
-    filtro = st.radio("Ver", ["todas", "borradores", "pendientes", "aprobadas", "rechazadas", "publicadas", "pruebas", "🎬 mis recortes"],
-                      horizontal=True, key="mis_filtro", label_visibility="collapsed")
-    if filtro == "🎬 mis recortes":
-        _mis_recortes(usuario)
-        return
     if not mias:
         st.caption("Todavía no mandaste ninguna pieza.")
         return
-    grupos = {"borradores": ("borrador",), "pendientes": ("a_aprobar",), "aprobadas": ("pendiente", "programada"),
-              "rechazadas": ("rechazada", "cancelada"), "publicadas": ("publicada", "PUBLICADO", "draft", "lista"),
-              "pruebas": ("prueba", "simulada", "simulado")}
-    if filtro != "todas":
-        mias = [p for p in mias if p.get("estado") in grupos[filtro]]
+    grupos = {"Pendientes": ("a_aprobar",), "Aprobadas": ("pendiente", "programada"),
+              "Publicadas": ("publicada", "PUBLICADO", "draft", "lista"), "Borradores": ("borrador",),
+              "Rechazadas": ("rechazada", "cancelada"), "Pruebas": ("prueba", "simulada", "simulado")}
+    nombres = ["Todas"] + list(grupos)
+    conteo = {n: (len(mias) if n == "Todas" else len([p for p in mias if p.get("estado") in grupos[n]])) for n in nombres}
+    solapas = st.tabs([f"{n} ({conteo[n]})" for n in nombres])
+    for nombre, solapa in zip(nombres, solapas):
+        with solapa:
+            _lista_piezas([p for p in mias if nombre == "Todas" or p.get("estado") in grupos[nombre]], usuario, nombre)
+
+
+def _lista_piezas(mias, usuario, pref):
+    """Las piezas de una solapa, con Retomar (borradores) y Eliminar (lo que se puede)."""
+    if not mias:
+        st.caption("Nada acá por ahora.")
     for p in mias:
-        _fila_publicacion(p)
+        _fila_publicacion(p, pref=pref)
         est = p.get("estado")
         c1, c2, _ = st.columns([1, 1, 4])
-        if est == "borrador" and c1.button("✏️ Retomar", key=f"ret_{p['id']}"):
+        if est == "borrador" and c1.button("✏️ Retomar", key=f"ret_{pref}_{p['id']}"):
             if p.get("canal") == "newsletter":
                 import newsletter_ui
                 pz = (p.get("resultado") or {}).get("pieza") or {}
@@ -485,7 +503,7 @@ def mis_publicaciones(usuario):
                 st.session_state["retomar"] = p
                 st.session_state["vista"] = "publicar"
             st.rerun()
-        if est in db.ELIMINABLES and c2.button("🗑 Eliminar", key=f"del_{p['id']}"):
+        if est in db.ELIMINABLES and c2.button("🗑 Eliminar", key=f"del_{pref}_{p['id']}"):
             if db.eliminar_publicacion(p["id"], usuario):
                 st.rerun()
             else:
@@ -522,31 +540,9 @@ def panel_aprobacion(usuario):
         return
     t1, t2, t3, t4, t5 = st.tabs([f"⏳ Para aprobar ({len(pend)})", "🗓 En cola", "📒 Registro", "🗑 Papelera", "🎬 Clips"])
     with t5:
-        # (15/10) Clips exactos pedidos desde las tarjetas del chat: estado, link, error, reintentar.
-        st.caption("Recortes pedidos desde el chat. Los corta GitHub Actions cada 15 minutos desde los originales en Drive. "
-                   "Si un video todavía no está bajado, el pedido queda en error y se puede reintentar.")
-        try:
-            clips = db.listar_clips()
-        except Exception as e:
-            clips = []
-            st.caption(f"(sin acceso: {e})")
-        if not clips:
-            st.caption("Todavía no se pidió ningún recorte.")
-        _CLIP_EST = {"pedido": "⏳ pedido", "listo": "✅ listo", "error": "⚠ error"}
-        for c in clips:
-            col1, col2 = st.columns([5, 1])
-            tramo = f"{c['inicio_ms'] // 1000 // 60}:{c['inicio_ms'] // 1000 % 60:02d}–{c['fin_ms'] // 1000 // 60}:{c['fin_ms'] // 1000 % 60:02d}"
-            linea = (f"**{_CLIP_EST.get(c.get('estado'), c.get('estado'))}** · {c.get('formato')} · "
-                     f"[{(c.get('titulo') or c['video_id'])[:60]}](https://www.youtube.com/watch?v={c['video_id']}&t={c['inicio_ms'] // 1000}s) · "
-                     f"{tramo} · pidió {c.get('pedido_por') or '—'} · {_fecha(c.get('creado'))}")
-            if c.get("url"):
-                linea += f" · [ver el recorte ↗]({c['url']})"
-            if c.get("error"):
-                linea += "  \n⚠ _" + c["error"][:160] + "_"
-            col1.markdown(linea)
-            if c.get("estado") == "error" and col2.button("↻ Reintentar", key=f"clip_re_{c['id']}"):
-                db.actualizar_clip(c["id"], {"estado": "pedido", "error": None})
-                st.rerun()
+        # (15/10) Clips exactos pedidos desde el chat. (16/10, UX) Mismas tarjetas que «Mis recortes», para todo el equipo.
+        st.caption("Recortes pedidos desde el chat por todo el equipo. Los corta la nube cada 15 minutos desde los originales en Drive.")
+        _mis_recortes(usuario, todos=True)
     with t4:
         # (15/10) Conversaciones borradas por cualquier usuario: se pueden restaurar durante 30 días.
         st.caption(f"Conversaciones que alguien borró. Se restauran desde acá durante {db.PAPELERA_DIAS} días; después se borran de verdad.")
