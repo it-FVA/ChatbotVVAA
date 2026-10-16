@@ -377,6 +377,7 @@ if _msgs and _msgs[-1].get("role") == "user":
         with st.spinner(T("pensando")):
             historial = [{"role": m.get("role", "user"), "content": m.get("content", ""),
                           "mats": m.get("mats")} for m in _msgs]
+            nucleo.USUARIO_ACTUAL = USUARIO     # (16/10) firma los pedidos de recorte que hace el bot
             texto, mats, _, pieza = nucleo.responder_con_pieza(historial, idioma=(IDIOMA if IDIOMA != "es" else None))
         st.markdown(texto)
         if mats:

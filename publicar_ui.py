@@ -381,6 +381,47 @@ def _fila_publicacion(p, mostrar_usuario=False):
             c2.markdown(" · ".join(detalle))
 
 
+def _mis_recortes(usuario):
+    """(16/10, pedido de Franco) Los recortes que pidió la persona (desde las tarjetas del chat o pidiéndoselo al bot),
+    con estado, link y botón para publicar. Es la vista provisoria hasta pensar una UX mejor."""
+    try:
+        filas = [c for c in db.listar_clips(100) if c.get("pedido_por") in (usuario, "bot")]
+    except Exception as e:
+        st.error(f"No pude leer tus recortes: {e}")
+        return
+    if not filas:
+        st.caption("Todavía no pediste ningún recorte. Se piden desde los botones «✂️ Pedir el recorte» / «📱 Pedir en vertical» "
+                   "debajo de cada video en el chat, o diciéndole al bot «pedime ese tramo en vertical».")
+        return
+    st.caption("Los recortes tardan unos 15 minutos. Cuando están listos aparece el link y el botón para publicar.")
+    _EST = {"listo": "✅ listo", "pedido": "⏳ en proceso", "error": "⚠ error"}
+    for c in filas:
+        with st.container(border=True):
+            c1, c2 = st.columns([1, 3])
+            if c.get("estado") == "listo" and c.get("url"):
+                c1.video(c["url"])
+            fmt = "📱 vertical" if c.get("formato") == "vertical" else "🎬 horizontal"
+            c2.markdown(f"**{(c.get('titulo') or c['video_id'])[:90]}**  \n"
+                        f"{_fecha(c.get('creado'))} · {fmt} · {mmss_(c['inicio_ms'])}–{mmss_(c['fin_ms'])} · {_EST.get(c.get('estado'), c.get('estado'))}")
+            if c.get("estado") == "error" and c.get("error"):
+                c2.caption(c["error"][:160])
+            if c.get("estado") == "listo" and c.get("url"):
+                b1, b2, _ = c2.columns([1, 1, 2])
+                b1.link_button("Abrir el recorte ↗", c["url"])
+                if b2.button("📣 Publicar", key=f"rec_pub_{c['id']}"):
+                    st.session_state["pieza_video"] = {"video_url": c["url"], "video_formato": c.get("formato"), "titulo": (c.get("titulo") or "")[:100],
+                                                       "texto": "", "canal": "instagram" if c.get("formato") == "vertical" else "",
+                                                       "video_id": c["video_id"], "miniatura": f"https://img.youtube.com/vi/{c['video_id']}/hqdefault.jpg"}
+                    st.session_state.pop("retomar", None)
+                    st.session_state["vista"] = "publicar"
+                    st.rerun()
+
+
+def mmss_(ms):
+    ms = int(ms or 0)
+    return f"{ms // 60000:02d}:{ms // 1000 % 60:02d}"
+
+
 def mis_publicaciones(usuario):
     """(13/10) Pantalla "Mis publicaciones", para todos: lo que creé y en qué estado está."""
     rol = roles(usuario)
@@ -393,11 +434,14 @@ def mis_publicaciones(usuario):
         st.error(f"No pude leer tus piezas: {e}")
         return
     mias = [p for p in mias if p.get("estado") != "subida"]     # las subidas de imagen no son piezas
+    filtro = st.radio("Ver", ["todas", "borradores", "pendientes", "aprobadas", "rechazadas", "publicadas", "pruebas", "🎬 mis recortes"],
+                      horizontal=True, key="mis_filtro", label_visibility="collapsed")
+    if filtro == "🎬 mis recortes":
+        _mis_recortes(usuario)
+        return
     if not mias:
         st.caption("Todavía no mandaste ninguna pieza.")
         return
-    filtro = st.radio("Ver", ["todas", "borradores", "pendientes", "aprobadas", "rechazadas", "publicadas", "pruebas"],
-                      horizontal=True, key="mis_filtro", label_visibility="collapsed")
     grupos = {"borradores": ("borrador",), "pendientes": ("a_aprobar",), "aprobadas": ("pendiente", "programada"),
               "rechazadas": ("rechazada", "cancelada"), "publicadas": ("publicada", "PUBLICADO", "draft", "lista"),
               "pruebas": ("prueba", "simulada", "simulado")}

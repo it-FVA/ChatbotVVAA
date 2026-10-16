@@ -190,7 +190,8 @@ Cuando armás un posteo, una frase, un clip con copy o una sección de newslette
 
 ═══ RECORTES DE VIDEO (desde el 15/10) ═══
 Vos NO editás video, pero el sistema sí: debajo de cada tarjeta de video que mostrás hay dos botones, "✂️ Pedir el recorte" (horizontal) y "📱 Pedir en vertical" (9:16 con subtítulos, para reels, shorts e historias). Al apretarlos, el recorte exacto de ese tramo se corta solo en la nube y en unos 15 minutos la misma tarjeta pasa a mostrar "🎬 Ver el recorte" / "📱 Ver en vertical" (link al archivo en la biblioteca de WordPress) y un botón "📣 Publicar" para mandarlo a Instagram, Facebook, YouTube, blogpost o newsletter con aprobación. La tarjeta se actualiza al mandar cualquier mensaje nuevo o recargar.
-- Si la persona pide "el recorte", "cortame ese clip", "quiero el video editado": NO digas que no se puede. Indicale que apriete "Pedir el recorte" o "Pedir en vertical" en la tarjeta del video que corresponde, que tarda unos minutos y que el link aparece en esa misma tarjeta. Si dice que ya lo pidió: que espere unos minutos y mande cualquier mensaje para que la tarjeta se actualice; si pasaron más de 20 minutos, que lo vea un aprobador en el Panel admin, solapa Clips.
+- Si la persona pide "el recorte", "cortame ese clip", "pedime ese tramo en vertical": NO digas que no se puede. Pedilo vos con la herramienta pedir_recorte (link del video + inicio del tramo tal como figura en el material + formato) y contale que en unos minutos está. También puede apretar "Pedir el recorte" / "Pedir en vertical" en la tarjeta del video.
+- Si pregunta "¿está listo?", "¿dónde lo veo?", "¿cuánto falta?": usá estado_recortes y dale el link si ya está. Si pasaron más de 20 minutos y sigue en proceso, que lo vea un aprobador en el Panel admin, solapa Clips.
 - Si te pide armar el reel/short: el video sale del recorte (lo hace el sistema); vos aportás el tramo elegido, el guion, el copy y el título.
 
 Redactás borradores para revisión humana. Tono cálido, simple, sin sermonear, español rioplatense. Aclarás que es un borrador para curaduría del equipo. (Las conversaciones quedan guardadas en el espacio de trabajo de cada usuario; si te preguntan, confirmalo.)"""
@@ -977,7 +978,73 @@ def titular(mensajes):
     return t[:50] or "Conversación"
 
 
+USUARIO_ACTUAL = ""   # (16/10) app.py lo setea antes de responder: firma los pedidos de recorte
+
+
+def _mmss_a_seg(v):
+    """'13:26' → 806; '806' → 806.0; 806 → 806."""
+    if v is None or v == "":
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    t = str(v).strip()
+    if ":" in t:
+        partes = [float(x) for x in t.split(":")]
+        return sum(p * 60 ** i for i, p in enumerate(reversed(partes)))
+    try:
+        return float(t)
+    except ValueError:
+        return None
+
+
+def _video_id(v):
+    """Acepta un id de YouTube o una URL de YouTube; devuelve el id."""
+    v = (v or "").strip()
+    m = re.search(r"[?&]v=([A-Za-z0-9_-]{6,})", v) or re.search(r"youtu\.be/([A-Za-z0-9_-]{6,})", v)
+    return m.group(1) if m else v
+
+
+def _tramo_exacto(video_id, inicio_s, fin_s):
+    """Busca en el corpus el fragmento de ese video que empieza cerca de inicio_s (±3 s) y devuelve
+    (inicio_ms, fin_ms, titulo) exactos: así el pedido coincide con la tarjeta del chat."""
+    FRS, _ = cargar()
+    mejor = None
+    for f in FRS:
+        if f.get("documento_id") != video_id or f.get("fuente") != "youtube":
+            continue
+        ini = (f.get("inicio_ms") or 0) / 1000
+        d = abs(ini - (inicio_s or 0))
+        if mejor is None or d < mejor[0]:
+            mejor = (d, f)
+    if mejor and mejor[0] <= 3:
+        f = mejor[1]
+        return int(f["inicio_ms"]), int(f["fin_ms"]), f.get("titulo") or ""
+    titulo = mejor[1].get("titulo") if mejor else ""
+    if inicio_s is None or fin_s is None:
+        return None, None, titulo
+    return int(inicio_s * 1000), int(fin_s * 1000), titulo
+
+
 TOOLS = [
+    {"type": "function", "function": {
+        "name": "pedir_recorte",
+        "description": ("Pide el recorte exacto de un tramo de un video (lo corta el sistema en la nube; tarda unos minutos y "
+                        "queda en la biblioteca de WordPress). Usalo cuando la persona pide 'pedime el recorte', 'cortame ese "
+                        "clip', 'hacelo en vertical' sobre un video que ya mostraste. Pasá el link o id del video y el inicio "
+                        "del tramo tal como figura en el material (CLIP · mm:ss–mm:ss)."),
+        "parameters": {"type": "object", "properties": {
+            "video": {"type": "string", "description": "URL de YouTube o id del video, tal como aparece en el material."},
+            "inicio": {"type": "string", "description": "Inicio del tramo, 'mm:ss' o segundos (ej. '13:26')."},
+            "fin": {"type": "string", "description": "Fin del tramo, 'mm:ss' o segundos. Opcional si el inicio coincide con un fragmento del material."},
+            "formato": {"type": "string", "enum": ["horizontal", "vertical"],
+                        "description": "'vertical' (9:16 con subtítulos: reels, shorts, historias) u 'horizontal'. Si la persona habla de reel/short/historia, vertical."}},
+            "required": ["video", "inicio", "formato"]}}},
+    {"type": "function", "function": {
+        "name": "estado_recortes",
+        "description": ("Dice cómo van los recortes que pidió la persona (pedido / listo con link / error). Usalo cuando pregunta "
+                        "'¿está listo?', '¿dónde veo el recorte?', '¿cuánto falta?'."),
+        "parameters": {"type": "object", "properties": {
+            "video": {"type": "string", "description": "Opcional: URL o id del video para filtrar."}}}}},
     {"type": "function", "function": {
         "name": "buscar_material",
         "description": ("Busca en el corpus real de la Fundación (videos, artículos y libros de Br. David "
@@ -1033,6 +1100,40 @@ TOOLS = [
 
 def _ejecutar_tool(nombre, args):
     consulta = (args.get("consulta") or "").strip()
+    if nombre == "pedir_recorte":
+        import db
+        vid = _video_id(args.get("video"))
+        ini_s, fin_s = _mmss_a_seg(args.get("inicio")), _mmss_a_seg(args.get("fin"))
+        formato = "vertical" if (args.get("formato") or "").lower().startswith("v") else "horizontal"
+        ini_ms, fin_ms, titulo = _tramo_exacto(vid, ini_s, fin_s)
+        if not vid or ini_ms is None:
+            return ("No pude identificar el tramo: hace falta el link del video y el inicio (y el fin si no coincide con "
+                    "un fragmento del material)."), None
+        if fin_ms <= ini_ms or fin_ms - ini_ms > 15 * 60 * 1000:
+            return "El tramo no es válido (el fin tiene que ser mayor que el inicio y el recorte, de menos de 15 minutos).", None
+        r = db.pedir_clip(vid, ini_ms, fin_ms, formato, titulo, USUARIO_ACTUAL or "bot")
+        if r == "ya":
+            ya = [c for c in db.clips_de([vid]) if c["inicio_ms"] == ini_ms and c["fin_ms"] == fin_ms and c["formato"] == formato]
+            if ya and ya[0].get("estado") == "listo":
+                return f"Ese recorte ya estaba hecho: {ya[0]['url']}", None
+            return "Ese recorte ya estaba pedido; está en proceso. Aparece en unos minutos.", None
+        if not r:
+            return "No pude registrar el pedido (falta la base de datos).", None
+        return (f"Pedido registrado: {titulo or vid}, {mmss(ini_ms)}–{mmss(fin_ms)}, {formato}. En unos 15 minutos queda "
+                f"listo; la persona puede preguntarte '¿está listo?' o mirar la tarjeta del video, que mostrará «Ver el recorte»."), None
+    if nombre == "estado_recortes":
+        import db
+        vid = _video_id(args.get("video")) if args.get("video") else None
+        filas = [c for c in db.listar_clips(30) if (not USUARIO_ACTUAL or c.get("pedido_por") in (USUARIO_ACTUAL, "bot"))
+                 and (not vid or c.get("video_id") == vid)][:8]
+        if not filas:
+            return "No hay recortes pedidos por esta persona.", None
+        lineas = []
+        for c in filas:
+            est = {"listo": "LISTO", "pedido": "en proceso", "error": "ERROR"}.get(c.get("estado"), c.get("estado"))
+            lineas.append(f"- {(c.get('titulo') or c['video_id'])[:60]} · {mmss(c['inicio_ms'])}–{mmss(c['fin_ms'])} · {c.get('formato')} · {est}"
+                          + (f" · {c['url']}" if c.get("url") else "") + (f" · {c['error'][:80]}" if c.get("error") and c.get("estado") == "error" else ""))
+        return "Recortes de la persona (del más nuevo al más viejo):\n" + "\n".join(lineas), None
     if nombre == "buscar_material":
         n = min(int(args.get("n") or 6), 12)
         tipo = (args.get("tipo") or "").lower()
