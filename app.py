@@ -151,6 +151,30 @@ with st.sidebar:
     if st.query_params.get("vista") in ("publicar", "aprobar", "mis", "newsletter") and not st.session_state.get("vista_qp"):
         st.session_state.vista = st.query_params.get("vista")
         st.session_state["vista_qp"] = True
+    st.caption(T("trabajo"))   # (16/10, Franco) "Mi trabajo" arriba; el chat y las conversaciones abajo
+    # (13/10) Roles: todos tienen "Mis publicaciones"; los aprobadores, además, el panel admin.
+    if _nav(T("mis"), "mis"):
+        st.session_state.vista = "mis"
+        st.session_state.pop("mis_filtro", None)
+        st.rerun()
+    # (16/10, revisión de UX) "Mis recortes" con botón propio: como filtro adentro de Mis publicaciones no se encontraba.
+    if st.button(T("recortes"), use_container_width=True):
+        st.session_state.vista = "mis"
+        st.session_state["mis_filtro"] = "🎬 mis recortes"
+        st.rerun()
+    # (15/10) Canal Newsletter: editor con plantillas, para todos (pasa por aprobación como cualquier pieza).
+    if IDIOMA == "es" and _nav(T("newsletter"), "newsletter"):
+        st.session_state.vista = "newsletter"
+        st.rerun()
+    if ROL["aprueba"]:
+        try:
+            _n_apr = len(db.listar_a_aprobar())
+        except Exception:
+            _n_apr = 0
+        if _nav(f"🛠 Panel admin · {_n_apr} para aprobar", "aprobar", type="primary" if _n_apr else "secondary"):
+            st.session_state.vista = "aprobar"
+            st.rerun()
+    st.divider()
     if st.button(T("nueva"), use_container_width=True, type="primary"):
         st.session_state.vista = "chat"
         st.session_state.messages = []
@@ -194,30 +218,6 @@ with st.sidebar:
     else:
         st.caption("(guardado desactivado: falta configurar Supabase)")
 
-    st.divider()
-    st.caption(T("trabajo"))
-    # (13/10) Roles: todos tienen "Mis publicaciones"; los aprobadores, además, el panel admin.
-    if _nav(T("mis"), "mis"):
-        st.session_state.vista = "mis"
-        st.session_state.pop("mis_filtro", None)
-        st.rerun()
-    # (16/10, revisión de UX) "Mis recortes" con botón propio: como filtro adentro de Mis publicaciones no se encontraba.
-    if st.button(T("recortes"), use_container_width=True):
-        st.session_state.vista = "mis"
-        st.session_state["mis_filtro"] = "🎬 mis recortes"
-        st.rerun()
-    # (15/10) Canal Newsletter: editor con plantillas, para todos (pasa por aprobación como cualquier pieza).
-    if IDIOMA == "es" and _nav(T("newsletter"), "newsletter"):
-        st.session_state.vista = "newsletter"
-        st.rerun()
-    if ROL["aprueba"]:
-        try:
-            _n_apr = len(db.listar_a_aprobar())
-        except Exception:
-            _n_apr = 0
-        if _nav(f"🛠 Panel admin · {_n_apr} para aprobar", "aprobar", type="primary" if _n_apr else "secondary"):
-            st.session_state.vista = "aprobar"
-            st.rerun()
     st.divider()
     if st.button(T("salir"), use_container_width=True):
         for k in ("usuario", "messages", "conv_id", "conv_titulo"):
