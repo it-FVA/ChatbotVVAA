@@ -101,8 +101,22 @@ def _editor_mensual(d):
             rc[k]["titulo"] = c1.text_input(f"{rot}: título", value=rc[k].get("titulo") or "", key=_k(f"{k}_t"))
             rc[k]["url"] = c2.text_input("link", value=rc[k].get("url") or "", key=_k(f"{k}_u"))
             rc[k][lab] = c3.text_input(lab, value=rc[k].get(lab) or "", key=_k(f"{k}_q"))
+    _editor_video(d)
     d["cierre"] = st.text_input("Cierre (frase de deseo para el mes)", value=d.get("cierre") or "", key=_k("cierre"))
     d["firma"] = st.text_area("Firma", value=d.get("firma") or "", key=_k("firma"), height=70)
+
+
+
+
+def _editor_video(d):
+    """(16/10) Bloque "Un recorte para ver": lo carga el botón "Llevar al newsletter" de un recorte, o a mano."""
+    v = d.setdefault("video", {"titulo": "", "texto": "", "imagen_url": "", "url": ""})
+    with st.expander("🎬 Un recorte para ver (video)", expanded=bool(v.get("url"))):
+        v["titulo"] = st.text_input("Título del video", value=v.get("titulo") or "", key=_k("v_t"))
+        v["texto"] = st.text_area("Una línea de presentación (opcional)", value=v.get("texto") or "", key=_k("v_x"), height=70)
+        c1, c2 = st.columns(2)
+        v["url"] = c1.text_input("Link del video (el recorte en WordPress o YouTube)", value=v.get("url") or "", key=_k("v_u"))
+        v["imagen_url"] = c2.text_input("Imagen (miniatura; el mail no reproduce video)", value=v.get("imagen_url") or "", key=_k("v_i"))
 
 
 def _editor_revivi(d):
@@ -116,6 +130,7 @@ def _editor_revivi(d):
             c1, c2 = st.columns(2)
             ep["url"] = c1.text_input("Link al episodio", value=ep.get("url") or "", key=_k(f"e{i}_u"))
             ep["imagen_url"] = c2.text_input("Foto del invitado (URL del banco)", value=ep.get("imagen_url") or "", key=_k(f"e{i}_i"))
+    _editor_video(d)
     d["cierre_destacado"] = st.text_input("Frase destacada de cierre (va en mayúsculas)", value=d.get("cierre_destacado") or "", key=_k("cd"))
     d["cierre"] = st.text_area("Cierre", value=d.get("cierre") or "", key=_k("cierre"), height=80)
     d["firma"] = st.text_area("Firma", value=d.get("firma") or "", key=_k("firma"), height=70)
@@ -124,11 +139,14 @@ def _editor_revivi(d):
 def _destinos(d, plantilla):
     """Dónde puede ir una foto, según la plantilla: etiqueta → función que la guarda en `d`."""
     if plantilla == "revivi":
-        return {f"Episodio {i + 1}": (lambda i=i: lambda u: d["episodios"][i].__setitem__("imagen_url", u))()
+        dest = {f"Episodio {i + 1}": (lambda i=i: lambda u: d["episodios"][i].__setitem__("imagen_url", u))()
                 for i in range(len(d.get("episodios") or []))}
+        dest["Video (recorte)"] = lambda u: d.setdefault("video", {}).__setitem__("imagen_url", u)
+        return dest
     dest = {"Cabecera": lambda u: d.__setitem__("cabecera_url", u),
             "Encuentro destacado": lambda u: d["encuentro"].__setitem__("imagen_url", u),
-            "Recursos": lambda u: d["recursos"].__setitem__("imagen_url", u)}
+            "Recursos": lambda u: d["recursos"].__setitem__("imagen_url", u),
+            "Video (recorte)": lambda u: d.setdefault("video", {}).__setitem__("imagen_url", u)}
     for i, a in enumerate(d.get("agenda") or []):
         dest[f"Actividad {i + 1}" + (f" · {a['titulo'][:25]}" if a.get("titulo") else "")] = (lambda i=i: lambda u: d["agenda"][i].__setitem__("imagen_url", u))()
     return dest

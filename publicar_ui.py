@@ -299,8 +299,8 @@ def _enviar(cfg, usuario, canal, titulo, texto, archivo, imagen_url, fecha_iso, 
                 res = publicar.publicar_youtube(cfg, datos or b"", titulo.strip(), texto, quien=usuario, fecha=fecha_iso,
                                                 nombre_archivo=video_url.rsplit("/", 1)[-1] or "clip.mp4")
         elif canal == "WordPress":
-            res = publicar.publicar_wordpress(cfg, titulo.strip(), texto, imagen_id=imagen_id,
-                                              quien=usuario, fecha=fecha_iso)
+            res = publicar.publicar_wordpress(cfg, titulo.strip(), publicar.html_video(video_url, texto) if video_url else texto,
+                                              imagen_id=imagen_id, quien=usuario, fecha=fecha_iso)
         elif canal == "Instagram":
             res = publicar.publicar_instagram(cfg, imagen_url or "", texto, quien=usuario,
                                               historia=(formato == "historia"))
@@ -624,6 +624,8 @@ def _mostrar_resultado(res, canal, modo, titulo, texto, archivo, imagen_url, fec
                 st.caption(f"Sobre la imagen: «{texto_imagen}»")
             if canal == "WordPress":
                 st.markdown(f"#### {titulo}")
+                if video_url:
+                    st.caption("(el recorte va acá, al principio de la entrada)")
                 st.markdown(texto, unsafe_allow_html=True)
             else:
                 st.text(texto)
@@ -670,9 +672,18 @@ def formulario(usuario, key, pieza=None, compacto=False):
     if video_url:
         st.video(video_url)
         st.caption("🎬 Recorte exacto" + (f" · {pieza['video_formato']}" if pieza.get("video_formato") else "") + ". Se publica tal cual está.")
-        _canales = ["Instagram", "Facebook", "YouTube"]
-        idx = {"instagram": 0, "facebook": 1, "youtube": 2}.get(pieza.get("canal") or "", None)
+        _canales = ["WordPress", "Instagram", "Facebook", "YouTube"]
+        idx = {"wordpress": 0, "instagram": 1, "facebook": 2, "youtube": 3}.get(pieza.get("canal") or "", None)
         canal = st.radio("Canal", _canales, horizontal=True, index=idx, key=k("canal"), format_func=lambda c: _NOMBRE.get(c, c))
+        # (16/10, punto 2) El recorte también va al newsletter: como bloque "Un recorte para ver", con la miniatura
+        # del video original y el link al mp4 (el mail no reproduce video).
+        if st.button("✉️ Llevar al newsletter", key=k("al_nl"), help="Abre el editor de Newsletter con el recorte cargado como bloque de video (imagen + link)."):
+            import newsletter_ui
+            datos = {"video": {"titulo": (pieza.get("titulo") or "")[:120], "texto": "", "imagen_url": pieza.get("miniatura") or "", "url": video_url}}
+            newsletter_ui.cargar("mensual", datos, None)
+            st.session_state.pop("pieza_video", None)
+            st.session_state["vista"] = "newsletter"
+            st.rerun()
     else:
         idx = {"wordpress": 0, "instagram": 1, "facebook": 2, "youtube": 3}.get(pieza.get("canal") or "", None)
         canal = st.radio("Canal", CANALES, horizontal=True, index=idx, key=k("canal"), format_func=lambda c: _NOMBRE.get(c, c))
@@ -714,6 +725,8 @@ def formulario(usuario, key, pieza=None, compacto=False):
                 st.caption("Este recorte es horizontal. En Instagram se ve mejor el vertical (pedilo desde la misma tarjeta del chat).")
         elif canal == "YouTube":
             st.caption("Va al canal como video" + (" corto (short)" if pieza.get("video_formato") == "vertical" else "") + ". Título obligatorio.")
+        elif canal == "WordPress":
+            st.caption("🌐 Blogpost: el recorte va al principio de la entrada y el texto de abajo es el cuerpo. Título obligatorio.")
     elif canal == "YouTube":
         video = st.file_uploader("Video (mp4, mov)", type=["mp4", "mov", "m4v", "webm"], key=k("video"))
     if video_url:

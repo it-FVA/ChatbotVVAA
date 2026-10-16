@@ -35,6 +35,7 @@ def vacio(plantilla):
     if plantilla == "revivi":
         return {"asunto": "", "encuadre": "", "intro": "Hoy reunimos tres episodios de Ecos para mirar ese territorio desde distintas perspectivas:",
                 "episodios": [{"titulo": "", "texto": "", "imagen_url": "", "url": ""} for _ in range(3)],
+                "video": {"titulo": "", "texto": "", "imagen_url": "", "url": ""},
                 "cierre_destacado": "", "cierre": "Si te sirve este contenido, no dudes en compartirlo con alguien a quien le pueda hacer bien un momento de pausa.\n¡Que lo disfrutes!",
                 "firma": "Con cariño,\nEquipo de Vivir Agradecidos"}
     return {"asunto": "", "mes": "", "cabecera_url": "",
@@ -47,10 +48,23 @@ def vacio(plantilla):
                          "lectura": {"titulo": "", "url": "", "de": "Brother David"},
                          "ecos": {"titulo": "", "url": "", "con": ""},
                          "meditacion": {"titulo": "", "url": "", "con": ""}},
+            "video": {"titulo": "", "texto": "", "imagen_url": "", "url": ""},
             "cierre": "", "firma": "Gracias por ser parte de esta comunidad.\nFundación Vivir Agradecidos"}
 
 
 # ----------------------------------------------------------------------------- HTML
+
+def _bloque_video(v):
+    """(16/10) "Un recorte para ver": miniatura con link al video (el mail no reproduce video) + título + texto + botón."""
+    if not v or not (v.get("url") and (v.get("titulo") or v.get("imagen_url"))):
+        return ""
+    url = _e(v.get("url"))
+    img = f'<a href="{url}">{_img(v.get("imagen_url") or PLACEHOLDER, 544, alt=v.get("titulo", ""))}</a>'
+    return (_sep() + _h("UN RECORTE PARA VER", size=18) + img
+            + _p(v.get("titulo"), 17, VERDE, bold=True, align="center", extra="margin-top:12px;")
+            + (_p(v.get("texto"), 15, align="center") if v.get("texto") else "")
+            + _boton("VER EL VIDEO", v.get("url"), align="center"))
+
 
 def _e(t):
     return _html.escape(str(t or ""))
@@ -127,6 +141,7 @@ def armar_html(plantilla, d):
                        f'<td width="52%" valign="top" style="padding-right:12px">{tit}{_p(ep.get("texto"), 14)}'
                        f'<a href="{_e(ep.get("url") or "#")}" style="font-family:{FUENTE};font-size:13px;color:{AZUL};font-weight:bold">Escuchar el episodio →</a></td>'
                        f'<td width="48%" valign="top">{img}</td></tr></table><hr style="border:0;border-top:1px solid {AZUL};margin:4px 0 14px 0">')
+        cuerpo += _bloque_video(d.get("video"))
         cuerpo += _p(d.get("cierre_destacado"), 15, AZUL, bold=True, align="center", extra="text-transform:uppercase;")
         cuerpo += _p(d.get("cierre"), 15) + _p(d.get("firma"), 15) + "</div>"
         return _marco(cuerpo, d.get("asunto") or "Reviví")
@@ -155,6 +170,7 @@ def armar_html(plantilla, d):
             items.append(f'<p style="margin:0 0 14px 0;font-family:{FUENTE};font-size:15px;color:{GRIS}">{em} {rot}: <a href="{_e(it.get("url") or "#")}" style="color:{VERDE};font-weight:bold">{_e(it.get("titulo"))}</a>{quien}</p>')
     if items:
         cuerpo += _sep() + _img(rc.get("imagen_url"), 544, alt="Recursos para profundizar este mes") + _h("RECURSOS PARA PROFUNDIZAR ESTE MES", size=18) + "".join(items)
+    cuerpo += _bloque_video(d.get("video"))
     cuerpo += _sep(AMARILLO) + _p(d.get("cierre"), 15, align="center") + _p(d.get("firma"), 15, VERDE, bold=True, align="center") + "</div>"
     return _marco(cuerpo, d.get("asunto") or f"Newsletter {d.get('mes', '')}")
 

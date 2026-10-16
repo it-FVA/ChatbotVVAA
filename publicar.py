@@ -276,6 +276,14 @@ def media_id_por_url(cfg, url):
     return None
 
 
+def html_video(video_url, texto_html=""):
+    """(16/10) Bloque de video de WordPress (Gutenberg) con el recorte al principio de la entrada, seguido del texto."""
+    if not video_url:
+        return texto_html
+    return (f'<!-- wp:video --><figure class="wp-block-video"><video controls preload="metadata" src="{video_url}"></video></figure><!-- /wp:video -->\n'
+            + (texto_html or ""))
+
+
 def publicar_wordpress(cfg, titulo, contenido_html, imagen_id=None, categorias=None, quien="", fecha=None):
     """
     Crea una entrada. Según el modo:

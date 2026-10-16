@@ -324,7 +324,8 @@ def _botones_clip(r, por_tramo):
             if PUEDE_PUBLICAR and cols[i + 2].button("📣 Publicar" + (" el vertical" if formato == "vertical" else " el recorte"),
                                                      key=f"{base}_pub_{formato}", help="Reel o historia en Instagram, video en Facebook o short en YouTube."):
                 st.session_state["pieza_video"] = {"video_url": c["url"], "video_formato": formato, "titulo": (r.get("titulo") or "")[:100],
-                                                   "texto": "", "canal": "instagram" if formato == "vertical" else ""}
+                                                   "texto": "", "canal": "instagram" if formato == "vertical" else "",
+                                                   "video_id": vid, "miniatura": f"https://img.youtube.com/vi/{vid}/hqdefault.jpg"}
                 st.session_state.pop("retomar", None)
                 st.session_state["vista"] = "publicar"
                 st.rerun()

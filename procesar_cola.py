@@ -85,8 +85,9 @@ def main():
                 res = publicar.publicar_facebook(cfg, imagen, texto, quien="cola")
             elif canal == "wordpress":
                 # (13/10) piezas aprobadas: la imagen ya está en la biblioteca; va como destacada
-                res = publicar.publicar_wordpress(cfg, titulo, texto, quien="cola",
-                                                  imagen_id=publicar.media_id_por_url(cfg, imagen))
+                # (16/10) con video_url, el recorte va al principio de la entrada
+                res = publicar.publicar_wordpress(cfg, titulo, publicar.html_video(video_url, texto) if video_url else texto, quien="cola",
+                                                  imagen_id=publicar.media_id_por_url(cfg, imagen) if imagen else None)
             else:
                 res = {"ok": False, "aviso": f"canal desconocido: {canal}"}
         except Exception as e:
