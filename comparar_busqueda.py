@@ -70,6 +70,16 @@ MODOS_RERANK = {
     "F · puntaje 0-10, 1000 chars": dict(_C, RERANK_MODO="puntaje", RERANK_CHARS="1000"),
 }
 
+# (16/10) Agrupar por documento (T3 bis), sobre E (producción desde el 16/10). AGRUPAR_PESO: cuánto suman los
+# fragmentos extra de un mismo documento respecto del mejor.
+_E = dict(_C, RERANK_MODO="fusion", RERANK_CHARS="400")
+MODOS_DOC = {
+    "E · producción (sin agrupar)":   dict(_E, AGRUPAR_DOC="0"),
+    "G1 · por documento, peso 0.3":   dict(_E, AGRUPAR_DOC="1", AGRUPAR_PESO="0.3"),
+    "G2 · por documento, peso 1.0":   dict(_E, AGRUPAR_DOC="1", AGRUPAR_PESO="1.0"),
+    "G3 · por documento, peso 0.3, top 100": dict(_E, AGRUPAR_DOC="1", AGRUPAR_PESO="0.3", AGRUPAR_TOP="100"),
+}
+
 # (5/10) Expansión de consulta: producción tal cual está hoy, con y sin los Conceptos relacionados
 # de Pato (CONCEPTOS_URL tiene que estar en secrets.toml). Se usa con --expansion.
 MODOS_EXPANSION = {

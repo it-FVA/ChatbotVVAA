@@ -637,6 +637,37 @@ def buscar(consulta, n=6, excluir=None, fuente=None, autor=None, max_seg=None, r
     return _buscar(consulta, n, excluir, fuente, autor, max_seg, rerank, None)
 
 
+def _agrupar_por_documento(orden, FRS):
+    """(16/10, T3 bis) Puntaje por DOCUMENTO: un artículo largo con varios fragmentos que responden a la consulta
+    sube por encima de un fragmento suelto que solo repite las palabras. Medido contra el set dorado: 7 de las
+    11 fallas eran pedidos de 'material para un posteo' cuya respuesta validada es un artículo entero.
+    AGRUPAR_DOC=1 lo prende (apagado por defecto). Sobre los primeros AGRUPAR_TOP fragmentos del ranking:
+      puntaje(doc) = 1/(60+mejor_rango) + AGRUPAR_PESO · Σ 1/(60+rango) de los demás fragmentos del doc.
+    Devuelve el ranking reordenado: los documentos por puntaje, cada uno representado por su mejor fragmento,
+    y después el resto del ranking tal cual. No toca la recuperación ni el reranker."""
+    if os.environ.get("AGRUPAR_DOC", "0").strip() != "1":
+        return orden
+    top = _env_int("AGRUPAR_TOP", 300)
+    try:
+        peso = float(os.environ.get("AGRUPAR_PESO", "0.3") or 0.3)
+    except ValueError:
+        peso = 0.3
+    puntaje, mejor = {}, {}
+    for rango, k in enumerate(orden[:top]):
+        doc = FRS[int(k)].get("documento_id")
+        v = 1.0 / (60 + rango)
+        if doc not in puntaje:
+            puntaje[doc] = v
+            mejor[doc] = k
+        else:
+            puntaje[doc] += peso * v
+    docs = sorted(puntaje, key=lambda d: -puntaje[d])
+    cabeza = [mejor[d] for d in docs]
+    usados = set(int(k) for k in cabeza)
+    cola = [k for k in orden if int(k) not in usados]
+    return list(cabeza) + list(cola)
+
+
 def _buscar(consulta, n, excluir, fuente, autor, max_seg, rerank, idioma):
     FRS, EMB = cargar()
     excluir = set(excluir or [])
@@ -667,6 +698,7 @@ def _buscar(consulta, n, excluir, fuente, autor, max_seg, rerank, idioma):
                 orden = _rrf(orden, lexico)
         except Exception:
             pass                           # si falta rank_bm25 o falla, sigue vectorial como siempre
+    orden = _agrupar_por_documento(orden, FRS)
     cand, vistos, huellas = [], set(), set()
     limpieza = _limpieza_extra_activa()
     # Cuántos candidatos ve el reranker. Default 15 -> con n=6 da 18, igual que antes.
