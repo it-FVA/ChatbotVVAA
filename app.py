@@ -65,6 +65,7 @@ _T = {
     "volver": {"es": "💬 Volver al chat", "en": "💬 Back to chat", "de": "💬 Zurück zum Chat"},
     "mis": {"es": "📋 Mis publicaciones", "en": "📋 My posts", "de": "📋 Meine Beiträge"},
     "newsletter": {"es": "✉️ Newsletter", "en": "✉️ Newsletter", "de": "✉️ Newsletter"},
+    "recortes": {"es": "🎬 Mis recortes", "en": "🎬 My clips", "de": "🎬 Meine Clips"},
     "renombrar": {"es": "Renombrar", "en": "Rename", "de": "Umbenennen"},
     "borrar": {"es": "🗑️ Borrar conversación", "en": "🗑️ Delete conversation", "de": "🗑️ Gespräch löschen"},
     "sub": {"es": "Búsqueda y armado fundados solo en el material real de la Fundación. Los borradores son para revisión del equipo.",
@@ -146,6 +147,11 @@ with st.sidebar:
     # (13/10) Roles: todos tienen "Mis publicaciones"; los aprobadores, además, el panel admin.
     if st.button(T("mis"), use_container_width=True):
         st.session_state.vista = "mis"
+        st.rerun()
+    # (16/10, revisión de UX) "Mis recortes" con botón propio: como filtro adentro de Mis publicaciones no se encontraba.
+    if st.button(T("recortes"), use_container_width=True):
+        st.session_state.vista = "mis"
+        st.session_state["mis_filtro"] = "🎬 mis recortes"
         st.rerun()
     # (15/10) Canal Newsletter: editor con plantillas, para todos (pasa por aprobación como cualquier pieza).
     if IDIOMA == "es" and st.button(T("newsletter"), use_container_width=True):

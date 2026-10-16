@@ -192,7 +192,7 @@ def _limpiar_widgets():
 
 def render(usuario):
     st.markdown("### ✉️ Newsletter (email a la comunidad)")
-    st.caption("No es una entrada de la web: eso va por «🌐 WordPress» en el recuadro de publicar.")
+    st.caption("No es una entrada de la web: eso va por «🌐 Blogpost» en el recuadro de publicar.")
     rol = publicar_ui.roles(usuario)
     d = _datos()
     plantilla = st.session_state.get("nl_plantilla", "mensual")
