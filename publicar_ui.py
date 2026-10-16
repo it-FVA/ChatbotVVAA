@@ -393,8 +393,10 @@ def _mis_recortes(usuario):
         st.caption("Todavía no pediste ningún recorte. Se piden desde los botones «✂️ Pedir el recorte» / «📱 Pedir en vertical» "
                    "debajo de cada video en el chat, o diciéndole al bot «pedime ese tramo en vertical».")
         return
-    st.caption("Los recortes tardan unos 15 minutos. Cuando están listos aparece el link y el botón para publicar.")
+    st.caption("Los recortes tardan unos 15 minutos. Cuando están listos aparece el link y el botón para publicar. "
+               "Borrá los que no vayas a usar: cada uno ocupa entre 5 y 50 MB en WordPress.")
     _EST = {"listo": "✅ listo", "pedido": "⏳ en proceso", "error": "⚠ error"}
+    cfg = publicar.Config(st.secrets)
     for c in filas:
         with st.container(border=True):
             c1, c2 = st.columns([1, 3])
@@ -405,9 +407,31 @@ def _mis_recortes(usuario):
                         f"{_fecha(c.get('creado'))} · {fmt} · {mmss_(c['inicio_ms'])}–{mmss_(c['fin_ms'])} · {_EST.get(c.get('estado'), c.get('estado'))}")
             if c.get("estado") == "error" and c.get("error"):
                 c2.caption(c["error"][:160])
+            # (16/10, Franco) Borrar: saca el archivo de WordPress y el registro. Avisa si una publicación lo usa.
+            if c.get("estado") in ("error", "pedido") or not c.get("url"):
+                if c2.button("🗑 Borrar", key=f"rec_del_{c['id']}", help="Saca este pedido de la lista."):
+                    db.borrar_clip(c["id"])
+                    st.rerun()
             if c.get("estado") == "listo" and c.get("url"):
-                b1, b2, _ = c2.columns([1, 1, 2])
+                b1, b2, b3, b4 = c2.columns([1.2, 1, 1, 1.2])
                 b1.link_button("Abrir el recorte ↗", c["url"])
+                usados = []
+                try:
+                    usados = db.publicaciones_con_video(c["url"])
+                except Exception:
+                    pass
+                conf = b4.checkbox("confirmo", key=f"rec_conf_{c['id']}", help="Marcá para habilitar Borrar." + (" OJO: este recorte está en una publicación." if usados else ""))
+                if usados:
+                    c2.caption("⚠ Este recorte está usado en: " + ", ".join(f"{u.get('canal')} ({u.get('estado')})" for u in usados[:4])
+                               + ". Si lo borrás, un blogpost que lo tenga embebido se queda sin video; Instagram, Facebook y YouTube ya tienen su copia.")
+                if b3.button("🗑 Borrar", key=f"rec_del_{c['id']}", disabled=not conf):
+                    ok, aviso = publicar.borrar_media_por_url(cfg, c["url"], quien=usuario)
+                    if ok:
+                        db.borrar_clip(c["id"])
+                        st.toast("Recorte borrado (archivo y registro).")
+                        st.rerun()
+                    else:
+                        st.error(aviso)
                 if b2.button("📣 Publicar", key=f"rec_pub_{c['id']}"):
                     st.session_state["pieza_video"] = {"video_url": c["url"], "video_formato": c.get("formato"), "titulo": (c.get("titulo") or "")[:100],
                                                        "texto": "", "canal": "instagram" if c.get("formato") == "vertical" else "",

@@ -361,6 +361,19 @@ def actualizar_clip(cid, campos):
     return _req("PATCH", f"?id=eq.{cid}", campos, tabla="clips")
 
 
+def borrar_clip(cid):
+    """(16/10) Saca el pedido de la tabla (el archivo de WordPress se borra aparte, en publicar.borrar_media_por_url)."""
+    return _req("DELETE", f"?id=eq.{cid}", tabla="clips")
+
+
+def publicaciones_con_video(url):
+    """Piezas (de cualquier estado menos borrador/prueba) cuyo resultado tiene ese video_url: para avisar antes de borrar un recorte."""
+    if not disponible() or not url:
+        return []
+    q = "?select=id,usuario,canal,estado,titulo&resultado->>video_url=eq." + urllib.parse.quote(url) + "&estado=not.in.(borrador,prueba,simulada,rechazada,cancelada)"
+    return _req("GET", q, tabla="publicaciones") or []
+
+
 def listar_publicaciones(usuario=None, limite=30):
     if not disponible():
         return []

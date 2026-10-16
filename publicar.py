@@ -284,6 +284,20 @@ def html_video(video_url, texto_html=""):
             + (texto_html or ""))
 
 
+def borrar_media_por_url(cfg, url, quien=""):
+    """(16/10) Borra de la biblioteca de WordPress el archivo con esa URL (force=true: sin papelera; los adjuntos no la tienen).
+    Devuelve (ok, aviso). Lo usa «Mis recortes» para que las pruebas no ocupen espacio."""
+    mid = media_id_por_url(cfg, url)
+    if not mid:
+        return False, "No encontré el archivo en la biblioteca de WordPress (quizá ya estaba borrado)."
+    r, err = _http(_wp_api(cfg, f"media/{mid}?force=true"), "DELETE", _wp_headers(cfg, {}))
+    if r and (r.get("deleted") or r.get("id")):
+        _registrar({"canal": "wordpress", "accion": "borrar_media", "id": mid, "url": url, "quien": quien, "resultado": "BORRADO"})
+        return True, "Archivo borrado de WordPress."
+    _registrar({"canal": "wordpress", "accion": "borrar_media", "id": mid, "url": url, "quien": quien, "resultado": "error", "error": err})
+    return False, "WordPress no lo borró: " + json.dumps(err, ensure_ascii=False)[:160]
+
+
 def publicar_wordpress(cfg, titulo, contenido_html, imagen_id=None, categorias=None, quien="", fecha=None):
     """
     Crea una entrada. Según el modo:
