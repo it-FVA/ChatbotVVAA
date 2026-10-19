@@ -319,13 +319,15 @@ def listar_mis_propuestas(usuario, limite=10):
 
 # ---------------- Clips exactos (15/10, pedido de Beto) ----------------
 # Tabla clips(video_id, inicio_ms, fin_ms, formato, estado, url, pedido_por, titulo, error, procesado_en,
-#             srt, edicion, nota).
+#             srt, edicion, nota, estilo).
 # Estados: 'pedido' (lo pidió alguien desde una tarjeta del chat) → 'listo' (recortar_pendientes.yml lo
 # cortó desde el original en Drive y lo subió a WordPress; url) o 'error'.
 # (19/10) srt: los subtítulos tal como se quemaron (solo vertical). edicion (JSON): lo que la persona cambió desde
-# «✏️ Editar recorte» y la cola aplica al regenerar; hoy {"srt": "..."} (subtítulos corregidos); previsto (pedido de
-# Franco 19/10): "inicio_ms"/"fin_ms" (trim) y "estilo" (tipografía, color, tamaño, posición de los subtítulos).
-# nota: aviso corto que se ve en la tarjeta. (La columna srt_editado quedó vacía y se puede borrar.)
+# «✏️ Editar recorte» y la cola aplica al regenerar: {"srt": "..."} (subtítulos corregidos), "inicio_ms"/"fin_ms" (tramo
+# nuevo; al terminar la cola los pasa a las columnas y los saca del JSON) y "estilo" (tipografía, tamaño, colores,
+# negrita, posición de los subtítulos; ver recortar_clip.ESTILO_DEFECTO). estilo (19/10, tarde): el estilo con el que
+# se quemaron los subtítulos (lo escribe la cola; la sección «Estilo» arranca de ahí). nota: aviso corto que se ve
+# en la tarjeta. (La columna srt_editado quedó vacía y se puede borrar.)
 
 def clips_de(video_ids):
     """Todos los clips (en cualquier estado) de esos videos, para dibujar las tarjetas en una sola consulta."""
@@ -359,11 +361,38 @@ def listar_clips(limite=60):
     """Todos los clips, más recientes primero (solapa Clips del panel admin)."""
     if not disponible():
         return []
-    return _req("GET", f"?select=id,creado,video_id,inicio_ms,fin_ms,formato,titulo,pedido_por,estado,url,error,procesado_en,srt,edicion,nota&order=creado.desc&limit={limite}", tabla="clips") or []
+    return _req("GET", f"?select=id,creado,video_id,inicio_ms,fin_ms,formato,titulo,pedido_por,estado,url,error,procesado_en,srt,edicion,nota,estilo&order=creado.desc&limit={limite}", tabla="clips") or []
 
 
 def actualizar_clip(cid, campos):
     return _req("PATCH", f"?id=eq.{cid}", campos, tabla="clips")
+
+
+# ---------------- Configuraciones persistentes (19/10) ----------------
+# Tabla config(clave text pk, valor jsonb, actualizado, por): lo que el equipo ajusta desde el Panel admin y tiene que
+# valer también para la cola de GitHub Actions (que no ve st.session_state ni secrets de Streamlit). Hoy una sola clave:
+# 'clips_estilo' = estilo por defecto de los subtítulos de los recortes nuevos (migración config_tabla_y_clips_estilo).
+
+def obtener_config(clave, defecto=None):
+    if not disponible():
+        return defecto
+    r = _req("GET", f"?clave=eq.{urllib.parse.quote(clave)}&select=valor", tabla="config")
+    return r[0]["valor"] if r else defecto
+
+
+def guardar_config(clave, valor, usuario=None):
+    """Crea o reemplaza la clave (upsert por la clave primaria)."""
+    url, key = _cfg()
+    data = json.dumps({"clave": clave, "valor": valor, "por": usuario,
+                       "actualizado": datetime.now(timezone.utc).isoformat()}).encode("utf-8")
+    req = urllib.request.Request(f"{url}/rest/v1/config", data=data, method="POST", headers={
+        "apikey": key, "Authorization": "Bearer " + key, "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates,return=representation"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return json.loads(r.read().decode("utf-8") or "[]")
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"Supabase {e.code}: {e.read().decode('utf-8','ignore')[:200]}")
 
 
 def borrar_clip(cid):

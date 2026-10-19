@@ -25,6 +25,10 @@ palabra), el clip sale con subtítulos quemados en Raleway (fuentes/). Por defec
 Subtítulos corregidos (19/10, pregunta de Julián en la reunión): cortar() acepta `srt_texto`, un SRT ya armado (el que
 la persona corrigió en «Mis recortes», guardado en clips.edicion["srt"]) y lo quema tal cual; devuelve el SRT usado para
 guardarlo en clips.srt. Prueba local sin Drive ni WordPress: --original <ruta.mp4> --srt <archivo.srt> --sin-subir.
+
+Estilo de los subtítulos (19/10, tarde, pedido de Franco): tipografía (FUENTES_CLIPS), tamaño, color del texto, fondo/borde,
+negrita y posición, elegidos en «Editar recorte → Estilo» o como estilo por defecto en el Panel admin (tabla config). Se
+aplican vía force_style de libass (estilo_ass). Prueba local: --estilo '{"color":"amarillo de la marca","posicion":"centro"}'.
 """
 import argparse, io, json, os, re, subprocess, shutil
 
@@ -112,18 +116,83 @@ def armar_srt(palabras, inicio, fin, max_car=34, max_seg=2.8, pausa=0.7):
 
 FUENTE_SUB = "Raleway-Clips-SemiBold.ttf"   # instancia fija (wght 600) de Raleway-Variable, familia "Raleway Clips": libass no maneja fuentes variables
 
+# ---------------- Estilo de los subtítulos (19/10, tarde; pedido de Franco) ----------------
+# Lo que la persona elige en «✏️ Editar recorte → Estilo» (o el estilo por defecto del Panel admin, tabla config,
+# clave 'clips_estilo') llega como dict con estas claves y se traduce al force_style de libass en estilo_ass().
+# Tipografías: solo .ttf fijos (no variables) de fuentes/. nombre visible → (archivo, nombre de familia que ve libass).
+FUENTES_CLIPS = {
+    "Raleway": ("Raleway-Clips-SemiBold.ttf", "Raleway Clips"),   # la de la Fundación; semibold fijo
+    "Lato": ("Lato-Regular.ttf", "Lato"),
+}
+TAMANOS = {"chico": 0.82, "normal": 1.0, "grande": 1.25}            # multiplican el tamaño base del formato
+COLORES = {   # nombre visible → RGB (hex). libass los quiere en BGR: lo hace _ass_color.
+    "blanco": "FFFFFF",
+    "negro": "000000",
+    "amarillo de la marca": "F4B43C",   # el de los botones del newsletter
+    "crema": "FFF4D6",
+    "verde de la marca": "3A6B35",
+}
+FONDOS = {   # qué va detrás o alrededor de las letras. nombre visible → (tipo, color hex o None, alpha 00=opaco..FF=transparente)
+    "sombra oscura": ("caja", "000000", "90"),    # lo de siempre: caja negra translúcida
+    "caja negra": ("caja", "000000", "20"),
+    "caja blanca": ("caja", "FFFFFF", "20"),
+    "caja amarilla": ("caja", "F4B43C", "20"),
+    "borde negro": ("borde", "000000", "00"),
+    "borde blanco": ("borde", "FFFFFF", "00"),
+    "sin fondo": ("nada", None, "FF"),
+}
+POSICIONES_SUB = {"abajo": 2, "centro": 10, "arriba": 6}   # Alignment en numeración SSA (la que usa force_style sobre un SRT: +4 arriba, +8 medio); probado el 19/10: con 5/8 salía arriba a la izquierda
+ESTILO_DEFECTO = {"tipografia": "Raleway", "tamano": "normal", "color": "blanco", "fondo": "sombra oscura",
+                  "negrita": False, "posicion": "abajo"}
 
-def _filtro_subtitulos(srt, formato):
-    """Filtro ffmpeg para quemar el SRT. La fuente se copia a ./sub_fuentes (ruta relativa: una letra de unidad
-    con ":" rompe el parser de filtros en Windows). Tamaño según el formato."""
+
+def normalizar_estilo(estilo):
+    """Completa con ESTILO_DEFECTO y descarta valores que no están en las listas (una clave vieja o un typo no rompe la cola)."""
+    e = dict(ESTILO_DEFECTO)
+    for k, v in (estilo or {}).items():
+        if k == "negrita":
+            e[k] = bool(v)
+        elif k in e and v in {"tipografia": FUENTES_CLIPS, "tamano": TAMANOS, "color": COLORES, "fondo": FONDOS,
+                              "posicion": POSICIONES_SUB}[k]:
+            e[k] = v
+    return e
+
+
+def _ass_color(hex_rgb, alpha="00"):
+    """'F4B43C' → '&H00 3C B4 F4' (libass: &HAABBGGRR)."""
+    r, g, b = hex_rgb[0:2], hex_rgb[2:4], hex_rgb[4:6]
+    return f"&H{alpha}{b}{g}{r}"
+
+
+def estilo_ass(estilo, formato="vertical"):
+    """Dict de estilo → cadena force_style de libass. Tamaños sobre PlayResY=288 (libass escala solo al alto real)."""
+    e = normalizar_estilo(estilo)
+    base, margen = (17, 46) if formato == "vertical" else (13, 24)
+    tam = max(8, int(round(base * TAMANOS[e["tamano"]])))
+    familia = FUENTES_CLIPS[e["tipografia"]][1]
+    tipo, color_fondo, alpha = FONDOS[e["fondo"]]
+    primario = _ass_color(COLORES[e["color"]])
+    if tipo == "caja":
+        # (la «sombra oscura» es exactamente la de antes del 19/10: borde &H70, caja &H90)
+        borde = (f"BorderStyle=4,Outline=1,Shadow=0,OutlineColour={_ass_color(color_fondo, '70' if alpha == '90' else alpha)},"
+                 f"BackColour={_ass_color(color_fondo, alpha)}")
+    elif tipo == "borde":
+        borde = f"BorderStyle=1,Outline=2,Shadow=0,OutlineColour={_ass_color(color_fondo, alpha)},BackColour=&HFF000000"
+    else:
+        borde = "BorderStyle=1,Outline=0,Shadow=0,OutlineColour=&HFF000000,BackColour=&HFF000000"
+    return (f"FontName={familia},FontSize={tam},PrimaryColour={primario},{borde},Bold={'1' if e['negrita'] else '0'},"
+            f"Alignment={POSICIONES_SUB[e['posicion']]},MarginV={margen},MarginL=14,MarginR=14")
+
+
+def _filtro_subtitulos(srt, formato, estilo=None):
+    """Filtro ffmpeg para quemar el SRT. Las fuentes se copian a ./sub_fuentes (ruta relativa: una letra de unidad
+    con ":" rompe el parser de filtros en Windows). Estilo: ver estilo_ass (None = ESTILO_DEFECTO)."""
     os.makedirs("sub_fuentes", exist_ok=True)
-    origen = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fuentes", FUENTE_SUB)
-    if not os.path.exists(os.path.join("sub_fuentes", FUENTE_SUB)):
-        shutil.copy(origen, os.path.join("sub_fuentes", FUENTE_SUB))
-    tam, margen = (17, 46) if formato == "vertical" else (13, 24)     # sobre PlayResY=288 (libass escala solo)
-    estilo = (f"FontName=Raleway Clips,FontSize={tam},PrimaryColour=&H00FFFFFF,OutlineColour=&H70000000,"
-              f"BackColour=&H90000000,BorderStyle=4,Outline=1,Shadow=0,Alignment=2,MarginV={margen},MarginL=14,MarginR=14")
-    return f"subtitles={srt}:fontsdir=sub_fuentes:force_style='{estilo}'"
+    carpeta = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fuentes")
+    for archivo, _ in FUENTES_CLIPS.values():
+        if not os.path.exists(os.path.join("sub_fuentes", archivo)):
+            shutil.copy(os.path.join(carpeta, archivo), os.path.join("sub_fuentes", archivo))
+    return f"subtitles={srt}:fontsdir=sub_fuentes:force_style='{estilo_ass(estilo, formato)}'"
 
 
 def quiere_subtitulos(formato, opcion="auto"):
@@ -131,12 +200,13 @@ def quiere_subtitulos(formato, opcion="auto"):
     return opcion == "si" or (opcion == "auto" and formato == "vertical")
 
 
-def cortar(entrada, salida, inicio, fin, ffmpeg="ffmpeg", formato="horizontal", palabras=None, srt_texto=None):
+def cortar(entrada, salida, inicio, fin, ffmpeg="ffmpeg", formato="horizontal", palabras=None, srt_texto=None, estilo=None):
     """formato 'horizontal': el tramo tal cual (hasta 1280 de ancho). 'vertical' (15/10, pedido de Franco: shorts,
     reels, historias): lienzo 1080x1920 con el video centrado y, de fondo, el mismo video desenfocado.
     palabras: lista [[palabra, inicio_ms, fin_ms], ...] del video entero → subtítulos quemados (None = sin).
     srt_texto (19/10): un SRT ya armado (tiempos relativos al clip) que se quema tal cual en vez de armarlo desde
     `palabras`; es lo que manda cuando la persona corrigió los subtítulos en «Mis recortes».
+    estilo (19/10, tarde): dict con tipografia/tamano/color/fondo/negrita/posicion (ver ESTILO_DEFECTO); None = el de siempre.
     Devuelve el texto SRT que se quemó ('' si el clip salió sin subtítulos)."""
     sub, srt_txt = "", ""
     if srt_texto and srt_texto.strip():
@@ -146,7 +216,7 @@ def cortar(entrada, salida, inicio, fin, ffmpeg="ffmpeg", formato="horizontal", 
     if srt_txt:
         srt = os.path.splitext(os.path.basename(salida))[0] + ".srt"   # en el cwd, sin ":" ni barras que confundan al filtro
         open(srt, "w", encoding="utf-8").write(srt_txt)
-        sub = "," + _filtro_subtitulos(srt, formato)
+        sub = "," + _filtro_subtitulos(srt, formato, estilo)
     if formato == "vertical":
         vf = ("[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:5,eq=brightness=-0.08[bg];"
               "[0:v]scale=1080:-2[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2,format=yuv420p" + sub)
@@ -200,6 +270,7 @@ def main():
     ap.add_argument("--original", default="", help="(19/10) ruta local del original: no baja nada de Drive (busca <nombre>.palabras.json al lado)")
     ap.add_argument("--srt", default="", help="(19/10) archivo .srt ya armado (tiempos relativos al clip): se quema tal cual")
     ap.add_argument("--sin-subir", action="store_true", help="(19/10) solo cortar, sin subir a WordPress")
+    ap.add_argument("--estilo", default="", help='(19/10) estilo de los subtítulos, JSON: {"tipografia":"Lato","tamano":"grande","color":"amarillo de la marca","fondo":"borde negro","negrita":true,"posicion":"centro"}')
     a = ap.parse_args()
     nombre = a.nombre or a.youtube or a.drive_id or os.path.splitext(os.path.basename(a.original))[0]
     srt_texto = open(a.srt, encoding="utf-8").read() if a.srt else None
@@ -218,7 +289,8 @@ def main():
         descargar_drive(svc, file_id, original)
         palabras = buscar_palabras(svc, a.youtube or nombre) if quiere else None
     clip = f"clip-{nombre}-{int(a.inicio)}-{int(a.fin)}{'-vertical' if a.formato == 'vertical' else ''}.mp4"
-    con_sub = cortar(original, clip, a.inicio, a.fin, a.ffmpeg, a.formato, palabras, srt_texto)
+    estilo = json.loads(a.estilo) if a.estilo else None
+    con_sub = cortar(original, clip, a.inicio, a.fin, a.ffmpeg, a.formato, palabras, srt_texto, estilo)
     print(f"clip: {clip} ({os.path.getsize(clip) // 1024} KB){' · con subtítulos' if con_sub else ''}")
     if a.sin_subir:
         return

@@ -409,8 +409,8 @@ def _mis_recortes(usuario, todos=False):
             fmt = "📱 vertical" if c.get("formato") == "vertical" else "🎬 horizontal"
             estado_txt = _EST.get(c.get("estado"), c.get("estado"))
             regenerando = c.get("estado") == "pedido" and bool(c.get("edicion")) and bool(c.get("url"))
-            if regenerando:   # (19/10) ya había un video listo y se pidió rehacerlo con los subtítulos corregidos
-                estado_txt = "⏳ regenerando con subtítulos corregidos"
+            if regenerando:   # (19/10) ya había un video listo y se pidió rehacerlo con cambios (tramo, subtítulos o estilo)
+                estado_txt = "⏳ regenerando con los cambios"
             c2.markdown(f"**{(c.get('titulo') or c['video_id'])[:90]}**  \n"
                         f"{_fecha(c.get('creado'))} · {fmt} · {mmss_(c['inicio_ms'])}–{mmss_(c['fin_ms'])} · {estado_txt}"
                         + (f" · pidió **{c.get('pedido_por') or '—'}**" if todos else ""))
@@ -455,63 +455,224 @@ def _mis_recortes(usuario, todos=False):
                     st.session_state.pop("retomar", None)
                     st.session_state["vista"] = "publicar"
                     st.rerun()
-                if c.get("formato") == "vertical":
-                    _editor_recorte(c, usuario)
+                _editor_recorte(c, usuario)   # (19/10) Tramo en los dos formatos; Subtítulos y Estilo solo en vertical
 
 
 def _editor_recorte(c, usuario):
-    """(19/10) «✏️ Editar recorte» en un recorte vertical listo: una sola pantalla con secciones y un único botón «Regenerar».
-    Hoy la única sección es «Subtítulos» (pregunta de Julián en la reunión: "¿y si la transcripción entendió mal una
-    palabra?"): las líneas tal como se quemaron (clips.srt: texto y tiempos), una caja por línea. Previstas (pedido de
-    Franco, NO hechas): «Tramo» (ajustar inicio/fin y volver a cortar) y «Estilo» (tipografía, color, negrita/tamaño,
-    posición de los subtítulos, con controles como los de la frase sobre la imagen en `formulario`).
-    Todo lo que cambia la persona va a un único JSON clips.edicion (hoy {"srt": ...}; después inicio_ms/fin_ms/estilo);
+    """(19/10) «✏️ Editar recorte» en un recorte listo: una sola pantalla con secciones y un único botón «Regenerar».
+    Secciones: «Tramo» (horizontal y vertical: mover el inicio y el fin, −1 s / +1 s), «Subtítulos» (solo vertical: las
+    líneas tal como se quemaron, clips.srt, una caja por línea) y «Estilo» (solo vertical: tipografía, tamaño, colores,
+    negrita, posición, con vista previa; arranca del estilo con que se quemó o del por defecto del Panel admin).
+    Todo lo que cambia la persona va a un único JSON clips.edicion ({"srt", "inicio_ms", "fin_ms", "estilo"});
     «Regenerar» lo guarda, vuelve el pedido a 'pedido' y la cola de la nube lo aplica: corta de nuevo, sube el video
     nuevo y borra el anterior de WordPress (~15 min)."""
     import recortar_clip as rc
     edicion = dict(c.get("edicion") or {})
+    vertical = c.get("formato") == "vertical"
     srt = edicion.get("srt") or c.get("srt") or ""
-    if not srt.strip():
-        st.caption("✏️ Este recorte se hizo antes de que guardáramos los subtítulos, así que no se pueden editar. "
-                   "Si hace falta corregirlos, borralo y pedilo de nuevo.")
-        return
     key = f"rec_edit_{c['id']}"
     abierto = st.session_state.get(key, False)
     if st.button("✏️ Editar recorte" if not abierto else "Cerrar sin cambios", key=f"{key}_btn",
-                 help="Corregí los subtítulos y pedí el video de nuevo."):
+                 help="Ajustá el tramo" + (", corregí los subtítulos o cambiá su estilo" if vertical else "") + " y pedí el video de nuevo."):
         st.session_state[key] = not abierto
         st.rerun()
     if not abierto:
         return
     nueva = dict(edicion)   # lo que se va a guardar en clips.edicion; cada sección agrega sus claves
+    partes = []             # para la nota de la tarjeta
+    valido = True
 
-    # --- Sección Subtítulos (hoy la única; después se suman «Tramo» y «Estilo» con el mismo esquema) ---
-    st.markdown("**Subtítulos**")
-    st.caption("Una caja por línea, con el momento en que aparece. Corregí el texto; si dejás una línea vacía, se saca. "
-               "Los tiempos no se cambian desde acá.")
-    nuevas = []
-    for i, l in enumerate(rc.leer_srt(srt)):
-        t0, t1 = l["inicio"][3:8], l["fin"][3:8]   # HH:MM:SS,mmm → MM:SS
-        texto = st.text_input(f"{t0} → {t1}", value=l["texto"], key=f"{key}_{i}", max_chars=80)
-        nuevas.append({"inicio": l["inicio"], "fin": l["fin"], "texto": texto})
-    nuevo_srt = rc.armar_srt_de_lineas(nuevas)
-    if nuevo_srt.strip() != srt.strip():
-        nueva["srt"] = nuevo_srt
-    if not nuevo_srt.strip():
-        st.warning("Quedaron todas las líneas vacías: el video saldría sin subtítulos. Dejá al menos una.")
+    # --- Sección Tramo (19/10 tarde, pedido de Franco): inicio y fin editables, −1 s / +1 s, duración resultante ---
+    st.markdown("**Tramo**")
+    st.caption("Dónde empieza y dónde termina el recorte, en minutos y segundos del video original. "
+               "Los botones mueven de a un segundo. Tiene que durar entre 2 segundos y 3 minutos.")
+    ini0, fin0 = int(c["inicio_ms"]), int(c["fin_ms"])
+    ini_ms = _control_tiempo("Inicio", f"{key}_ini", ini0)
+    fin_ms = _control_tiempo("Fin", f"{key}_fin", fin0)
+    # si no se tocó (la diferencia es solo el redondeo a décimas), queda el tramo exacto de la fila
+    if abs(ini_ms - ini0) < 100:
+        ini_ms = ini0
+    if abs(fin_ms - fin0) < 100:
+        fin_ms = fin0
+    dur = (fin_ms - ini_ms) / 1000
+    tramo_cambio = (ini_ms, fin_ms) != (ini0, fin0)
+    if fin_ms <= ini_ms:
+        st.error("El fin tiene que ser después del inicio.")
+        valido = False
+    elif dur < 2:
+        st.error(f"Dura {dur:.1f} s: muy corto. Tiene que durar al menos 2 segundos.")
+        valido = False
+    elif dur > 180:
+        st.error(f"Dura {dur / 60:.1f} min: muy largo. Como mucho 3 minutos.")
+        valido = False
+    else:
+        st.caption(f"Duración: **{dur:.1f} s**" + (f" (antes {(fin0 - ini0) / 1000:.1f} s)" if tramo_cambio else ""))
+    if tramo_cambio and valido:
+        nueva["inicio_ms"], nueva["fin_ms"] = ini_ms, fin_ms
+        partes.append(f"tramo {mmss_(ini_ms)}–{mmss_(fin_ms)}")
+    else:
+        nueva.pop("inicio_ms", None)
+        nueva.pop("fin_ms", None)
+
+    nuevo_srt = srt
+    if vertical:
+        # --- Sección Subtítulos (19/10, pregunta de Julián): una caja por línea, tiempos fijos ---
+        st.markdown("**Subtítulos**")
+        if tramo_cambio:
+            if edicion.get("srt"):
+                st.warning("Los subtítulos que corregiste corresponden al tramo anterior: con el tramo nuevo pueden quedar "
+                           "corridos o cortados.")
+                if st.checkbox("Descartar los subtítulos corregidos y armarlos de nuevo para el tramo nuevo (después los podés volver a corregir)",
+                               value=True, key=f"{key}_desc"):
+                    nueva.pop("srt", None)
+                    partes.append("subtítulos rearmados")
+            else:
+                st.caption("Como cambiaste el tramo, los subtítulos se arman de nuevo desde la transcripción para el tramo nuevo. "
+                           "Cuando el video esté listo los podés corregir desde acá.")
+        elif not srt.strip():
+            st.caption("Este recorte se hizo antes de que guardáramos los subtítulos, así que no se pueden corregir todavía. "
+                       "Si lo regenerás (por el tramo o el estilo), se arman de nuevo y quedan editables.")
+        else:
+            st.caption("Una caja por línea, con el momento en que aparece. Corregí el texto; si dejás una línea vacía, se saca. "
+                       "Los tiempos no se cambian desde acá.")
+            nuevas = []
+            for i, l in enumerate(rc.leer_srt(srt)):
+                t0, t1 = l["inicio"][3:8], l["fin"][3:8]   # HH:MM:SS,mmm → MM:SS
+                texto = st.text_input(f"{t0} → {t1}", value=l["texto"], key=f"{key}_{i}", max_chars=80)
+                nuevas.append({"inicio": l["inicio"], "fin": l["fin"], "texto": texto})
+            nuevo_srt = rc.armar_srt_de_lineas(nuevas)
+            if nuevo_srt.strip() != srt.strip():
+                nueva["srt"] = nuevo_srt
+                partes.append("subtítulos corregidos")
+            if not nuevo_srt.strip():
+                st.warning("Quedaron todas las líneas vacías: el video saldría sin subtítulos. Dejá al menos una.")
+                valido = False
+
+        # --- Sección Estilo (19/10 tarde, pedido de Franco): tipografía, tamaño, colores, negrita, posición + vista previa ---
+        st.markdown("**Estilo de los subtítulos**")
+        try:
+            defecto = db.obtener_config("clips_estilo")
+        except Exception:
+            defecto = None
+        actual = rc.normalizar_estilo(edicion.get("estilo") or c.get("estilo") or defecto)
+        st.caption("Cómo se ven las letras sobre el video. Arranca con el estilo de este recorte"
+                   + ("" if (edicion.get("estilo") or c.get("estilo")) else " (el por defecto del equipo)") + ".")
+        estilo = _controles_estilo(f"{key}_est", actual)
+        if estilo != actual:
+            nueva["estilo"] = estilo
+            partes.append("estilo")
+        elif "estilo" in edicion:
+            nueva["estilo"] = edicion["estilo"]
 
     # --- Regenerar (único botón para todas las secciones) ---
     cambio = nueva != edicion
-    if st.button("🔁 Regenerar el recorte", key=f"{key}_go", type="primary", disabled=not (cambio and nuevo_srt.strip()),
+    if st.button("🔁 Regenerar el recorte", key=f"{key}_go", type="primary", disabled=not (cambio and valido),
                  help="Vuelve a cortar el video con los cambios. Tarda unos 15 minutos, como cualquier recorte."):
         hoy = datetime.date.today().strftime("%d/%m")
         db.actualizar_clip(c["id"], {"edicion": nueva, "estado": "pedido", "error": None,
-                                     "nota": f"Subtítulos corregidos por {usuario} el {hoy}. El video anterior se reemplaza cuando termine."})
+                                     "nota": f"Cambios de {usuario} el {hoy}: {', '.join(partes) or 'edición'}. El video anterior se reemplaza cuando termine."})
         st.session_state[key] = False
         st.toast("Listo, en unos 15 minutos el recorte aparece con los cambios.")
         st.rerun()
     if not cambio:
         st.caption("Todavía no cambiaste nada.")
+
+
+def _control_tiempo(etiqueta, key, ms_inicial):
+    """(19/10) Un momento del video en minutos y segundos (con décimas), con botones −1 s / +1 s. Devuelve milisegundos.
+    Los botones se dibujan antes que las cajas (Streamlit no deja cambiar el valor de un widget ya dibujado en la misma corrida)."""
+    km, ks = f"{key}_m", f"{key}_s"
+    if km not in st.session_state:
+        st.session_state[km] = int(ms_inicial // 60000)
+        st.session_state[ks] = round((ms_inicial % 60000) / 1000, 1)
+    cols = st.columns([1.1, 0.6, 1, 1, 0.6, 1.4])
+    cols[0].markdown(f"**{etiqueta}**")
+    delta = 0
+    if cols[1].button("−1 s", key=f"{key}_menos", help="Un segundo antes"):
+        delta = -1
+    if cols[4].button("+1 s", key=f"{key}_mas", help="Un segundo después"):
+        delta = 1
+    if delta:
+        total = max(0.0, st.session_state[km] * 60 + st.session_state[ks] + delta)
+        st.session_state[km], st.session_state[ks] = int(total // 60), round(total % 60, 1)
+    m = cols[2].number_input("min", min_value=0, max_value=599, step=1, key=km)
+    sg = cols[3].number_input("seg", min_value=0.0, max_value=59.9, step=1.0, format="%.1f", key=ks)
+    cols[5].caption(f"= {int(m):02d}:{sg:04.1f}")
+    return int(round(m * 60000 + sg * 1000))
+
+
+def _controles_estilo(key, inicial):
+    """(19/10) Los controles de estilo de los subtítulos (los mismos en «Editar recorte» y en el estilo por defecto del Panel
+    admin), con la vista previa. inicial: dict normalizado. Devuelve el dict elegido (normalizado)."""
+    import recortar_clip as rc
+    c1, c2, c3, c4 = st.columns(4)
+    fuentes = list(rc.FUENTES_CLIPS)
+    tipografia = c1.selectbox("Tipografía", fuentes, index=fuentes.index(inicial["tipografia"]), key=f"{key}_tipo",
+                              help="Raleway es la de la Fundación. Son las que hay en fuentes/ aptas para subtítulos.")
+    tamanos = list(rc.TAMANOS)
+    tamano = c2.selectbox("Tamaño", tamanos, index=tamanos.index(inicial["tamano"]), key=f"{key}_tam")
+    colores = list(rc.COLORES)
+    color = c3.selectbox("Color del texto", colores, index=colores.index(inicial["color"]), key=f"{key}_col")
+    fondos = list(rc.FONDOS)
+    fondo = c4.selectbox("Fondo o borde", fondos, index=fondos.index(inicial["fondo"]), key=f"{key}_fon",
+                         help="«sombra oscura» es lo de siempre: una caja negra translúcida detrás de cada línea.")
+    d1, d2, d3 = st.columns([1, 1, 2])
+    negrita = d1.checkbox("Negrita", value=bool(inicial["negrita"]), key=f"{key}_neg")
+    posiciones = list(rc.POSICIONES_SUB)
+    posicion = d2.selectbox("Posición", posiciones, index=posiciones.index(inicial["posicion"]), key=f"{key}_pos")
+    estilo = rc.normalizar_estilo({"tipografia": tipografia, "tamano": tamano, "color": color, "fondo": fondo,
+                                   "negrita": negrita, "posicion": posicion})
+    with d3:
+        st.markdown(_vista_previa_estilo(estilo), unsafe_allow_html=True)
+    return estilo
+
+
+def _vista_previa_estilo(estilo, texto="La gratitud es la llave de la alegría"):
+    """(19/10) Un recuadro HTML 9:16 con una línea de ejemplo como quedaría quemada (aproximado: el video real lo dibuja libass)."""
+    import recortar_clip as rc
+    e = rc.normalizar_estilo(estilo)
+    familia = {"Raleway": "'Raleway', sans-serif", "Lato": "'Lato', sans-serif"}.get(e["tipografia"], "sans-serif")
+    peso = 700 if e["negrita"] else (600 if e["tipografia"] == "Raleway" else 400)
+    tam = int(round(15 * rc.TAMANOS[e["tamano"]]))
+    color = "#" + rc.COLORES[e["color"]]
+    tipo, hexf, alpha = rc.FONDOS[e["fondo"]]
+    if tipo == "caja":
+        op = 1 - int(alpha, 16) / 255
+        r, g, b = int(hexf[0:2], 16), int(hexf[2:4], 16), int(hexf[4:6], 16)
+        deco = f"background:rgba({r},{g},{b},{op:.2f});padding:3px 8px;border-radius:3px;box-decoration-break:clone;-webkit-box-decoration-break:clone;"
+    elif tipo == "borde":
+        deco = (f"text-shadow:-2px -2px 0 #{hexf},2px -2px 0 #{hexf},-2px 2px 0 #{hexf},2px 2px 0 #{hexf},"
+                f"0 2px 0 #{hexf},0 -2px 0 #{hexf},2px 0 0 #{hexf},-2px 0 0 #{hexf};")
+    else:
+        deco = ""
+    alinear = {"abajo": "flex-end", "centro": "center", "arriba": "flex-start"}[e["posicion"]]
+    return (
+        "<style>@import url('https://fonts.googleapis.com/css2?family=Raleway:wght@600;700&family=Lato:wght@400;700&display=swap');</style>"
+        f"<div style='width:170px;height:300px;border-radius:12px;background:linear-gradient(165deg,#5a6b5d 0%,#2b3a30 55%,#1a241e 100%);"
+        f"display:flex;align-items:{alinear};justify-content:center;padding:28px 12px;box-sizing:border-box;'>"
+        f"<span style='font-family:{familia};font-weight:{peso};font-size:{tam}px;line-height:1.35;color:{color};text-align:center;{deco}'>{texto}</span>"
+        "</div><div style='font-size:11px;color:#888;margin-top:4px'>vista previa aproximada</div>"
+    )
+
+
+def estilo_por_defecto_admin(usuario):
+    """(19/10) Panel admin → Clips: el estilo por defecto de los subtítulos de los recortes nuevos (tabla config, clave
+    'clips_estilo'). Los recortes ya hechos no cambian; cada uno se puede ajustar desde «Editar recorte → Estilo»."""
+    import recortar_clip as rc
+    try:
+        guardado = db.obtener_config("clips_estilo")
+    except Exception as e:
+        st.error(f"No pude leer el estilo por defecto: {e}")
+        return
+    with st.expander("🎨 Estilo por defecto de los subtítulos (recortes verticales nuevos)", expanded=False):
+        st.caption("Con este estilo salen los subtítulos de todos los recortes verticales que se pidan de acá en más. "
+                   "Los que ya están hechos no cambian; cada uno se ajusta desde «✏️ Editar recorte».")
+        estilo = _controles_estilo("cfg_est", rc.normalizar_estilo(guardado))
+        if st.button("💾 Guardar como estilo por defecto", key="cfg_est_go", type="primary",
+                     disabled=(estilo == rc.normalizar_estilo(guardado))):
+            db.guardar_config("clips_estilo", estilo, usuario)
+            st.toast("Estilo por defecto guardado.")
+            st.rerun()
 
 
 def mmss_(ms):
@@ -607,6 +768,7 @@ def panel_aprobacion(usuario):
     with t5:
         # (15/10) Clips exactos pedidos desde el chat. (16/10, UX) Mismas tarjetas que «Mis recortes», para todo el equipo.
         st.caption("Recortes pedidos desde el chat por todo el equipo. Los corta la nube cada 15 minutos desde los originales en Drive.")
+        estilo_por_defecto_admin(usuario)   # (19/10) estilo por defecto de los subtítulos
         _mis_recortes(usuario, todos=True)
     with t4:
         # (15/10) Conversaciones borradas por cualquier usuario: se pueden restaurar durante 30 días.

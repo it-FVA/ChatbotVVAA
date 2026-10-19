@@ -5,7 +5,11 @@ corta cada tramo desde el original en Drive (recortar_clip.py), lo sube a WordPr
 la fila ('listo'); si falla, 'error' con el motivo (se ve en el Panel admin).
 (19/10) El SRT que se quemó queda en la fila (clips.srt). Si la persona lo corrigió desde «Mis recortes»
 (clips.edicion = {"srt": ...}, estado vuelve a 'pedido'), se quema ese tal cual, se sube el video nuevo y se borra el anterior
-de WordPress. El mismo JSON va a traer después "inicio_ms"/"fin_ms" (trim) y "estilo" (subtítulos): se aplican acá.
+de WordPress. (19/10, tarde) El mismo JSON trae "inicio_ms"/"fin_ms" (tramo nuevo: se corta con esos tiempos, en vertical se
+rearman los subtítulos desde las palabras salvo que también venga "srt", y al terminar los tiempos pasan a las columnas de la
+fila) y "estilo" (tipografía, tamaño, colores, negrita, posición de los subtítulos → recortar_clip.estilo_ass). Los recortes
+sin "estilo" usan el estilo por defecto del Panel admin (tabla config, clave 'clips_estilo'); el estilo aplicado queda en
+clips.estilo.
 
 Variables de entorno: SUPABASE_URL, SUPABASE_KEY, DRIVE_TOKEN_JSON, WP_SITE, WP_USER, WP_APP_PASSWORD,
 PUBLICAR_WORDPRESS. Local: python procesar_clips.py (lee .streamlit/secrets.toml si faltan).
@@ -37,11 +41,23 @@ def main():
     svc = rc._drive()
     cfg = publicar.Config(os.environ)
     ffmpeg = os.environ.get("FFMPEG") or shutil.which("ffmpeg") or "ffmpeg"
+    try:
+        estilo_defecto = db.obtener_config("clips_estilo")   # (19/10) el del Panel admin; None = rc.ESTILO_DEFECTO
+    except Exception as e:
+        print("  (no pude leer el estilo por defecto, uso el de siempre:", e, ")")
+        estilo_defecto = None
     for p in pedidos:
         cid, vid = p["id"], p["video_id"]
-        ini, fin, fmt = p["inicio_ms"] / 1000, p["fin_ms"] / 1000, p.get("formato") or "horizontal"
-        print(f"- {vid} {ini:.1f}-{fin:.1f} {fmt} (pidió {p.get('pedido_por')})", flush=True)
+        edicion = p.get("edicion") or {}
+        # (19/10, tarde) tramo: el de la edición si la persona lo cambió; si no, el de la fila
+        ini_ms = int(edicion["inicio_ms"] if edicion.get("inicio_ms") is not None else p["inicio_ms"])
+        fin_ms = int(edicion["fin_ms"] if edicion.get("fin_ms") is not None else p["fin_ms"])
+        tramo_cambio = (ini_ms, fin_ms) != (int(p["inicio_ms"]), int(p["fin_ms"]))
+        ini, fin, fmt = ini_ms / 1000, fin_ms / 1000, p.get("formato") or "horizontal"
+        print(f"- {vid} {ini:.1f}-{fin:.1f} {fmt} (pidió {p.get('pedido_por')})" + (" · tramo nuevo" if tramo_cambio else ""), flush=True)
         try:
+            if fin_ms - ini_ms < 1000:
+                raise RuntimeError(f"tramo inválido ({ini_ms}-{fin_ms} ms)")
             file_id = rc.buscar_original(svc, vid)
             if not file_id:
                 # (15/10) sigue en 'pedido' (no 'error'): se vuelve a intentar en cada corrida hasta que el original esté en Drive
@@ -52,22 +68,35 @@ def main():
             if not os.path.exists(original):
                 rc.descargar_drive(svc, file_id, original)
             clip = f"clip-{vid}-{int(ini)}-{int(fin)}{'-vertical' if fmt == 'vertical' else ''}.mp4"
-            # (19/10) edicion = lo que la persona cambió en «✏️ Editar recorte»: hoy solo "srt" (subtítulos corregidos, se queman
-            # tal cual en el vertical); si no hay, se arman desde <id>.palabras.json como siempre (15/10, solo en vertical).
-            # Previsto: "inicio_ms"/"fin_ms" (trim) y "estilo" (tipografía/color/tamaño/posición) → pasarlos a rc.cortar.
-            edicion = p.get("edicion") or {}
+            # (19/10) edicion = lo que la persona cambió en «✏️ Editar recorte»: "srt" (subtítulos corregidos, se queman tal cual en el
+            # vertical; si no hay, se arman desde <id>.palabras.json como siempre, 15/10, solo en vertical), "inicio_ms"/"fin_ms"
+            # (ya aplicados arriba) y "estilo" (si no viene, el por defecto del Panel admin).
             srt_editado = (edicion.get("srt") or "").strip() if fmt == "vertical" else ""
             palabras = None if srt_editado else (rc.buscar_palabras(svc, vid) if rc.quiere_subtitulos(fmt) else None)
-            srt_usado = rc.cortar(original, clip, ini, fin, ffmpeg, fmt, palabras, srt_editado or None)
+            estilo = rc.normalizar_estilo(edicion.get("estilo") or estilo_defecto)
+            srt_usado = rc.cortar(original, clip, ini, fin, ffmpeg, fmt, palabras, srt_editado or None, estilo)
             if srt_usado:
-                print("  con subtítulos quemados" + (" (corregidos a mano)" if srt_editado else ""))
+                print("  con subtítulos quemados" + (" (corregidos a mano)" if srt_editado else "") + f" · estilo {estilo}")
             titulo = (p.get("titulo") or vid)[:120] + f" · {int(ini)}-{int(fin)} s" + (" (vertical)" if fmt == "vertical" else "")
             r = publicar.subir_imagen_wordpress(cfg, open(clip, "rb").read(), clip, titulo=titulo,
                                                 etiquetas=["clip-exacto", fmt], quien=p.get("pedido_por") or "cola", pieza=titulo)
             if not r.get("url"):
                 raise RuntimeError("WordPress: " + str(r.get("aviso")))
-            db.actualizar_clip(cid, {"estado": "listo", "url": r["url"], "srt": srt_usado or None, "error": None,
-                                     "procesado_en": datetime.datetime.now(datetime.timezone.utc).isoformat()})
+            campos = {"estado": "listo", "url": r["url"], "srt": srt_usado or None, "error": None,
+                      "estilo": estilo if srt_usado else None,
+                      "procesado_en": datetime.datetime.now(datetime.timezone.utc).isoformat()}
+            if tramo_cambio:
+                # el tramo nuevo pasa a las columnas (la tarjeta muestra el tramo real) y sale del JSON de edición
+                campos.update({"inicio_ms": ini_ms, "fin_ms": fin_ms,
+                               "edicion": {k: v for k, v in edicion.items() if k not in ("inicio_ms", "fin_ms")} or None})
+            try:
+                db.actualizar_clip(cid, campos)
+            except RuntimeError as e:
+                if tramo_cambio and ("duplicate" in str(e) or "23505" in str(e)):
+                    # ya existe otro recorte con ese mismo tramo y formato (índice clips_tramo_idx): el video nuevo quedó subido, se borra
+                    publicar.borrar_media_por_url(cfg, r["url"], quien="cola")
+                    raise RuntimeError("ya hay otro recorte con ese mismo tramo y formato; borralo o elegí otro tramo")
+                raise
             print("  → listo:", r["url"])
             url_vieja = p.get("url")
             if url_vieja and url_vieja != r["url"]:
