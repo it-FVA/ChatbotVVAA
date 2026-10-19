@@ -764,7 +764,11 @@ def panel_aprobacion(usuario):
     except Exception as e:
         st.error(f"No pude leer las piezas: {e}")
         return
-    t1, t2, t3, t4, t5 = st.tabs([f"⏳ Para aprobar ({len(pend)})", "🗓 En cola", "📒 Registro", "🗑 Papelera", "🎬 Clips"])
+    t1, t2, t3, t4, t5, t6 = st.tabs([f"⏳ Para aprobar ({len(pend)})", "🗓 En cola", "📒 Registro", "🗑 Papelera", "🎬 Clips", "📅 Frase del día"])
+    with t6:
+        # (19/10, reunión) Calendario anual de la Frase del día: una por día, sale sola como posteo de Instagram.
+        import frases_ui
+        frases_ui.render(usuario)
     with t5:
         # (15/10) Clips exactos pedidos desde el chat. (16/10, UX) Mismas tarjetas que «Mis recortes», para todo el equipo.
         st.caption("Recortes pedidos desde el chat por todo el equipo. Los corta la nube cada 15 minutos desde los originales en Drive.")

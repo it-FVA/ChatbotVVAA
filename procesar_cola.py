@@ -13,7 +13,8 @@ Corre:
   - solo, desde la terminal:  python procesar_cola.py            (usa las variables del entorno
                               o el clave.env / secrets.toml que encuentre al lado)
   - a modo de prueba:         python procesar_cola.py --simular  (fuerza todos los canales a simulado)
-  - programado: .github/workflows/cola.yml lo ejecuta una vez por hora con los secrets del repo.
+  - programado: .github/workflows/cola.yml lo ejecuta cada 15 min con los secrets del repo.
+Al final de cada pasada llama a programar_frases.main() (19/10): la «Frase del día» se encola desde ahí.
 """
 import os, sys, json, datetime
 
@@ -111,6 +112,11 @@ def main():
         except Exception as e:
             print(f"  ! no pude actualizar la fila: {e}")
         print(f"  → {estado}: {str(res.get('aviso', ''))[:120]}")
+    try:   # (19/10) Frase del día: cierra el circuito de las ya encoladas y encola la de hoy/mañana si está activa
+        import programar_frases
+        programar_frases.main(["--simular"] if "--simular" in sys.argv else [])
+    except Exception as e:
+        print(f"frase del día: no pude programar: {e}")
     return 0
 
 

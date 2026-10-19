@@ -372,6 +372,8 @@ def actualizar_clip(cid, campos):
 # Tabla config(clave text pk, valor jsonb, actualizado, por): lo que el equipo ajusta desde el Panel admin y tiene que
 # valer también para la cola de GitHub Actions (que no ve st.session_state ni secrets de Streamlit). Hoy una sola clave:
 # 'clips_estilo' = estilo por defecto de los subtítulos de los recortes nuevos (migración config_tabla_y_clips_estilo).
+# (19/10, tarde) Frase del día: 'frase_activa' (bool, apagada por defecto), 'frase_hora' ("07:00" Argentina), 'frase_imagen' (URL de
+# la foto de fondo por defecto), 'frase_pie' (lo que va al final del caption) y 'frase_estilo' (logo, tipografía, posición).
 
 def obtener_config(clave, defecto=None):
     if not disponible():
@@ -415,3 +417,133 @@ def listar_publicaciones(usuario=None, limite=30):
     if usuario:
         q += "&usuario=eq." + urllib.parse.quote(usuario)
     return _req("GET", q, tabla="publicaciones")
+
+
+# ---------------- Frase del día (19/10, reunión: calendario anual en el Panel admin) ----------------
+# Tabla frases(id, texto, autor, origen 'sheet'|'manual', validada, fecha date única, imagen_url, estado
+#              'programada'|'publicada'|'saltada', publicacion_id, orden, fuente, tema, creado, actualizado).
+# Las carga importar_frases.py desde el Sheet Frases_consolidadas_591; solo las validadas entran al calendario.
+# programar_frases.py (misma pasada de Actions que la cola) encola la frase de cada día como posteo de Instagram.
+CAMPOS_FRASE = "id,texto,autor,origen,validada,fecha,imagen_url,estado,publicacion_id,orden,fuente,tema,creado"
+
+
+def _ahora_iso():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def listar_frases(desde=None, hasta=None, limite=2000):
+    """Frases con fecha en [desde, hasta] (date o 'AAAA-MM-DD'); sin filtros, todas (incluidas las sin fecha)."""
+    if not disponible():
+        return []
+    q = f"?select={CAMPOS_FRASE}&order=fecha.asc.nullslast,orden.asc&limit={limite}"
+    if desde:
+        q += f"&fecha=gte.{desde}"
+    if hasta:
+        q += f"&fecha=lte.{hasta}"
+    return _req("GET", q, tabla="frases") or []
+
+
+def frases_sin_fecha(solo_validadas=True, limite=2000):
+    if not disponible():
+        return []
+    q = f"?select={CAMPOS_FRASE}&fecha=is.null&order=orden.asc&limit={limite}"
+    if solo_validadas:
+        q += "&validada=is.true"
+    return _req("GET", q, tabla="frases") or []
+
+
+def frase_del_dia(fecha):
+    """La frase asignada a esa fecha (date o 'AAAA-MM-DD'), o None."""
+    if not disponible():
+        return None
+    r = _req("GET", f"?select={CAMPOS_FRASE}&fecha=eq.{fecha}", tabla="frases")
+    return r[0] if r else None
+
+
+def obtener_frase(fid):
+    r = _req("GET", f"?select={CAMPOS_FRASE}&id=eq.{fid}", tabla="frases")
+    return r[0] if r else None
+
+
+def actualizar_frase(fid, campos):
+    if not disponible():
+        return None
+    return _req("PATCH", f"?id=eq.{fid}", dict(campos, actualizado=_ahora_iso()), tabla="frases")
+
+
+def crear_frase(texto, autor, validada=True, origen="manual", fecha=None, fuente=None, tema=None, orden=None):
+    if not disponible():
+        return None
+    fila = {"texto": texto.strip(), "autor": (autor or "").strip() or None, "validada": bool(validada), "origen": origen,
+            "fecha": fecha, "fuente": fuente, "tema": tema, "orden": orden}
+    r = _req("POST", "", fila, tabla="frases")
+    return r[0]["id"] if r else None
+
+
+def upsert_frases(filas, on_conflict="texto"):
+    """Carga en lote (importar_frases.py): por texto (índice único); si ya existe, actualiza autor/fuente/tema/orden/validada
+    sin tocar fecha, imagen ni estado. Devuelve la cantidad de filas enviadas."""
+    if not disponible() or not filas:
+        return 0
+    url, key = _cfg()
+    data = json.dumps(filas, ensure_ascii=False).encode("utf-8")
+    req = urllib.request.Request(f"{url}/rest/v1/frases?on_conflict={on_conflict}", data=data, method="POST", headers={
+        "apikey": key, "Authorization": "Bearer " + key, "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates,return=minimal"})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            r.read()
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"Supabase {e.code}: {e.read().decode('utf-8','ignore')[:300]}")
+    return len(filas)
+
+
+def mover_frase(fid, fecha_nueva):
+    """Le pone otra fecha a una frase (o None = la saca del calendario). Si la fecha está ocupada, devuelve False."""
+    if fecha_nueva and frase_del_dia(fecha_nueva):
+        return False
+    actualizar_frase(fid, {"fecha": fecha_nueva})
+    return True
+
+
+def intercambiar_frases(fid_a, fid_b):
+    """Las dos frases se cambian la fecha entre sí (una puede no tener fecha: entonces es «cambiar por otra»).
+    Tres pasos porque la fecha es única: a → null, b → fecha_a, a → fecha_b."""
+    a, b = obtener_frase(fid_a), obtener_frase(fid_b)
+    if not a or not b:
+        return False
+    fa, fb = a.get("fecha"), b.get("fecha")
+    actualizar_frase(fid_a, {"fecha": None})
+    actualizar_frase(fid_b, {"fecha": fa})
+    actualizar_frase(fid_a, {"fecha": fb})
+    return True
+
+
+def fechas_ocupadas(desde, hasta):
+    if not disponible():
+        return set()
+    r = _req("GET", f"?select=fecha&fecha=gte.{desde}&fecha=lte.{hasta}", tabla="frases") or []
+    return {x["fecha"] for x in r if x.get("fecha")}
+
+
+def frases_para_marcar_publicadas():
+    """Frases con publicacion_id y estado 'programada': programar_frases.py mira la fila de la cola y las marca."""
+    if not disponible():
+        return []
+    return _req("GET", f"?select={CAMPOS_FRASE}&estado=eq.programada&publicacion_id=not.is.null", tabla="frases") or []
+
+
+def obtener_publicacion(pid):
+    r = _req("GET", f"?id=eq.{pid}&select=id,estado,fecha_programada,imagen_url,procesado_en,resultado", tabla="publicaciones")
+    return r[0] if r else None
+
+
+def resumen_frases():
+    """Conteos para la cabecera de la solapa: total, validadas, con fecha, publicadas."""
+    if not disponible():
+        return {}
+    todas = _req("GET", "?select=validada,fecha,estado", tabla="frases") or []
+    return {"total": len(todas), "validadas": sum(1 for f in todas if f.get("validada")),
+            "con_fecha": sum(1 for f in todas if f.get("fecha")),
+            "publicadas": sum(1 for f in todas if f.get("estado") == "publicada"),
+            "sin_fecha_validadas": sum(1 for f in todas if f.get("validada") and not f.get("fecha"))}
