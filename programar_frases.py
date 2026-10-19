@@ -10,9 +10,13 @@ Qué hace, en orden:
      asignada, en estado 'programada' y sin fila en la cola, arma la imagen (foto de fondo + frase + autor + logo,
      formato cuadrado, con imagen.componer_imagen, el mismo estilo que usa el formulario de publicar), la sube a la
      biblioteca de WordPress (Instagram necesita una URL pública) y deja la pieza en `publicaciones` con estado
-     'pendiente' (el estado que lee la cola), canal instagram, usuario 'frase_del_dia' y fecha = ese día a la hora
-     `frase_hora` (07:00 por defecto). La cola la publica cuando vence, con el modo que tenga PUBLICAR_INSTAGRAM
-     en ese momento (simulado = no sale nada, queda «así quedaría»).
+     'pendiente' (el estado que lee la cola), **una pieza por canal activo** (config `frase_canales`, hoy ["instagram"];
+     facebook también anda porque la cola ya lo publica; el mail será otro canal cuando haya endpoint: se agrega acá y en
+     la cola, sin rehacer nada), usuario 'frase_del_dia' y fecha = ese día a la hora `frase_hora` (07:00 por defecto).
+     La cola la publica cuando vence, con el modo que tenga PUBLICAR_* en ese momento (simulado = no sale nada).
+  3. Rotación (pedido de Franco): si el día no tiene frase, le asigna sola la siguiente de la rotación
+     (db.candidatas_rotacion: nunca publicadas primero, después las publicadas de la más antigua a la más reciente),
+     así nunca se queda sin frase. Al salir de verdad se guardan ultima_publicada y veces_publicada.
 Foto de fondo: la elegida para esa frase (frases.imagen_url) → la por defecto (config frase_imagen) → una del banco
 etiquetada «cuadrado» (al azar; 19/10: todavía no hay ninguna). Sin foto, NO se encola: queda anotado en la salida y la
 solapa avisa que falta la foto por defecto.
@@ -28,6 +32,8 @@ sys.path.insert(0, HERE)
 
 USUARIO = "frase_del_dia"
 HORA_DEFECTO = "07:00"
+CANALES_DEFECTO = ["instagram"]
+CANALES_POSIBLES = {"instagram": "Instagram (posteo cuadrado)", "facebook": "Facebook (foto con texto)"}   # "mail": cuando haya endpoint
 PIE_DEFECTO = "#FraseDelDía #VivirAgradecidos #Gratitud"
 ESTILO_DEFECTO = {"logo": "Amarillo", "posicion_logo": "abajo derecha", "tipografia": None, "posicion": "centro",
                   "alineacion": "centro", "peso": "normal", "formato": "cuadrado"}
@@ -82,18 +88,19 @@ def componer(frase, foto, estilo=None):
                                   posicion_logo=e.get("posicion_logo") or "abajo derecha")
 
 
-def encolar_frase(frase, fecha, cfg, db, publicar, hora=None, quien=USUARIO):
-    """Arma la imagen, la sube a WordPress y deja la pieza en la cola. Devuelve (publicacion_id, aviso)."""
+def encolar_frase(frase, fecha, cfg, db, publicar, hora=None, quien=USUARIO, canales=None):
+    """Arma la imagen, la sube a WordPress y deja una pieza por canal en la cola. Devuelve ({canal: publicacion_id}, aviso)."""
     hora = hora or db.obtener_config("frase_hora", HORA_DEFECTO) or HORA_DEFECTO
+    canales = [c for c in (canales or db.obtener_config("frase_canales") or CANALES_DEFECTO) if c in CANALES_POSIBLES] or CANALES_DEFECTO
     fecha_iso = f"{fecha.isoformat()}T{hora}:00-03:00"
     foto, de_donde = foto_de_fondo(frase, cfg, db, publicar)
     if not foto:
-        return None, de_donde
+        return {}, de_donde
     estilo = db.obtener_config("frase_estilo") or {}
     try:
         jpg = componer(frase, foto, estilo)
     except Exception as e:
-        return None, f"no pude componer la imagen: {e}"
+        return {}, f"no pude componer la imagen: {e}"
     nombre = f"frase-del-dia-{fecha.isoformat()}.jpg"
     res_img = publicar.subir_imagen_wordpress(cfg, jpg, nombre, titulo=f"Frase del día {fecha.strftime('%d/%m/%Y')}",
                                               etiquetas=["frase-del-dia", "pieza-compuesta"], quien=quien,
@@ -105,33 +112,56 @@ def encolar_frase(frase, fecha, cfg, db, publicar, hora=None, quien=USUARIO):
         aviso_img = (res_img.get("aviso") or "no se pudo subir la imagen compuesta") + " · sale la foto sin la frase encima"
     pie = db.obtener_config("frase_pie")
     caption = caption_de(frase, pie)
-    extra = {"frase_id": frase["id"], "texto_imagen": frase.get("texto"), "formato": "cuadrado", "foto_fondo": foto,
-             "foto_de": de_donde, "frase_del_dia": fecha.isoformat()}
-    if aviso_img:
-        extra["aviso_imagen"] = aviso_img
-    pid = db.encolar_publicacion(quien, "instagram", cfg.modo_ig, f"Frase del día {fecha.strftime('%d/%m/%Y')}", caption,
-                                 imagen_url, fecha_iso, extra=extra)
-    if pid:
-        db.actualizar_frase(frase["id"], {"publicacion_id": pid, "estado": "programada"})
-    return pid, (f"encolada para el {fecha_iso[:16].replace('T', ' ')} ({de_donde}" + (f"; {aviso_img}" if aviso_img else "") + ")")
+    modos = cfg.resumen()
+    piezas = {}
+    for canal in canales:
+        extra = {"frase_id": frase["id"], "texto_imagen": frase.get("texto"), "formato": "cuadrado", "foto_fondo": foto,
+                 "foto_de": de_donde, "frase_del_dia": fecha.isoformat()}
+        if aviso_img:
+            extra["aviso_imagen"] = aviso_img
+        pid = db.encolar_publicacion(quien, canal, modos.get(canal, ""), f"Frase del día {fecha.strftime('%d/%m/%Y')}", caption,
+                                     imagen_url, fecha_iso, extra=extra)
+        if pid:
+            piezas[canal] = pid
+    if piezas:
+        db.actualizar_frase(frase["id"], {"publicacion_id": piezas.get("instagram") or list(piezas.values())[0],
+                                          "piezas": piezas, "estado": "programada"})
+    return piezas, (f"encolada para el {fecha_iso[:16].replace('T', ' ')} por {', '.join(piezas)} ({de_donde}"
+                    + (f"; {aviso_img}" if aviso_img else "") + ")")
+
+
+def asignar_siguiente(db, fecha):
+    """Rotación: le pone a `fecha` la siguiente frase (nunca publicada primero; después la publicada más antigua). Devuelve la frase o None."""
+    for f in db.candidatas_rotacion(hoy_argentina().isoformat()):
+        db.actualizar_frase(f["id"], {"fecha": fecha.isoformat(), "estado": "programada", "publicacion_id": None, "piezas": None})
+        return db.obtener_frase(f["id"])
+    return None
 
 
 def cerrar_circuito(db):
-    """Frases con fila en la cola: copian el estado de la cola. Devuelve cuántas cambiaron."""
+    """Frases con piezas en la cola: toman el estado de la cola. Publicada de verdad por algún canal → 'publicada' (+ ultima_publicada,
+    veces_publicada); todas simuladas → 'simulada'; todas canceladas/error → la frase queda libre para volver a encolarse.
+    Devuelve cuántas cambiaron."""
     n = 0
     for f in db.frases_para_marcar_publicadas():
-        p = db.obtener_publicacion(f["publicacion_id"]) if f.get("publicacion_id") else None
-        if not p:
-            db.actualizar_frase(f["id"], {"publicacion_id": None})
-            n += 1
+        piezas = f.get("piezas") or ({"instagram": f["publicacion_id"]} if f.get("publicacion_id") else {})
+        estados, cuando = {}, None
+        for canal, pid in piezas.items():
+            p = db.obtener_publicacion(pid)
+            estados[canal] = (p or {}).get("estado") or "borrada"
+            if p and p.get("estado") == "publicada":
+                cuando = p.get("procesado_en") or cuando
+        if not estados:
+            db.actualizar_frase(f["id"], {"publicacion_id": None, "piezas": None}); n += 1
             continue
-        est = p.get("estado")
-        if est == "publicada":
-            db.actualizar_frase(f["id"], {"estado": "publicada"}); n += 1
-        elif est == "simulada":
+        vals = set(estados.values())
+        if "publicada" in vals:
+            db.actualizar_frase(f["id"], {"estado": "publicada", "ultima_publicada": cuando or db._ahora_iso(),
+                                          "veces_publicada": int(f.get("veces_publicada") or 0) + 1}); n += 1
+        elif vals <= {"simulada", "cancelada", "error", "borrada"} and "simulada" in vals:
             db.actualizar_frase(f["id"], {"estado": "simulada"}); n += 1
-        elif est in ("cancelada", "error"):
-            db.actualizar_frase(f["id"], {"publicacion_id": None}); n += 1
+        elif vals <= {"cancelada", "error", "borrada"}:
+            db.actualizar_frase(f["id"], {"publicacion_id": None, "piezas": None}); n += 1
     return n
 
 
@@ -156,17 +186,22 @@ def main(argv=None):
         return 0
     hora = db.obtener_config("frase_hora", HORA_DEFECTO) or HORA_DEFECTO
     hoy = hoy_argentina()
-    print(f"frase del día: activa · hora {hora} · instagram={cfg.modo_ig} wordpress={cfg.modo_wp}")
+    canales = db.obtener_config("frase_canales") or CANALES_DEFECTO
+    print(f"frase del día: activa · hora {hora} · canales {canales} · instagram={cfg.modo_ig} facebook={cfg.modo_fb} wordpress={cfg.modo_wp}")
     for d in (hoy, hoy + datetime.timedelta(days=1)):
         f = db.frase_del_dia(d.isoformat())
         if not f:
-            print(f"- {d}: sin frase asignada")
-            continue
+            f = asignar_siguiente(db, d)   # rotación: nunca se queda sin frase
+            if not f:
+                print(f"- {d}: sin frase asignada y no hay ninguna validada para rotar")
+                continue
+            print(f"- {d}: sin frase: asignada por rotación «{(f.get('texto') or '')[:50]}»"
+                  + (f" (ya salió {f['veces_publicada']} vez/veces)" if f.get("veces_publicada") else " (nunca publicada)"))
         if f.get("estado") != "programada" or f.get("publicacion_id"):
             print(f"- {d}: ya está ({f.get('estado')}{', en cola' if f.get('publicacion_id') else ''})")
             continue
-        pid, aviso = encolar_frase(f, d, cfg, db, publicar, hora=hora)
-        print(f"- {d}: «{(f.get('texto') or '')[:50]}» → {aviso}" if pid else f"- {d}: NO encolada: {aviso}")
+        piezas, aviso = encolar_frase(f, d, cfg, db, publicar, hora=hora)
+        print(f"- {d}: «{(f.get('texto') or '')[:50]}» → {aviso}" if piezas else f"- {d}: NO encolada: {aviso}")
     return 0
 
 

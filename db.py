@@ -383,7 +383,9 @@ def obtener_config(clave, defecto=None):
 
 
 def guardar_config(clave, valor, usuario=None):
-    """Crea o reemplaza la clave (upsert por la clave primaria)."""
+    """Crea o reemplaza la clave (upsert por la clave primaria). valor=None se guarda como "" (la columna no admite null)."""
+    if valor is None:
+        valor = ""
     url, key = _cfg()
     data = json.dumps({"clave": clave, "valor": valor, "por": usuario,
                        "actualizado": datetime.now(timezone.utc).isoformat()}).encode("utf-8")
@@ -424,7 +426,9 @@ def listar_publicaciones(usuario=None, limite=30):
 #              'programada'|'publicada'|'saltada', publicacion_id, orden, fuente, tema, creado, actualizado).
 # Las carga importar_frases.py desde el Sheet Frases_consolidadas_591; solo las validadas entran al calendario.
 # programar_frases.py (misma pasada de Actions que la cola) encola la frase de cada día como posteo de Instagram.
-CAMPOS_FRASE = "id,texto,autor,origen,validada,fecha,imagen_url,estado,publicacion_id,orden,fuente,tema,creado"
+# (19/10, tarde) Rotación: ultima_publicada / veces_publicada (solo salidas reales) y piezas {canal: publicacion_id}
+# (migración frases_rotacion_y_canales). Cuando no quedan validadas sin día, vuelven las ya publicadas, la más antigua primero.
+CAMPOS_FRASE = "id,texto,autor,origen,validada,fecha,imagen_url,estado,publicacion_id,orden,fuente,tema,creado,ultima_publicada,veces_publicada,piezas"
 
 
 def _ahora_iso():
@@ -526,6 +530,25 @@ def fechas_ocupadas(desde, hasta):
     return {x["fecha"] for x in r if x.get("fecha")}
 
 
+def candidatas_rotacion(hoy, limite=3000):
+    """Las frases que pueden ir a un día nuevo, en el orden de la rotación: validadas, nunca publicadas primero (sin día,
+    o con un día ya pasado en que no salieron de verdad), después las publicadas de la más antigua a la más reciente.
+    Una frase con día futuro no es candidata (ya está en el calendario)."""
+    if not disponible():
+        return []
+    q = (f"?select={CAMPOS_FRASE}&validada=is.true&or=(fecha.is.null,fecha.lt.{hoy})"
+         f"&order=ultima_publicada.asc.nullsfirst,orden.asc&limit={limite}")
+    cand = _req("GET", q, tabla="frases") or []
+    # una con día pasado pero todavía en la cola (hoy) no se toca
+    return [f for f in cand if not (f.get("fecha") and f.get("publicacion_id") and f.get("estado") == "programada")]
+
+
+def frases_pendientes_validacion(limite=2000):
+    if not disponible():
+        return []
+    return _req("GET", f"?select={CAMPOS_FRASE}&validada=is.false&order=orden.asc&limit={limite}", tabla="frases") or []
+
+
 def frases_para_marcar_publicadas():
     """Frases con publicacion_id y estado 'programada': programar_frases.py mira la fila de la cola y las marca."""
     if not disponible():
@@ -542,8 +565,10 @@ def resumen_frases():
     """Conteos para la cabecera de la solapa: total, validadas, con fecha, publicadas."""
     if not disponible():
         return {}
-    todas = _req("GET", "?select=validada,fecha,estado", tabla="frases") or []
+    todas = _req("GET", "?select=validada,fecha,estado,ultima_publicada", tabla="frases") or []
     return {"total": len(todas), "validadas": sum(1 for f in todas if f.get("validada")),
             "con_fecha": sum(1 for f in todas if f.get("fecha")),
             "publicadas": sum(1 for f in todas if f.get("estado") == "publicada"),
-            "sin_fecha_validadas": sum(1 for f in todas if f.get("validada") and not f.get("fecha"))}
+            "alguna_vez_publicadas": sum(1 for f in todas if f.get("ultima_publicada")),
+            "sin_fecha_validadas": sum(1 for f in todas if f.get("validada") and not f.get("fecha")),
+            "pendientes_validar": sum(1 for f in todas if not f.get("validada"))}

@@ -5,11 +5,14 @@ Un calendario anual de frases: una por día, que sale sola cada mañana como pos
 de fondo (pedido de Beto: "con una fotito, no solo texto"). Las frases vienen del Sheet Frases_consolidadas_591
 (importar_frases.py → tabla `frases`); solo las validadas entran al calendario.
 
-Pantalla:
-  - cabecera: conteos, interruptor «Frase del día activa» (config frase_activa, apagado por defecto), hora de salida
+Pantalla (19/10, tarde: + pedidos de Franco: próximas 14 días, backlog visible, rotación cuando se acaba el año):
+  - «Próximas 14 días»: fecha, frase y estado de lo que va a salir.
+  - cabecera: conteos (backlog · programadas · publicadas), interruptor «Frase del día activa» (config frase_activa, apagado por defecto), hora de salida
     (config frase_hora), foto por defecto, logo y pie del caption (config frase_imagen / frase_estilo / frase_pie).
-  - «Repartir en el año»: a las validadas sin fecha les asigna un día cada una a partir de mañana, en el orden del
-    Sheet o al azar sin repetir autor dos días seguidos, sin pisar fechas ya asignadas.
+  - «Repartir en el año»: asigna un día a cada candidata a partir de mañana, con el criterio de la rotación (primero las
+    nunca publicadas en el orden del Sheet o al azar sin repetir autor, después las publicadas de la más antigua a la más
+    reciente), sin pisar fechas ya asignadas. Línea «hay frases nuevas hasta el …; después vuelve a empezar».
+  - «Backlog»: validadas sin día y, aparte, las pendientes de validación de Pato (sin día asignable), con buscador.
   - calendario por mes (12 meses desde hoy): grilla de días con la frase recortada, el autor y el estado; «Ver» abre
     el detalle del día debajo: frase completa, editar texto/autor, mover a otra fecha, intercambiar con otra fecha,
     cambiar por otra frase (buscador entre las validadas sin fecha), foto de fondo (banco de WordPress, igual que el
@@ -49,32 +52,35 @@ def _recortar(t, n=70):
 # ---------------- Repartir ----------------
 
 def repartir(frases, desde, ocupadas, modo="orden", semilla=None):
-    """Asigna una fecha a cada frase a partir de `desde`, saltando `ocupadas`. modo 'orden' (del Sheet) o 'azar'
-    (sin repetir autor dos días seguidos cuando se puede). Devuelve [(frase, fecha)]. No escribe nada."""
-    pendientes = sorted(frases, key=lambda f: (f.get("orden") is None, f.get("orden") or 0))
+    """Asigna una fecha a cada frase a partir de `desde`, saltando `ocupadas`. Primero las nunca publicadas (modo 'orden' = del
+    Sheet, 'azar' = mezcladas sin repetir autor dos días seguidos cuando se puede), después las ya publicadas de la más antigua
+    a la más reciente (rotación). Devuelve [(frase, fecha)]. No escribe nada."""
+    nuevas = sorted([f for f in frases if not f.get("ultima_publicada")], key=lambda f: (f.get("orden") is None, f.get("orden") or 0))
+    viejas = sorted([f for f in frases if f.get("ultima_publicada")], key=lambda f: f["ultima_publicada"])
     if modo == "azar":
-        random.Random(semilla).shuffle(pendientes)
+        random.Random(semilla).shuffle(nuevas)
     out, d, autor_prev = [], desde, None
-    while pendientes:
-        if d.isoformat() in ocupadas:
+    for pendientes in (nuevas, viejas):
+        while pendientes:
+            if d.isoformat() in ocupadas:
+                d += datetime.timedelta(days=1)
+                continue
+            elegida = pendientes[0]
+            if modo == "azar" and autor_prev and pendientes is nuevas:
+                for f in pendientes:
+                    if (f.get("autor") or "") != autor_prev:
+                        elegida = f
+                        break
+            pendientes.remove(elegida)
+            out.append((elegida, d))
+            autor_prev = elegida.get("autor") or ""
             d += datetime.timedelta(days=1)
-            continue
-        elegida = pendientes[0]
-        if modo == "azar" and autor_prev:
-            for f in pendientes:
-                if (f.get("autor") or "") != autor_prev:
-                    elegida = f
-                    break
-        pendientes.remove(elegida)
-        out.append((elegida, d))
-        autor_prev = elegida.get("autor") or ""
-        d += datetime.timedelta(days=1)
     return out
 
 
 def _guardar_reparto(reparto):
-    filas = [{"id": f["id"], "texto": f["texto"], "fecha": d.isoformat(), "estado": "programada", "actualizado": db._ahora_iso()}
-             for f, d in reparto]
+    filas = [{"id": f["id"], "texto": f["texto"], "fecha": d.isoformat(), "estado": "programada", "publicacion_id": None, "piezas": None,
+              "actualizado": db._ahora_iso()} for f, d in reparto]
     for i in range(0, len(filas), 200):
         db.upsert_frases(filas[i:i + 200], on_conflict="id")
     return len(filas)
@@ -85,10 +91,24 @@ def _guardar_reparto(reparto):
 def _cabecera(usuario):
     r = db.resumen_frases()
     activa = bool(db.obtener_config("frase_activa", False))
+    hoy = _hoy()
+    programadas = [f for f in db.listar_frases(desde=hoy.isoformat()) if f.get("estado") in ("programada", "saltada")]
+    r["programadas"] = len(programadas)
     c1, c2 = st.columns([3, 2])
-    c1.markdown(f"**{r.get('validadas', 0)} frases validadas** de {r.get('total', 0)} cargadas · "
-                f"{r.get('con_fecha', 0)} con día asignado · {r.get('sin_fecha_validadas', 0)} validadas sin día · "
-                f"{r.get('publicadas', 0)} publicadas")
+    c1.markdown(f"**Backlog: {r.get('sin_fecha_validadas', 0)}** validadas sin día · **Programadas: {r['programadas']}** · "
+                f"**Publicadas: {r.get('publicadas', 0)}** · {r.get('pendientes_validar', 0)} pendientes de validar (Pato) · "
+                f"{r.get('validadas', 0)} validadas de {r.get('total', 0)} cargadas")
+    nuevas_prog = [f["fecha"] for f in programadas if not f.get("ultima_publicada")]
+    nuevas_backlog = sum(1 for f in db.frases_sin_fecha(solo_validadas=True) if not f.get("ultima_publicada"))
+    if nuevas_prog or nuevas_backlog:
+        fin = datetime.date.fromisoformat(max(nuevas_prog)) if nuevas_prog else hoy
+        fin = fin + datetime.timedelta(days=nuevas_backlog)
+        st.caption(f"Con las {r.get('validadas', 0)} validadas, hay frases nuevas hasta el **{fin.strftime('%d/%m/%Y')}**"
+                   + (f" ({nuevas_backlog} todavía sin día)" if nuevas_backlog else "")
+                   + "; después vuelve a empezar por las más antiguas publicadas. Nunca se queda sin frase: si un día está vacío, "
+                     "la cola le asigna sola la siguiente de la rotación.")
+    else:
+        st.caption("Ya salieron todas las validadas al menos una vez: siguen en rotación, de la más antigua a la más reciente.")
     nueva = c2.toggle("Frase del día activa (sale sola cada mañana)", value=activa, key="fd_activa",
                       help="Apagada: el calendario se arma igual pero no sale nada. Prendida: cada día la frase de ese día se encola "
                            "como posteo de Instagram (hoy en el modo que tenga PUBLICAR_INSTAGRAM: simulado = no sale nada).")
@@ -111,6 +131,47 @@ def _cabecera(usuario):
         else:
             st.warning(f"Mañana ({_fecha_txt(man)}) no tiene frase asignada: no va a salir nada. Repartí o asigná una.")
     return r
+
+
+def _proximas(dias=14):
+    hoy = _hoy()
+    hasta = hoy + datetime.timedelta(days=dias - 1)
+    por_dia = {f["fecha"]: f for f in db.listar_frases(desde=hoy.isoformat(), hasta=hasta.isoformat())}
+    with st.expander(f"🔜 Próximas {dias} días", expanded=True):
+        lineas = []
+        for i in range(dias):
+            d = hoy + datetime.timedelta(days=i)
+            f = por_dia.get(d.isoformat())
+            if f:
+                est = f.get("estado") or "programada"
+                extra = " ↻ repetida" if f.get("ultima_publicada") else ""
+                lineas.append(f"| {DIAS[d.weekday()]} {d.strftime('%d/%m')} | {_recortar(f['texto'], 95)} — _{f.get('autor') or ''}_ | {ESTADO_ICONO.get(est, '')} {est}{extra} |")
+            else:
+                lineas.append(f"| {DIAS[d.weekday()]} {d.strftime('%d/%m')} | _sin frase (la cola asigna la siguiente de la rotación)_ | — |")
+        st.markdown("| Día | Frase | Estado |\n|---|---|---|\n" + "\n".join(lineas))
+
+
+def _backlog():
+    with st.expander("📚 Backlog (validadas sin día · pendientes de validación)", expanded=False):
+        q = st.text_input("Buscar por texto o autor", key="fd_backlog_q", placeholder="ej. gratitud, Brother David")
+        ql = q.strip().lower()
+        filtro = (lambda f: (not ql) or ql in (f.get("texto") or "").lower() or ql in (f.get("autor") or "").lower())
+        sin = [f for f in db.frases_sin_fecha(solo_validadas=True) if filtro(f)]
+        pend = [f for f in db.frases_pendientes_validacion() if filtro(f)]
+        tb1, tb2 = st.tabs([f"✅ Validadas sin día ({len(sin)})", f"🕓 Pendientes de validación ({len(pend)})"])
+        with tb1:
+            if not sin:
+                st.caption("No hay validadas sin día" + (" que coincidan." if ql else ": están todas en el calendario."))
+            for f in sin[:200]:
+                st.markdown(f"- {_recortar(f['texto'], 160)} — _{f.get('autor') or ''}_"
+                            + (f" · ↻ salió {f['veces_publicada']} vez/veces" if f.get("veces_publicada") else ""))
+            if len(sin) > 200:
+                st.caption(f"…y {len(sin) - 200} más (afiná la búsqueda).")
+        with tb2:
+            st.caption("Las nuevas del Sheet esperan el OK de Pato: no se pueden asignar a un día hasta que estén validadas "
+                       "(se marcan en el Sheet y se vuelve a correr importar_frases.py).")
+            for f in pend[:200]:
+                st.markdown(f"- {_recortar(f['texto'], 160)} — _{f.get('autor') or ''}_ · 🕓 pendiente")
 
 
 def _configuracion(usuario):
@@ -139,6 +200,10 @@ def _configuracion(usuario):
         pos = d3.selectbox("Posición del texto", poss, index=poss.index(estilo["posicion"]) if estilo.get("posicion") in poss else 0, key="fd_pos")
         pie = st.text_input("Pie del posteo (va después de la frase y el autor)", value=db.obtener_config("frase_pie", pf.PIE_DEFECTO) or "",
                             key="fd_pie")
+        canales_act = [c for c in (db.obtener_config("frase_canales") or pf.CANALES_DEFECTO) if c in pf.CANALES_POSIBLES]
+        canales = st.multiselect("Canales por los que sale cada día", list(pf.CANALES_POSIBLES), default=canales_act, key="fd_canales",
+                                 format_func=lambda c: pf.CANALES_POSIBLES[c],
+                                 help="Una pieza por canal en la cola. El mail se agrega acá cuando haya herramienta de envío (Julián audita Perfit).")
         st.markdown("**Foto de fondo por defecto** (para los días que no tienen una foto elegida)")
         foto_def = db.obtener_config("frase_imagen") or ""
         url_def = st.text_input("URL de la foto (del banco de WordPress o de internet)", value=foto_def, key="fd_foto_def",
@@ -151,6 +216,7 @@ def _configuracion(usuario):
                                                "alineacion": "centro", "formato": "cuadrado"}, usuario)
             db.guardar_config("frase_pie", pie.strip(), usuario)
             db.guardar_config("frase_imagen", url_def.strip() or None, usuario)
+            db.guardar_config("frase_canales", canales or pf.CANALES_DEFECTO, usuario)
             st.success("Guardado. Vale para las frases que se encolen de ahora en más.")
 
 
@@ -162,8 +228,9 @@ def _acciones(usuario, r):
                         horizontal=False)
         desde = c2.date_input("A partir del", value=_hoy() + datetime.timedelta(days=1), min_value=_hoy(), key="fd_desde")
         c3.markdown(f"<br>**{sin}** validadas sin día", unsafe_allow_html=True)
-        if c3.button("📅 Repartir en el año", key="fd_repartir", type="primary", disabled=not sin):
-            frases = db.frases_sin_fecha(solo_validadas=True)
+        st.caption("Reparte primero las nunca publicadas; cuando se acaban, siguen las ya publicadas de la más antigua a la más reciente.")
+        if c3.button("📅 Repartir en el año", key="fd_repartir", type="primary"):
+            frases = db.candidatas_rotacion(_hoy().isoformat())
             ocupadas = db.fechas_ocupadas(desde.isoformat(), (desde + datetime.timedelta(days=3 * 365)).isoformat())
             reparto = repartir(frases, desde, ocupadas, "azar" if modo.startswith("Al azar") else "orden")
             n = _guardar_reparto(reparto)
@@ -228,7 +295,7 @@ def _calendario(frases_mes, y, m):
             with c.container(border=True):
                 marca = " ·hoy" if d == hoy else ""
                 if f:
-                    ic = ESTADO_ICONO.get(f.get("estado"), "🗓")
+                    ic = ESTADO_ICONO.get(f.get("estado"), "🗓") + (" ↻" if f.get("ultima_publicada") else "")
                     st.markdown(f"**{dia}**{marca} {ic}")
                     st.caption(_recortar(f["texto"], 60) + (f"\n\n_{f.get('autor') or ''}_" if f.get("autor") else ""))
                 else:
@@ -294,6 +361,7 @@ def _detalle(iso, usuario):
     with c1:
         st.markdown(f"> {f['texto']}")
         st.markdown(f"**{f.get('autor') or '(sin autor)'}** · {ESTADO_ICONO.get(est, '')} {ESTADO_TXT.get(est, est)}"
+                    + (f" · ↻ ya salió {f['veces_publicada']} vez/veces (última {str(f['ultima_publicada'])[:10]})" if f.get("ultima_publicada") else "")
                     + (f" · fuente: {f['fuente']}" if f.get("fuente") else "") + (f" · tema: {f['tema']}" if f.get("tema") else ""))
         if f.get("publicacion_id"):
             p = db.obtener_publicacion(f["publicacion_id"])
@@ -407,19 +475,21 @@ def render(usuario):
     st.caption("Una frase por día, que sale sola cada mañana como posteo de Instagram con una foto de fondo. "
                "Las frases vienen del Sheet Frases_consolidadas_591 (solo las validadas). El mail no entra todavía (Julián está auditando Perfit).")
     try:
+        _proximas()
         r = _cabecera(usuario)
     except Exception as e:
         st.error(f"No pude leer las frases: {e}")
         return
     _configuracion(usuario)
     _acciones(usuario, r)
+    _backlog()
     meses = _meses_disponibles()
     etiquetas = [f"{MESES[m - 1].capitalize()} {y}" for y, m in meses]
     sel = st.selectbox("Mes", range(len(meses)), format_func=lambda i: etiquetas[i], key="fd_mes")
     y, m = meses[sel]
     ultimo = calendar.monthrange(y, m)[1]
     frases_mes = db.listar_frases(desde=f"{y:04d}-{m:02d}-01", hasta=f"{y:04d}-{m:02d}-{ultimo:02d}")
-    st.caption("🗓 programada · 📣 publicada · 👁 simulada · ⏭ salteada")
+    st.caption("🗓 programada · 📣 publicada · 👁 simulada · ⏭ salteada · ↻ ya salió antes (rotación)")
     _calendario(frases_mes, y, m)
     dia = st.session_state.get("fd_dia")
     if dia:
