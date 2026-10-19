@@ -21,8 +21,12 @@ Subtítulos quemados (15/10): si en la misma carpeta de Drive está <id>.palabra
 fva-transcripcion/conectores/exportar_palabras.py desde las transcripciones de AssemblyAI, con tiempos por
 palabra), el clip sale con subtítulos quemados en Raleway (fuentes/). Por defecto van en el vertical
 (shorts, reels, historias) y no en el horizontal; --subtitulos si/no lo fuerza.
+
+Subtítulos corregidos (19/10, pregunta de Julián en la reunión): cortar() acepta `srt_texto`, un SRT ya armado (el que
+la persona corrigió en «Mis recortes», guardado en clips.srt_editado) y lo quema tal cual; devuelve el SRT usado para
+guardarlo en clips.srt. Prueba local sin Drive ni WordPress: --original <ruta.mp4> --srt <archivo.srt> --sin-subir.
 """
-import argparse, io, json, os, subprocess, shutil
+import argparse, io, json, os, re, subprocess, shutil
 
 CARPETA_ORIGINALES = "Videos originales"
 
@@ -127,18 +131,22 @@ def quiere_subtitulos(formato, opcion="auto"):
     return opcion == "si" or (opcion == "auto" and formato == "vertical")
 
 
-def cortar(entrada, salida, inicio, fin, ffmpeg="ffmpeg", formato="horizontal", palabras=None):
+def cortar(entrada, salida, inicio, fin, ffmpeg="ffmpeg", formato="horizontal", palabras=None, srt_texto=None):
     """formato 'horizontal': el tramo tal cual (hasta 1280 de ancho). 'vertical' (15/10, pedido de Franco: shorts,
     reels, historias): lienzo 1080x1920 con el video centrado y, de fondo, el mismo video desenfocado.
     palabras: lista [[palabra, inicio_ms, fin_ms], ...] del video entero → subtítulos quemados (None = sin).
-    Devuelve True si el clip salió con subtítulos."""
-    sub = ""
-    if palabras:
+    srt_texto (19/10): un SRT ya armado (tiempos relativos al clip) que se quema tal cual en vez de armarlo desde
+    `palabras`; es lo que manda cuando la persona corrigió los subtítulos en «Mis recortes».
+    Devuelve el texto SRT que se quemó ('' si el clip salió sin subtítulos)."""
+    sub, srt_txt = "", ""
+    if srt_texto and srt_texto.strip():
+        srt_txt = srt_texto.strip().replace("\r", "") + "\n"
+    elif palabras:
         srt_txt = armar_srt(palabras, inicio, fin)
-        if srt_txt:
-            srt = os.path.splitext(os.path.basename(salida))[0] + ".srt"   # en el cwd, sin ":" ni barras que confundan al filtro
-            open(srt, "w", encoding="utf-8").write(srt_txt)
-            sub = "," + _filtro_subtitulos(srt, formato)
+    if srt_txt:
+        srt = os.path.splitext(os.path.basename(salida))[0] + ".srt"   # en el cwd, sin ":" ni barras que confundan al filtro
+        open(srt, "w", encoding="utf-8").write(srt_txt)
+        sub = "," + _filtro_subtitulos(srt, formato)
     if formato == "vertical":
         vf = ("[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:5,eq=brightness=-0.08[bg];"
               "[0:v]scale=1080:-2[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2,format=yuv420p" + sub)
@@ -149,7 +157,33 @@ def cortar(entrada, salida, inicio, fin, ffmpeg="ffmpeg", formato="horizontal", 
            *filtro, "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
            "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", salida]
     subprocess.check_call(cmd)
-    return bool(sub)
+    return srt_txt if sub else ""
+
+
+def leer_srt(texto):
+    """(19/10) Parsea un SRT a [{"n", "inicio", "fin", "texto"}] (inicio/fin como 'HH:MM:SS,mmm').
+    Lo usa «Mis recortes» para mostrar una caja de texto por línea."""
+    lineas = []
+    for bloque in re.split(r"\n\s*\n", (texto or "").replace("\r", "").strip()):
+        filas = [f for f in bloque.split("\n") if f.strip()]
+        if len(filas) < 2 or "-->" not in filas[1]:
+            continue
+        t0, t1 = [x.strip() for x in filas[1].split("-->", 1)]
+        lineas.append({"n": filas[0].strip(), "inicio": t0, "fin": t1, "texto": " ".join(f.strip() for f in filas[2:])})
+    return lineas
+
+
+def armar_srt_de_lineas(lineas):
+    """(19/10) Inverso de leer_srt: [{"inicio", "fin", "texto"}] → texto SRT. Saltea las líneas con texto vacío
+    (la persona las borró) y renumera."""
+    out, i = [], 0
+    for l in lineas:
+        texto = " ".join((l.get("texto") or "").split())
+        if not texto:
+            continue
+        i += 1
+        out.append(f"{i}\n{l['inicio']} --> {l['fin']}\n{texto}\n")
+    return "\n".join(out)
 
 
 def main():
@@ -163,19 +197,31 @@ def main():
     ap.add_argument("--formato", choices=["horizontal", "vertical"], default="horizontal")
     ap.add_argument("--subtitulos", choices=["auto", "si", "no"], default="auto", help="quemar subtítulos (auto: solo en vertical)")
     ap.add_argument("--ffmpeg", default=shutil.which("ffmpeg") or "ffmpeg")
+    ap.add_argument("--original", default="", help="(19/10) ruta local del original: no baja nada de Drive (busca <nombre>.palabras.json al lado)")
+    ap.add_argument("--srt", default="", help="(19/10) archivo .srt ya armado (tiempos relativos al clip): se quema tal cual")
+    ap.add_argument("--sin-subir", action="store_true", help="(19/10) solo cortar, sin subir a WordPress")
     a = ap.parse_args()
-    nombre = a.nombre or a.youtube or a.drive_id
-    svc = _drive()
-    file_id = a.drive_id or buscar_original(svc, a.youtube)
-    if not file_id:
-        raise SystemExit(f"No encontré el original de {a.youtube} en Drive (carpeta {CARPETA_ORIGINALES}).")
-
-    original = f"original_{nombre}.mp4"
-    descargar_drive(svc, file_id, original)
+    nombre = a.nombre or a.youtube or a.drive_id or os.path.splitext(os.path.basename(a.original))[0]
+    srt_texto = open(a.srt, encoding="utf-8").read() if a.srt else None
+    quiere = quiere_subtitulos(a.formato, a.subtitulos) and not srt_texto
+    if a.original:
+        original, palabras = a.original, None
+        pj = os.path.join(os.path.dirname(a.original), f"{nombre}.palabras.json")
+        if quiere and os.path.exists(pj):
+            palabras = json.load(open(pj, encoding="utf-8"))
+    else:
+        svc = _drive()
+        file_id = a.drive_id or buscar_original(svc, a.youtube)
+        if not file_id:
+            raise SystemExit(f"No encontré el original de {a.youtube} en Drive (carpeta {CARPETA_ORIGINALES}).")
+        original = f"original_{nombre}.mp4"
+        descargar_drive(svc, file_id, original)
+        palabras = buscar_palabras(svc, a.youtube or nombre) if quiere else None
     clip = f"clip-{nombre}-{int(a.inicio)}-{int(a.fin)}{'-vertical' if a.formato == 'vertical' else ''}.mp4"
-    palabras = buscar_palabras(svc, a.youtube or nombre) if quiere_subtitulos(a.formato, a.subtitulos) else None
-    con_sub = cortar(original, clip, a.inicio, a.fin, a.ffmpeg, a.formato, palabras)
+    con_sub = cortar(original, clip, a.inicio, a.fin, a.ffmpeg, a.formato, palabras, srt_texto)
     print(f"clip: {clip} ({os.path.getsize(clip) // 1024} KB){' · con subtítulos' if con_sub else ''}")
+    if a.sin_subir:
+        return
 
     import publicar
     cfg = publicar.Config(os.environ)

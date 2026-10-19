@@ -3,6 +3,8 @@ PROCESAR LOS CLIPS PEDIDOS (15/10). Corre en GitHub Actions cada 15 minutos (rec
 lee los pedidos con estado 'pedido' en la tabla clips (los hace la gente desde las tarjetas del chat),
 corta cada tramo desde el original en Drive (recortar_clip.py), lo sube a WordPress y deja la URL en
 la fila ('listo'); si falla, 'error' con el motivo (se ve en el Panel admin).
+(19/10) El SRT que se quemó queda en la fila (clips.srt). Si la persona lo corrigió desde «Mis recortes»
+(clips.srt_editado, estado vuelve a 'pedido'), se quema ese tal cual, se sube el video nuevo y se borra el anterior de WordPress.
 
 Variables de entorno: SUPABASE_URL, SUPABASE_KEY, DRIVE_TOKEN_JSON, WP_SITE, WP_USER, WP_APP_PASSWORD,
 PUBLICAR_WORDPRESS. Local: python procesar_clips.py (lee .streamlit/secrets.toml si faltan).
@@ -49,16 +51,26 @@ def main():
             if not os.path.exists(original):
                 rc.descargar_drive(svc, file_id, original)
             clip = f"clip-{vid}-{int(ini)}-{int(fin)}{'-vertical' if fmt == 'vertical' else ''}.mp4"
-            palabras = rc.buscar_palabras(svc, vid) if rc.quiere_subtitulos(fmt) else None   # (15/10) subtítulos quemados en el vertical
-            if rc.cortar(original, clip, ini, fin, ffmpeg, fmt, palabras):
-                print("  con subtítulos quemados")
+            # (19/10) si la persona corrigió los subtítulos en «Mis recortes», se queman tal cual (srt_editado); si no, se arman
+            # desde <id>.palabras.json como siempre (15/10, solo en vertical).
+            srt_editado = (p.get("srt_editado") or "").strip() if fmt == "vertical" else ""
+            palabras = None if srt_editado else (rc.buscar_palabras(svc, vid) if rc.quiere_subtitulos(fmt) else None)
+            srt_usado = rc.cortar(original, clip, ini, fin, ffmpeg, fmt, palabras, srt_editado or None)
+            if srt_usado:
+                print("  con subtítulos quemados" + (" (corregidos a mano)" if srt_editado else ""))
             titulo = (p.get("titulo") or vid)[:120] + f" · {int(ini)}-{int(fin)} s" + (" (vertical)" if fmt == "vertical" else "")
             r = publicar.subir_imagen_wordpress(cfg, open(clip, "rb").read(), clip, titulo=titulo,
                                                 etiquetas=["clip-exacto", fmt], quien=p.get("pedido_por") or "cola", pieza=titulo)
             if not r.get("url"):
                 raise RuntimeError("WordPress: " + str(r.get("aviso")))
-            db.actualizar_clip(cid, {"estado": "listo", "url": r["url"], "procesado_en": datetime.datetime.now(datetime.timezone.utc).isoformat()})
+            db.actualizar_clip(cid, {"estado": "listo", "url": r["url"], "srt": srt_usado or None, "error": None,
+                                     "procesado_en": datetime.datetime.now(datetime.timezone.utc).isoformat()})
             print("  → listo:", r["url"])
+            url_vieja = p.get("url")
+            if url_vieja and url_vieja != r["url"]:
+                # (19/10) regenerado: el archivo anterior se borra de WordPress para no acumular (ya quedó la URL nueva en la fila)
+                ok, aviso = publicar.borrar_media_por_url(cfg, url_vieja, quien="cola")
+                print("  archivo anterior:", "borrado" if ok else aviso)
             os.remove(clip)
         except Exception as e:
             db.actualizar_clip(cid, {"estado": "error", "error": str(e)[:300], "procesado_en": datetime.datetime.now(datetime.timezone.utc).isoformat()})
