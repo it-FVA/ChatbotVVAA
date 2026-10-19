@@ -319,11 +319,13 @@ def listar_mis_propuestas(usuario, limite=10):
 
 # ---------------- Clips exactos (15/10, pedido de Beto) ----------------
 # Tabla clips(video_id, inicio_ms, fin_ms, formato, estado, url, pedido_por, titulo, error, procesado_en,
-#             srt, srt_editado, nota).
+#             srt, edicion, nota).
 # Estados: 'pedido' (lo pidió alguien desde una tarjeta del chat) → 'listo' (recortar_pendientes.yml lo
 # cortó desde el original en Drive y lo subió a WordPress; url) o 'error'.
-# (19/10) srt: los subtítulos tal como se quemaron (solo vertical); srt_editado: los corregidos por la persona en
-# «Mis recortes» (vuelve a 'pedido' y la cola los quema tal cual); nota: aviso corto que se ve en la tarjeta.
+# (19/10) srt: los subtítulos tal como se quemaron (solo vertical). edicion (JSON): lo que la persona cambió desde
+# «✏️ Editar recorte» y la cola aplica al regenerar; hoy {"srt": "..."} (subtítulos corregidos); previsto (pedido de
+# Franco 19/10): "inicio_ms"/"fin_ms" (trim) y "estilo" (tipografía, color, tamaño, posición de los subtítulos).
+# nota: aviso corto que se ve en la tarjeta. (La columna srt_editado quedó vacía y se puede borrar.)
 
 def clips_de(video_ids):
     """Todos los clips (en cualquier estado) de esos videos, para dibujar las tarjetas en una sola consulta."""
@@ -350,14 +352,14 @@ def pedir_clip(video_id, inicio_ms, fin_ms, formato, titulo, usuario):
 def clips_pedidos(limite=20):
     if not disponible():
         return []
-    return _req("GET", f"?estado=eq.pedido&select=id,video_id,inicio_ms,fin_ms,formato,titulo,pedido_por,url,srt_editado&order=creado.asc&limit={limite}", tabla="clips") or []
+    return _req("GET", f"?estado=eq.pedido&select=id,video_id,inicio_ms,fin_ms,formato,titulo,pedido_por,url,edicion&order=creado.asc&limit={limite}", tabla="clips") or []
 
 
 def listar_clips(limite=60):
     """Todos los clips, más recientes primero (solapa Clips del panel admin)."""
     if not disponible():
         return []
-    return _req("GET", f"?select=id,creado,video_id,inicio_ms,fin_ms,formato,titulo,pedido_por,estado,url,error,procesado_en,srt,srt_editado,nota&order=creado.desc&limit={limite}", tabla="clips") or []
+    return _req("GET", f"?select=id,creado,video_id,inicio_ms,fin_ms,formato,titulo,pedido_por,estado,url,error,procesado_en,srt,edicion,nota&order=creado.desc&limit={limite}", tabla="clips") or []
 
 
 def actualizar_clip(cid, campos):

@@ -408,7 +408,7 @@ def _mis_recortes(usuario, todos=False):
                 c1.video(c["url"])
             fmt = "📱 vertical" if c.get("formato") == "vertical" else "🎬 horizontal"
             estado_txt = _EST.get(c.get("estado"), c.get("estado"))
-            regenerando = c.get("estado") == "pedido" and bool(c.get("srt_editado")) and bool(c.get("url"))
+            regenerando = c.get("estado") == "pedido" and bool(c.get("edicion")) and bool(c.get("url"))
             if regenerando:   # (19/10) ya había un video listo y se pidió rehacerlo con los subtítulos corregidos
                 estado_txt = "⏳ regenerando con subtítulos corregidos"
             c2.markdown(f"**{(c.get('titulo') or c['video_id'])[:90]}**  \n"
@@ -456,47 +456,59 @@ def _mis_recortes(usuario, todos=False):
                     st.session_state["vista"] = "publicar"
                     st.rerun()
                 if c.get("formato") == "vertical":
-                    _editor_subtitulos(c, usuario)
+                    _editor_recorte(c, usuario)
 
 
-def _editor_subtitulos(c, usuario):
-    """(19/10, pregunta de Julián en la reunión: "¿y si la transcripción entendió mal una palabra?") En un recorte vertical
-    listo, «✏️ Editar subtítulos» muestra las líneas tal como se quemaron (clips.srt: texto y tiempos de cada una), una caja
-    por línea. «Regenerar» guarda el SRT corregido en clips.srt_editado y vuelve el pedido a 'pedido': la cola de la nube lo
-    corta de nuevo con esos subtítulos, sube el video nuevo y borra el anterior de WordPress (~15 min)."""
+def _editor_recorte(c, usuario):
+    """(19/10) «✏️ Editar recorte» en un recorte vertical listo: una sola pantalla con secciones y un único botón «Regenerar».
+    Hoy la única sección es «Subtítulos» (pregunta de Julián en la reunión: "¿y si la transcripción entendió mal una
+    palabra?"): las líneas tal como se quemaron (clips.srt: texto y tiempos), una caja por línea. Previstas (pedido de
+    Franco, NO hechas): «Tramo» (ajustar inicio/fin y volver a cortar) y «Estilo» (tipografía, color, negrita/tamaño,
+    posición de los subtítulos, con controles como los de la frase sobre la imagen en `formulario`).
+    Todo lo que cambia la persona va a un único JSON clips.edicion (hoy {"srt": ...}; después inicio_ms/fin_ms/estilo);
+    «Regenerar» lo guarda, vuelve el pedido a 'pedido' y la cola de la nube lo aplica: corta de nuevo, sube el video
+    nuevo y borra el anterior de WordPress (~15 min)."""
     import recortar_clip as rc
-    srt = c.get("srt_editado") or c.get("srt") or ""
+    edicion = dict(c.get("edicion") or {})
+    srt = edicion.get("srt") or c.get("srt") or ""
     if not srt.strip():
         st.caption("✏️ Este recorte se hizo antes de que guardáramos los subtítulos, así que no se pueden editar. "
                    "Si hace falta corregirlos, borralo y pedilo de nuevo.")
         return
     key = f"rec_edit_{c['id']}"
     abierto = st.session_state.get(key, False)
-    if st.button("✏️ Editar subtítulos" if not abierto else "Cerrar sin cambios", key=f"{key}_btn",
-                 help="Corregí lo que la transcripción automática entendió mal y pedí el video de nuevo."):
+    if st.button("✏️ Editar recorte" if not abierto else "Cerrar sin cambios", key=f"{key}_btn",
+                 help="Corregí los subtítulos y pedí el video de nuevo."):
         st.session_state[key] = not abierto
         st.rerun()
     if not abierto:
         return
-    lineas = rc.leer_srt(srt)
+    nueva = dict(edicion)   # lo que se va a guardar en clips.edicion; cada sección agrega sus claves
+
+    # --- Sección Subtítulos (hoy la única; después se suman «Tramo» y «Estilo» con el mismo esquema) ---
+    st.markdown("**Subtítulos**")
     st.caption("Una caja por línea, con el momento en que aparece. Corregí el texto; si dejás una línea vacía, se saca. "
                "Los tiempos no se cambian desde acá.")
     nuevas = []
-    for i, l in enumerate(lineas):
+    for i, l in enumerate(rc.leer_srt(srt)):
         t0, t1 = l["inicio"][3:8], l["fin"][3:8]   # HH:MM:SS,mmm → MM:SS
         texto = st.text_input(f"{t0} → {t1}", value=l["texto"], key=f"{key}_{i}", max_chars=80)
         nuevas.append({"inicio": l["inicio"], "fin": l["fin"], "texto": texto})
     nuevo_srt = rc.armar_srt_de_lineas(nuevas)
-    cambio = nuevo_srt.strip() != srt.strip()
+    if nuevo_srt.strip() != srt.strip():
+        nueva["srt"] = nuevo_srt
     if not nuevo_srt.strip():
         st.warning("Quedaron todas las líneas vacías: el video saldría sin subtítulos. Dejá al menos una.")
-    if st.button("🔁 Regenerar con estos subtítulos", key=f"{key}_go", type="primary", disabled=not (cambio and nuevo_srt.strip()),
-                 help="Vuelve a cortar el video con los subtítulos corregidos. Tarda unos 15 minutos, como cualquier recorte."):
+
+    # --- Regenerar (único botón para todas las secciones) ---
+    cambio = nueva != edicion
+    if st.button("🔁 Regenerar el recorte", key=f"{key}_go", type="primary", disabled=not (cambio and nuevo_srt.strip()),
+                 help="Vuelve a cortar el video con los cambios. Tarda unos 15 minutos, como cualquier recorte."):
         hoy = datetime.date.today().strftime("%d/%m")
-        db.actualizar_clip(c["id"], {"srt_editado": nuevo_srt, "estado": "pedido", "error": None,
+        db.actualizar_clip(c["id"], {"edicion": nueva, "estado": "pedido", "error": None,
                                      "nota": f"Subtítulos corregidos por {usuario} el {hoy}. El video anterior se reemplaza cuando termine."})
         st.session_state[key] = False
-        st.toast("Listo, en unos 15 minutos el recorte aparece con los subtítulos corregidos.")
+        st.toast("Listo, en unos 15 minutos el recorte aparece con los cambios.")
         st.rerun()
     if not cambio:
         st.caption("Todavía no cambiaste nada.")

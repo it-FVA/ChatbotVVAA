@@ -23,7 +23,7 @@ palabra), el clip sale con subtítulos quemados en Raleway (fuentes/). Por defec
 (shorts, reels, historias) y no en el horizontal; --subtitulos si/no lo fuerza.
 
 Subtítulos corregidos (19/10, pregunta de Julián en la reunión): cortar() acepta `srt_texto`, un SRT ya armado (el que
-la persona corrigió en «Mis recortes», guardado en clips.srt_editado) y lo quema tal cual; devuelve el SRT usado para
+la persona corrigió en «Mis recortes», guardado en clips.edicion["srt"]) y lo quema tal cual; devuelve el SRT usado para
 guardarlo en clips.srt. Prueba local sin Drive ni WordPress: --original <ruta.mp4> --srt <archivo.srt> --sin-subir.
 """
 import argparse, io, json, os, re, subprocess, shutil

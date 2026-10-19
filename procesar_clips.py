@@ -4,7 +4,8 @@ lee los pedidos con estado 'pedido' en la tabla clips (los hace la gente desde l
 corta cada tramo desde el original en Drive (recortar_clip.py), lo sube a WordPress y deja la URL en
 la fila ('listo'); si falla, 'error' con el motivo (se ve en el Panel admin).
 (19/10) El SRT que se quemó queda en la fila (clips.srt). Si la persona lo corrigió desde «Mis recortes»
-(clips.srt_editado, estado vuelve a 'pedido'), se quema ese tal cual, se sube el video nuevo y se borra el anterior de WordPress.
+(clips.edicion = {"srt": ...}, estado vuelve a 'pedido'), se quema ese tal cual, se sube el video nuevo y se borra el anterior
+de WordPress. El mismo JSON va a traer después "inicio_ms"/"fin_ms" (trim) y "estilo" (subtítulos): se aplican acá.
 
 Variables de entorno: SUPABASE_URL, SUPABASE_KEY, DRIVE_TOKEN_JSON, WP_SITE, WP_USER, WP_APP_PASSWORD,
 PUBLICAR_WORDPRESS. Local: python procesar_clips.py (lee .streamlit/secrets.toml si faltan).
@@ -51,9 +52,11 @@ def main():
             if not os.path.exists(original):
                 rc.descargar_drive(svc, file_id, original)
             clip = f"clip-{vid}-{int(ini)}-{int(fin)}{'-vertical' if fmt == 'vertical' else ''}.mp4"
-            # (19/10) si la persona corrigió los subtítulos en «Mis recortes», se queman tal cual (srt_editado); si no, se arman
-            # desde <id>.palabras.json como siempre (15/10, solo en vertical).
-            srt_editado = (p.get("srt_editado") or "").strip() if fmt == "vertical" else ""
+            # (19/10) edicion = lo que la persona cambió en «✏️ Editar recorte»: hoy solo "srt" (subtítulos corregidos, se queman
+            # tal cual en el vertical); si no hay, se arman desde <id>.palabras.json como siempre (15/10, solo en vertical).
+            # Previsto: "inicio_ms"/"fin_ms" (trim) y "estilo" (tipografía/color/tamaño/posición) → pasarlos a rc.cortar.
+            edicion = p.get("edicion") or {}
+            srt_editado = (edicion.get("srt") or "").strip() if fmt == "vertical" else ""
             palabras = None if srt_editado else (rc.buscar_palabras(svc, vid) if rc.quiere_subtitulos(fmt) else None)
             srt_usado = rc.cortar(original, clip, ini, fin, ffmpeg, fmt, palabras, srt_editado or None)
             if srt_usado:
