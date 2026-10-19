@@ -623,7 +623,9 @@ def _controles_estilo(key, inicial):
     estilo = rc.normalizar_estilo({"tipografia": tipografia, "tamano": tamano, "color": color, "fondo": fondo,
                                    "negrita": negrita, "posicion": posicion})
     with d3:
-        st.markdown(_vista_previa_estilo(estilo), unsafe_allow_html=True)
+        # (19/10, Franco: "la vista previa no funciona") st.markdown le sacaba los style= al HTML: la previa salía con la
+        # letra y el color por defecto de la app, sin sombra ni tamaño. st.html respeta los estilos.
+        st.html(_vista_previa_estilo(estilo))
     return estilo
 
 
@@ -631,7 +633,9 @@ def _vista_previa_estilo(estilo, texto="La gratitud es la llave de la alegría")
     """(19/10) Un recuadro HTML 9:16 con una línea de ejemplo como quedaría quemada (aproximado: el video real lo dibuja libass)."""
     import recortar_clip as rc
     e = rc.normalizar_estilo(estilo)
-    familia = {"Raleway": "'Raleway', sans-serif", "Lato": "'Lato', sans-serif"}.get(e["tipografia"], "sans-serif")
+    # (19/10, Franco: "la vista previa no funciona") sin comillas simples adentro del style='…': cortaban el atributo
+    # en font-family y se perdía todo lo demás (tamaño, color, sombra).
+    familia = {"Raleway": "Raleway, sans-serif", "Lato": "Lato, sans-serif"}.get(e["tipografia"], "sans-serif")
     peso = 700 if e["negrita"] else (600 if e["tipografia"] == "Raleway" else 400)
     tam = int(round(15 * rc.TAMANOS[e["tamano"]]))
     color = "#" + rc.COLORES[e["color"]]
