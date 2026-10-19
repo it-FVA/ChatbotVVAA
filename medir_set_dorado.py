@@ -18,7 +18,7 @@ Uso (desde la carpeta del repo, con OPENAI_API_KEY y los secrets en .streamlit/s
     python medir_set_dorado.py --n 10
     python medir_set_dorado.py --solo-dificiles
 
-Salida: medicion-set-dorado.md en esta carpeta. Cada consulta cuesta una llamada de embedding
+Salida: informes/medicion-set-dorado*.md (18/10: los informes van en informes/). Cada consulta cuesta una llamada de embedding
 (+ traducción cacheada, + reranker si se pide) por modo.
 """
 import os, sys, csv, argparse, unicodedata, re
@@ -121,6 +121,7 @@ def main():
               "reranker": "medicion-set-dorado-reranker.md", "documento": "medicion-set-dorado-documento.md"}[args.modos]
     if args.solo_validadas:
         salida = salida.replace(".md", "-validado.md")
+    salida = os.path.join(os.path.dirname(os.path.abspath(__file__)), "informes", salida)   # (18/10) informes aparte
 
     tabla = {}      # (modo, variante) -> {"aciertos": int, "pos": [..], "fallas": [n...]}
     detalle = {}    # n -> {(modo, variante): pos}

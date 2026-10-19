@@ -16,7 +16,7 @@ Uso (desde la carpeta del repo, con la OPENAI_API_KEY en .streamlit/secrets.toml
     python comparar_busqueda.py --consulta "gratitud en el duelo"
     python comparar_busqueda.py --dificiles        # las consultas 'difícil' del set dorado
 
-Salida: comparacion-busqueda.md en esta misma carpeta.
+Salida: informes/comparacion-*.md (18/10: los informes van en informes/).
 
 No toca el corpus ni la app: solo llama a nucleo.buscar() con distintas variables
 de entorno y anota lo que vuelve. Cada consulta cuesta unas llamadas a OpenAI
@@ -159,13 +159,13 @@ def main():
             raise SystemExit("Falta CONCEPTOS_URL en secrets.toml: sin eso la expansión no hace nada.")
         modos = dict(MODOS_EXPANSION)
         consultas = args.consulta or CONSULTAS_EXPANSION
-        salida = "comparacion-expansion.md"
+        salida = os.path.join("informes", "comparacion-expansion.md")
     else:
         modos = dict(MODOS)
         if not args.con_reranker:
             modos.pop("C · híbrida + reranker ampliado")
         consultas = args.consulta or (consultas_dificiles() if args.dificiles else CONSULTAS_DEFAULT)
-        salida = "comparacion-busqueda.md"
+        salida = os.path.join("informes", "comparacion-busqueda.md")
 
     # --- prueba de humo: una consulta por modo; si algo revienta, se ve acá ---
     print("Prueba de humo…")
