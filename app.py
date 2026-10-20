@@ -389,6 +389,66 @@ def mostrar_fuentes(mats, idioma, abierto, texto=""):
         render_mats(mats, idioma, citadas=cit)
 
 
+def _md_a_docx(texto, titulo="Documento"):
+    """(20/10, Pato pidió el concepto de campaña "en un Word") Convierte la respuesta (markdown simple) a .docx:
+    títulos #, listas -, * y 1., citas >, negritas **. Lo demás va como párrafo."""
+    import io, re
+    from docx import Document
+    doc = Document()
+    doc.core_properties.title = titulo[:200]
+
+    def _runs(par, linea):
+        for i, trozo in enumerate(re.split(r"(\*\*[^*]+\*\*)", linea)):
+            if not trozo:
+                continue
+            if trozo.startswith("**") and trozo.endswith("**"):
+                par.add_run(trozo[2:-2]).bold = True
+            else:
+                par.add_run(re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", trozo).replace("*", ""))
+
+    for linea in (texto or "").splitlines():
+        s = linea.rstrip()
+        if not s.strip():
+            continue
+        if s.strip() in ("---", "***"):
+            continue
+        m = re.match(r"^(#{1,4})\s+(.*)", s)
+        if m:
+            doc.add_heading(m.group(2).replace("**", ""), level=min(len(m.group(1)), 4))
+            continue
+        if re.match(r"^\s*[-*•]\s+", s):
+            _runs(doc.add_paragraph(style="List Bullet"), re.sub(r"^\s*[-*•]\s+", "", s))
+            continue
+        if re.match(r"^\s*\d+[.)]\s+", s):
+            _runs(doc.add_paragraph(style="List Number"), re.sub(r"^\s*\d+[.)]\s+", "", s))
+            continue
+        if s.startswith(">"):
+            p = doc.add_paragraph(style="Intense Quote")
+            _runs(p, s.lstrip("> ").strip())
+            continue
+        _runs(doc.add_paragraph(), s)
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
+def descargar_en_chat(m, i):
+    """(20/10) Debajo de cada respuesta larga del bot, «⬇️ Word»: la baja como .docx con el título de la conversación."""
+    texto = m.get("content") or ""
+    if len(texto) < 600:
+        return
+    titulo = (st.session_state.get("conv_titulo") or "Documento del asistente").strip()
+    nombre = "".join(c if c.isalnum() or c in " -_" else "" for c in titulo).strip()[:60] or "documento"
+    try:
+        datos = _md_a_docx(texto, titulo)
+    except Exception as e:
+        st.caption(f"(no pude armar el Word: {e})")
+        return
+    st.download_button("⬇️ Word", data=datos, file_name=f"{nombre}.docx",
+                       mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                       key=f"docx_{i}", help="Descarga esta respuesta como documento de Word.")
+
+
 def publicar_en_chat(m, i, ultimo):
     """(24/9) Publicar desde adentro del chat: cuando el bot decide que la pieza está lista
     (herramienta proponer_publicacion), debajo de su respuesta aparece el recuadro precompletado
@@ -405,6 +465,7 @@ for i, m in enumerate(st.session_state.messages):
         st.markdown(m.get("content", ""))
         if rol == "assistant":
             publicar_en_chat(m, i, ultimo=(i == _n - 1))     # (16/10) el recuadro va antes que las fuentes
+            descargar_en_chat(m, i)                           # (20/10) ⬇️ Word en las respuestas largas
         if m.get("mats"):
             mostrar_fuentes(m["mats"], IDIOMA, abierto=not (PUEDE_PUBLICAR and m.get("pieza")), texto=m.get("content", ""))
 
