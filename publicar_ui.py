@@ -768,7 +768,10 @@ def panel_aprobacion(usuario):
     except Exception as e:
         st.error(f"No pude leer las piezas: {e}")
         return
-    t1, t2, t3, t4, t5, t6 = st.tabs([f"⏳ Para aprobar ({len(pend)})", "🗓 En cola", "📒 Registro", "🗑 Papelera", "🎬 Clips", "📅 Frase del día"])
+    t1, t2, t3, t4, t5, t6, t7 = st.tabs([f"⏳ Para aprobar ({len(pend)})", "🗓 En cola", "📒 Registro", "🗑 Papelera", "🎬 Clips", "📅 Frase del día", "📈 Uso"])
+    with t7:
+        # (21/10, Franco) "¿Hubo movimiento?": quién usa el bot, cuándo fue la última vez y qué hizo cada uno.
+        uso_admin(usuario)
     with t6:
         # (19/10, reunión) Calendario anual de la Frase del día: una por día, sale sola como posteo de Instagram.
         import frases_ui
@@ -1263,3 +1266,112 @@ def render(usuario):
                             f"{(p.get('titulo') or '')[:60]} · {p.get('usuario')} · {p.get('estado')}")
         except Exception as e:
             st.caption(f"(sin registro: {e})")
+
+
+# ---------------- Uso (21/10) ----------------
+_SERVICIO = {"frase_del_dia", "bot", "cola", "prueba"}       # usuarios que no son personas
+
+
+def _hace(iso):
+    """'hoy 14:30' / 'ayer' / 'hace 3 días' / '12/10' a partir de un ISO en UTC."""
+    if not iso:
+        return "nunca"
+    try:
+        t = datetime.datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+        if t.tzinfo is None:
+            t = t.replace(tzinfo=datetime.timezone.utc)
+        local = t.astimezone(datetime.timezone(datetime.timedelta(hours=-3)))
+        hoy = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-3))).date()
+        d = (hoy - local.date()).days
+        if d == 0:
+            return "hoy " + local.strftime("%H:%M")
+        if d == 1:
+            return "ayer " + local.strftime("%H:%M")
+        if d < 7:
+            return f"hace {d} días"
+        return local.strftime("%d/%m")
+    except Exception:
+        return str(iso)[:10]
+
+
+def _semana(iso):
+    """Lunes de la semana (fecha) de un ISO, en hora Argentina."""
+    t = datetime.datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    if t.tzinfo is None:
+        t = t.replace(tzinfo=datetime.timezone.utc)
+    f = t.astimezone(datetime.timezone(datetime.timedelta(hours=-3))).date()
+    return f - datetime.timedelta(days=f.weekday())
+
+
+def uso_admin(usuario):
+    """Panel admin → «📈 Uso»: la respuesta a «¿hubo movimiento?». Persona por persona, incluso sin actividad:
+    última vez, conversaciones, mensajes, piezas y recortes de los últimos 7 y 28 días; después la lista de lo último."""
+    st.caption("Quién está usando el bot y qué hizo. Se cuenta cada persona, también la que no hizo nada. Horas de Argentina.")
+    dias = st.radio("Período", [7, 28, 90], index=1, horizontal=True, key="uso_dias", format_func=lambda d: f"últimos {d} días")
+    try:
+        datos = db.uso_actividad(dias)
+        ultima = db.uso_ultima_vez()
+    except Exception as e:
+        st.error(f"No pude leer la actividad: {e}")
+        return
+    convs, pubs, clips = datos["conversaciones"], datos["publicaciones"], datos["clips"]
+    try:
+        personas = [u for u in dict(st.secrets.get("usuarios", {})).keys() if u not in _SERVICIO]
+    except Exception:
+        personas = []
+    for u in set(c.get("usuario") for c in convs) | set(p.get("usuario") for p in pubs) | set(c.get("pedido_por") for c in clips):
+        if u and u not in personas and u not in _SERVICIO:
+            personas.append(u)
+
+    # --- cabecera
+    activos = {c.get("usuario") for c in convs} - _SERVICIO
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Personas activas", f"{len(activos)} de {len(personas)}")
+    c2.metric("Conversaciones", len([c for c in convs if c.get("usuario") not in _SERVICIO]))
+    c3.metric("Piezas creadas", len([p for p in pubs if p.get("usuario") not in _SERVICIO]))
+    c4.metric("Recortes pedidos", len(clips))
+
+    # --- tabla por persona
+    filas = []
+    for u in sorted(personas, key=lambda x: (ultima.get(x) or ""), reverse=True):
+        cu = [c for c in convs if c.get("usuario") == u]
+        pu = [p for p in pubs if p.get("usuario") == u]
+        ku = [k for k in clips if k.get("pedido_por") == u]
+        ult = ultima.get(u)
+        filas.append({"Persona": u, "Última vez": _hace(ult), "Conversaciones": len(cu),
+                      "Mensajes": sum(c.get("n_mensajes") or 0 for c in cu), "Piezas": len(pu), "Recortes": len(ku),
+                      "Lo último": (max(cu, key=lambda c: c.get("actualizado") or "")["titulo"] if cu else "—")})
+    st.dataframe(filas, width="stretch", hide_index=True,
+                 column_config={"Lo último": st.column_config.TextColumn(width="large")})
+    sin = [f["Persona"] for f in filas if f["Conversaciones"] == 0 and f["Piezas"] == 0 and f["Recortes"] == 0]
+    if sin:
+        st.caption("Sin actividad en el período: " + ", ".join(sin) + ".")
+
+    # --- por semana
+    por_semana = {}
+    for c in convs:
+        if c.get("usuario") in _SERVICIO:
+            continue
+        s = _semana(c.get("creado") or c.get("actualizado"))
+        por_semana.setdefault(s, {}).setdefault(c.get("usuario"), 0)
+        por_semana[s][c.get("usuario")] += 1
+    if por_semana:
+        st.markdown("**Conversaciones nuevas por semana** (semana del lunes)")
+        semanas = sorted(por_semana)
+        cols = sorted({u for s in semanas for u in por_semana[s]})
+        tabla = {"semana": [s.strftime("%d/%m") for s in semanas]}
+        for u in cols:
+            tabla[u] = [por_semana[s].get(u, 0) for s in semanas]
+        import pandas as pd
+        st.bar_chart(pd.DataFrame(tabla).set_index("semana"), height=220)
+
+    # --- lo último
+    st.markdown("**Últimas conversaciones**")
+    for c in [c for c in convs if c.get("usuario") not in _SERVICIO][:25]:
+        st.markdown(f"- {_hace(c.get('actualizado'))} · **{c.get('usuario')}** · {(c.get('titulo') or 'Conversación')[:70]} · {c.get('n_mensajes') or 0} mensajes")
+    if pubs or clips:
+        st.markdown("**Piezas y recortes**")
+        for p in [p for p in pubs if p.get("usuario") not in _SERVICIO][:15]:
+            st.markdown(f"- {_hace(p.get('creado'))} · **{p.get('usuario')}** · {canal_txt(p.get('canal'))} · {(p.get('titulo') or '')[:60]} · {p.get('estado')}")
+        for k in clips[:15]:
+            st.markdown(f"- {_hace(k.get('creado'))} · **{k.get('pedido_por')}** · recorte {k.get('formato')} · {(k.get('titulo') or '')[:60]} · {k.get('estado')}")

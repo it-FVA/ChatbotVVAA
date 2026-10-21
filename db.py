@@ -572,3 +572,34 @@ def resumen_frases():
             "alguna_vez_publicadas": sum(1 for f in todas if f.get("ultima_publicada")),
             "sin_fecha_validadas": sum(1 for f in todas if f.get("validada") and not f.get("fecha")),
             "pendientes_validar": sum(1 for f in todas if not f.get("validada"))}
+
+
+# ---------------- Uso (21/10, Franco: "¿hubo movimiento?" en pantalla) ----------------
+def uso_actividad(dias=28):
+    """Todo lo que pasó en los últimos `dias`: conversaciones (con cuántos mensajes propios), piezas y recortes.
+    Devuelve {"conversaciones": [...], "publicaciones": [...], "clips": [...]} con los campos mínimos."""
+    if not disponible():
+        return {"conversaciones": [], "publicaciones": [], "clips": []}
+    import datetime as _dt
+    desde = (_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=dias)).strftime("%Y-%m-%dT%H:%M:%SZ")   # sin "+": en la URL se vuelve espacio
+    convs = _req("GET", f"?select=id,usuario,titulo,creado,actualizado,mensajes&actualizado=gte.{desde}&order=actualizado.desc&limit=500") or []
+    for c in convs:
+        ms = c.get("mensajes") or []
+        c["n_mensajes"] = sum(1 for m in ms if m.get("role") == "user")
+        c.pop("mensajes", None)
+    pubs = _req("GET", f"?select=id,usuario,canal,modo,estado,titulo,creado&creado=gte.{desde}&order=creado.desc&limit=500", tabla="publicaciones") or []
+    clips = _req("GET", f"?select=id,pedido_por,formato,estado,titulo,creado&creado=gte.{desde}&order=creado.desc&limit=500", tabla="clips") or []
+    return {"conversaciones": convs, "publicaciones": pubs, "clips": clips}
+
+
+def uso_ultima_vez():
+    """{usuario: fecha de la última conversación tocada}, sobre todo el historial (sin la papelera)."""
+    if not disponible():
+        return {}
+    filas = _req("GET", "?select=usuario,actualizado&borrada=is.null&order=actualizado.desc&limit=2000") or []
+    out = {}
+    for f in filas:
+        u = f.get("usuario")
+        if u and u not in out:
+            out[u] = f.get("actualizado")
+    return out
