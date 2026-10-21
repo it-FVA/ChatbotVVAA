@@ -620,10 +620,14 @@ def registrar_uso(fila):
         return None
 
 
-def uso_openai(dias=28):
-    """Filas de uso_openai de los últimos `dias` (hasta 10.000)."""
+def uso_openai(dias=28, desde=None, hasta=None):
+    """Filas de uso_openai: de los últimos `dias`, o entre `desde` y `hasta` (fechas ISO 'AAAA-MM-DD'). Hasta 20.000."""
     if not disponible():
         return []
     import datetime as _dt
-    desde = (_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=dias)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    return _req("GET", f"?select=creado,usuario,modelo,que,tokens_entrada,tokens_salida,tokens_cache&creado=gte.{desde}&order=creado.desc&limit=10000", tabla="uso_openai") or []
+    if desde is None:
+        desde = (_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=dias)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    q = f"?select=creado,usuario,modelo,que,tokens_entrada,tokens_salida,tokens_cache&creado=gte.{desde}"
+    if hasta:
+        q += f"&creado=lt.{hasta}"
+    return _req("GET", q + "&order=creado.desc&limit=20000", tabla="uso_openai") or []

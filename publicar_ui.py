@@ -1415,90 +1415,174 @@ def _costo(fila, precios):
     return ((ent - cache) * p.get("entrada", 0) + cache * pc + sal * p.get("salida", 0)) / 1_000_000
 
 
-def costo_openai_admin(usuario, dias=28):
-    """(21/10) Panel admin → Uso → «Costo de OpenAI»: tokens por modelo, por persona y por día, y el costo estimado
-    SOLO para los modelos que tienen precio cargado (config openai_precios). Sin precio, no se inventa un costo."""
+def _usd(x):
+    """US$ con dos decimales; con cuatro cuando es menos de un centavo (los primeros días del registro)."""
+    if x is None:
+        return "—"
+    return f"US$ {x:,.4f}" if 0 < x < 0.01 else f"US$ {x:,.2f}"
+
+
+def _miles(n):
+    return f"{int(n or 0):,}".replace(",", ".")
+
+
+def _mes_ar(iso):
+    """'AAAA-MM' en hora Argentina de un ISO UTC."""
+    t = datetime.datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    if t.tzinfo is None:
+        t = t.replace(tzinfo=datetime.timezone.utc)
+    return t.astimezone(datetime.timezone(datetime.timedelta(hours=-3))).strftime("%Y-%m")
+
+
+_MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+
+
+def _mes_txt(ym):
+    a, m = ym.split("-")
+    return f"{_MESES[int(m) - 1]} {a}"
+
+
+def costo_openai_admin(usuario, dias=None):
+    """(21/10, rehecho a pedido de Franco: "por usuario y por mes, con la plata, lo más en detalle posible")
+    Dashboard → «💸 Consumo de OpenAI»: un mes a elegir (o los últimos 30 días); costo y tokens del mes, por persona
+    (con su parte del total), por día, por modelo y para qué; y la serie de los últimos 6 meses. El costo se calcula con
+    los precios de config openai_precios (cargados con fuente); un modelo sin precio muestra solo tokens."""
+    import pandas as pd
     st.markdown("---")
     st.markdown("### 💸 Consumo de OpenAI")
+    hoy = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-3))).date()
+    meses = [(hoy.replace(day=1) - datetime.timedelta(days=31 * k)).strftime("%Y-%m") for k in range(0, 6)]
+    meses = sorted(set(meses), reverse=True)
+    opciones = ["últimos 30 días"] + [_mes_txt(m) for m in meses]
+    c_sel, c_info = st.columns([1.2, 3])
+    elegido = c_sel.selectbox("Período", opciones, index=0, key="costo_periodo", label_visibility="collapsed")
     try:
-        filas = db.uso_openai(dias)
         precios = db.obtener_config("openai_precios") or {}
+        if elegido == "últimos 30 días":
+            filas = db.uso_openai(30)
+            desde_txt = "últimos 30 días"
+        else:
+            ym = meses[opciones.index(elegido) - 1]
+            a, m = int(ym[:4]), int(ym[5:])
+            ini = datetime.date(a, m, 1)
+            fin = datetime.date(a + (m == 12), (m % 12) + 1, 1)
+            # el día empieza a las 00:00 de Argentina = 03:00 UTC
+            filas = db.uso_openai(desde=f"{ini.isoformat()}T03:00:00Z", hasta=f"{fin.isoformat()}T03:00:00Z")
+            desde_txt = _mes_txt(ym)
+        # serie de 6 meses para el cuadro mensual (una sola consulta)
+        ini6 = datetime.date(int(meses[-1][:4]), int(meses[-1][5:]), 1)
+        filas6 = db.uso_openai(desde=f"{ini6.isoformat()}T03:00:00Z")
     except Exception as e:
         st.error(f"No pude leer el consumo: {e}")
         return
-    if not filas:
-        st.caption("Todavía no hay llamadas registradas (se registran desde el 21/10).")
-    modelos = sorted({f.get("modelo") or "?" for f in filas})
+    c_info.caption(f"Se registra cada llamada al modelo desde el 21/10/2026. Período: **{desde_txt}**. "
+                   "El costo es una estimación con los precios de abajo; el número real es el de la factura de OpenAI.")
+
+    costos = [_costo(f, precios) for f in filas]
+    sin_precio = sorted({(f.get("modelo") or "?") for f, c in zip(filas, costos) if c is None})
+    total_usd = sum(c for c in costos if c is not None)
     tot_ent = sum(f.get("tokens_entrada") or 0 for f in filas)
     tot_sal = sum(f.get("tokens_salida") or 0 for f in filas)
-    costos = [_costo(f, precios) for f in filas]
-    con_precio = [c for c in costos if c is not None]
-    sin_precio = sorted({(f.get("modelo") or "?") for f, c in zip(filas, costos) if c is None})
+    personas = {f.get("usuario") or "(sistema)" for f in filas}
+    dias_con_uso = {str(f.get("creado") or "")[:10] for f in filas}
+
+    # --- cabecera
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Llamadas", len(filas))
-    c2.metric("Tokens de entrada", f"{tot_ent:,}".replace(",", "."))
-    c3.metric("Tokens de salida", f"{tot_sal:,}".replace(",", "."))
-    c4.metric("Costo estimado", (f"US$ {sum(con_precio):,.2f}" if con_precio else "sin precios"),
-              help="Solo suma los modelos con precio cargado abajo. Es una estimación: el número real es el de la factura de OpenAI.")
+    c1.metric("Costo del período", _usd(total_usd) if filas else "—")
+    c2.metric("Promedio por día con uso", _usd(total_usd / len(dias_con_uso)) if dias_con_uso else "—")
+    c3.metric("Tokens", _miles(tot_ent + tot_sal), help=f"Entrada {_miles(tot_ent)} · salida {_miles(tot_sal)}")
+    c4.metric("Personas · llamadas", f"{len(personas)} · {len(filas)}")
+    if not filas:
+        st.info("No hay llamadas registradas en este período.")
     if sin_precio:
-        st.caption("Sin precio cargado (se muestran solo tokens): " + ", ".join(sin_precio) + ". Cargalos abajo con los valores de openai.com/pricing.")
+        st.warning("Modelos sin precio cargado (se muestran solo sus tokens): " + ", ".join(sin_precio) + ". Cargalos abajo.")
 
-    # por modelo y para qué
-    por = {}
-    for f, c in zip(filas, costos):
-        k = (f.get("modelo") or "?", f.get("que") or "?")
-        d = por.setdefault(k, {"Modelo": k[0], "Para qué": k[1], "Llamadas": 0, "Entrada": 0, "Salida": 0, "Cache": 0, "US$": 0.0, "_p": False})
-        d["Llamadas"] += 1; d["Entrada"] += f.get("tokens_entrada") or 0; d["Salida"] += f.get("tokens_salida") or 0; d["Cache"] += f.get("tokens_cache") or 0
-        if c is not None:
-            d["US$"] += c; d["_p"] = True
-    tabla = []
-    for d in sorted(por.values(), key=lambda x: -x["Entrada"]):
-        tabla.append({"Modelo": d["Modelo"], "Para qué": {"chat": "chat (respuestas)", "auxiliar": "auxiliar (reranker, títulos, newsletter)", "embedding": "embedding (búsqueda)"}.get(d["Para qué"], d["Para qué"]),
-                      "Llamadas": d["Llamadas"], "Tokens entrada": d["Entrada"], "Tokens salida": d["Salida"], "En caché": d["Cache"],
-                      "US$ estimado": (round(d["US$"], 3) if d["_p"] else None)})
-    if tabla:
-        st.dataframe(tabla, width="stretch", hide_index=True)
-
-    # por persona
-    pp = {}
-    for f, c in zip(filas, costos):
-        u = f.get("usuario") or "(sistema)"
-        d = pp.setdefault(u, {"Persona": u, "Llamadas": 0, "Tokens": 0, "US$": 0.0, "_p": False})
-        d["Llamadas"] += 1; d["Tokens"] += (f.get("tokens_entrada") or 0) + (f.get("tokens_salida") or 0)
-        if c is not None:
-            d["US$"] += c; d["_p"] = True
-    if pp:
+    if filas:
+        # --- por persona
         st.markdown("**Por persona**")
-        st.dataframe([{"Persona": d["Persona"], "Llamadas": d["Llamadas"], "Tokens": d["Tokens"], "US$ estimado": (round(d["US$"], 3) if d["_p"] else None)}
-                      for d in sorted(pp.values(), key=lambda x: -x["Tokens"])], width="stretch", hide_index=True)
+        pp = {}
+        for f, c in zip(filas, costos):
+            u = f.get("usuario") or "(sistema)"
+            d = pp.setdefault(u, {"Persona": u, "Llamadas": 0, "Chats": 0, "Tokens entrada": 0, "Tokens salida": 0, "US$": 0.0})
+            d["Llamadas"] += 1
+            d["Chats"] += 1 if f.get("que") == "chat" else 0
+            d["Tokens entrada"] += f.get("tokens_entrada") or 0
+            d["Tokens salida"] += f.get("tokens_salida") or 0
+            d["US$"] += c or 0.0
+        df_p = pd.DataFrame(sorted(pp.values(), key=lambda x: -x["US$"]))
+        df_p["Parte del total"] = (df_p["US$"] / total_usd) if total_usd else 0.0
+        df_p["US$ por chat"] = df_p.apply(lambda r: (r["US$"] / r["Chats"]) if r["Chats"] else None, axis=1)
+        st.dataframe(df_p, width="stretch", hide_index=True,
+                     column_config={"US$": st.column_config.NumberColumn("Costo (US$)", format="$%.2f"),
+                                    "US$ por chat": st.column_config.NumberColumn("Por respuesta (US$)", format="$%.3f", help="Costo promedio de cada respuesta del bot (incluye la búsqueda y el reranker)."),
+                                    "Parte del total": st.column_config.ProgressColumn("Parte del total", format="%.0f%%", min_value=0, max_value=1),
+                                    "Tokens entrada": st.column_config.NumberColumn(format="%d"), "Tokens salida": st.column_config.NumberColumn(format="%d"),
+                                    "Chats": st.column_config.NumberColumn("Respuestas", help="Llamadas de tipo chat: una por respuesta del bot.")})
 
-    # por día
-    pd_ = {}
-    for f, c in zip(filas, costos):
-        dia = str(f.get("creado") or "")[:10]
-        d = pd_.setdefault(dia, {"tokens": 0, "US$": 0.0})
-        d["tokens"] += (f.get("tokens_entrada") or 0) + (f.get("tokens_salida") or 0)
-        if c is not None:
-            d["US$"] += c
-    if pd_:
-        import pandas as pd
+        # --- por día, apilado por persona
+        st.markdown("**Costo por día, por persona (US$)**")
+        pd_ = {}
+        for f, c in zip(filas, costos):
+            dia = str(f.get("creado") or "")[:10]
+            u = f.get("usuario") or "(sistema)"
+            pd_.setdefault(dia, {}).setdefault(u, 0.0)
+            pd_[dia][u] += c or 0.0
         dias_ord = sorted(pd_)
-        st.markdown("**Tokens por día** (entrada + salida)")
-        st.bar_chart(pd.DataFrame({"día": [d[5:] for d in dias_ord], "tokens": [pd_[d]["tokens"] for d in dias_ord]}).set_index("día"), height=200)
+        cols = sorted({u for d in dias_ord for u in pd_[d]})
+        st.bar_chart(pd.DataFrame({"día": [d[8:] + "/" + d[5:7] for d in dias_ord], **{u: [round(pd_[d].get(u, 0.0), 4) for d in dias_ord] for u in cols}}).set_index("día"), height=220)
 
-    # precios
-    with st.expander("💲 Precios por modelo (USD por millón de tokens), para la estimación"):
-        st.caption("Sacalos de openai.com/pricing. Hasta que un modelo tenga precio, de ese modelo se muestran solo los tokens.")
+        # --- por modelo y para qué
+        with st.expander("Detalle por modelo y para qué se usó"):
+            por = {}
+            for f, c in zip(filas, costos):
+                k = (f.get("modelo") or "?", f.get("que") or "?")
+                d = por.setdefault(k, {"Modelo": k[0], "Para qué": k[1], "Llamadas": 0, "Tokens entrada": 0, "Tokens salida": 0, "En caché": 0, "US$": 0.0})
+                d["Llamadas"] += 1; d["Tokens entrada"] += f.get("tokens_entrada") or 0; d["Tokens salida"] += f.get("tokens_salida") or 0; d["En caché"] += f.get("tokens_cache") or 0
+                d["US$"] += c if c is not None else 0.0
+            nombres = {"chat": "chat (respuestas con herramientas)", "auxiliar": "auxiliar (reranker, títulos, traducciones, newsletter)", "embedding": "embedding (búsqueda)"}
+            df_m = pd.DataFrame(sorted(por.values(), key=lambda x: -x["US$"]))
+            df_m["Para qué"] = df_m["Para qué"].map(lambda q: nombres.get(q, q))
+            st.dataframe(df_m, width="stretch", hide_index=True,
+                         column_config={"US$": st.column_config.NumberColumn("Costo (US$)", format="$%.2f")})
+            st.caption("«En caché» son tokens de entrada que OpenAI ya tenía (el system message repetido): se cobran al precio de caché.")
+
+    # --- serie mensual (6 meses) con personas
+    st.markdown("**Por mes** (últimos 6 meses, hora Argentina)")
+    pm = {}
+    for f in filas6:
+        ym = _mes_ar(f.get("creado"))
+        u = f.get("usuario") or "(sistema)"
+        d = pm.setdefault(ym, {"Mes": _mes_txt(ym), "Llamadas": 0, "Tokens": 0, "US$": 0.0, "_pers": {}})
+        d["Llamadas"] += 1; d["Tokens"] += (f.get("tokens_entrada") or 0) + (f.get("tokens_salida") or 0)
+        c = _costo(f, precios) or 0.0
+        d["US$"] += c
+        d["_pers"][u] = d["_pers"].get(u, 0.0) + c
+    if pm:
+        filas_m = []
+        for ym in sorted(pm, reverse=True):
+            d = pm[ym]
+            top = sorted(d["_pers"].items(), key=lambda kv: -kv[1])
+            filas_m.append({"Mes": d["Mes"], "Costo (US$)": round(d["US$"], 2), "Tokens": d["Tokens"], "Llamadas": d["Llamadas"],
+                            "Personas": len(d["_pers"]), "Quién más gastó": (f"{top[0][0]} ({_usd(top[0][1])})" if top else "—")})
+        st.dataframe(filas_m, width="stretch", hide_index=True,
+                     column_config={"Costo (US$)": st.column_config.NumberColumn(format="$%.2f")})
+    else:
+        st.caption("Todavía no hay meses con registro.")
+
+    # --- precios
+    with st.expander("💲 Precios por modelo (US$ por millón de tokens), para la estimación"):
+        st.caption("Sacalos de developers.openai.com/api/docs/models. Un modelo sin precio muestra solo tokens.")
+        modelos = sorted({f.get("modelo") or "?" for f in filas6} | set(precios.keys()))
         nuevos = {}
-        for m in modelos or list(precios.keys()):
-            p = precios.get(m, {})
+        for m in modelos:
+            pz = precios.get(m, {})
             c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
-            c1.markdown(f"`{m}`")
-            e = c2.number_input("entrada", value=float(p.get("entrada") or 0.0), min_value=0.0, step=0.01, format="%.3f", key=f"pre_e_{m}")
-            s_ = c3.number_input("salida", value=float(p.get("salida") or 0.0), min_value=0.0, step=0.01, format="%.3f", key=f"pre_s_{m}")
-            ca = c4.number_input("caché", value=float(p.get("cache") if p.get("cache") is not None else (p.get("entrada") or 0.0)), min_value=0.0, step=0.01, format="%.3f", key=f"pre_c_{m}")
+            c1.markdown(f"`{m}`" + (f"  \n<small>{pz.get('fuente')}</small>" if pz.get("fuente") else ""), unsafe_allow_html=True)
+            e = c2.number_input("entrada", value=float(pz.get("entrada") or 0.0), min_value=0.0, step=0.01, format="%.3f", key=f"pre_e_{m}")
+            s_ = c3.number_input("salida", value=float(pz.get("salida") or 0.0), min_value=0.0, step=0.01, format="%.3f", key=f"pre_s_{m}")
+            ca = c4.number_input("caché", value=float(pz.get("cache") if pz.get("cache") is not None else (pz.get("entrada") or 0.0)), min_value=0.0, step=0.01, format="%.3f", key=f"pre_c_{m}")
             if e or s_:
-                nuevos[m] = {"entrada": e, "salida": s_, "cache": ca}
+                nuevos[m] = {"entrada": e, "salida": s_, "cache": ca, "fuente": pz.get("fuente") or f"cargado a mano el {hoy.strftime('%d/%m/%Y')}"}
         if st.button("💾 Guardar precios", key="pre_guardar"):
             db.guardar_config("openai_precios", nuevos, usuario)
             st.toast("Precios guardados.")
