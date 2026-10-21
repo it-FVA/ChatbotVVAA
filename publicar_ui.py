@@ -793,7 +793,7 @@ def panel_aprobacion(usuario):
     except Exception as e:
         st.error(f"No pude leer las piezas: {e}")
         return
-    t1, t2, t3, t4, t5, t6, t7 = st.tabs([f"⏳ Para aprobar ({len(pend)})", "🗓 En cola", "📒 Registro", "🗑 Papelera", "🎬 Clips", "📅 Frase del día", "📈 Uso"])
+    t1, t2, t3, t4, t5, t6, t7 = st.tabs([f"⏳ Para aprobar ({len(pend)})", "🗓 En cola", "📒 Registro", "🗑 Papelera", "🎬 Clips", "📅 Frase del día", "📊 Dashboard"])
     with t7:
         # (21/10, Franco) "¿Hubo movimiento?": quién usa el bot, cuándo fue la última vez y qué hizo cada uno.
         uso_admin(usuario)
@@ -1329,7 +1329,7 @@ def _semana(iso):
 
 
 def uso_admin(usuario):
-    """Panel admin → «📈 Uso»: la respuesta a «¿hubo movimiento?». Persona por persona, incluso sin actividad:
+    """Panel admin → «📊 Dashboard» (21/10, Franco le puso el nombre): la respuesta a «¿hubo movimiento?». Persona por persona, incluso sin actividad:
     última vez, conversaciones, mensajes, piezas y recortes de los últimos 7 y 28 días; después la lista de lo último."""
     st.caption("Quién está usando el bot y qué hizo. Se cuenta cada persona, también la que no hizo nada. Horas de Argentina.")
     dias = st.radio("Período", [7, 28, 90], index=1, horizontal=True, key="uso_dias", format_func=lambda d: f"últimos {d} días")
