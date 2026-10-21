@@ -1375,3 +1375,106 @@ def uso_admin(usuario):
             st.markdown(f"- {_hace(p.get('creado'))} · **{p.get('usuario')}** · {canal_txt(p.get('canal'))} · {(p.get('titulo') or '')[:60]} · {p.get('estado')}")
         for k in clips[:15]:
             st.markdown(f"- {_hace(k.get('creado'))} · **{k.get('pedido_por')}** · recorte {k.get('formato')} · {(k.get('titulo') or '')[:60]} · {k.get('estado')}")
+    costo_openai_admin(usuario, dias)   # (21/10) consumo de OpenAI en el mismo período
+
+
+def _costo(fila, precios):
+    """USD de una fila de uso_openai según los precios cargados (por millón de tokens), o None si el modelo no tiene precio."""
+    p = precios.get(fila.get("modelo") or "")
+    if not p:
+        return None
+    ent = fila.get("tokens_entrada") or 0
+    cache = fila.get("tokens_cache") or 0
+    sal = fila.get("tokens_salida") or 0
+    pc = p.get("cache") if p.get("cache") is not None else p.get("entrada", 0)
+    return ((ent - cache) * p.get("entrada", 0) + cache * pc + sal * p.get("salida", 0)) / 1_000_000
+
+
+def costo_openai_admin(usuario, dias=28):
+    """(21/10) Panel admin → Uso → «Costo de OpenAI»: tokens por modelo, por persona y por día, y el costo estimado
+    SOLO para los modelos que tienen precio cargado (config openai_precios). Sin precio, no se inventa un costo."""
+    st.markdown("---")
+    st.markdown("### 💸 Consumo de OpenAI")
+    try:
+        filas = db.uso_openai(dias)
+        precios = db.obtener_config("openai_precios") or {}
+    except Exception as e:
+        st.error(f"No pude leer el consumo: {e}")
+        return
+    if not filas:
+        st.caption("Todavía no hay llamadas registradas (se registran desde el 21/10).")
+    modelos = sorted({f.get("modelo") or "?" for f in filas})
+    tot_ent = sum(f.get("tokens_entrada") or 0 for f in filas)
+    tot_sal = sum(f.get("tokens_salida") or 0 for f in filas)
+    costos = [_costo(f, precios) for f in filas]
+    con_precio = [c for c in costos if c is not None]
+    sin_precio = sorted({(f.get("modelo") or "?") for f, c in zip(filas, costos) if c is None})
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Llamadas", len(filas))
+    c2.metric("Tokens de entrada", f"{tot_ent:,}".replace(",", "."))
+    c3.metric("Tokens de salida", f"{tot_sal:,}".replace(",", "."))
+    c4.metric("Costo estimado", (f"US$ {sum(con_precio):,.2f}" if con_precio else "sin precios"),
+              help="Solo suma los modelos con precio cargado abajo. Es una estimación: el número real es el de la factura de OpenAI.")
+    if sin_precio:
+        st.caption("Sin precio cargado (se muestran solo tokens): " + ", ".join(sin_precio) + ". Cargalos abajo con los valores de openai.com/pricing.")
+
+    # por modelo y para qué
+    por = {}
+    for f, c in zip(filas, costos):
+        k = (f.get("modelo") or "?", f.get("que") or "?")
+        d = por.setdefault(k, {"Modelo": k[0], "Para qué": k[1], "Llamadas": 0, "Entrada": 0, "Salida": 0, "Cache": 0, "US$": 0.0, "_p": False})
+        d["Llamadas"] += 1; d["Entrada"] += f.get("tokens_entrada") or 0; d["Salida"] += f.get("tokens_salida") or 0; d["Cache"] += f.get("tokens_cache") or 0
+        if c is not None:
+            d["US$"] += c; d["_p"] = True
+    tabla = []
+    for d in sorted(por.values(), key=lambda x: -x["Entrada"]):
+        tabla.append({"Modelo": d["Modelo"], "Para qué": {"chat": "chat (respuestas)", "auxiliar": "auxiliar (reranker, títulos, newsletter)", "embedding": "embedding (búsqueda)"}.get(d["Para qué"], d["Para qué"]),
+                      "Llamadas": d["Llamadas"], "Tokens entrada": d["Entrada"], "Tokens salida": d["Salida"], "En caché": d["Cache"],
+                      "US$ estimado": (round(d["US$"], 3) if d["_p"] else None)})
+    if tabla:
+        st.dataframe(tabla, width="stretch", hide_index=True)
+
+    # por persona
+    pp = {}
+    for f, c in zip(filas, costos):
+        u = f.get("usuario") or "(sistema)"
+        d = pp.setdefault(u, {"Persona": u, "Llamadas": 0, "Tokens": 0, "US$": 0.0, "_p": False})
+        d["Llamadas"] += 1; d["Tokens"] += (f.get("tokens_entrada") or 0) + (f.get("tokens_salida") or 0)
+        if c is not None:
+            d["US$"] += c; d["_p"] = True
+    if pp:
+        st.markdown("**Por persona**")
+        st.dataframe([{"Persona": d["Persona"], "Llamadas": d["Llamadas"], "Tokens": d["Tokens"], "US$ estimado": (round(d["US$"], 3) if d["_p"] else None)}
+                      for d in sorted(pp.values(), key=lambda x: -x["Tokens"])], width="stretch", hide_index=True)
+
+    # por día
+    pd_ = {}
+    for f, c in zip(filas, costos):
+        dia = str(f.get("creado") or "")[:10]
+        d = pd_.setdefault(dia, {"tokens": 0, "US$": 0.0})
+        d["tokens"] += (f.get("tokens_entrada") or 0) + (f.get("tokens_salida") or 0)
+        if c is not None:
+            d["US$"] += c
+    if pd_:
+        import pandas as pd
+        dias_ord = sorted(pd_)
+        st.markdown("**Tokens por día** (entrada + salida)")
+        st.bar_chart(pd.DataFrame({"día": [d[5:] for d in dias_ord], "tokens": [pd_[d]["tokens"] for d in dias_ord]}).set_index("día"), height=200)
+
+    # precios
+    with st.expander("💲 Precios por modelo (USD por millón de tokens), para la estimación"):
+        st.caption("Sacalos de openai.com/pricing. Hasta que un modelo tenga precio, de ese modelo se muestran solo los tokens.")
+        nuevos = {}
+        for m in modelos or list(precios.keys()):
+            p = precios.get(m, {})
+            c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
+            c1.markdown(f"`{m}`")
+            e = c2.number_input("entrada", value=float(p.get("entrada") or 0.0), min_value=0.0, step=0.01, format="%.3f", key=f"pre_e_{m}")
+            s_ = c3.number_input("salida", value=float(p.get("salida") or 0.0), min_value=0.0, step=0.01, format="%.3f", key=f"pre_s_{m}")
+            ca = c4.number_input("caché", value=float(p.get("cache") if p.get("cache") is not None else (p.get("entrada") or 0.0)), min_value=0.0, step=0.01, format="%.3f", key=f"pre_c_{m}")
+            if e or s_:
+                nuevos[m] = {"entrada": e, "salida": s_, "cache": ca}
+        if st.button("💾 Guardar precios", key="pre_guardar"):
+            db.guardar_config("openai_precios", nuevos, usuario)
+            st.toast("Precios guardados.")
+            st.rerun()

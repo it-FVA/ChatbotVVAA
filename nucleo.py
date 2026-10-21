@@ -491,6 +491,7 @@ def embed_query(q):
     if q in _qcache:
         return _qcache[q]
     r = _get_client().embeddings.create(model=EMB_MODEL, input=[q], dimensions=DIM)
+    _registrar_uso(EMB_MODEL, getattr(r, "usage", None), "embedding")
     v = np.array(r.data[0].embedding, dtype="float32")
     v = v / (np.linalg.norm(v) + 1e-9)
     _qcache[q] = v
@@ -900,6 +901,26 @@ _usa_max_tokens_viejo = set()      # modelos que piden el nombre viejo 'max_toke
 _param_no_soportado = {}           # modelo -> set de parámetros a omitir (ej. 'temperature')
 
 
+def _registrar_uso(modelo, usage, que):
+    """(21/10, monitoreo de costo) Guarda cada llamada a OpenAI en la tabla uso_openai: modelo, tokens de entrada,
+    de salida y cacheados, quién (USUARIO_ACTUAL) y para qué: 'chat' (la respuesta con herramientas), 'auxiliar'
+    (reranker, título, traducción, newsletter…) o 'embedding'. En un hilo aparte, nunca frena ni rompe la respuesta."""
+    if usage is None:
+        return
+    try:
+        ent = int(getattr(usage, "prompt_tokens", 0) or 0)
+        sal = int(getattr(usage, "completion_tokens", 0) or 0)
+        det = getattr(usage, "prompt_tokens_details", None)
+        cache = int(getattr(det, "cached_tokens", 0) or 0) if det is not None else 0
+        fila = {"usuario": USUARIO_ACTUAL or None, "modelo": modelo, "que": que,
+                "tokens_entrada": ent, "tokens_salida": sal, "tokens_cache": cache}
+        import threading
+        import db as _db
+        threading.Thread(target=lambda: _db.registrar_uso(fila), daemon=True).start()
+    except Exception:
+        pass
+
+
 def _chat(cl, messages, max_tokens=None, temperature=None, tools=None,
           tool_choice=None, reasoning_effort="none"):
     """chat.completions robusto entre modelos: traduce el nombre del tope de tokens
@@ -921,7 +942,9 @@ def _chat(cl, messages, max_tokens=None, temperature=None, tools=None,
             nombre = "max_tokens" if modelo in _usa_max_tokens_viejo else "max_completion_tokens"
             kwargs[nombre] = max_tokens
         try:
-            return cl.chat.completions.create(**kwargs)
+            r = cl.chat.completions.create(**kwargs)
+            _registrar_uso(modelo, getattr(r, "usage", None), "chat" if tools is not None else "auxiliar")
+            return r
         except Exception as e:
             s = str(e)
             bad = None

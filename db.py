@@ -603,3 +603,27 @@ def uso_ultima_vez():
         if u and u not in out:
             out[u] = f.get("actualizado")
     return out
+
+
+# ---------------- Uso de OpenAI (21/10, monitoreo de costo) ----------------
+# Tabla uso_openai (migración uso_openai): id, creado, usuario, modelo, que (chat/auxiliar/embedding),
+# tokens_entrada, tokens_salida, tokens_cache. La escribe nucleo._registrar_uso en cada llamada.
+# Los precios NO están en el código: viven en config 'openai_precios' = {modelo: {"entrada": USD por 1M tokens,
+# "salida": USD por 1M, "cache": USD por 1M}} y los carga Franco desde Panel admin → Uso (sin precio, se muestran
+# solo los tokens: nunca un costo inventado).
+def registrar_uso(fila):
+    if not disponible():
+        return None
+    try:
+        return _req("POST", "", fila, tabla="uso_openai")
+    except Exception:
+        return None
+
+
+def uso_openai(dias=28):
+    """Filas de uso_openai de los últimos `dias` (hasta 10.000)."""
+    if not disponible():
+        return []
+    import datetime as _dt
+    desde = (_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=dias)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return _req("GET", f"?select=creado,usuario,modelo,que,tokens_entrada,tokens_salida,tokens_cache&creado=gte.{desde}&order=creado.desc&limit=10000", tabla="uso_openai") or []
