@@ -406,11 +406,30 @@ def _md_a_docx(texto, titulo="Documento"):
             else:
                 par.add_run(re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", trozo).replace("*", ""))
 
-    for linea in (texto or "").splitlines():
-        s = linea.rstrip()
+    lineas = (texto or "").splitlines()
+    k = 0
+    while k < len(lineas):
+        s = lineas[k].rstrip()
+        k += 1
         if not s.strip():
             continue
         if s.strip() in ("---", "***"):
+            continue
+        if s.strip().startswith("|") and s.strip().endswith("|"):     # (21/10) tabla markdown → tabla de Word
+            bloque = [s]
+            while k < len(lineas) and lineas[k].strip().startswith("|"):
+                bloque.append(lineas[k]); k += 1
+            tablas = _tablas_md("\n".join(bloque))
+            for _t, filas in tablas:
+                ancho = max(len(f) for f in filas)
+                tabla = doc.add_table(rows=len(filas), cols=ancho)
+                tabla.style = "Table Grid"
+                for r, fila in enumerate(filas):
+                    for c in range(ancho):
+                        celda = tabla.cell(r, c); celda.text = ""
+                        run = celda.paragraphs[0].add_run(fila[c] if c < len(fila) else "")
+                        if r == 0:
+                            run.bold = True
             continue
         m = re.match(r"^(#{1,4})\s+(.*)", s)
         if m:
@@ -432,6 +451,60 @@ def _md_a_docx(texto, titulo="Documento"):
     return buf.getvalue()
 
 
+def _tablas_md(texto):
+    """(21/10, Julián: "me lo deja descargar solo como Word; que también se pueda en Excel") Saca las tablas
+    markdown de una respuesta: lista de (titulo_cercano, filas) con filas = listas de celdas ya limpias
+    (<br> → salto de línea, sin ** ni *)."""
+    import re
+    tablas, filas, titulo, ultimo_titulo = [], [], "", ""
+    for linea in (texto or "").splitlines() + [""]:
+        s = linea.strip()
+        if s.startswith("|") and s.endswith("|"):
+            celdas = [c.strip() for c in s.strip("|").split("|")]
+            if all(re.fullmatch(r":?-{2,}:?", c) for c in celdas if c):   # la línea |---|---| separadora
+                continue
+            celdas = [re.sub(r"<br\s*/?>", "\n", c, flags=re.I) for c in celdas]
+            celdas = [re.sub(r"\*\*([^*]+)\*\*", r"\1", c).replace("*", "").strip() for c in celdas]
+            if not filas:
+                titulo = ultimo_titulo
+            filas.append(celdas)
+        else:
+            if filas:
+                tablas.append((titulo, filas)); filas = []
+            mt = re.match(r"^#{1,4}\s+(.*)", s)
+            if mt:
+                ultimo_titulo = mt.group(1).replace("**", "").strip()
+    return tablas
+
+
+def _tablas_a_xlsx(tablas, titulo_doc="Planilla"):
+    """Una hoja por tabla: encabezado en negrita, texto con ajuste de línea, anchos razonables."""
+    import io, re
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill
+    wb = Workbook(); wb.remove(wb.active)
+    usados = set()
+    for n, (titulo, filas) in enumerate(tablas, 1):
+        nombre = re.sub(r"[\[\]:*?/\\]", "", titulo or f"Tabla {n}")[:28] or f"Tabla {n}"
+        if nombre in usados:
+            nombre = f"{nombre[:25]} {n}"
+        usados.add(nombre)
+        ws = wb.create_sheet(nombre)
+        ancho = max(len(f) for f in filas)
+        for r, fila in enumerate(filas, 1):
+            for c in range(ancho):
+                celda = ws.cell(row=r, column=c + 1, value=(fila[c] if c < len(fila) else ""))
+                celda.alignment = Alignment(wrap_text=True, vertical="top")
+                if r == 1:
+                    celda.font = Font(bold=True); celda.fill = PatternFill("solid", fgColor="FDE9C9")
+        for c in range(ancho):
+            largo = max((len(x) for f in filas for x in [f[c] if c < len(f) else ""]), default=10)
+            ws.column_dimensions[ws.cell(row=1, column=c + 1).column_letter].width = min(60, max(14, largo // 3))
+        ws.freeze_panes = "A2"
+    buf = io.BytesIO(); wb.save(buf)
+    return buf.getvalue()
+
+
 def descargar_en_chat(m, i):
     """(20/10) Debajo de cada respuesta larga del bot, «⬇️ Word»: la baja como .docx con el título de la conversación."""
     texto = m.get("content") or ""
@@ -444,9 +517,19 @@ def descargar_en_chat(m, i):
     except Exception as e:
         st.caption(f"(no pude armar el Word: {e})")
         return
-    st.download_button("⬇️ Word", data=datos, file_name=f"{nombre}.docx",
-                       mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                       key=f"docx_{i}", help="Descarga esta respuesta como documento de Word.")
+    tablas = _tablas_md(texto)
+    cols = st.columns([1, 1, 6]) if tablas else [st]
+    cols[0].download_button("⬇️ Word", data=datos, file_name=f"{nombre}.docx",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            key=f"docx_{i}", help="Descarga esta respuesta como documento de Word.")
+    if tablas:   # (21/10, pedido de Julián) si la respuesta tiene una planilla, también en Excel
+        try:
+            xlsx = _tablas_a_xlsx(tablas, titulo)
+            cols[1].download_button("⬇️ Excel", data=xlsx, file_name=f"{nombre}.xlsx",
+                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                    key=f"xlsx_{i}", help="Descarga la(s) planilla(s) de esta respuesta como Excel, una hoja por tabla.")
+        except Exception as e:
+            cols[1].caption(f"(no pude armar el Excel: {e})")
 
 
 def publicar_en_chat(m, i, ultimo):
