@@ -411,8 +411,10 @@ def _mis_recortes(usuario, todos=False):
             regenerando = c.get("estado") == "pedido" and bool(c.get("edicion")) and bool(c.get("url"))
             if regenerando:   # (19/10) ya había un video listo y se pidió rehacerlo con cambios (tramo, subtítulos o estilo)
                 estado_txt = "⏳ regenerando con los cambios"
+            sp = (c.get("edicion") or {}).get("sin_pausas") if c.get("estado") == "listo" else None   # (21/10) marca que deja la cola
             c2.markdown(f"**{(c.get('titulo') or c['video_id'])[:90]}**  \n"
                         f"{_fecha(c.get('creado'))} · {fmt} · {mmss_(c['inicio_ms'])}–{mmss_(c['fin_ms'])} · {estado_txt}"
+                        + (f" · ✂️ sin pausas ({sp.get('antes', 0):.0f} s → {sp.get('despues', 0):.0f} s)" if sp else "")
                         + (f" · pidió **{c.get('pedido_por') or '—'}**" if todos else ""))
             if c.get("nota"):
                 c2.caption(c["nota"][:160])
@@ -473,7 +475,7 @@ def _editor_recorte(c, usuario):
     key = f"rec_edit_{c['id']}"
     abierto = st.session_state.get(key, False)
     if st.button("✏️ Editar recorte" if not abierto else "Cerrar sin cambios", key=f"{key}_btn",
-                 help="Ajustá el tramo" + (", corregí los subtítulos o cambiá su estilo" if vertical else "") + " y pedí el video de nuevo."):
+                 help="Ajustá el tramo, quitá las pausas largas" + (", corregí los subtítulos o cambiá su estilo" if vertical else "") + " y pedí el video de nuevo."):
         st.session_state[key] = not abierto
         st.rerun()
     if not abierto:
@@ -513,6 +515,29 @@ def _editor_recorte(c, usuario):
     else:
         nueva.pop("inicio_ms", None)
         nueva.pop("fin_ms", None)
+
+    # --- Quitar pausas largas (21/10, pedido de Julián en la reunión del 19/10; experimento aprobado por Franco) ---
+    # Se guarda como edicion["quitar_pausas"]; la cola deja la marca edicion["sin_pausas"] cuando lo aplicó.
+    pausas_antes = bool(edicion.get("quitar_pausas"))
+    ya_sin_pausas = bool(edicion.get("sin_pausas"))
+    quitar = st.checkbox("Quitar pausas largas (más de 0,7 s)", value=pausas_antes, key=f"{key}_pausas",
+                         help="Saca automáticamente los silencios de más de 0,7 segundos (deja un cuarto de segundo a cada lado "
+                              "para que no suene cortado) y el video queda más corto y ágil, al estilo de Riverside. "
+                              "En una charla suele sacar entre un 10 y un 20 % del tiempo; en una meditación casi no cambia nada "
+                              "(las pausas con música o respiración no cuentan como silencio). Los subtítulos se acomodan solos.")
+    if quitar != pausas_antes:
+        nueva["quitar_pausas"] = quitar
+        partes.append("sin pausas largas" if quitar else "con las pausas")
+        if quitar:
+            st.caption("El video se vuelve a armar sin los silencios largos. En la tarjeta va a decir cuánto duraba antes y cuánto después.")
+        elif ya_sin_pausas and (edicion.get("srt") or "").strip():
+            st.warning("Los subtítulos que corregiste son del video sin pausas: al volver a poner las pausas se arman de nuevo "
+                       "desde la transcripción (después los podés volver a corregir).")
+            nueva.pop("srt", None)
+    elif ya_sin_pausas and quitar:
+        sp = edicion["sin_pausas"]
+        st.caption(f"Este recorte ya está sin pausas largas: duraba {sp.get('antes', 0):.0f} s y quedó en {sp.get('despues', 0):.0f} s "
+                   f"({sp.get('pausas', 0)} pausas sacadas).")
 
     nuevo_srt = srt
     if vertical:

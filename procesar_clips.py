@@ -9,7 +9,8 @@ de WordPress. (19/10, tarde) El mismo JSON trae "inicio_ms"/"fin_ms" (tramo nuev
 rearman los subtítulos desde las palabras salvo que también venga "srt", y al terminar los tiempos pasan a las columnas de la
 fila) y "estilo" (tipografía, tamaño, colores, negrita, posición de los subtítulos → recortar_clip.estilo_ass). Los recortes
 sin "estilo" usan el estilo por defecto del Panel admin (tabla config, clave 'clips_estilo'); el estilo aplicado queda en
-clips.estilo.
+clips.estilo. (21/10) "quitar_pausas" (bool) saca los silencios de más de 0,7 s (recortar_clip.quitar_pausas); al terminar queda en el
+mismo JSON la marca "sin_pausas" = {"antes", "despues", "pausas"} y en clips.nota «Sin pausas largas: 53 s → 45 s, 12 pausas».
 
 Variables de entorno: SUPABASE_URL, SUPABASE_KEY, DRIVE_TOKEN_JSON, WP_SITE, WP_USER, WP_APP_PASSWORD,
 PUBLICAR_WORDPRESS. Local: python procesar_clips.py (lee .streamlit/secrets.toml si faltan).
@@ -72,11 +73,29 @@ def main():
             # vertical; si no hay, se arman desde <id>.palabras.json como siempre, 15/10, solo en vertical), "inicio_ms"/"fin_ms"
             # (ya aplicados arriba) y "estilo" (si no viene, el por defecto del Panel admin).
             srt_editado = (edicion.get("srt") or "").strip() if fmt == "vertical" else ""
+            # (21/10) "quitar_pausas" (bool): sacar los silencios largos (recortar_clip.quitar_pausas). "sin_pausas" es la marca que deja
+            # esta cola cuando lo hizo ({"antes", "despues", "pausas"} en segundos): la UI la muestra y acá sirve para saber en qué
+            # timeline están los subtítulos corregidos (clips.srt es el del último video; la persona solo edita el texto).
+            quitar = bool(edicion.get("quitar_pausas"))
+            marca_anterior = edicion.get("sin_pausas")
+            srt_ya_sin_pausas = descartar_srt = False
+            if srt_editado and marca_anterior and not tramo_cambio:
+                if quitar:
+                    srt_ya_sin_pausas = True    # mismo tramo, mismas pausas: los tiempos del SRT corregido ya son los del video sin pausas
+                else:
+                    # se apagó «quitar pausas»: el SRT corregido está en la timeline sin pausas y no sirve con las pausas puestas
+                    print("  los subtítulos corregidos eran del video sin pausas: se rearman desde las palabras")
+                    srt_editado, descartar_srt = "", True
             palabras = None if srt_editado else (rc.buscar_palabras(svc, vid) if rc.quiere_subtitulos(fmt) else None)
             estilo = rc.normalizar_estilo(edicion.get("estilo") or estilo_defecto)
-            srt_usado = rc.cortar(original, clip, ini, fin, ffmpeg, fmt, palabras, srt_editado or None, estilo)
+            info = {}
+            srt_usado = rc.cortar(original, clip, ini, fin, ffmpeg, fmt, palabras, srt_editado or None, estilo,
+                                  quitar_pausas=quitar, srt_ya_sin_pausas=srt_ya_sin_pausas, info=info)
             if srt_usado:
                 print("  con subtítulos quemados" + (" (corregidos a mano)" if srt_editado else "") + f" · estilo {estilo}")
+            sp = info.get("sin_pausas")
+            if sp:
+                print(f"  sin pausas: {sp['antes']:.1f} s → {sp['despues']:.1f} s, {sp['pausas']} pausas")
             titulo = (p.get("titulo") or vid)[:120] + f" · {int(ini)}-{int(fin)} s" + (" (vertical)" if fmt == "vertical" else "")
             r = publicar.subir_imagen_wordpress(cfg, open(clip, "rb").read(), clip, titulo=titulo,
                                                 etiquetas=["clip-exacto", fmt], quien=p.get("pedido_por") or "cola", pieza=titulo)
@@ -85,10 +104,21 @@ def main():
             campos = {"estado": "listo", "url": r["url"], "srt": srt_usado or None, "error": None,
                       "estilo": estilo if srt_usado else None,
                       "procesado_en": datetime.datetime.now(datetime.timezone.utc).isoformat()}
+            edicion_nueva = {k: v for k, v in edicion.items() if k not in ("inicio_ms", "fin_ms")} if tramo_cambio else dict(edicion)
             if tramo_cambio:
                 # el tramo nuevo pasa a las columnas (la tarjeta muestra el tramo real) y sale del JSON de edición
-                campos.update({"inicio_ms": ini_ms, "fin_ms": fin_ms,
-                               "edicion": {k: v for k, v in edicion.items() if k not in ("inicio_ms", "fin_ms")} or None})
+                campos.update({"inicio_ms": ini_ms, "fin_ms": fin_ms})
+            if sp:
+                # (21/10) queda la marca de que este video está sin pausas y la nota con cuánto duró antes y después
+                edicion_nueva["sin_pausas"] = sp
+                campos["nota"] = (f"Sin pausas largas: {sp['antes']:.0f} s → {sp['despues']:.0f} s, {sp['pausas']} pausa{'s' if sp['pausas'] != 1 else ''}"
+                                  + ("" if sp["pausas"] else " (no había ninguna de más de 0,7 s)"))
+            else:
+                edicion_nueva.pop("sin_pausas", None)
+            if descartar_srt:
+                edicion_nueva.pop("srt", None)   # que el editor no vuelva a mostrar (ni a aplicar) un SRT de otra timeline
+            if edicion_nueva != edicion:
+                campos["edicion"] = edicion_nueva or None
             try:
                 db.actualizar_clip(cid, campos)
             except RuntimeError as e:
