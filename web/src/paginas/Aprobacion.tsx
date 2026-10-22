@@ -4,7 +4,7 @@
 // Frase del día y Dashboard siguen en el Panel admin de Streamlit (fase siguiente).
 import { useCallback, useEffect, useState } from "react";
 import { NavLink, Navigate, Outlet, useOutletContext } from "react-router-dom";
-import { api, ErrorApi, STREAMLIT_URL } from "../api";
+import { api, ErrorApi } from "../api";
 import { apiPublicar } from "../apiPublicar";
 import { useSesion } from "../App";
 import type { Estilo, Opciones } from "../tipos";
@@ -49,13 +49,8 @@ export default function Aprobacion() {
       <header className="pagina-cabecera">
         <div>
           <h1>Aprobación</h1>
-          <p className="suave">Piezas para aprobar, la cola, el registro, la papelera y los clips del equipo. {!yo.rol.admin && "La Frase del día y el Dashboard son de los admins."}</p>
+          <p className="suave">Piezas para aprobar, la cola, el registro, la papelera y los clips del equipo. La Frase del día está en la barra; el Dashboard, en Administración.</p>
         </div>
-        {yo.rol.admin && (
-          <a className="boton sutil" href={STREAMLIT_URL + "/?vista=publicar"} target="_blank" rel="noreferrer" title="Frase del día y Dashboard siguen en Streamlit">
-            <Icono nombre="externo" tam={16} /> Frase del día y Dashboard (Streamlit)
-          </a>
-        )}
       </header>
       <div className="admin-grilla">
         <nav className="admin-menu" aria-label="Aprobación">

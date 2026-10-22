@@ -3,7 +3,7 @@
 // frase para la imagen, fecha) con un botón principal que la abre precargada, y «Guardar borrador» como atajo (POST /publicaciones/borrador).
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ErrorApi, STREAMLIT_URL } from "../api";
+import { ErrorApi } from "../api";
 import { apiChat } from "../apiChat";
 import type { Pieza, RespuestaPieza } from "../tiposChat";
 import { NOMBRE_CANAL, fechaLegible } from "../util/publicar";
@@ -54,10 +54,10 @@ export default function PiezaPropuesta({ pieza, abierto }: { pieza: Pieza; abier
         <div className="pieza-cabecera">
           <Icono nombre="megafono" /> <strong>Esta pieza es un newsletter</strong>
         </div>
-        <p className="suave chico">Se arma en el editor de Newsletter, con sus bloques y la vista previa (por ahora en Streamlit).</p>
-        <a className="boton" href={STREAMLIT_URL + "/?vista=newsletter"} target="_blank" rel="noreferrer">
-          <Icono nombre="externo" /> Abrir el editor de Newsletter
-        </a>
+        <p className="suave chico">Se arma en el editor de Newsletter, con sus bloques y la vista previa.</p>
+        <Link className="boton" to="/newsletter">
+          <Icono nombre="sobre" /> Abrir el editor de Newsletter
+        </Link>
       </div>
     );
   }

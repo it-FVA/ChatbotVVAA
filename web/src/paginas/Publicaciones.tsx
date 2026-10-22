@@ -3,7 +3,7 @@
 // (el posteo, la entrada o el borrador de WordPress) y Descargar HTML (newsletter).
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ErrorApi, STREAMLIT_URL } from "../api";
+import { ErrorApi } from "../api";
 import { apiPublicar } from "../apiPublicar";
 import type { MisPublicaciones, Publicacion } from "../tiposPublicar";
 import { fechaCorta, fechaLegible } from "../util/publicar";
@@ -11,6 +11,9 @@ import { Icono, type NombreIcono } from "../componentes/Iconos";
 import Modal from "../componentes/Modal";
 import { EstadoVacio, Hueso } from "../componentes/Comunes";
 import { useToast } from "../componentes/Toasts";
+import MoverA from "../componentes/proyectos/MoverA";
+import { apiProyectos } from "../apiProyectos";
+import { etiqueta, useProyectos } from "../componentes/proyectos/ProyectosContexto";
 
 const ORDEN = ["Todas", "Pendientes", "Aprobadas", "Publicadas", "Borradores", "Rechazadas", "Pruebas"];
 
@@ -148,6 +151,11 @@ export function descargarHtml(p: Publicacion) {
 /** Una pieza del registro (publicar_ui._fila_publicacion), con o sin quién la hizo y con las acciones que se le pasen. */
 export function TarjetaPublicacion({ p, mostrarUsuario = false, onEliminar, acciones }: { p: Publicacion; mostrarUsuario?: boolean; onEliminar?: () => void; acciones?: React.ReactNode }) {
   const esNewsletter = p.canal === "newsletter";
+  // (22/10, Franco: "la misma lógica para todo") «Guardar en un proyecto», igual que en Mis recortes: la carpeta donde está y el modal para elegir otra.
+  const { avisar } = useToast();
+  const proyectos = useProyectos();
+  const carpeta = proyectos.carpetaDe("pieza", p.id);
+  const [aProyecto, setAProyecto] = useState(false);
   return (
     <article className="tarjeta publicacion" aria-label={p.titulo || p.canal_texto}>
       <div className="publicacion-mini">
@@ -199,9 +207,9 @@ export function TarjetaPublicacion({ p, mostrarUsuario = false, onEliminar, acci
         <div className="acciones">
           {p.retomable &&
             (esNewsletter ? (
-              <a className="boton primario" href={STREAMLIT_URL + "/?vista=mis"} target="_blank" rel="noreferrer" title="Los borradores de newsletter se retoman en el editor de Streamlit">
-                <Icono nombre="externo" /> Retomar en Streamlit
-              </a>
+              <Link className="boton primario" to={`/newsletter?borrador=${encodeURIComponent(p.id)}`}>
+                <Icono nombre="lapiz" /> Retomar
+              </Link>
             ) : (
               <Link className="boton primario" to={`/publicar?borrador=${encodeURIComponent(p.id)}`}>
                 <Icono nombre="lapiz" /> Retomar
@@ -223,6 +231,9 @@ export function TarjetaPublicacion({ p, mostrarUsuario = false, onEliminar, acci
             </button>
           )}
           {acciones}
+          <button type="button" className="boton sutil" onClick={() => setAProyecto(true)} title={carpeta ? `Está en «${etiqueta(carpeta)}»; mover a otra carpeta` : "Guardar esta pieza en un proyecto"}>
+            <Icono nombre="carpeta" /> {carpeta ? etiqueta(carpeta) : "Proyecto"}
+          </button>
           {p.eliminable && onEliminar && (
             <button type="button" className="boton peligro sutil" onClick={onEliminar}>
               <Icono nombre="tacho" /> Eliminar
@@ -230,6 +241,25 @@ export function TarjetaPublicacion({ p, mostrarUsuario = false, onEliminar, acci
           )}
         </div>
       </div>
+      {aProyecto && (
+        <MoverA
+          titulo="Guardar en un proyecto"
+          que={`Pieza «${(p.titulo || p.texto || p.canal_texto || "").slice(0, 80)}»`}
+          actualId={carpeta?.id}
+          textoBoton="Guardar acá"
+          onCerrar={() => setAProyecto(false)}
+          onElegir={async (pid) => {
+            try {
+              await apiProyectos.agregarItem(pid, "pieza", p.id);
+              await proyectos.recargar();
+              avisar(`Guardado en «${proyectos.porId.get(pid)?.nombre || "la carpeta"}».`);
+            } catch (e) {
+              avisar(e instanceof ErrorApi ? e.message : "No pude guardarlo.", "error");
+              throw e;
+            }
+          }}
+        />
+      )}
     </article>
   );
 }
