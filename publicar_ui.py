@@ -411,8 +411,10 @@ def _mis_recortes(usuario, todos=False):
             regenerando = c.get("estado") == "pedido" and bool(c.get("edicion")) and bool(c.get("url"))
             if regenerando:   # (19/10) ya había un video listo y se pidió rehacerlo con cambios (tramo, subtítulos o estilo)
                 estado_txt = "⏳ regenerando con los cambios"
+            sp = (c.get("edicion") or {}).get("sin_pausas") if c.get("estado") == "listo" else None   # (21/10) marca que deja la cola
             c2.markdown(f"**{(c.get('titulo') or c['video_id'])[:90]}**  \n"
                         f"{_fecha(c.get('creado'))} · {fmt} · {mmss_(c['inicio_ms'])}–{mmss_(c['fin_ms'])} · {estado_txt}"
+                        + (f" · ✂️ sin pausas ({sp.get('antes', 0):.0f} s → {sp.get('despues', 0):.0f} s)" if sp else "")
                         + (f" · pidió **{c.get('pedido_por') or '—'}**" if todos else ""))
             if c.get("nota"):
                 c2.caption(c["nota"][:160])
@@ -473,7 +475,7 @@ def _editor_recorte(c, usuario):
     key = f"rec_edit_{c['id']}"
     abierto = st.session_state.get(key, False)
     if st.button("✏️ Editar recorte" if not abierto else "Cerrar sin cambios", key=f"{key}_btn",
-                 help="Ajustá el tramo" + (", corregí los subtítulos o cambiá su estilo" if vertical else "") + " y pedí el video de nuevo."):
+                 help="Ajustá el tramo, quitá las pausas largas" + (", corregí los subtítulos o cambiá su estilo" if vertical else "") + " y pedí el video de nuevo."):
         st.session_state[key] = not abierto
         st.rerun()
     if not abierto:
@@ -513,6 +515,29 @@ def _editor_recorte(c, usuario):
     else:
         nueva.pop("inicio_ms", None)
         nueva.pop("fin_ms", None)
+
+    # --- Quitar pausas largas (21/10, pedido de Julián en la reunión del 19/10; experimento aprobado por Franco) ---
+    # Se guarda como edicion["quitar_pausas"]; la cola deja la marca edicion["sin_pausas"] cuando lo aplicó.
+    pausas_antes = bool(edicion.get("quitar_pausas"))
+    ya_sin_pausas = bool(edicion.get("sin_pausas"))
+    quitar = st.checkbox("Quitar pausas largas (más de 0,7 s)", value=pausas_antes, key=f"{key}_pausas",
+                         help="Saca automáticamente los silencios de más de 0,7 segundos (deja un cuarto de segundo a cada lado "
+                              "para que no suene cortado) y el video queda más corto y ágil, al estilo de Riverside. "
+                              "En una charla suele sacar entre un 10 y un 20 % del tiempo; en una meditación casi no cambia nada "
+                              "(las pausas con música o respiración no cuentan como silencio). Los subtítulos se acomodan solos.")
+    if quitar != pausas_antes:
+        nueva["quitar_pausas"] = quitar
+        partes.append("sin pausas largas" if quitar else "con las pausas")
+        if quitar:
+            st.caption("El video se vuelve a armar sin los silencios largos. En la tarjeta va a decir cuánto duraba antes y cuánto después.")
+        elif ya_sin_pausas and (edicion.get("srt") or "").strip():
+            st.warning("Los subtítulos que corregiste son del video sin pausas: al volver a poner las pausas se arman de nuevo "
+                       "desde la transcripción (después los podés volver a corregir).")
+            nueva.pop("srt", None)
+    elif ya_sin_pausas and quitar:
+        sp = edicion["sin_pausas"]
+        st.caption(f"Este recorte ya está sin pausas largas: duraba {sp.get('antes', 0):.0f} s y quedó en {sp.get('despues', 0):.0f} s "
+                   f"({sp.get('pausas', 0)} pausas sacadas).")
 
     nuevo_srt = srt
     if vertical:
@@ -768,7 +793,10 @@ def panel_aprobacion(usuario):
     except Exception as e:
         st.error(f"No pude leer las piezas: {e}")
         return
-    t1, t2, t3, t4, t5, t6 = st.tabs([f"⏳ Para aprobar ({len(pend)})", "🗓 En cola", "📒 Registro", "🗑 Papelera", "🎬 Clips", "📅 Frase del día"])
+    t1, t2, t3, t4, t5, t6, t7 = st.tabs([f"⏳ Para aprobar ({len(pend)})", "🗓 En cola", "📒 Registro", "🗑 Papelera", "🎬 Clips", "📅 Frase del día", "📊 Dashboard"])
+    with t7:
+        # (21/10, Franco) "¿Hubo movimiento?": quién usa el bot, cuándo fue la última vez y qué hizo cada uno.
+        uso_admin(usuario)
     with t6:
         # (19/10, reunión) Calendario anual de la Frase del día: una por día, sale sola como posteo de Instagram.
         import frases_ui
@@ -1263,3 +1291,299 @@ def render(usuario):
                             f"{(p.get('titulo') or '')[:60]} · {p.get('usuario')} · {p.get('estado')}")
         except Exception as e:
             st.caption(f"(sin registro: {e})")
+
+
+# ---------------- Uso (21/10) ----------------
+_SERVICIO = {"frase_del_dia", "bot", "cola", "prueba"}       # usuarios que no son personas
+
+
+def _hace(iso):
+    """'hoy 14:30' / 'ayer' / 'hace 3 días' / '12/10' a partir de un ISO en UTC."""
+    if not iso:
+        return "nunca"
+    try:
+        t = datetime.datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+        if t.tzinfo is None:
+            t = t.replace(tzinfo=datetime.timezone.utc)
+        local = t.astimezone(datetime.timezone(datetime.timedelta(hours=-3)))
+        hoy = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-3))).date()
+        d = (hoy - local.date()).days
+        if d == 0:
+            return "hoy " + local.strftime("%H:%M")
+        if d == 1:
+            return "ayer " + local.strftime("%H:%M")
+        if d < 7:
+            return f"hace {d} días"
+        return local.strftime("%d/%m")
+    except Exception:
+        return str(iso)[:10]
+
+
+def _semana(iso):
+    """Lunes de la semana (fecha) de un ISO, en hora Argentina."""
+    t = datetime.datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    if t.tzinfo is None:
+        t = t.replace(tzinfo=datetime.timezone.utc)
+    f = t.astimezone(datetime.timezone(datetime.timedelta(hours=-3))).date()
+    return f - datetime.timedelta(days=f.weekday())
+
+
+def uso_admin(usuario):
+    """Panel admin → «📊 Dashboard» (21/10, Franco le puso el nombre): la respuesta a «¿hubo movimiento?». Persona por persona, incluso sin actividad:
+    última vez, conversaciones, mensajes, piezas y recortes de los últimos 7 y 28 días; después la lista de lo último."""
+    st.caption("Quién está usando el bot y qué hizo. Se cuenta cada persona, también la que no hizo nada. Horas de Argentina.")
+    dias = st.radio("Período", [7, 28, 90], index=1, horizontal=True, key="uso_dias", format_func=lambda d: f"últimos {d} días")
+    try:
+        datos = db.uso_actividad(dias)
+        ultima = db.uso_ultima_vez()
+    except Exception as e:
+        st.error(f"No pude leer la actividad: {e}")
+        return
+    convs, pubs, clips = datos["conversaciones"], datos["publicaciones"], datos["clips"]
+    try:
+        personas = [u for u in dict(st.secrets.get("usuarios", {})).keys() if u not in _SERVICIO]
+    except Exception:
+        personas = []
+    for u in set(c.get("usuario") for c in convs) | set(p.get("usuario") for p in pubs) | set(c.get("pedido_por") for c in clips):
+        if u and u not in personas and u not in _SERVICIO:
+            personas.append(u)
+
+    # --- cabecera
+    activos = {c.get("usuario") for c in convs} - _SERVICIO
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Personas activas", f"{len(activos)} de {len(personas)}")
+    c2.metric("Conversaciones", len([c for c in convs if c.get("usuario") not in _SERVICIO]))
+    c3.metric("Piezas creadas", len([p for p in pubs if p.get("usuario") not in _SERVICIO]))
+    c4.metric("Recortes pedidos", len(clips))
+
+    # --- tabla por persona
+    filas = []
+    for u in sorted(personas, key=lambda x: (ultima.get(x) or ""), reverse=True):
+        cu = [c for c in convs if c.get("usuario") == u]
+        pu = [p for p in pubs if p.get("usuario") == u]
+        ku = [k for k in clips if k.get("pedido_por") == u]
+        ult = ultima.get(u)
+        filas.append({"Persona": u, "Última vez": _hace(ult), "Conversaciones": len(cu),
+                      "Mensajes": sum(c.get("n_mensajes") or 0 for c in cu), "Piezas": len(pu), "Recortes": len(ku),
+                      "Lo último": (max(cu, key=lambda c: c.get("actualizado") or "")["titulo"] if cu else "—")})
+    st.dataframe(filas, width="stretch", hide_index=True,
+                 column_config={"Lo último": st.column_config.TextColumn(width="large")})
+    sin = [f["Persona"] for f in filas if f["Conversaciones"] == 0 and f["Piezas"] == 0 and f["Recortes"] == 0]
+    if sin:
+        st.caption("Sin actividad en el período: " + ", ".join(sin) + ".")
+
+    # --- por semana
+    por_semana = {}
+    for c in convs:
+        if c.get("usuario") in _SERVICIO:
+            continue
+        s = _semana(c.get("creado") or c.get("actualizado"))
+        por_semana.setdefault(s, {}).setdefault(c.get("usuario"), 0)
+        por_semana[s][c.get("usuario")] += 1
+    if por_semana:
+        st.markdown("**Conversaciones nuevas por semana** (semana del lunes)")
+        semanas = sorted(por_semana)
+        cols = sorted({u for s in semanas for u in por_semana[s]})
+        tabla = {"semana": [s.strftime("%d/%m") for s in semanas]}
+        for u in cols:
+            tabla[u] = [por_semana[s].get(u, 0) for s in semanas]
+        import pandas as pd
+        st.bar_chart(pd.DataFrame(tabla).set_index("semana"), height=220)
+
+    # --- lo último
+    st.markdown("**Últimas conversaciones**")
+    for c in [c for c in convs if c.get("usuario") not in _SERVICIO][:25]:
+        st.markdown(f"- {_hace(c.get('actualizado'))} · **{c.get('usuario')}** · {(c.get('titulo') or 'Conversación')[:70]} · {c.get('n_mensajes') or 0} mensajes")
+    if pubs or clips:
+        st.markdown("**Piezas y recortes**")
+        for p in [p for p in pubs if p.get("usuario") not in _SERVICIO][:15]:
+            st.markdown(f"- {_hace(p.get('creado'))} · **{p.get('usuario')}** · {canal_txt(p.get('canal'))} · {(p.get('titulo') or '')[:60]} · {p.get('estado')}")
+        for k in clips[:15]:
+            st.markdown(f"- {_hace(k.get('creado'))} · **{k.get('pedido_por')}** · recorte {k.get('formato')} · {(k.get('titulo') or '')[:60]} · {k.get('estado')}")
+    costo_openai_admin(usuario, dias)   # (21/10) consumo de OpenAI en el mismo período
+
+
+def _costo(fila, precios):
+    """USD de una fila de uso_openai según los precios cargados (por millón de tokens), o None si el modelo no tiene precio."""
+    p = precios.get(fila.get("modelo") or "")
+    if not p:
+        return None
+    ent = fila.get("tokens_entrada") or 0
+    cache = fila.get("tokens_cache") or 0
+    sal = fila.get("tokens_salida") or 0
+    pc = p.get("cache") if p.get("cache") is not None else p.get("entrada", 0)
+    return ((ent - cache) * p.get("entrada", 0) + cache * pc + sal * p.get("salida", 0)) / 1_000_000
+
+
+def _usd(x):
+    """US$ con dos decimales; con cuatro cuando es menos de un centavo (los primeros días del registro)."""
+    if x is None:
+        return "—"
+    return f"US$ {x:,.4f}" if 0 < x < 0.01 else f"US$ {x:,.2f}"
+
+
+def _miles(n):
+    return f"{int(n or 0):,}".replace(",", ".")
+
+
+def _mes_ar(iso):
+    """'AAAA-MM' en hora Argentina de un ISO UTC."""
+    t = datetime.datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    if t.tzinfo is None:
+        t = t.replace(tzinfo=datetime.timezone.utc)
+    return t.astimezone(datetime.timezone(datetime.timedelta(hours=-3))).strftime("%Y-%m")
+
+
+_MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+
+
+def _mes_txt(ym):
+    a, m = ym.split("-")
+    return f"{_MESES[int(m) - 1]} {a}"
+
+
+def costo_openai_admin(usuario, dias=None):
+    """(21/10, rehecho a pedido de Franco: "por usuario y por mes, con la plata, lo más en detalle posible")
+    Dashboard → «💸 Consumo de OpenAI»: un mes a elegir (o los últimos 30 días); costo y tokens del mes, por persona
+    (con su parte del total), por día, por modelo y para qué; y la serie de los últimos 6 meses. El costo se calcula con
+    los precios de config openai_precios (cargados con fuente); un modelo sin precio muestra solo tokens."""
+    import pandas as pd
+    st.markdown("---")
+    st.markdown("### 💸 Consumo de OpenAI")
+    hoy = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-3))).date()
+    meses = [(hoy.replace(day=1) - datetime.timedelta(days=31 * k)).strftime("%Y-%m") for k in range(0, 6)]
+    meses = sorted(set(meses), reverse=True)
+    opciones = ["últimos 30 días"] + [_mes_txt(m) for m in meses]
+    c_sel, c_info = st.columns([1.2, 3])
+    elegido = c_sel.selectbox("Período", opciones, index=0, key="costo_periodo", label_visibility="collapsed")
+    try:
+        precios = db.obtener_config("openai_precios") or {}
+        if elegido == "últimos 30 días":
+            filas = db.uso_openai(30)
+            desde_txt = "últimos 30 días"
+        else:
+            ym = meses[opciones.index(elegido) - 1]
+            a, m = int(ym[:4]), int(ym[5:])
+            ini = datetime.date(a, m, 1)
+            fin = datetime.date(a + (m == 12), (m % 12) + 1, 1)
+            # el día empieza a las 00:00 de Argentina = 03:00 UTC
+            filas = db.uso_openai(desde=f"{ini.isoformat()}T03:00:00Z", hasta=f"{fin.isoformat()}T03:00:00Z")
+            desde_txt = _mes_txt(ym)
+        # serie de 6 meses para el cuadro mensual (una sola consulta)
+        ini6 = datetime.date(int(meses[-1][:4]), int(meses[-1][5:]), 1)
+        filas6 = db.uso_openai(desde=f"{ini6.isoformat()}T03:00:00Z")
+    except Exception as e:
+        st.error(f"No pude leer el consumo: {e}")
+        return
+    c_info.caption(f"Se registra cada llamada al modelo desde el 21/10/2026. Período: **{desde_txt}**. "
+                   "El costo es una estimación con los precios de abajo; el número real es el de la factura de OpenAI.")
+
+    costos = [_costo(f, precios) for f in filas]
+    sin_precio = sorted({(f.get("modelo") or "?") for f, c in zip(filas, costos) if c is None})
+    total_usd = sum(c for c in costos if c is not None)
+    tot_ent = sum(f.get("tokens_entrada") or 0 for f in filas)
+    tot_sal = sum(f.get("tokens_salida") or 0 for f in filas)
+    personas = {f.get("usuario") or "(sistema)" for f in filas}
+    dias_con_uso = {str(f.get("creado") or "")[:10] for f in filas}
+
+    # --- cabecera
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Costo del período", _usd(total_usd) if filas else "—")
+    c2.metric("Promedio por día con uso", _usd(total_usd / len(dias_con_uso)) if dias_con_uso else "—")
+    c3.metric("Tokens", _miles(tot_ent + tot_sal), help=f"Entrada {_miles(tot_ent)} · salida {_miles(tot_sal)}")
+    c4.metric("Personas · llamadas", f"{len(personas)} · {len(filas)}")
+    if not filas:
+        st.info("No hay llamadas registradas en este período.")
+    if sin_precio:
+        st.warning("Modelos sin precio cargado (se muestran solo sus tokens): " + ", ".join(sin_precio) + ". Cargalos abajo.")
+
+    if filas:
+        # --- por persona
+        st.markdown("**Por persona**")
+        pp = {}
+        for f, c in zip(filas, costos):
+            u = f.get("usuario") or "(sistema)"
+            d = pp.setdefault(u, {"Persona": u, "Llamadas": 0, "Chats": 0, "Tokens entrada": 0, "Tokens salida": 0, "US$": 0.0})
+            d["Llamadas"] += 1
+            d["Chats"] += 1 if f.get("que") == "chat" else 0
+            d["Tokens entrada"] += f.get("tokens_entrada") or 0
+            d["Tokens salida"] += f.get("tokens_salida") or 0
+            d["US$"] += c or 0.0
+        df_p = pd.DataFrame(sorted(pp.values(), key=lambda x: -x["US$"]))
+        df_p["Parte del total"] = (df_p["US$"] / total_usd) if total_usd else 0.0
+        df_p["US$ por chat"] = df_p.apply(lambda r: (r["US$"] / r["Chats"]) if r["Chats"] else None, axis=1)
+        st.dataframe(df_p, width="stretch", hide_index=True,
+                     column_config={"US$": st.column_config.NumberColumn("Costo (US$)", format="$%.2f"),
+                                    "US$ por chat": st.column_config.NumberColumn("Por respuesta (US$)", format="$%.3f", help="Costo promedio de cada respuesta del bot (incluye la búsqueda y el reranker)."),
+                                    "Parte del total": st.column_config.ProgressColumn("Parte del total", format="%.0f%%", min_value=0, max_value=1),
+                                    "Tokens entrada": st.column_config.NumberColumn(format="%d"), "Tokens salida": st.column_config.NumberColumn(format="%d"),
+                                    "Chats": st.column_config.NumberColumn("Respuestas", help="Llamadas de tipo chat: una por respuesta del bot.")})
+
+        # --- por día, apilado por persona
+        st.markdown("**Costo por día, por persona (US$)**")
+        pd_ = {}
+        for f, c in zip(filas, costos):
+            dia = str(f.get("creado") or "")[:10]
+            u = f.get("usuario") or "(sistema)"
+            pd_.setdefault(dia, {}).setdefault(u, 0.0)
+            pd_[dia][u] += c or 0.0
+        dias_ord = sorted(pd_)
+        cols = sorted({u for d in dias_ord for u in pd_[d]})
+        st.bar_chart(pd.DataFrame({"día": [d[8:] + "/" + d[5:7] for d in dias_ord], **{u: [round(pd_[d].get(u, 0.0), 4) for d in dias_ord] for u in cols}}).set_index("día"), height=220)
+
+        # --- por modelo y para qué
+        with st.expander("Detalle por modelo y para qué se usó"):
+            por = {}
+            for f, c in zip(filas, costos):
+                k = (f.get("modelo") or "?", f.get("que") or "?")
+                d = por.setdefault(k, {"Modelo": k[0], "Para qué": k[1], "Llamadas": 0, "Tokens entrada": 0, "Tokens salida": 0, "En caché": 0, "US$": 0.0})
+                d["Llamadas"] += 1; d["Tokens entrada"] += f.get("tokens_entrada") or 0; d["Tokens salida"] += f.get("tokens_salida") or 0; d["En caché"] += f.get("tokens_cache") or 0
+                d["US$"] += c if c is not None else 0.0
+            nombres = {"chat": "chat (respuestas con herramientas)", "auxiliar": "auxiliar (reranker, títulos, traducciones, newsletter)", "embedding": "embedding (búsqueda)"}
+            df_m = pd.DataFrame(sorted(por.values(), key=lambda x: -x["US$"]))
+            df_m["Para qué"] = df_m["Para qué"].map(lambda q: nombres.get(q, q))
+            st.dataframe(df_m, width="stretch", hide_index=True,
+                         column_config={"US$": st.column_config.NumberColumn("Costo (US$)", format="$%.2f")})
+            st.caption("«En caché» son tokens de entrada que OpenAI ya tenía (el system message repetido): se cobran al precio de caché.")
+
+    # --- serie mensual (6 meses) con personas
+    st.markdown("**Por mes** (últimos 6 meses, hora Argentina)")
+    pm = {}
+    for f in filas6:
+        ym = _mes_ar(f.get("creado"))
+        u = f.get("usuario") or "(sistema)"
+        d = pm.setdefault(ym, {"Mes": _mes_txt(ym), "Llamadas": 0, "Tokens": 0, "US$": 0.0, "_pers": {}})
+        d["Llamadas"] += 1; d["Tokens"] += (f.get("tokens_entrada") or 0) + (f.get("tokens_salida") or 0)
+        c = _costo(f, precios) or 0.0
+        d["US$"] += c
+        d["_pers"][u] = d["_pers"].get(u, 0.0) + c
+    if pm:
+        filas_m = []
+        for ym in sorted(pm, reverse=True):
+            d = pm[ym]
+            top = sorted(d["_pers"].items(), key=lambda kv: -kv[1])
+            filas_m.append({"Mes": d["Mes"], "Costo (US$)": round(d["US$"], 2), "Tokens": d["Tokens"], "Llamadas": d["Llamadas"],
+                            "Personas": len(d["_pers"]), "Quién más gastó": (f"{top[0][0]} ({_usd(top[0][1])})" if top else "—")})
+        st.dataframe(filas_m, width="stretch", hide_index=True,
+                     column_config={"Costo (US$)": st.column_config.NumberColumn(format="$%.2f")})
+    else:
+        st.caption("Todavía no hay meses con registro.")
+
+    # --- precios
+    with st.expander("💲 Precios por modelo (US$ por millón de tokens), para la estimación"):
+        st.caption("Sacalos de developers.openai.com/api/docs/models. Un modelo sin precio muestra solo tokens.")
+        modelos = sorted({f.get("modelo") or "?" for f in filas6} | set(precios.keys()))
+        nuevos = {}
+        for m in modelos:
+            pz = precios.get(m, {})
+            c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
+            c1.markdown(f"`{m}`" + (f"  \n<small>{pz.get('fuente')}</small>" if pz.get("fuente") else ""), unsafe_allow_html=True)
+            e = c2.number_input("entrada", value=float(pz.get("entrada") or 0.0), min_value=0.0, step=0.01, format="%.3f", key=f"pre_e_{m}")
+            s_ = c3.number_input("salida", value=float(pz.get("salida") or 0.0), min_value=0.0, step=0.01, format="%.3f", key=f"pre_s_{m}")
+            ca = c4.number_input("caché", value=float(pz.get("cache") if pz.get("cache") is not None else (pz.get("entrada") or 0.0)), min_value=0.0, step=0.01, format="%.3f", key=f"pre_c_{m}")
+            if e or s_:
+                nuevos[m] = {"entrada": e, "salida": s_, "cache": ca, "fuente": pz.get("fuente") or f"cargado a mano el {hoy.strftime('%d/%m/%Y')}"}
+        if st.button("💾 Guardar precios", key="pre_guardar"):
+            db.guardar_config("openai_precios", nuevos, usuario)
+            st.toast("Precios guardados.")
+            st.rerun()

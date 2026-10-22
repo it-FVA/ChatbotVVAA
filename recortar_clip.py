@@ -29,6 +29,10 @@ guardarlo en clips.srt. Prueba local sin Drive ni WordPress: --original <ruta.mp
 Estilo de los subtítulos (19/10, tarde, pedido de Franco): tipografía (FUENTES_CLIPS), tamaño, color del texto, fondo/borde,
 negrita y posición, elegidos en «Editar recorte → Estilo» o como estilo por defecto en el Panel admin (tabla config). Se
 aplican vía force_style de libass (estilo_ass). Prueba local: --estilo '{"color":"amarillo de la marca","posicion":"centro"}'.
+
+Quitar pausas largas (21/10, pedido de Julián en la reunión del 19/10, experimento aprobado por Franco): cortar(..., quitar_pausas=True)
+saca los silencios de más de 0,7 s del tramo (ffmpeg silencedetect a -32 dB, dejando 0,25 s a cada lado) antes de armar el video, y
+corre los tiempos de los subtítulos para que sigan sincronizados. CLI: --quitar-pausas. Ver quitar_pausas().
 """
 import argparse, io, json, os, re, subprocess, shutil
 
@@ -200,17 +204,152 @@ def quiere_subtitulos(formato, opcion="auto"):
     return opcion == "si" or (opcion == "auto" and formato == "vertical")
 
 
-def cortar(entrada, salida, inicio, fin, ffmpeg="ffmpeg", formato="horizontal", palabras=None, srt_texto=None, estilo=None):
+# ---------------- Quitar pausas largas (21/10; experimento del 19/10 aprobado por Franco) ----------------
+# Estilo Riverside: se detectan los silencios del clip (ffmpeg silencedetect, umbral -32 dB, mínimo 0,7 s) y se saca el
+# medio de cada uno dejando un colchón de 0,25 s a cada lado para que no suene cortado. En una charla de 53 s sacó 8 s
+# (12 pausas); en una meditación casi nada (las pausas son parte del contenido, pero el umbral de 0,7 s no las toca si hay
+# música o respiración audible). Se aplica DESPUÉS de cortar el tramo y ANTES de quemar los subtítulos, y los tiempos de
+# las palabras / del SRT se corren con _mapear_tiempo para que sigan sincronizados.
+
+def _run_ffmpeg(ffmpeg, args):
+    return subprocess.run([ffmpeg, "-hide_banner", "-y"] + args, capture_output=True, text=True, encoding="utf-8", errors="replace")
+
+
+def duracion_video(path, ffmpeg="ffmpeg"):
+    """Duración en segundos según `ffmpeg -i` (no hace falta ffprobe). None si no la encuentra."""
+    r = _run_ffmpeg(ffmpeg, ["-i", path])
+    m = re.search(r"Duration: (\d+):(\d+):(\d+\.\d+)", r.stderr)
+    if not m:
+        return None
+    h, mi, s = m.groups()
+    return int(h) * 3600 + int(mi) * 60 + float(s)
+
+
+def detectar_silencios(path, ffmpeg="ffmpeg", umbral_db=-32, min_sil=0.7):
+    """[(inicio, fin), ...] en segundos de los silencios de más de min_sil s por debajo de umbral_db."""
+    r = _run_ffmpeg(ffmpeg, ["-i", path, "-af", f"silencedetect=noise={umbral_db}dB:d={min_sil}", "-f", "null", "-"])
+    ini = [float(x) for x in re.findall(r"silence_start: (-?[\d.]+)", r.stderr)]
+    fin = [float(x) for x in re.findall(r"silence_end: (-?[\d.]+)", r.stderr)]
+    if len(ini) > len(fin):   # silencio que llega hasta el final del archivo: no tiene silence_end
+        total = duracion_video(path, ffmpeg)
+        if total is not None:
+            fin.append(total)
+    return [(max(0.0, a), b) for a, b in zip(ini, fin) if b > a]
+
+
+def tramos_con_voz(total, silencios, colchon=0.25):
+    """Lo que se conserva: todo menos el medio de cada silencio (se deja `colchon` s a cada lado). [(a, b), ...]."""
+    keep, t = [], 0.0
+    for a, b in silencios:
+        a2, b2 = a + colchon, b - colchon
+        if b2 - a2 <= 0.05:        # pausa demasiado corta una vez descontado el colchón: se deja
+            continue
+        if a2 > t:
+            keep.append((t, a2))
+        t = max(t, b2)
+    if total > t:
+        keep.append((t, total))
+    return [(a, b) for a, b in keep if b - a > 0.05]
+
+
+def _mapear_tiempo(t, keep):
+    """Segundo `t` del clip con pausas → segundo del clip sin pausas. Un momento que cayó dentro de una pausa sacada
+    va al punto del corte (ahí no hay palabras, así que los subtítulos no se pierden)."""
+    acumulado = 0.0
+    for a, b in keep:
+        if t < a:
+            return acumulado
+        if t <= b:
+            return acumulado + (t - a)
+        acumulado += b - a
+    return acumulado
+
+
+def _quitar_pausas_tramos(entrada, salida, ffmpeg="ffmpeg", umbral_db=-32, min_sil=0.7, colchon=0.25):
+    """Como quitar_pausas, pero devuelve también los tramos conservados (para correr los subtítulos)."""
+    total = duracion_video(entrada, ffmpeg)
+    if total is None:
+        raise RuntimeError("no pude leer la duración del clip para quitar las pausas")
+    sil = detectar_silencios(entrada, ffmpeg, umbral_db, min_sil)
+    keep = tramos_con_voz(total, sil, colchon)
+    pausas = sum(1 for a, b in sil if (b - a) - 2 * colchon > 0.05)
+    if not pausas:
+        shutil.copyfile(entrada, salida)
+        return total, total, 0, [(0.0, total)]
+    expr = "+".join(f"between(t,{a:.3f},{b:.3f})" for a, b in keep)
+    r = _run_ffmpeg(ffmpeg, ["-loglevel", "error", "-i", entrada,
+                             "-vf", f"select='{expr}',setpts=N/FRAME_RATE/TB", "-af", f"aselect='{expr}',asetpts=N/SR/TB",
+                             "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-c:a", "aac", "-b:a", "160k", salida])
+    if r.returncode != 0 or not os.path.exists(salida):
+        raise RuntimeError("ffmpeg no pudo quitar las pausas: " + (r.stderr or "").strip()[-300:])
+    despues = duracion_video(salida, ffmpeg) or sum(b - a for a, b in keep)
+    return total, despues, pausas, keep
+
+
+def quitar_pausas(entrada, salida, ffmpeg="ffmpeg", umbral_db=-32, min_sil=0.7, colchon=0.25):
+    """Arma `salida` = `entrada` sin las pausas largas (re-encode h264/aac). Devuelve (duración antes, duración después,
+    cantidad de pausas sacadas), en segundos."""
+    antes, despues, n, _ = _quitar_pausas_tramos(entrada, salida, ffmpeg, umbral_db, min_sil, colchon)
+    return antes, despues, n
+
+
+def _srt_a_segundos(t):
+    """'HH:MM:SS,mmm' → segundos."""
+    h, m, s = t.strip().replace(".", ",").split(":")
+    s, ms = (s.split(",") + ["0"])[:2]
+    return int(h) * 3600 + int(m) * 60 + int(s) + int(ms.ljust(3, "0")[:3]) / 1000
+
+
+def _correr_srt(srt_txt, keep):
+    """Corre los tiempos de un SRT (timeline con pausas) a la timeline sin pausas. El texto no se toca."""
+    lineas = []
+    for l in leer_srt(srt_txt):
+        t0 = _mapear_tiempo(_srt_a_segundos(l["inicio"]), keep)
+        t1 = _mapear_tiempo(_srt_a_segundos(l["fin"]), keep)
+        if t1 - t0 < 0.2:   # la línea quedó aplastada contra un corte: que al menos se alcance a leer
+            t1 = t0 + 0.2
+        lineas.append({"inicio": _srt_tiempo(t0), "fin": _srt_tiempo(t1), "texto": l["texto"]})
+    return armar_srt_de_lineas(lineas)
+
+
+def cortar(entrada, salida, inicio, fin, ffmpeg="ffmpeg", formato="horizontal", palabras=None, srt_texto=None, estilo=None,
+           quitar_pausas=False, srt_ya_sin_pausas=False, info=None):
     """formato 'horizontal': el tramo tal cual (hasta 1280 de ancho). 'vertical' (15/10, pedido de Franco: shorts,
     reels, historias): lienzo 1080x1920 con el video centrado y, de fondo, el mismo video desenfocado.
     palabras: lista [[palabra, inicio_ms, fin_ms], ...] del video entero → subtítulos quemados (None = sin).
     srt_texto (19/10): un SRT ya armado (tiempos relativos al clip) que se quema tal cual en vez de armarlo desde
     `palabras`; es lo que manda cuando la persona corrigió los subtítulos en «Mis recortes».
     estilo (19/10, tarde): dict con tipografia/tamano/color/fondo/negrita/posicion (ver ESTILO_DEFECTO); None = el de siempre.
+    quitar_pausas (21/10): saca los silencios largos del tramo antes de armar el video (ver quitar_pausas()); los tiempos de
+    `palabras` o de `srt_texto` se corren solos para que los subtítulos sigan sincronizados. srt_ya_sin_pausas=True avisa que
+    `srt_texto` ya está en la timeline sin pausas (es el SRT de un video que ya se había hecho sin pausas, con el mismo
+    tramo) y no hay que correrlo. Si se pasa un dict en `info`, queda info["sin_pausas"] = {"antes", "despues", "pausas"}.
     Devuelve el texto SRT que se quemó ('' si el clip salió sin subtítulos)."""
     sub, srt_txt = "", ""
+    temporales = []
+    keep = None
+    if quitar_pausas:
+        # 1) el tramo tal cual (sin subtítulos ni lienzo), 2) sin pausas; el resto del corte sigue sobre ese archivo desde 0
+        base = os.path.splitext(os.path.basename(salida))[0]
+        tmp_tramo, tmp_sin = f"{base}.tramo.mp4", f"{base}.sinpausas.mp4"
+        temporales += [tmp_tramo, tmp_sin]
+        subprocess.check_call([ffmpeg, "-y", "-loglevel", "error", "-ss", f"{inicio:.3f}", "-to", f"{fin:.3f}", "-i", entrada,
+                               "-vf", "scale='min(1280,iw)':-2", "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
+                               "-c:a", "aac", "-b:a", "160k", tmp_tramo])
+        antes, despues, n_pausas, keep = _quitar_pausas_tramos(tmp_tramo, tmp_sin, ffmpeg)
+        if isinstance(info, dict):
+            info["sin_pausas"] = {"antes": round(antes, 1), "despues": round(despues, 1), "pausas": n_pausas}
+        if palabras:
+            # palabras del video entero (ms absolutos) → relativas al tramo y corridas a la timeline sin pausas
+            ini_ms, fin_ms = int(inicio * 1000), int(fin * 1000)
+            palabras = [[w[0], int(_mapear_tiempo(max(0, w[1] - ini_ms) / 1000, keep) * 1000),
+                         int(_mapear_tiempo(max(0, min(w[2], w[1] + 1500) - ini_ms) / 1000, keep) * 1000)]
+                        for w in palabras if w[1] < fin_ms and w[2] > ini_ms]
+        entrada, inicio, fin = tmp_sin, 0.0, despues
     if srt_texto and srt_texto.strip():
         srt_txt = srt_texto.strip().replace("\r", "") + "\n"
+        if keep is not None and not srt_ya_sin_pausas:
+            srt_txt = _correr_srt(srt_txt, keep)
     elif palabras:
         srt_txt = armar_srt(palabras, inicio, fin)
     if srt_txt:
@@ -226,7 +365,14 @@ def cortar(entrada, salida, inicio, fin, ffmpeg="ffmpeg", formato="horizontal", 
     cmd = [ffmpeg, "-y", "-loglevel", "error", "-ss", f"{inicio:.3f}", "-to", f"{fin:.3f}", "-i", entrada,
            *filtro, "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
            "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", salida]
-    subprocess.check_call(cmd)
+    try:
+        subprocess.check_call(cmd)
+    finally:
+        for t in temporales:
+            try:
+                os.remove(t)
+            except OSError:
+                pass
     return srt_txt if sub else ""
 
 
@@ -271,6 +417,7 @@ def main():
     ap.add_argument("--srt", default="", help="(19/10) archivo .srt ya armado (tiempos relativos al clip): se quema tal cual")
     ap.add_argument("--sin-subir", action="store_true", help="(19/10) solo cortar, sin subir a WordPress")
     ap.add_argument("--estilo", default="", help='(19/10) estilo de los subtítulos, JSON: {"tipografia":"Lato","tamano":"grande","color":"amarillo de la marca","fondo":"borde negro","negrita":true,"posicion":"centro"}')
+    ap.add_argument("--quitar-pausas", action="store_true", help="(21/10) sacar los silencios de más de 0,7 s (umbral -32 dB, colchón 0,25 s)")
     a = ap.parse_args()
     nombre = a.nombre or a.youtube or a.drive_id or os.path.splitext(os.path.basename(a.original))[0]
     srt_texto = open(a.srt, encoding="utf-8").read() if a.srt else None
@@ -290,8 +437,15 @@ def main():
         palabras = buscar_palabras(svc, a.youtube or nombre) if quiere else None
     clip = f"clip-{nombre}-{int(a.inicio)}-{int(a.fin)}{'-vertical' if a.formato == 'vertical' else ''}.mp4"
     estilo = json.loads(a.estilo) if a.estilo else None
-    con_sub = cortar(original, clip, a.inicio, a.fin, a.ffmpeg, a.formato, palabras, srt_texto, estilo)
+    info = {}
+    con_sub = cortar(original, clip, a.inicio, a.fin, a.ffmpeg, a.formato, palabras, srt_texto, estilo,
+                     quitar_pausas=a.quitar_pausas, info=info)
     print(f"clip: {clip} ({os.path.getsize(clip) // 1024} KB){' · con subtítulos' if con_sub else ''}")
+    if info.get("sin_pausas"):
+        sp = info["sin_pausas"]
+        print(f"sin pausas: {sp['antes']:.1f} s → {sp['despues']:.1f} s, {sp['pausas']} pausas sacadas")
+    if con_sub:
+        open(os.path.splitext(clip)[0] + ".usado.srt", "w", encoding="utf-8").write(con_sub)
     if a.sin_subir:
         return
 
