@@ -7,7 +7,7 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 COPY api/requirements.txt api/requirements.txt
 RUN pip install --no-cache-dir -r api/requirements.txt
-COPY nucleo.py db.py publicar.py recortar_clip.py imagen.py datos_fijos.md logo.png fragmentos.jsonl fragmentos_openai.npy ./
+COPY nucleo.py db.py documentos.py publicar.py recortar_clip.py imagen.py datos_fijos.md logo.png fragmentos.jsonl fragmentos_openai.npy ./
 COPY fuentes ./fuentes
 COPY api ./api
 EXPOSE 8000

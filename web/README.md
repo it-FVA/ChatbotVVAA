@@ -1,11 +1,49 @@
-# Interfaz web propia (fase 1: «Mis recortes» con editor visual · revisión UX del 21/10)
+# Interfaz web propia (fase 1: «Mis recortes» con editor visual · fase 2: el chat, 22/10)
 
-Es la primera pantalla de la interfaz que va a reemplazar a Streamlit (plan en
-`fva-transcripcion/analisis/plan-interfaz-propia-2026-10.md`). Habla con la API de `api/` (fase 0 + los endpoints de
-recortes de esta fase) y no toca Streamlit, que sigue en producción. Las capturas de cómo se ve están en `capturas/`
-(escritorio 1366 px y celular 375 px): login, lista (cargando, vacía, normal), editor antes y después de editar, zoom de la
-línea de tiempo, atajos de teclado, confirmación de borrado, pantalla de «regenerando» y barra inferior en celular. La revisión
-de UX/UI que motivó la segunda vuelta (hallazgos, referencias con links, qué se cambió y qué quedó) está en `UX-REVISION.md`.
+Es la interfaz que reemplaza a Streamlit (decisión de Franco del 22/10: la web es la aplicación definitiva; Streamlit queda de
+respaldo hasta el traspaso; plan en `fva-transcripcion/analisis/plan-interfaz-propia-2026-10.md`). Habla con la API de `api/` y
+no toca el cerebro (`nucleo.py`, `db.py`). Las capturas de cómo se ve están en `capturas/` (escritorio 1366 px y celular 375 px):
+`00`–`11` la fase 1 (login, lista, editor de recortes), `20`–`24` el chat (vacío, respuesta con fuentes, tarjeta de video con el
+recorte en proceso, pieza propuesta, cajón de conversaciones en celular). La revisión de UX/UI de los recortes está en `UX-REVISION.md`.
+
+## El chat (fase 2, 22/10)
+
+`/chat` y `/chat/<id>` (`src/paginas/Chat.tsx`, estilos en `src/chat.css`). Paridad con el chat de Streamlit (`app.py`) y lo que
+Streamlit no podía hacer:
+
+- **Conversaciones** (`componentes/ListaConversaciones.tsx`): lista de la persona agrupada por Hoy / Ayer / Últimos 7 días /
+  Anteriores con fecha relativa, buscador, «Nueva conversación», renombrar en el lugar (lápiz, Enter guarda, Esc cancela) y borrar
+  con confirmación; el borrado va a la papelera de `db.py` (30 días) y durante 12 s hay «Deshacer» (`POST …/restaurar`). Es un
+  componente aparte y cada ítem lleva `data-id`: la próxima etapa (carpetas / proyectos con arrastrar y soltar) agrupa la lista sin
+  rehacer el chat. En celular es un cajón (botón «Conversaciones», Esc o el velo lo cierran).
+- **Mensajes** (`componentes/Mensaje.tsx`): markdown con `marked` + `DOMPurify` (títulos, listas, citas, tablas, links que abren
+  aparte); la respuesta llega en **streaming** (SSE por `fetch`, `src/apiChat.ts`) con el estado «Pensando… / Buscando en el
+  material… / Escribiendo…» y un cursor; «Detener» corta la respuesta (ese intercambio no queda guardado, la pantalla lo avisa).
+  Enter envía, Shift+Enter hace una línea nueva; el cuadro crece con el texto. Autoscroll solo si la persona está abajo; si subió,
+  aparece un botón para ir al final. Al abrir una conversación se carga el historial completo con sus fuentes y piezas.
+- **Fuentes** (`componentes/Fuentes.tsx`): plegable «Fuentes (n) · k citadas en la respuesta» (abierto salvo que haya pieza, como
+  Streamlit), tarjetas compactas (tag, autor, título, cita de dos líneas que se despliega al pasar el mouse o tocarla, «Ver fuente»),
+  las citadas resaltadas en verde; en los videos la miniatura de YouTube con el tramo y los botones «Pedir el recorte» / «Pedir en
+  vertical» (`POST /recortes`) → «recorte en proceso» → «Ver el recorte» + «Editar» (abre el editor de `/recortes/<id>`). Mientras
+  haya alguno en proceso, cada minuto consulta `GET /conversaciones/<id>/recortes` y actualiza las tarjetas.
+- **Pieza propuesta** (`componentes/PiezaPropuesta.tsx`): cuando el bot llama a `proponer_publicacion`, debajo de la respuesta el
+  recuadro con canal (chips), modo del canal (`GET /publicaciones/modos`), título, texto, texto sobre la imagen, fotos del banco de
+  WordPress (`GET /banco`, busca sola con la sugerencia del bot), fecha y hora opcionales, y los botones **Enviar a aprobación**
+  (`POST /publicaciones/a-aprobar`; deshabilitado con el motivo si el canal no lo permite) y **Guardar borrador**
+  (`POST /publicaciones/borrador`), más el link a «Mis publicaciones» (por ahora Streamlit). Una pieza `newsletter` manda al editor
+  de Newsletter de Streamlit.
+- **Descargas**: «Word» en las respuestas de 600 caracteres o más y «Excel» si tienen tablas (`GET …/mensajes/{n}/docx|xlsx`),
+  con el nombre de la conversación.
+- **Idioma de la cuenta** (`GET /yo` → `idioma`): los textos de la pantalla en es/en/de (`src/textos.ts`) y las etiquetas de las
+  tarjetas traducidas (ARTICLE/BOOK, ARTIKEL/BUCH) con la traducción de título y cita que manda la API. Los botones de recorte y
+  el recuadro de la pieza se muestran solo en español, como en Streamlit.
+- **Si la API duerme** (Render plan free): antes de mandar, si hace más de 10 min que no hablamos con ella, pega a `/salud`; si no
+  contesta avisa «La API está despertando: puede tardar un minuto» y reintenta cada 5 s hasta 2 min; recién entonces manda el mensaje.
+- **Atajos**: `/` enfoca el cuadro, Esc cierra el cajón y los modales. Accesibilidad básica: `role=log` con `aria-live`, botones
+  con nombre, foco visible, tamaños táctiles.
+
+Capturas del chat: `node capturas/capturas-chat.mjs <token> <id-conversacion> [escritorio|movil]` (mismo mecanismo que
+`capturas.mjs`; solo mira, no manda mensajes ni pide recortes).
 
 ## Qué hay
 
@@ -20,8 +58,8 @@ de UX/UI que motivó la segunda vuelta (hallazgos, referencias con links, qué s
   registro, papelera) y «admin» (`ADMINS`, default `franco,beto`; un admin también aprueba: además Frase del día, Dashboard y la
   configuración, p. ej. `PUT /recortes/estilo-defecto`). En la web hoy se usa `rol.aprueba` (solapa «Todos», permisos de las
   tarjetas) y el nombre del rol en la barra; `rol.admin` queda para la pantalla de configuración cuando exista.
-- **Barra lateral**: «Mis recortes» (esta pantalla) y dos links que por ahora abren la app de Streamlit en producción
-  («Chat» y «Mis publicaciones», URL en `VITE_STREAMLIT_URL`). En celular se vuelve una barra arriba.
+- **Barra lateral**: «Chat» (fase 2), «Mis recortes» y un link que por ahora abre la app de Streamlit en producción
+  («Mis publicaciones», URL en `VITE_STREAMLIT_URL`). En celular se vuelve una barra arriba. La página de inicio es el chat.
 - **Recortes**: solapas «Mis recortes», «👥 Del equipo» (los listos de otras personas: abrir, sin editar ni borrar) y
   «Todos» para aprobadores; buscador por título, video o quién lo pidió; cada tarjeta con el video (o la miniatura de
   YouTube si todavía no está), formato, tramo, duración, estado (listo · en proceso · regenerando con los cambios · error), nota,
@@ -91,7 +129,7 @@ escritorio manda a regenerar al final; después hay que volverla a `listo` o bor
 |---|---|---|
 | `VITE_API_URL` | a dónde van las llamadas a la API. Vacío = `/api` (proxy de Vite en desarrollo, o la API servida bajo `/api` en el mismo dominio) | vacío |
 | `VITE_API_PROXY` | solo desarrollo: dónde corre la API local | `http://127.0.0.1:8000` |
-| `VITE_STREAMLIT_URL` | la app de Streamlit en producción (links «Chat» y «Mis publicaciones») | `https://chatbotvvaa.streamlit.app` |
+| `VITE_STREAMLIT_URL` | la app de Streamlit en producción (link «Mis publicaciones», editor de Newsletter) | `https://chatbotvvaa.streamlit.app` |
 
 Las `VITE_*` se fijan al compilar (no se leen en tiempo de ejecución).
 
@@ -120,10 +158,14 @@ corre en local.
 - **Mover las manijas fuera del tramo actual** se puede (se guarda y la cola corta del original), pero no se ve en el
   reproductor hasta regenerar: misma limitación del plan (hace falta la copia con margen).
 - **Tiempos de los subtítulos**: se edita el texto, no el momento en que entra y sale (como en Streamlit).
-- **Publicar** desde la tarjeta: no está (fase 3); «Mis publicaciones» y el chat abren Streamlit.
+- **Publicar** desde la tarjeta o desde el chat en real: no está (fase 3). Desde el chat la pieza se guarda como borrador o se manda a
+  aprobación; la foto con la frase encima, el logo, el diseño y subir archivos siguen en Publicar de Streamlit. «Mis publicaciones»,
+  el panel de aprobación y el newsletter abren Streamlit.
+- **Chat**: «📣 Publicar el recorte» desde la tarjeta de video (fase 3); el bot puede pedir recortes solo (`pedir_recorte`) y la
+  tarjeta lo refleja al recargar o en el próximo refresco; las carpetas / proyectos de conversaciones son la próxima etapa.
 - **Estilo por defecto del equipo**: la API lo expone (`GET/PUT /recortes/estilo-defecto`), la web todavía no tiene la pantalla
   de admin (sigue en Panel admin → Clips de Streamlit).
 - **Login con Google**: funciona contra la API local (sin probar con una cuenta real); falta el mapeo usuario ↔ email del historial
   y agregar el dominio de producción a los orígenes autorizados.
 - **Hosting y dominio**: Vercel + Railway/Render o el VPS; CORS y `COOKIE_SAMESITE` dependen de eso.
-- **Idiomas**: la pantalla está solo en español (las cuentas en/de del plan quedan para la fase 2).
+- **Idiomas**: el chat está en es/en/de; la pantalla de recortes y el login, solo en español.

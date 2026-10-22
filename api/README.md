@@ -1,10 +1,12 @@
-# API HTTP del asistente (fase 0 + recortes de la fase 1)
+# API HTTP del asistente (fase 0 + recortes de la fase 1 + chat de la fase 2)
 
 Es el primer paso del plan de interfaz propia (`fva-transcripcion/analisis/plan-interfaz-propia-2026-10.md`):
 una API en FastAPI que llama al **mismo cerebro** que la app de Streamlit (`nucleo.py`, `db.py`), sin tocarlo.
 Streamlit sigue en producción tal cual; esta API corre al lado. Por ahora: login, sesión, chat con streaming,
-lectura de conversaciones y publicaciones, y (fase 1, 21/10 noche, `recortes.py`) todo lo de «Mis recortes»: editar y regenerar
-con el editor visual de la web (`web/`), borrar, estilo por defecto. **No publica ni aprueba** (fases 2 y 3).
+lectura de conversaciones y publicaciones, (fase 1, 21/10 noche, `recortes.py`) todo lo de «Mis recortes»: editar y regenerar
+con el editor visual de la web (`web/`), borrar, estilo por defecto; y (fase 2, 22/10, `chat_rutas.py`) lo que la pantalla de chat
+de la web necesita además del streaming: renombrar y borrar conversaciones (papelera), descargas Word/Excel, pedir recortes desde
+las tarjetas, guardar la pieza propuesta como borrador o mandarla a aprobación. **No publica ni aprueba** (fase 3).
 
 ## Qué hay
 
@@ -17,12 +19,14 @@ con el editor visual de la web (`web/`), borrar, estilo por defecto. **No public
 | `config.py` | variables de entorno; en local carga `.streamlit/secrets.toml` |
 | `migraciones/autorizados_login_google.sql` | tabla `autorizados` (email, rol, agregado_por, creado) para el login con Google |
 | `recortes.py` | router de recortes (fase 1): misma lógica de negocio que `publicar_ui._mis_recortes` / `_editor_recorte`, más `edicion["segmentos"]` |
-| `tests/` | pytest + httpx: 37 pruebas sin OpenAI ni Supabase (`test_api.py`, `test_recortes.py`), y 1 real (marcada `real`) |
+| `chat_rutas.py` | router del chat (fase 2): renombrar / papelera / restaurar, `GET …/mensajes/{n}/docx\|xlsx` (usa `documentos.py`, el módulo que compartimos con Streamlit), `POST /recortes` (= botones «Pedir el recorte» con las validaciones del chat), `GET /banco`, `GET /publicaciones/modos`, `POST /publicaciones/borrador` y `/a-aprobar` (mismos campos que `publicar_ui.formulario`) |
+| `tests/` | pytest + httpx: 48 pruebas sin OpenAI ni Supabase (`test_api.py`, `test_recortes.py`, `test_chat_rutas.py`), y 1 real (marcada `real`) |
 | `ejemplos.http` | llamadas de ejemplo (REST Client / curl) |
 | `Dockerfile`, `requirements.txt` | para desplegar en cualquier hosting que acepte un contenedor |
 
 En `db.py` se agregaron al final (sin cambiar las existentes): `cargar_conversacion_de`, `autorizado`,
-`listar_autorizados`, `agregar_autorizado`, `quitar_autorizado`.
+`listar_autorizados`, `agregar_autorizado`, `quitar_autorizado`, `restaurar_conversacion_de`. En la raíz, `documentos.py` (22/10)
+tiene `md_a_docx`, `tablas_md` y `tablas_a_xlsx`, que antes vivían en `app.py`; Streamlit los importa de ahí.
 
 ## Endpoints
 
@@ -36,6 +40,13 @@ En `db.py` se agregaron al final (sin cambiar las existentes): `cargar_conversac
 | `GET /conversaciones` | con sesión | `[{id, titulo, actualizado}]` de la persona (sin papelera) |
 | `GET /conversaciones/{id}` | dueño | la conversación con los mensajes normalizados y, en cada respuesta, `tarjetas` |
 | `POST /conversaciones/{id}/mensajes` `{texto, stream?}` | dueño (`id` = `nueva` abre una) | la respuesta del bot; con `stream: true` o `Accept: text/event-stream`, SSE |
+| `PATCH /conversaciones/{id}` `{titulo}` · `DELETE /conversaciones/{id}` · `POST …/restaurar` | dueño | renombrar · a la papelera (30 días, `db.borrar_conversacion`) · sacarla de la papelera |
+| `GET /conversaciones/{id}/mensajes/{n}/docx` · `…/xlsx` | dueño | la respuesta `n` como Word · sus tablas como Excel (una hoja por tabla); 404 si no es una respuesta del bot o no tiene tablas |
+| `GET /conversaciones/{id}/recortes` | dueño | los clips (cualquier estado) de los videos citados en la conversación; la web lo consulta cada minuto mientras alguno está en proceso |
+| `POST /recortes` `{video_id, inicio_ms, fin_ms, formato, titulo}` | con sesión | = «✂️ Pedir el recorte» / «📱 Pedir en vertical»: `db.pedir_clip` firmado por la persona; valida fin > inicio y menos de 15 min (como `nucleo` 'pedir_recorte'); si ya existía, `ya: true` con su estado |
+| `GET /banco?consulta=&formato=` | con sesión | fotos del banco de WordPress (`publicar.buscar_imagenes_banco`, con el orden de `publicar_ui._banco`); sin WordPress configurado, `[]` |
+| `GET /publicaciones/modos` | con sesión | el modo de cada canal (`publicar.Config(os.environ)`), si la persona publica en real y a qué canales puede mandar a aprobación |
+| `POST /publicaciones/borrador` · `POST /publicaciones/a-aprobar` (cuerpo: canal, titulo, texto, imagen_url, fecha, hora, texto_imagen, firma, imagen_busqueda, borrador_id) | con sesión | = «💾 Guardar borrador» (`db.guardar_borrador`, con el dict `pieza` que `publicar_ui.formulario` sabe retomar) · = «📨 Enviar a aprobación» (`db.proponer_publicacion`; solo WordPress/Instagram/Facebook con el canal real en `real` o `borrador`, como Streamlit; texto plano en redes; el borrador retomado se elimina) |
 | `GET /recortes` (`?equipo=1`, `?todos=1`, `?buscar=`) | con sesión (`todos`: aprobadores) | «Mis recortes» / «Del equipo» (listos de otras personas) / Panel admin → Clips, con `propio`, `puede_editar`, `puede_borrar`, `miniatura`, `duracion_ms`, `estado_texto` |
 | `GET /recortes/opciones` | con sesión | tipografías, tamaños, colores, fondos, posiciones (`recortar_clip`), límites del tramo, estilo del equipo |
 | `GET /recortes/estilo-defecto` · `PUT` | con sesión · aprobadores | config `clips_estilo` |
@@ -181,3 +192,8 @@ Streamlit; el streaming no lo cambia, solo muestra el texto apenas empieza.
   para que cada recorte quede firmado por quien lo pidió. Lo limpio es que pase a ser un parámetro de `nucleo` (plan, §2.3).
 - `chat.py` replica `nucleo.responder_con_pieza` (21/10). Si esa función cambia, hay que cambiar la copia; la fase 2
   del plan prevé compararlas con el set dorado y dejar una sola versión con streaming en `nucleo`.
+- (22/10) Si la persona **detiene** la respuesta desde la web, el generador queda cortado antes del evento `fin` y ese intercambio
+  **no se guarda** (la web lo avisa). Las piezas desde la web guardan `resultado.origen = "web"` y no suben imagen compuesta ni
+  archivos (eso es de la pantalla de Publicar, fase 3): la foto es una URL del banco o nada.
+- (22/10) `POST /publicaciones/a-aprobar` acepta a cualquiera con sesión, también a quien publica en real (en Streamlit esa persona
+  ve «Enviar a X» en vez de «Enviar a aprobación»): publicar directo desde la web llega con la fase 3.

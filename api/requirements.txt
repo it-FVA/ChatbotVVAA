@@ -9,6 +9,9 @@ python-multipart
 google-auth
 requests
 itsdangerous
+# Descargas «Word» / «Excel» del chat (documentos.py)
+python-docx>=1.1
+openpyxl>=3.1
 # Pruebas (api/tests)
 pytest
 httpx

@@ -26,12 +26,12 @@ export default function Barra() {
         </div>
       </div>
       <nav className="barra-nav" aria-label="Secciones">
+        <NavLink to="/chat" className={({ isActive }) => "barra-link" + (isActive ? " activo" : "")}>
+          <Icono nombre="chat" /> Chat
+        </NavLink>
         <NavLink to="/recortes" className={({ isActive }) => "barra-link" + (isActive ? " activo" : "")}>
           <Icono nombre="pelicula" /> Mis recortes
         </NavLink>
-        <a className="barra-link externo" href={STREAMLIT_URL} target="_blank" rel="noreferrer" title="Por ahora el chat sigue en la app de Streamlit">
-          <Icono nombre="chat" /> Chat <span className="suave chico">Streamlit</span>
-        </a>
         <a className="barra-link externo" href={STREAMLIT_URL + "/?vista=publicar"} target="_blank" rel="noreferrer" title="Por ahora las publicaciones siguen en la app de Streamlit">
           <Icono nombre="megafono" /> Mis publicaciones <span className="suave chico">Streamlit</span>
         </a>

@@ -37,6 +37,8 @@ const TRAZOS: Record<string, string> = {
   paleta: "M12 3a9 9 0 0 0 0 18c1 0 1.5-.6 1.5-1.3 0-.8-.6-1-.6-1.8 0-.9.7-1.4 1.6-1.4H16a5 5 0 0 0 5-5c0-4.6-4-8.5-9-8.5zM7.5 11a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM10.5 7.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM14.5 7.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM17 11a1 1 0 1 0 0-2 1 1 0 0 0 0 2z",
   subtitulos: "M3 5h18v14H3zM6 12h6M14 12h4M6 15h3M11 15h7",
   tramo: "M4 6v12M20 6v12M4 12h16M9 9l-3 3 3 3M15 9l3 3-3 3",
+  menu: "M4 7h16M4 12h16M4 17h16",
+  descargar: "M12 4v12M6 10l6 6 6-6M4 20h16",
 };
 
 export type NombreIcono = keyof typeof TRAZOS;
