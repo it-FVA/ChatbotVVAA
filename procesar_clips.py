@@ -12,6 +12,11 @@ sin "estilo" usan el estilo por defecto del Panel admin (tabla config, clave 'cl
 clips.estilo. (21/10) "quitar_pausas" (bool) saca los silencios de más de 0,7 s (recortar_clip.quitar_pausas); al terminar queda en el
 mismo JSON la marca "sin_pausas" = {"antes", "despues", "pausas"} y en clips.nota «Sin pausas largas: 53 s → 45 s, 12 pausas».
 
+(21/10, noche; fase 1 de la interfaz propia) "segmentos" = [[a_ms, b_ms], ...] absolutos del original: los pedazos del tramo que se
+conservan (el editor visual de la web parte el recorte y saca pedazos del medio); recortar_clip.cortar(segmentos=) los pega. La cola
+deja "segmentos_hechos" (los que aplicó) y "timeline" (lo que queda del tramo plano en el video final, en segundos: la web lo usa
+para llevar un segundo del reproductor al segundo del original). Si no hay "segmentos", todo sigue igual.
+
 Variables de entorno: SUPABASE_URL, SUPABASE_KEY, DRIVE_TOKEN_JSON, WP_SITE, WP_USER, WP_APP_PASSWORD,
 PUBLICAR_WORDPRESS. Local: python procesar_clips.py (lee .streamlit/secrets.toml si faltan).
 """
@@ -78,24 +83,33 @@ def main():
             # timeline están los subtítulos corregidos (clips.srt es el del último video; la persona solo edita el texto).
             quitar = bool(edicion.get("quitar_pausas"))
             marca_anterior = edicion.get("sin_pausas")
+            # (21/10, noche) "segmentos": pedazos del tramo que se conservan (ms absolutos del original); "segmentos_hechos" es la marca
+            # que deja esta cola con los que aplicó. Un ValueError acá (ninguno cae en el tramo) deja la fila en error.
+            segmentos = rc.normalizar_segmentos(edicion.get("segmentos"), ini_ms, fin_ms)
+            seg_hechos = rc.normalizar_segmentos(edicion.get("segmentos_hechos"), ini_ms, fin_ms) if not tramo_cambio else None
+            # ¿el SRT corregido está en la timeline del video que se va a armar? Solo si no cambió nada de lo que la mueve
+            timeline_igual = not tramo_cambio and quitar == bool(marca_anterior) and segmentos == seg_hechos
             srt_ya_sin_pausas = descartar_srt = False
-            if srt_editado and marca_anterior and not tramo_cambio:
-                if quitar:
-                    srt_ya_sin_pausas = True    # mismo tramo, mismas pausas: los tiempos del SRT corregido ya son los del video sin pausas
+            if srt_editado and (marca_anterior or edicion.get("segmentos_hechos")):
+                if timeline_igual:
+                    srt_ya_sin_pausas = True    # mismo tramo, mismos segmentos, mismas pausas: los tiempos del SRT ya son los del video final
                 else:
-                    # se apagó «quitar pausas»: el SRT corregido está en la timeline sin pausas y no sirve con las pausas puestas
-                    print("  los subtítulos corregidos eran del video sin pausas: se rearman desde las palabras")
+                    # el SRT corregido está en la timeline de otro video (sin pausas o con otros segmentos) y no sirve para este
+                    print("  los subtítulos corregidos eran de otra timeline (pausas o segmentos distintos): se rearman desde las palabras")
                     srt_editado, descartar_srt = "", True
             palabras = None if srt_editado else (rc.buscar_palabras(svc, vid) if rc.quiere_subtitulos(fmt) else None)
             estilo = rc.normalizar_estilo(edicion.get("estilo") or estilo_defecto)
             info = {}
             srt_usado = rc.cortar(original, clip, ini, fin, ffmpeg, fmt, palabras, srt_editado or None, estilo,
-                                  quitar_pausas=quitar, srt_ya_sin_pausas=srt_ya_sin_pausas, info=info)
+                                  quitar_pausas=quitar, srt_ya_sin_pausas=srt_ya_sin_pausas, info=info, segmentos=segmentos)
             if srt_usado:
                 print("  con subtítulos quemados" + (" (corregidos a mano)" if srt_editado else "") + f" · estilo {estilo}")
             sp = info.get("sin_pausas")
             if sp:
                 print(f"  sin pausas: {sp['antes']:.1f} s → {sp['despues']:.1f} s, {sp['pausas']} pausas")
+            sg = info.get("segmentos")
+            if sg:
+                print(f"  segmentos: {sg['antes']:.1f} s → {sg['despues']:.1f} s, {sg['tramos']} pedazos conservados")
             titulo = (p.get("titulo") or vid)[:120] + f" · {int(ini)}-{int(fin)} s" + (" (vertical)" if fmt == "vertical" else "")
             r = publicar.subir_imagen_wordpress(cfg, open(clip, "rb").read(), clip, titulo=titulo,
                                                 etiquetas=["clip-exacto", fmt], quien=p.get("pedido_por") or "cola", pieza=titulo)
@@ -108,13 +122,26 @@ def main():
             if tramo_cambio:
                 # el tramo nuevo pasa a las columnas (la tarjeta muestra el tramo real) y sale del JSON de edición
                 campos.update({"inicio_ms": ini_ms, "fin_ms": fin_ms})
+            notas = []
+            if sg:
+                # (21/10, noche) marca de qué segmentos se aplicaron (para saber en qué timeline queda el SRT) y nota
+                edicion_nueva["segmentos_hechos"] = edicion.get("segmentos")
+                notas.append(f"Pedazos sacados del medio: {sg['antes']:.0f} s → {sg['despues']:.0f} s ({sg['tramos']} tramos conservados)")
+            else:
+                edicion_nueva.pop("segmentos_hechos", None)
             if sp:
                 # (21/10) queda la marca de que este video está sin pausas y la nota con cuánto duró antes y después
                 edicion_nueva["sin_pausas"] = sp
-                campos["nota"] = (f"Sin pausas largas: {sp['antes']:.0f} s → {sp['despues']:.0f} s, {sp['pausas']} pausa{'s' if sp['pausas'] != 1 else ''}"
-                                  + ("" if sp["pausas"] else " (no había ninguna de más de 0,7 s)"))
+                notas.append(f"Sin pausas largas: {sp['antes']:.0f} s → {sp['despues']:.0f} s, {sp['pausas']} pausa{'s' if sp['pausas'] != 1 else ''}"
+                             + ("" if sp["pausas"] else " (no había ninguna de más de 0,7 s)"))
             else:
                 edicion_nueva.pop("sin_pausas", None)
+            if info.get("timeline"):
+                edicion_nueva["timeline"] = info["timeline"]   # lo que queda del tramo plano en el video final (segundos)
+            else:
+                edicion_nueva.pop("timeline", None)
+            if notas:
+                campos["nota"] = ". ".join(notas)
             if descartar_srt:
                 edicion_nueva.pop("srt", None)   # que el editor no vuelva a mostrar (ni a aplicar) un SRT de otra timeline
             if edicion_nueva != edicion:

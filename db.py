@@ -620,6 +620,15 @@ def quitar_autorizado(email):
     return _req("DELETE", f"?email=eq.{urllib.parse.quote(email.strip().lower())}", tabla="autorizados")
 
 
+# ---------------- API HTTP, fase 1 (21/10, noche): editor de recortes de la web ----------------
+def obtener_clip(cid):
+    """Una fila de clips por id (las mismas columnas que listar_clips), o None."""
+    if not disponible() or not cid:
+        return None
+    r = _req("GET", f"?id=eq.{urllib.parse.quote(str(cid))}&select=id,creado,video_id,inicio_ms,fin_ms,formato,titulo,pedido_por,estado,url,error,procesado_en,srt,edicion,nota,estilo", tabla="clips")
+    return r[0] if r else None
+
+
 # ---------------- Uso (21/10, Franco: "¿hubo movimiento?" en pantalla) ----------------
 def uso_actividad(dias=28):
     """Todo lo que pasó en los últimos `dias`: conversaciones (con cuántos mensajes propios), piezas y recortes.

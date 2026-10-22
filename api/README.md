@@ -1,9 +1,10 @@
-# API HTTP del asistente (fase 0)
+# API HTTP del asistente (fase 0 + recortes de la fase 1)
 
 Es el primer paso del plan de interfaz propia (`fva-transcripcion/analisis/plan-interfaz-propia-2026-10.md`):
 una API en FastAPI que llama al **mismo cerebro** que la app de Streamlit (`nucleo.py`, `db.py`), sin tocarlo.
 Streamlit sigue en producción tal cual; esta API corre al lado. Por ahora: login, sesión, chat con streaming,
-y lectura de conversaciones, recortes y publicaciones. **No publica, no aprueba, no edita recortes** (fases 1 a 3).
+lectura de conversaciones y publicaciones, y (fase 1, 21/10 noche, `recortes.py`) todo lo de «Mis recortes»: editar y regenerar
+con el editor visual de la web (`web/`), borrar, estilo por defecto. **No publica ni aprueba** (fases 2 y 3).
 
 ## Qué hay
 
@@ -15,7 +16,8 @@ y lectura de conversaciones, recortes y publicaciones. **No publica, no aprueba,
 | `roles.py` | copia de `publicar_ui.roles` leyendo del entorno (ese módulo importa Streamlit) |
 | `config.py` | variables de entorno; en local carga `.streamlit/secrets.toml` |
 | `migraciones/autorizados_login_google.sql` | tabla `autorizados` (email, rol, agregado_por, creado) para el login con Google |
-| `tests/` | pytest + httpx: 19 pruebas sin OpenAI ni Supabase, y 1 real (marcada `real`) |
+| `recortes.py` | router de recortes (fase 1): misma lógica de negocio que `publicar_ui._mis_recortes` / `_editor_recorte`, más `edicion["segmentos"]` |
+| `tests/` | pytest + httpx: 37 pruebas sin OpenAI ni Supabase (`test_api.py`, `test_recortes.py`), y 1 real (marcada `real`) |
 | `ejemplos.http` | llamadas de ejemplo (REST Client / curl) |
 | `Dockerfile`, `requirements.txt` | para desplegar en cualquier hosting que acepte un contenedor |
 
@@ -34,7 +36,13 @@ En `db.py` se agregaron al final (sin cambiar las existentes): `cargar_conversac
 | `GET /conversaciones` | con sesión | `[{id, titulo, actualizado}]` de la persona (sin papelera) |
 | `GET /conversaciones/{id}` | dueño | la conversación con los mensajes normalizados y, en cada respuesta, `tarjetas` |
 | `POST /conversaciones/{id}/mensajes` `{texto, stream?}` | dueño (`id` = `nueva` abre una) | la respuesta del bot; con `stream: true` o `Accept: text/event-stream`, SSE |
-| `GET /recortes` (`?todos=1`) | con sesión (`todos`: aprobadores) | lo que lista «Mis recortes» (o Panel admin → Clips) |
+| `GET /recortes` (`?equipo=1`, `?todos=1`, `?buscar=`) | con sesión (`todos`: aprobadores) | «Mis recortes» / «Del equipo» (listos de otras personas) / Panel admin → Clips, con `propio`, `puede_editar`, `puede_borrar`, `miniatura`, `duracion_ms`, `estado_texto` |
+| `GET /recortes/opciones` | con sesión | tipografías, tamaños, colores, fondos, posiciones (`recortar_clip`), límites del tramo, estilo del equipo |
+| `GET /recortes/estilo-defecto` · `PUT` | con sesión · aprobadores | config `clips_estilo` |
+| `GET /recortes/{id}` | con sesión | el recorte + `lineas` (SRT parseado), `estilo_actual`, `srt_corregido` |
+| `POST /recortes/{id}/edicion` | dueño o aprobador | = «🔁 Regenerar»: guarda `clips.edicion` (`inicio_ms`, `fin_ms`, `segmentos`, `lineas`/`srt`, `estilo`, `quitar_pausas`, `descartar_srt`), valida como Streamlit, estado 'pedido' |
+| `DELETE /recortes/{id}` · `GET /recortes/{id}/usos` | dueño o aprobador | = «🗑 Borrar» (archivo de WordPress + fila) · piezas que usan el video |
+| `POST /recortes/{id}/reintentar` | aprobadores | = «↻ Reintentar» |
 | `GET /publicaciones` (`?todos=1`) | con sesión (`todos`: aprobadores) | «Mis publicaciones»: piezas + solapas por estado (o el registro completo) |
 | `GET /autorizados` | aprobadores | la lista de emails autorizados (solo lectura por ahora) |
 

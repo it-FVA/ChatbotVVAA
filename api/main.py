@@ -3,7 +3,8 @@
 Correr en local (desde la raíz del repo):   uvicorn api.main:app --reload
 Documentación interactiva:                  http://127.0.0.1:8000/docs
 
-Solo lectura + chat. No publica, no aprueba, no edita recortes (eso viene en las fases siguientes del plan
+Fase 0: login, sesión, chat con streaming y lecturas. Fase 1 (21/10, noche; api/recortes.py): «Mis recortes» con el editor
+visual (editar, borrar, estilo por defecto). No publica ni aprueba todavía (fases 2 y 3 del plan
 analisis/plan-interfaz-propia-2026-10.md, repo fva-transcripcion). Streamlit sigue en producción y no se toca.
 """
 import os, json, logging
@@ -30,7 +31,10 @@ async def _vida(app):
     yield
 
 
-app = FastAPI(title="Asistente · Vivir Agradecidos", version="0.1 (fase 0)", lifespan=_vida)
+app = FastAPI(title="Asistente · Vivir Agradecidos", version="0.2 (fase 1)", lifespan=_vida)
+
+from . import recortes as _recortes   # noqa: E402  (importa db: va después de config.cargar())
+app.include_router(_recortes.router)
 
 
 # ---------------- Modelos de entrada ----------------
@@ -184,23 +188,7 @@ def mensaje(cid: str, datos: Mensaje, request: Request, usuario=Depends(auth.usu
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
-# ---------------- Mis recortes / Mis publicaciones ----------------
-@app.get("/recortes")
-def recortes(request: Request, todos: bool = False, usuario=Depends(auth.usuario_actual)):
-    """Como «Mis recortes» (publicar_ui._mis_recortes): los que pidió la persona (o el bot en su nombre).
-    todos=1 (solo aprobadores): los de todo el equipo, como Panel admin → Clips."""
-    if todos:
-        auth.aprobador(request)
-    if not db.disponible():
-        return []
-    filas = db.listar_clips(100)
-    if not todos:
-        filas = [c for c in filas if c.get("pedido_por") in (usuario, "bot")]
-    for c in filas:   # (19/10) estado derivado que muestra la pantalla
-        c["regenerando"] = c.get("estado") == "pedido" and bool(c.get("edicion")) and bool(c.get("url"))
-    return filas
-
-
+# ---------------- Mis publicaciones (los recortes están en api/recortes.py desde la fase 1) ----------------
 GRUPOS = {"Pendientes": ("a_aprobar",), "Aprobadas": ("pendiente", "programada"),
           "Publicadas": ("publicada", "PUBLICADO", "draft", "lista"), "Borradores": ("borrador",),
           "Rechazadas": ("rechazada", "cancelada"), "Pruebas": ("prueba", "simulada", "simulado")}
