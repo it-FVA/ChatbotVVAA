@@ -631,3 +631,34 @@ def uso_openai(dias=28, desde=None, hasta=None):
     if hasta:
         q += f"&creado=lt.{hasta}"
     return _req("GET", q + "&order=creado.desc&limit=20000", tabla="uso_openai") or []
+
+
+# ---------------- Servicios y costos (21/10, Franco: "todos los servicios que usamos, qué cuestan y para qué") ----------------
+# Tabla servicios (migración servicios_costos): nombre, proveedor, para_que, plan, costo_mensual_usd, confirmado
+# (el monto sale de la factura/plan verificado; si no, es referencia), desde, url, notas, activo, actualizado_por.
+CAMPOS_SERVICIO = "id,nombre,proveedor,para_que,plan,costo_mensual_usd,confirmado,desde,url,notas,activo,actualizado_por,actualizado"
+
+
+def listar_servicios(solo_activos=False):
+    if not disponible():
+        return []
+    q = f"?select={CAMPOS_SERVICIO}&order=costo_mensual_usd.desc.nullslast,nombre.asc"
+    if solo_activos:
+        q += "&activo=is.true"
+    return _req("GET", q, tabla="servicios") or []
+
+
+def guardar_servicio(datos, usuario=None):
+    """Crea (sin id) o actualiza (con id) un servicio."""
+    datos = dict(datos)
+    datos["actualizado_por"] = usuario
+    import datetime as _dt
+    datos["actualizado"] = _dt.datetime.now(_dt.timezone.utc).isoformat()
+    sid = datos.pop("id", None)
+    if sid:
+        return _req("PATCH", f"?id=eq.{sid}", datos, tabla="servicios")
+    return _req("POST", "", datos, tabla="servicios")
+
+
+def borrar_servicio(sid):
+    return _req("DELETE", f"?id=eq.{sid}", tabla="servicios")

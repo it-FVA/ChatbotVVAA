@@ -55,12 +55,16 @@ def roles(usuario):
     - PUBLICACIÓN DIRECTA (secret PUBLICACION_DIRECTA; por defecto = los aprobadores): publica de verdad
       desde el recuadro sin pasar por aprobación (bypass).
     Se cambian en secrets sin tocar código."""
-    aprob = _lista("APROBADORES", "julian,franco,beto")
+    # (21/10, Franco) Tres roles acumulativos: creador de contenido (todos) → aprobador (APROBADORES) → admin (ADMINS).
+    # Un admin es también aprobador. Julián es aprobador; Beto y Franco, admins. Se cambian en secrets sin tocar código.
+    admins = _lista("ADMINS", "franco,beto")
+    aprob = sorted(set(_lista("APROBADORES", "julian,franco,beto")) | set(admins))
     directa = _lista("PUBLICACION_DIRECTA", ",".join(aprob))
-    aprueba = usuario in aprob
-    return {"crea": True, "aprueba": aprueba, "publica": usuario in directa,
-            "nombre": "aprobador / admin" if aprueba else "creador de contenido",
-            "aprobadores": aprob, "publicadores": directa}
+    admin = usuario in admins
+    aprueba = admin or usuario in aprob
+    return {"crea": True, "aprueba": aprueba, "admin": admin, "publica": usuario in directa,
+            "nombre": "admin" if admin else ("aprobador" if aprueba else "creador de contenido"),
+            "aprobadores": aprob, "admins": admins, "publicadores": directa}
 
 
 def _cfg(usuario=None):
@@ -816,18 +820,28 @@ def panel_aprobacion(usuario):
     except Exception as e:
         st.error(f"No pude leer las piezas: {e}")
         return
-    t1, t2, t3, t4, t5, t6, t7 = st.tabs([f"⏳ Para aprobar ({len(pend)})", "🗓 En cola", "📒 Registro", "🗑 Papelera", "🎬 Clips", "📅 Frase del día", "📊 Dashboard"])
-    with t7:
-        # (21/10, Franco) "¿Hubo movimiento?": quién usa el bot, cuándo fue la última vez y qué hizo cada uno.
-        uso_admin(usuario)
-    with t6:
-        # (19/10, reunión) Calendario anual de la Frase del día: una por día, sale sola como posteo de Instagram.
-        import frases_ui
-        frases_ui.render(usuario)
+    # (21/10, Franco) Lo que ve cada rol: el aprobador aprueba, mira la cola, el registro, la papelera y los clips;
+    # el admin tiene además la Frase del día, el Dashboard y la configuración (estilo por defecto, precios, servicios).
+    st.caption(f"Tu rol: **{rol['nombre']}**" + ("" if rol["admin"] else " · la Frase del día, el Dashboard y la configuración son de los admins"))
+    nombres = [f"⏳ Para aprobar ({len(pend)})", "🗓 En cola", "📒 Registro", "🗑 Papelera", "🎬 Clips"]
+    if rol["admin"]:
+        nombres += ["📅 Frase del día", "📊 Dashboard"]
+    solapas = st.tabs(nombres)
+    t1, t2, t3, t4, t5 = solapas[:5]
+    if rol["admin"]:
+        t6, t7 = solapas[5], solapas[6]
+        with t7:
+            # (21/10, Franco) "¿Hubo movimiento?": quién usa el bot, cuándo fue la última vez y qué hizo cada uno.
+            uso_admin(usuario)
+        with t6:
+            # (19/10, reunión) Calendario anual de la Frase del día: una por día, sale sola como posteo de Instagram.
+            import frases_ui
+            frases_ui.render(usuario)
     with t5:
         # (15/10) Clips exactos pedidos desde el chat. (16/10, UX) Mismas tarjetas que «Mis recortes», para todo el equipo.
         st.caption("Recortes pedidos desde el chat por todo el equipo. Los corta la nube cada 15 minutos desde los originales en Drive.")
-        estilo_por_defecto_admin(usuario)   # (19/10) estilo por defecto de los subtítulos
+        if rol["admin"]:
+            estilo_por_defecto_admin(usuario)   # (19/10) estilo por defecto de los subtítulos
         _mis_recortes(usuario, todos=True, buscar=st.text_input("Buscar", key="rec_buscar_admin", placeholder="Buscar por título, video o quién lo pidió…", label_visibility="collapsed"))
     with t4:
         # (15/10) Conversaciones borradas por cualquier usuario: se pueden restaurar durante 30 días.
@@ -1424,6 +1438,7 @@ def uso_admin(usuario):
         for k in clips[:15]:
             st.markdown(f"- {_hace(k.get('creado'))} · **{k.get('pedido_por')}** · recorte {k.get('formato')} · {(k.get('titulo') or '')[:60]} · {k.get('estado')}")
     costo_openai_admin(usuario, dias)   # (21/10) consumo de OpenAI en el mismo período
+    servicios_admin(usuario)            # (21/10) todos los servicios que usa la app, qué cuestan y para qué
 
 
 def _costo(fila, precios):
@@ -1609,4 +1624,84 @@ def costo_openai_admin(usuario, dias=None):
         if st.button("💾 Guardar precios", key="pre_guardar"):
             db.guardar_config("openai_precios", nuevos, usuario)
             st.toast("Precios guardados.")
+            st.rerun()
+
+
+def servicios_admin(usuario):
+    """(21/10, Franco) Dashboard → «🧾 Servicios y costos»: el inventario de todo lo que usa la app (hosting, base, APIs,
+    automatizaciones), con qué función cumple, el plan, el costo mensual y si ese costo está confirmado por factura o es
+    una referencia. Suma un total fijo mensual y lo junta con la estimación de OpenAI del mes en curso."""
+    import pandas as pd
+    st.markdown("---")
+    st.markdown("### 🧾 Servicios y costos")
+    try:
+        servicios = db.listar_servicios()
+    except Exception as e:
+        st.error(f"No pude leer los servicios: {e}")
+        return
+    activos = [s for s in servicios if s.get("activo")]
+    fijo = sum(float(s.get("costo_mensual_usd") or 0) for s in activos)
+    sin_confirmar = [s["nombre"] for s in activos if not s.get("confirmado")]
+    # OpenAI del mes en curso, con los precios cargados
+    openai_mes = None
+    try:
+        hoy = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-3))).date()
+        ini = hoy.replace(day=1)
+        filas = db.uso_openai(desde=f"{ini.isoformat()}T03:00:00Z")
+        precios = db.obtener_config("openai_precios") or {}
+        cs = [_costo(f, precios) for f in filas]
+        openai_mes = sum(c for c in cs if c is not None) if filas else 0.0
+    except Exception:
+        pass
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Servicios activos", len(activos))
+    c2.metric("Costo fijo por mes", _usd(fijo), help="Suma de los costos mensuales cargados (solo los activos). Los no confirmados cuentan igual; están marcados.")
+    c3.metric("Fijo + OpenAI del mes", _usd(fijo + (openai_mes or 0.0)) if openai_mes is not None else "—",
+              help="OpenAI es la estimación del mes en curso del cuadro de arriba (lo registrado desde el 21/10).")
+    if sin_confirmar:
+        st.caption("Montos de referencia, sin factura que los confirme: " + ", ".join(sin_confirmar) + ".")
+    if servicios:
+        st.dataframe([{"Servicio": s["nombre"], "Proveedor": s.get("proveedor") or "", "Para qué": s.get("para_que") or "",
+                       "Plan": s.get("plan") or "", "US$/mes": s.get("costo_mensual_usd"),
+                       "Confirmado": "✅" if s.get("confirmado") else "referencia", "Desde": s.get("desde") or "",
+                       "Activo": "sí" if s.get("activo") else "no"} for s in servicios],
+                     width="stretch", hide_index=True,
+                     column_config={"US$/mes": st.column_config.NumberColumn(format="$%.2f"),
+                                    "Para qué": st.column_config.TextColumn(width="large")})
+    else:
+        st.caption("Todavía no hay servicios cargados.")
+
+    with st.expander("➕ Agregar o editar un servicio"):
+        nombres = ["(nuevo)"] + [s["nombre"] for s in servicios]
+        cual = st.selectbox("Servicio", nombres, key="srv_cual")
+        actual = next((s for s in servicios if s["nombre"] == cual), {}) if cual != "(nuevo)" else {}
+        k = f"srv_{actual.get('id') or 'nuevo'}"
+        c1, c2 = st.columns(2)
+        nombre = c1.text_input("Nombre", value=actual.get("nombre") or "", key=k + "_n")
+        proveedor = c2.text_input("Proveedor", value=actual.get("proveedor") or "", key=k + "_p")
+        para_que = st.text_input("Para qué lo usamos", value=actual.get("para_que") or "", key=k + "_q")
+        c3, c4, c5 = st.columns(3)
+        plan = c3.text_input("Plan", value=actual.get("plan") or "", key=k + "_pl")
+        costo = c4.number_input("Costo mensual (US$)", value=float(actual.get("costo_mensual_usd") or 0.0), min_value=0.0, step=1.0, format="%.2f", key=k + "_c")
+        desde = c5.text_input("Desde (AAAA-MM-DD)", value=actual.get("desde") or "", key=k + "_d")
+        c6, c7 = st.columns(2)
+        confirmado = c6.checkbox("Monto confirmado (factura o plan verificado)", value=bool(actual.get("confirmado")), key=k + "_ok")
+        activo = c7.checkbox("Activo", value=bool(actual.get("activo", True)), key=k + "_a")
+        url = st.text_input("Link (panel del proveedor)", value=actual.get("url") or "", key=k + "_u")
+        notas = st.text_area("Notas", value=actual.get("notas") or "", key=k + "_no", height=70)
+        b1, b2, _ = st.columns([1, 1, 3])
+        if b1.button("💾 Guardar", key=k + "_g", disabled=not nombre.strip()):
+            datos = {"nombre": nombre.strip(), "proveedor": proveedor.strip() or None, "para_que": para_que.strip() or None,
+                     "plan": plan.strip() or None, "costo_mensual_usd": round(costo, 2), "confirmado": confirmado,
+                     "desde": desde.strip() or None, "url": url.strip() or None, "notas": notas.strip() or None, "activo": activo}
+            if actual.get("id"):
+                datos["id"] = actual["id"]
+            try:
+                db.guardar_servicio(datos, usuario)
+                st.toast("Servicio guardado.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"No pude guardar: {e}")
+        if actual.get("id") and b2.button("🗑 Borrar", key=k + "_b"):
+            db.borrar_servicio(actual["id"])
             st.rerun()
