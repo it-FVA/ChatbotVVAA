@@ -8,7 +8,9 @@ import Recortes from "./paginas/Recortes";
 import Editor from "./paginas/Editor";
 import Chat from "./paginas/Chat";
 import Cuenta from "./paginas/Cuenta";
-import Aprobacion from "./paginas/Aprobacion";
+import Aprobacion, { Clips, Cola, Papelera, ParaAprobar, Registro } from "./paginas/Aprobacion";
+import Publicar from "./paginas/Publicar";
+import Publicaciones from "./paginas/Publicaciones";
 import Administracion from "./paginas/admin/Administracion";
 import Usuarios from "./paginas/admin/Usuarios";
 import ListaBlanca from "./paginas/admin/ListaBlanca";
@@ -54,7 +56,16 @@ export default function App() {
                     <Route path="/recortes" element={<Recortes />} />
                     <Route path="/recortes/:id" element={<Editor />} />
                     <Route path="/cuenta" element={<Cuenta />} />
-                    <Route path="/aprobacion" element={<Aprobacion />} />
+                    <Route path="/publicar" element={<Publicar />} />
+                    <Route path="/publicaciones" element={<Publicaciones />} />
+                    <Route path="/aprobacion" element={<Aprobacion />}>
+                      <Route index element={<ParaAprobar />} />
+                      <Route path="cola" element={<Cola />} />
+                      <Route path="registro" element={<Registro />} />
+                      <Route path="papelera" element={<Papelera />} />
+                      <Route path="clips" element={<Clips />} />
+                      <Route path="*" element={<Navigate to="/aprobacion" replace />} />
+                    </Route>
                     <Route path="/administracion" element={<Administracion />}>
                       <Route index element={<Navigate to="/administracion/usuarios" replace />} />
                       <Route path="usuarios" element={<Usuarios />} />

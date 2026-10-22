@@ -11,10 +11,12 @@ import { useToast } from "../componentes/Toasts";
 
 type Vista = "mios" | "equipo" | "todos";
 
-export default function Recortes() {
+/** vistaFija (22/10): embebida en Aprobación → Clips con la solapa «Todos» fija y sin cabecera. */
+export default function Recortes({ vistaFija }: { vistaFija?: Vista } = {}) {
   const { yo } = useSesion();
   const { avisar } = useToast();
-  const [vista, setVista] = useState<Vista>("mios");
+  const [vistaElegida, setVista] = useState<Vista>("mios");
+  const vista: Vista = vistaFija ?? vistaElegida;
   const [buscar, setBuscar] = useState("");
   const [filas, setFilas] = useState<Recorte[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,14 +46,16 @@ export default function Recortes() {
   const aprueba = !!yo?.rol.aprueba;
 
   return (
-    <div className="pagina">
-      <header className="pagina-cabecera">
-        <h1>Recortes</h1>
-        <p className="suave">Los recortes tardan unos 15 minutos. Cuando están listos aparece el video y los botones. Borrá los que no vayas a usar: cada uno ocupa entre 5 y 50 MB en WordPress.</p>
-      </header>
+    <div className={vistaFija ? "recortes-embebidos" : "pagina"}>
+      {!vistaFija && (
+        <header className="pagina-cabecera">
+          <h1>Recortes</h1>
+          <p className="suave">Los recortes tardan unos 15 minutos. Cuando están listos aparece el video y los botones «Publicar», «Editar» y «Abrir». Borrá los que no vayas a usar: cada uno ocupa entre 5 y 50 MB en WordPress.</p>
+        </header>
+      )}
 
       <div className="filtros">
-        <div className="solapas" role="tablist" aria-label="Qué recortes ver">
+        <div className="solapas" role="tablist" aria-label="Qué recortes ver" hidden={!!vistaFija}>
           <button role="tab" aria-selected={vista === "mios"} className={"solapa" + (vista === "mios" ? " activa" : "")} onClick={() => setVista("mios")}>
             Mis recortes
           </button>
@@ -192,8 +196,13 @@ function Tarjeta({ c, mostrarQuien, aprueba, onBorrar, onCambio }: { c: Recorte;
         {c.nota && <p className="suave chico">{c.nota.slice(0, 160)}</p>}
         {c.estado === "error" && c.error && <p className="aviso error chico">{c.error.slice(0, 200)}</p>}
         <div className="acciones">
+          {listo && (
+            <Link className="boton primario" to={`/publicar?recorte=${encodeURIComponent(c.id)}`} title="Publicar este recorte en Instagram, Facebook, YouTube o como blogpost">
+              <Icono nombre="enviar" /> Publicar
+            </Link>
+          )}
           {c.puede_editar && (
-            <Link className="boton primario" to={`/recortes/${c.id}`}>
+            <Link className="boton" to={`/recortes/${c.id}`}>
               <Icono nombre="lapiz" /> Editar
             </Link>
           )}
