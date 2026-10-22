@@ -4,6 +4,7 @@ export interface Rol {
   nombre: string;
   crea: boolean;
   aprueba: boolean;
+  admin: boolean; // configuración (estilo por defecto del equipo, etc.); un admin también aprueba
   publica: boolean;
 }
 

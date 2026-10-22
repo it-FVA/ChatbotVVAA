@@ -1,10 +1,11 @@
-# Interfaz web propia (fase 1: «Mis recortes» con editor visual)
+# Interfaz web propia (fase 1: «Mis recortes» con editor visual · revisión UX del 21/10)
 
 Es la primera pantalla de la interfaz que va a reemplazar a Streamlit (plan en
 `fva-transcripcion/analisis/plan-interfaz-propia-2026-10.md`). Habla con la API de `api/` (fase 0 + los endpoints de
 recortes de esta fase) y no toca Streamlit, que sigue en producción. Las capturas de cómo se ve están en `capturas/`
-(escritorio 1366 px y celular 390 px): login, lista, editor antes y después de editar, confirmación de borrado, pantalla de
-«regenerando».
+(escritorio 1366 px y celular 375 px): login, lista (cargando, vacía, normal), editor antes y después de editar, zoom de la
+línea de tiempo, atajos de teclado, confirmación de borrado, pantalla de «regenerando» y barra inferior en celular. La revisión
+de UX/UI que motivó la segunda vuelta (hallazgos, referencias con links, qué se cambió y qué quedó) está en `UX-REVISION.md`.
 
 ## Qué hay
 
@@ -14,24 +15,43 @@ recortes de esta fase) y no toca Streamlit, que sigue en producción. Las captur
   tiene, el botón queda deshabilitado. Orígenes autorizados en Google Cloud: `http://localhost:5173`, `http://localhost:8000`,
   `http://127.0.0.1:8000` (hay que agregar el dominio de producción cuando exista). No se probó con una cuenta real: el botón
   carga y abre el selector de Google; el rechazo de un token inválido sí se probó (401).
+- **Roles** (21/10, los mismos que Streamlit, los devuelve `GET /yo` en `rol`): «creador de contenido» (todos: chat, piezas a
+  aprobación, sus recortes), «aprobador» (`APROBADORES`: además la solapa «Todos» de recortes, editar y borrar los ajenos, cola,
+  registro, papelera) y «admin» (`ADMINS`, default `franco,beto`; un admin también aprueba: además Frase del día, Dashboard y la
+  configuración, p. ej. `PUT /recortes/estilo-defecto`). En la web hoy se usa `rol.aprueba` (solapa «Todos», permisos de las
+  tarjetas) y el nombre del rol en la barra; `rol.admin` queda para la pantalla de configuración cuando exista.
 - **Barra lateral**: «Mis recortes» (esta pantalla) y dos links que por ahora abren la app de Streamlit en producción
   («Chat» y «Mis publicaciones», URL en `VITE_STREAMLIT_URL`). En celular se vuelve una barra arriba.
 - **Recortes**: solapas «Mis recortes», «👥 Del equipo» (los listos de otras personas: abrir, sin editar ni borrar) y
-  «Todos (admin)» para aprobadores; buscador por título, video o quién lo pidió; cada tarjeta con el video (o la miniatura de
+  «Todos» para aprobadores; buscador por título, video o quién lo pidió; cada tarjeta con el video (o la miniatura de
   YouTube si todavía no está), formato, tramo, duración, estado (listo · en proceso · regenerando con los cambios · error), nota,
   quién lo pidió, «Abrir», «✏️ Editar» y «🗑 Borrar» con confirmación (avisa si una publicación usa el video). Mientras haya
   alguno en proceso, la lista se refresca sola cada minuto.
 - **Editor** (`/recortes/<id>`, solo en un recorte listo y propio, o cualquiera si sos aprobador):
   - reproductor del mp4 del recorte, con la **vista previa del estilo** de subtítulos dibujada encima (tipografía, tamaño, color,
     fondo o borde, negrita, posición: la misma traducción a CSS que usaba Streamlit, pero sobre el video real; se puede apagar);
-  - **línea de tiempo** en el eje del video original, con la **forma de onda** (el navegador decodifica el audio del mp4; si no
-    puede, marcas cada segundo), dos **manijas** arrastrables de inicio y fin, campos de minutos y segundos y botones ±1 s
-    sincronizados, cabezal del reproductor (clic en la línea lleva el video a ese momento), lo rayado = fuera del video actual;
-  - **✂️ Partir acá** en la posición del reproductor y **sacar / conservar** cada pedazo (verde = se conserva, gris = se saca);
+  - **línea de tiempo** en el eje del video original, con la **tira de miniaturas** (cuadros sacados del mp4 en el navegador con
+    un `<video>` oculto + `<canvas>`, sin ffmpeg ni endpoint), la **forma de onda** (el navegador decodifica el audio; si no
+    puede, marcas cada segundo) y la regla de tiempos; **zoom** (botones − / + / ajustar, teclas ± y 0, Ctrl + rueda) con
+    desplazamiento horizontal y la vista siguiendo al cabezal; dos **manijas grandes** arrastrables (zona de agarre de 44 px,
+    burbuja con el tiempo, `role=slider`, flechas cuando tienen el foco), campos de minutos y segundos y botones ±1 s
+    sincronizados; **cabezal** con el tiempo y una tijera para partir ahí mismo; lo rayado = fuera del video actual;
+  - **partir** en el cabezal (botón, tijera del cabezal o tecla S), clic en un pedazo lo selecciona (borde amarillo), Supr lo
+    saca, el chip de cada pedazo lo saca o lo **restaura**; «Deshacer los cortes» vuelve a un solo pedazo;
+  - **atajos de teclado** (panel «Atajos» o tecla ?): Espacio, ←/→ ±1 s, Shift ±0,1 s, I/O marcan inicio y fin, S parte, Supr,
+    +/−/0 zoom, Inicio/Fin; no actúan mientras se escribe en un campo;
   - **Quitar pausas largas** (casilla, igual que en Streamlit);
-  - **subtítulos por línea** (solo vertical): clic en el tiempo salta a ese momento, se corrige el texto, una línea vacía se saca;
-  - **estilo** con los mismos controles de Streamlit (listas de `recortar_clip.py` vía `GET /recortes/opciones`);
-  - un único **«🔁 Regenerar el recorte»** que manda `POST /recortes/{id}/edicion` y muestra «regenerando, ~15 min».
+  - **subtítulos por línea** (solo vertical): la que suena se resalta y la lista la sigue, clic en el tiempo salta a ese momento,
+    se corrige el texto, una línea vacía se saca; contador de caracteres por línea y aviso cuando puede ocupar tres renglones
+    (umbral supuesto: 26 por renglón, `Subtitulos.tsx`; ajustar mirando videos reales);
+  - **estilo** con tres presets («El de la Fundación» = el del equipo o el por defecto, «Negrita amarilla», «Caja negra»; solo
+    se ofrecen si sus valores existen en `GET /recortes/opciones`) y los mismos controles de Streamlit;
+  - un único **«Regenerar el recorte»** que manda `POST /recortes/{id}/edicion`, cuenta los cambios («3 cambios: tramo,
+    pedazos, estilo»), muestra un toast y la pantalla «regenerando, ~15 min»; en celular va en una barra inferior fija.
+- **Sistema**: botones con jerarquía (primario amarillo, secundario, sutil, peligro), iconos SVG propios (`componentes/Iconos.tsx`,
+  sin librería), foco visible, alto mínimo 40 px (44 en pantallas táctiles), skeletons de carga, estados vacíos con ilustración y
+  llamada a la acción, toasts (`componentes/Toasts.tsx`), modal accesible (Escape, foco atrapado, `componentes/Modal.tsx`),
+  migas de pan.
 
 Lo que guarda en `clips.edicion` es lo mismo que Streamlit (`inicio_ms`, `fin_ms`, `srt`, `estilo`, `quitar_pausas`) más una
 clave nueva, `segmentos` = `[[a_ms, b_ms], …]` absolutos del original con los pedazos que se conservan; la cola
@@ -61,7 +81,9 @@ http://127.0.0.1:8000), así la cookie de sesión es del mismo origen y no hace 
 Otros comandos: `npm run build` (compila a `dist/`, archivos estáticos), `npm run typecheck`, `npm run preview`.
 
 Capturas de pantalla reproducibles: `node capturas/capturas.mjs <token> <id-recorte> [escritorio|movil]` (necesita
-`playwright-core` y usa el Edge o Chrome instalado; el token es el valor de la cookie `fva_sesion` que devuelve `POST /login`).
+`playwright-core`, que no está en `package.json`: `npm install --no-save playwright-core`; usa el Edge o Chrome instalado; el
+token es el valor de la cookie `fva_sesion` que devuelve `POST /login`). El id tiene que ser una **fila de prueba** (el modo
+escritorio manda a regenerar al final; después hay que volverla a `listo` o borrarla).
 
 ## Variables (`.env`, ver `.env.example`)
 
