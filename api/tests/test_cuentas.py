@@ -51,7 +51,7 @@ class Tabla:
         return []
 
     def marcar_login(self, i):
-        self.filas[i]["ultimo_login"] = "ahora"
+        self.filas[i]["ultimo_login"] = "2026-10-22T11:30:00Z"
 
     def renombrar_usuario_en_tablas(self, viejo, nuevo):
         self.renombres.append((viejo, nuevo))
@@ -61,7 +61,8 @@ class Tabla:
         self.cambios.append((quien, accion, usuario, detalle))
 
     def listar_cambios_usuarios(self, limite=100):
-        return [{"quien": q, "accion": a, "usuario": u, "detalle": d} for q, a, u, d in reversed(self.cambios)]
+        return [{"id": i, "cuando": "2026-10-22T10:00:00Z", "quien": q, "accion": a, "usuario": u, "detalle": d}
+                for i, (q, a, u, d) in reversed(list(enumerate(self.cambios)))]
 
     # lista blanca
     def autorizado(self, email):
@@ -107,7 +108,7 @@ def test_login_por_tabla_y_rol_de_la_tabla(cliente, tabla):
     d = _entrar(cliente, "beto", "Clave-beto1")
     assert d["rol"]["nombre"] == "admin" and d["rol"]["aprueba"] and d["en_tabla"] and d["email"] == "beto@viviragradecidos.org"
     assert d["debe_cambiar_clave"] is False and d["tiene_clave"] is True
-    assert tabla.filas["id-1"]["ultimo_login"] == "ahora"
+    assert tabla.filas["id-1"]["ultimo_login"]
     assert cliente.post("/login", json={"usuario": "beto", "clave": "otra"}).status_code == 401
     assert cliente.post("/login", json={"usuario": "BETO ", "clave": "Clave-beto1"}).status_code == 200   # sin distinguir mayúsculas
 

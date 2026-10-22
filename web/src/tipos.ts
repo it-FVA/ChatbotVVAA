@@ -13,6 +13,45 @@ export interface Yo {
   origen: string;
   idioma: string;
   rol: Rol;
+  // (22/10) de la tabla `usuarios`; si la persona sigue solo en secrets, en_tabla = false y nombre/email = null
+  nombre: string | null;
+  email: string | null;
+  en_tabla: boolean;
+  tiene_clave: boolean;
+  debe_cambiar_clave: boolean; // clave temporal puesta por un admin: hay que cambiarla antes de seguir
+}
+
+// (22/10) Administración → Usuarios (api/cuentas.py; nunca viene el hash)
+export interface Usuario {
+  id: string;
+  usuario: string;
+  email: string | null;
+  nombre: string | null;
+  rol: "creador" | "aprobador" | "admin" | string;
+  tiene_clave: boolean;
+  clave_temporal: boolean;
+  activo: boolean;
+  creado: string;
+  actualizado: string | null;
+  ultimo_login: string | null;
+  creado_por: string | null;
+}
+
+export interface Autorizado {
+  email: string;
+  rol: string;
+  nota: string | null;
+  agregado_por: string | null;
+  creado: string | null;
+}
+
+export interface Cambio {
+  id: number;
+  cuando: string;
+  quien: string;
+  accion: string;
+  usuario: string | null;
+  detalle: Record<string, unknown> | null;
 }
 
 export interface Estilo {

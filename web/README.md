@@ -1,4 +1,4 @@
-# Interfaz web propia (fase 1: «Mis recortes» con editor visual · revisión UX del 21/10)
+# Interfaz web propia (fase 1: «Mis recortes» con editor visual · revisión UX del 21/10 · usuarios y administración del 22/10)
 
 Es la primera pantalla de la interfaz que va a reemplazar a Streamlit (plan en
 `fva-transcripcion/analisis/plan-interfaz-propia-2026-10.md`). Habla con la API de `api/` (fase 0 + los endpoints de
@@ -15,6 +15,16 @@ de UX/UI que motivó la segunda vuelta (hallazgos, referencias con links, qué s
   tiene, el botón queda deshabilitado. Orígenes autorizados en Google Cloud: `http://localhost:5173`, `http://localhost:8000`,
   `http://127.0.0.1:8000` (hay que agregar el dominio de producción cuando exista). No se probó con una cuenta real: el botón
   carga y abre el selector de Google; el rechazo de un token inválido sí se probó (401).
+- **Cuentas** (22/10): en el login, «¿Primera vez? Creá tu cuenta» (`/primera-vez`): paso 1 el email (`POST /cuentas/verificar`: puede si
+  es del dominio de la Fundación o está en la lista blanca; si un admin ya le armó la cuenta sin clave, el usuario viene fijado), paso 2
+  usuario y contraseña con las reglas a la vista (`POST /cuentas/primera-vez`) y entra. «Mi cuenta» (`/cuenta`, clic en el nombre abajo
+  de la barra): datos y **cambiar mi contraseña**; si la contraseña es temporal (la puso un admin), la app manda ahí hasta cambiarla.
+- **Administración** (22/10, solo admins, `/administracion`, separada de «Aprobación»): menú propio con **Usuarios** (tabla: usuario,
+  nombre, email, rol, activo, último ingreso; cambiar rol desde la fila, activar/desactivar, renombrar actualizando el historial, resetear
+  la contraseña con clave temporal mostrada una sola vez o «sin clave», borrar con confirmación, crear; aviso con los usuarios que siguen
+  solo en secrets; «Últimos cambios» plegado), **Lista blanca** (emails de fuera del dominio con rol y nota: agregar, editar, quitar) y
+  los lugares de Dashboard, Salud, Servicios y costos y Configuración marcados «pronto». **Aprobación** (`/aprobacion`, aprobadores) es por
+  ahora un marcador que lleva al Panel admin de Streamlit. En celular, las tablas se vuelven tarjetas.
 - **Roles** (21/10, los mismos que Streamlit, los devuelve `GET /yo` en `rol`): «creador de contenido» (todos: chat, piezas a
   aprobación, sus recortes), «aprobador» (`APROBADORES`: además la solapa «Todos» de recortes, editar y borrar los ajenos, cola,
   registro, papelera) y «admin» (`ADMINS`, default `franco,beto`; un admin también aprueba: además Frase del día, Dashboard y la
@@ -79,6 +89,10 @@ Abre http://localhost:5173. En desarrollo, Vite reenvía `/api/...` a la API (`V
 http://127.0.0.1:8000), así la cookie de sesión es del mismo origen y no hace falta CORS.
 
 Otros comandos: `npm run build` (compila a `dist/`, archivos estáticos), `npm run typecheck`, `npm run preview`.
+
+Capturas de las pantallas de cuentas (22/10): `node capturas/capturas-usuarios.mjs [escritorio|movil]` con la API simulada
+(`python api/tests/servidor_simulado.py`, tabla en memoria, sin Supabase) y `npm run dev` levantados: `20-primera-vez-*`,
+`21-primera-vez-paso2-*`, `22-cuenta-*`, `23-admin-usuarios-*`, `24-admin-reset-clave-*`, `25-admin-lista-blanca-*`, `26-aprobacion-*`.
 
 Capturas de pantalla reproducibles: `node capturas/capturas.mjs <token> <id-recorte> [escritorio|movil]` (necesita
 `playwright-core`, que no está en `package.json`: `npm install --no-save playwright-core`; usa el Edge o Chrome instalado; el

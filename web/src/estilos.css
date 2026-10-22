@@ -1337,3 +1337,423 @@ input[type="number"] {
     display: none;
   }
 }
+
+
+/* ---------- (22/10) cuentas y administración ---------- */
+.primera-vez {
+  margin: 4px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--borde);
+}
+.pasos {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 4px;
+  counter-reset: paso;
+  font-size: 0.82rem;
+  color: var(--suave);
+}
+.pasos li {
+  counter-increment: paso;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--borde);
+  background: #fff;
+}
+.pasos li::before {
+  content: counter(paso);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--borde);
+  color: var(--tinta);
+  font-weight: 700;
+  font-size: 0.72rem;
+  display: inline-grid;
+  place-items: center;
+}
+.pasos li.activo {
+  color: var(--tinta);
+  border-color: var(--amarillo);
+  background: var(--amarillo-suave);
+  font-weight: 600;
+}
+.pasos li.activo::before {
+  background: var(--amarillo);
+}
+.pasos li.hecho::before {
+  content: "✓";
+  background: var(--verde);
+  color: #fff;
+}
+.reglas {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  font-size: 0.82rem;
+  color: var(--suave);
+  display: grid;
+  gap: 3px;
+}
+.reglas li::before {
+  content: "○";
+  display: inline-block;
+  width: 18px;
+}
+.reglas li.ok {
+  color: var(--verde);
+}
+.reglas li.ok::before {
+  content: "✓";
+  font-weight: 700;
+}
+.rojo {
+  color: var(--rojo);
+}
+.campo-con-boton {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 4px;
+}
+.campo-con-boton input {
+  flex: 1;
+  margin-top: 0 !important;
+}
+.pagina.estrecha {
+  max-width: 640px;
+}
+.pagina.estrecha .tarjeta {
+  margin-bottom: 16px;
+}
+.datos-cuenta dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 18px;
+  margin: 0;
+}
+.datos-cuenta dt {
+  color: var(--suave);
+  font-size: 0.86rem;
+}
+.datos-cuenta dd {
+  margin: 0;
+  font-weight: 600;
+}
+.formulario {
+  display: grid;
+  gap: 12px;
+  margin-top: 10px;
+}
+.formulario label {
+  display: block;
+}
+.formulario input,
+.formulario select {
+  margin-top: 4px;
+  width: 100%;
+}
+.formulario .chico {
+  display: block;
+  margin-top: 3px;
+}
+.acciones.derecha {
+  justify-content: flex-end;
+}
+.opciones {
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  padding: 8px 12px 10px;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+.opciones legend {
+  font-size: 0.86rem;
+  color: var(--suave);
+  padding: 0 4px;
+}
+.radio {
+  display: flex !important;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.radio input {
+  width: auto !important;
+  margin: 4px 0 0 !important;
+}
+
+/* barra */
+.barra-grupo {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--suave);
+  padding: 12px 12px 4px;
+}
+.barra-yo {
+  text-decoration: none;
+  color: inherit;
+  border-radius: 8px;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  display: block;
+}
+.barra-yo:hover,
+.barra-yo.activo {
+  background: var(--amarillo-suave);
+}
+
+/* administración */
+.admin-grilla {
+  display: grid;
+  grid-template-columns: 210px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+.admin-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  position: sticky;
+  top: 16px;
+}
+.admin-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  min-height: var(--toque);
+  border-radius: 10px;
+  color: var(--tinta);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+.admin-link:hover {
+  background: #fff;
+}
+.admin-link.activo {
+  background: var(--amarillo);
+}
+.admin-link.pronto {
+  color: var(--suave);
+  font-weight: 500;
+  cursor: default;
+}
+.admin-link.pronto .chico {
+  margin-left: auto;
+  background: var(--borde);
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 0.7rem;
+}
+.admin-contenido {
+  min-width: 0;
+}
+.admin-contenido .seccion-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.admin-contenido .acciones {
+  margin: 0;
+}
+.tabla-caja {
+  padding: 0;
+  overflow-x: auto;
+}
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.tabla th,
+.tabla td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--borde);
+  vertical-align: middle;
+}
+.tabla th {
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--suave);
+  background: var(--crema);
+}
+.tabla tbody tr:last-child td {
+  border-bottom: 0;
+}
+.tabla tr.inactivo td {
+  color: var(--suave);
+}
+.tabla select {
+  min-height: 34px;
+  padding: 4px 8px;
+  min-width: 172px;
+}
+.tabla td[data-col="Email"] {
+  word-break: break-all;
+}
+.celda-acciones .etiqueta {
+  display: none;
+}
+.celda-acciones .boton {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.celda-acciones {
+  white-space: nowrap;
+  text-align: right;
+}
+.celda-acciones .boton + .boton {
+  margin-left: 4px;
+}
+.chip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--verde-claro);
+  color: var(--verde-oscuro);
+  font-size: 0.72rem;
+  font-weight: 600;
+  vertical-align: 1px;
+}
+.chip.suave {
+  background: var(--borde);
+  color: var(--suave);
+}
+.chip.amarillo {
+  background: var(--amarillo-suave);
+  color: var(--amarillo-oscuro);
+}
+.interruptor {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.interruptor input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--verde);
+}
+.visualmente-oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+.cambios {
+  margin-top: 16px;
+}
+.cambios summary {
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cambios ul {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  font-size: 0.86rem;
+  display: grid;
+  gap: 4px;
+}
+.clave-caja {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--crema);
+  border: 1px dashed var(--borde-fuerte);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 8px 0 4px;
+}
+.clave-caja code {
+  font-size: 1.25rem;
+  letter-spacing: 0.08em;
+  flex: 1;
+  user-select: all;
+}
+.admin .aviso {
+  margin-top: 12px;
+}
+@media (max-width: 760px) {
+  .admin-grilla {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .admin-menu {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .admin-link {
+    padding: 6px 10px;
+    font-size: 0.86rem;
+  }
+  .admin-link.pronto .chico {
+    margin-left: 4px;
+  }
+  .tabla thead {
+    display: none;
+  }
+  .tabla,
+  .tabla tbody,
+  .tabla tr,
+  .tabla td {
+    display: block;
+  }
+  .tabla tr {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--borde);
+  }
+  .tabla td {
+    border: 0;
+    padding: 4px 0;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .tabla td[data-col]:not([data-col=""])::before {
+    content: attr(data-col);
+    color: var(--suave);
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    min-width: 92px;
+  }
+  .celda-acciones {
+    white-space: normal;
+    flex-wrap: wrap;
+    text-align: left;
+    padding-top: 8px !important;
+  }
+  .celda-acciones .boton + .boton {
+    margin-left: 0;
+  }
+  .celda-acciones .etiqueta {
+    display: inline;
+  }
+  .barra-grupo {
+    display: none;
+  }
+}

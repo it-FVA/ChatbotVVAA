@@ -1,6 +1,6 @@
 // Cliente de la API. La sesión es una cookie HttpOnly que pone POST /login: el navegador la manda solo
 // (credentials: "include" por si la API está en otro dominio en producción).
-import type { Detalle, Opciones, Recorte, RespuestaEdicion, Uso, Yo, Estilo } from "./tipos";
+import type { Autorizado, Cambio, Detalle, Opciones, Recorte, RespuestaEdicion, Uso, Usuario, Yo, Estilo } from "./tipos";
 
 export const BASE = (import.meta.env.VITE_API_URL as string | undefined) || "/api";
 export const STREAMLIT_URL = (import.meta.env.VITE_STREAMLIT_URL as string | undefined) || "https://chatbotvvaa.streamlit.app";
@@ -38,6 +38,26 @@ export const api = {
   yo: () => pedir<Yo>("/yo"),
   login: (usuario: string, clave: string) => pedir<Yo>("/login", { method: "POST", body: JSON.stringify({ usuario, clave }) }),
   logout: () => pedir<{ ok: boolean }>("/logout", { method: "POST" }),
+
+  // (22/10) cuentas: «primera vez», mi contraseña, administración (api/cuentas.py)
+  verificarEmail: (email: string) =>
+    pedir<{ permitido: boolean; motivo: string; usuario: string | null; sin_clave: boolean; mensaje: string | null }>("/cuentas/verificar", { method: "POST", body: JSON.stringify({ email }) }),
+  primeraVez: (email: string, usuario: string, clave: string) => pedir<Yo>("/cuentas/primera-vez", { method: "POST", body: JSON.stringify({ email, usuario, clave }) }),
+  cambiarClave: (actual: string, nueva: string) => pedir<{ ok: boolean }>("/cuentas/clave", { method: "POST", body: JSON.stringify({ actual, nueva }) }),
+  adminUsuarios: () => pedir<{ usuarios: Usuario[]; en_secrets: string[] }>("/admin/usuarios"),
+  adminCrear: (datos: { usuario: string; email: string | null; nombre: string | null; rol: string; clave: "sin" | "temporal" }) =>
+    pedir<{ usuario: Usuario; clave_temporal: string | null }>("/admin/usuarios", { method: "POST", body: JSON.stringify(datos) }),
+  adminEditar: (id: string, datos: { nombre?: string; email?: string; rol?: string; activo?: boolean }) =>
+    pedir<{ usuario: Usuario }>(`/admin/usuarios/${id}`, { method: "PATCH", body: JSON.stringify(datos) }),
+  adminRenombrar: (id: string, usuario: string) =>
+    pedir<{ usuario: Usuario; tablas: Record<string, number | string>; sesion_propia?: boolean }>(`/admin/usuarios/${id}/renombrar`, { method: "POST", body: JSON.stringify({ usuario }) }),
+  adminResetClave: (id: string, modo: "temporal" | "sin_clave") =>
+    pedir<{ ok: boolean; clave_temporal: string | null; modo: string }>(`/admin/usuarios/${id}/clave`, { method: "POST", body: JSON.stringify({ modo }) }),
+  adminBorrar: (id: string) => pedir<{ ok: boolean }>(`/admin/usuarios/${id}`, { method: "DELETE" }),
+  adminCambios: () => pedir<Cambio[]>("/admin/cambios"),
+  listaBlanca: () => pedir<{ emails: Autorizado[]; dominio: string }>("/admin/lista-blanca"),
+  listaBlancaAlta: (email: string, rol: string, nota: string) => pedir<{ ok: boolean; fila: Autorizado | null }>("/admin/lista-blanca", { method: "PUT", body: JSON.stringify({ email, rol, nota }) }),
+  listaBlancaBaja: (email: string) => pedir<{ ok: boolean }>(`/admin/lista-blanca/${encodeURIComponent(email)}`, { method: "DELETE" }),
 
   recortes: (vista: "mios" | "equipo" | "todos", buscar = "") => {
     const q = new URLSearchParams();
