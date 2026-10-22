@@ -49,6 +49,10 @@ app.include_router(_chat_rutas.router)
 app.include_router(_cuentas.router)
 from . import salud as _salud          # noqa: E402
 app.include_router(_salud.router)
+from . import newsletter_rutas as _newsletter   # noqa: E402  (22/10: el editor de Newsletter en la web)
+app.include_router(_newsletter.router)
+from . import frases_rutas as _frases           # noqa: E402  (22/10: el calendario de la Frase del día en la web)
+app.include_router(_frases.router)
 
 
 # ---------------- Modelos de entrada ----------------
