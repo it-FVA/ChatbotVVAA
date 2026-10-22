@@ -1,4 +1,4 @@
-# API HTTP del asistente (fase 0 + recortes de la fase 1 + chat de la fase 2)
+# API HTTP del asistente (fase 0 + recortes de la fase 1 + chat de la fase 2 + publicar y aprobar de la fase 3)
 # API HTTP del asistente (fase 0 + recortes de la fase 1 + usuarios)
 
 Es el primer paso del plan de interfaz propia (`fva-transcripcion/analisis/plan-interfaz-propia-2026-10.md`):
@@ -24,6 +24,7 @@ las tarjetas, guardar la pieza propuesta como borrador o mandarla a aprobación.
 | `migraciones/autorizados_login_google.sql` | tabla `autorizados` (email, rol, agregado_por, creado) para el login con Google |
 | `recortes.py` | router de recortes (fase 1): misma lógica de negocio que `publicar_ui._mis_recortes` / `_editor_recorte`, más `edicion["segmentos"]` |
 | `chat_rutas.py` | router del chat (fase 2): renombrar / papelera / restaurar, `GET …/mensajes/{n}/docx\|xlsx` (usa `documentos.py`, el módulo que compartimos con Streamlit), `POST /recortes` (= botones «Pedir el recorte» con las validaciones del chat), `GET /banco`, `GET /publicaciones/modos`, `POST /publicaciones/borrador` y `/a-aprobar` (mismos campos que `publicar_ui.formulario`) |
+| `publicar_rutas.py` | (22/10, fase 3) Publicar, Mis publicaciones y Aprobación desde la web: misma lógica que `publicar_ui.formulario` / `_enviar` / `mis_publicaciones` / `panel_aprobacion` sobre `publicar.py`, `imagen.py` y `db.py`. Instala el hook de registro de `publicar.py` (`REGISTRAR_EXTRA`) UNA vez, leyendo de una contextvar quién envía |
 | `tests/` | pytest + httpx: 48 pruebas sin OpenAI ni Supabase (`test_api.py`, `test_recortes.py`, `test_chat_rutas.py`), y 1 real (marcada `real`) |
 | `tests/` | pytest + httpx: 64 pruebas sin OpenAI ni Supabase (`test_api.py`, `test_recortes.py`, `test_cuentas.py` con la tabla simulada en memoria), y 1 real (marcada `real`); `servidor_simulado.py` levanta la API con esa tabla en memoria para probar la web |
 | `salud.py` | (22/10) `GET /salud` (health check) y la base de la pantalla «Salud» / Dashboard de Administración: `/salud/servicios` (13 chequeos con ok / aviso / error y «qué hacer» + bloque `capacidad`), `/salud/historial`, `/salud/capacidad`. Guarda cada corrida en `salud_historial` |
@@ -81,6 +82,23 @@ tiene `md_a_docx`, `tablas_md` y `tablas_a_xlsx`, que antes vivían en `app.py`;
 | `DELETE /admin/usuarios/{id}` | admins | borra la cuenta (no a uno mismo ni al último admin) |
 | `GET /admin/lista-blanca` · `PUT` `{email, rol, nota}` · `DELETE /admin/lista-blanca/{email}` | admins | la lista blanca (emails de fuera del dominio que pueden crear cuenta / entrar con Google, con rol y nota) |
 | `GET /admin/cambios` | admins | registro de quién hizo cada cambio (`usuarios_cambios`) |
+
+| `GET /publicar/opciones` | con sesión | (fase 3) logos, tipografías, pesos, posiciones, alineaciones, formatos de `imagen.py`; por canal `modo_real` y `modo` (el que ve esta persona: quien no publica en real ve todo simulado, como `publicar_ui._cfg`), `a_aprobar`; `publica`, `aprobadores` |
+| `POST /banco/subir` (multipart `archivo`, `titulo`) | con sesión | sube una imagen a la biblioteca de WordPress (`publicar.subir_imagen_wordpress`, modo real de WP); en simulado/apagado `ok: false` con el aviso |
+| `POST /publicar/componer` `{imagen_url, texto_imagen, firma, formato, tipografia, peso, posicion, alineacion, logo, posicion_logo}` | con sesión | la foto con la frase encima (`imagen.componer_imagen`), `image/jpeg`; caché de las últimas 24 |
+| `POST /publicar/borrador` (todos los campos del formulario + `borrador_id`) | con sesión | = «💾 Guardar borrador» con el diseño completo (el dict `pieza` que Streamlit también retoma) |
+| `POST /publicar/a-aprobar` | con sesión | = «📨 Enviar a aprobación»: compone y sube la imagen a WordPress si hay frase/logo y «Publicar así», deja la pieza `a_aprobar` con `texto_imagen`, `formato` (cuadrado/vertical/historia o reel/historia) y `video_url`; elimina el borrador retomado |
+| `POST /publicar/enviar` `{..., modo: real o simulado}` | con sesión (`real`: solo quien publica directo, 403 si no) | = «Enviar a <canal>» / «👁 Ver simulado» (`publicar_ui._enviar`): compuesta a WP, cola si hay fecha y el canal no programa solo (Instagram siempre; Facebook fuera de real), o el conector; en simulado no sube nada y queda `prueba` en el registro. YouTube solo con un recorte (`video_url`); subir un archivo de video sigue en Streamlit |
+| `GET /publicaciones/{id}` · `DELETE` | dueño o aprobador · dueño | la pieza decorada + `pieza` para retomar («✏️ Retomar») · = «🗑 Eliminar» (`db.eliminar_publicacion`: propias y en `db.ELIMINABLES`) |
+| `GET /aprobacion/para-aprobar` | aprobadores | las `a_aprobar` con `fecha_sugerida`/`hora_sugerida` (la pedida o ahora + 20 min, hora Argentina) y el modo real de cada canal |
+| `POST /aprobacion/{id}/aprobar` `{fecha, hora}` · `…/rechazar` `{nota}` | aprobadores | = «✅ Aprobar y programar» (pasa a `pendiente` con la fecha elegida y el modo real; newsletter → `lista`) · = «✖ Rechazar» |
+| `GET /aprobacion/cola` · `POST /aprobacion/{id}/cancelar` | aprobadores | las `pendiente` · = «Cancelar» |
+| `GET /aprobacion/registro` | aprobadores | las últimas 60 sin subidas/pruebas/borradores (`NO_SON_PIEZAS`) |
+| `GET /aprobacion/papelera` · `POST /aprobacion/papelera/{id}/restaurar` | aprobadores | conversaciones borradas por cualquiera · = «↩ Restaurar» |
+
+Las filas de `GET /publicaciones` (y las de arriba) vienen **decoradas** (`publicar_rutas.decorar`): `estado_texto`, `canal_texto` (Blogpost…),
+`video_url`, `texto_imagen`, `formato`, `nota`, `propuesta_por`, `aprobada_por/en`, `rechazada_por/en`, `cancelada_por`, `ver_url` (permalink o link
+de lo que salió), `link_editar`, `error_texto`, `eliminable`, `retomable`, `plantilla` (newsletter).
 
 Documentación interactiva en `/docs` (Swagger) cuando la API está corriendo.
 
@@ -313,6 +331,20 @@ de prenderlo o pagar plan es de Franco (ver HANDOFF 70).
 **Cómo prenderlo en Render** (solo V1, si Franco lo decide): en `render.yaml`, dentro de `envVars`, descomentar
 `VECTORES: supabase` (está comentado al lado de `BUSQUEDA_HIBRIDA`) y pushear a main; el Blueprint lo sincroniza. La imagen
 sigue llevando el `.npy` (volver a `local` es cambiar la variable). `GET /salud` muestra el modo en `vectores`.
+
+## Publicar, Mis publicaciones y Aprobación (fase 3, 22/10)
+
+`api/publicar_rutas.py` reemplaza en la web lo que en Streamlit hacen `publicar_ui.formulario`, `mis_publicaciones` y `panel_aprobacion`,
+**sin reimplementar conectores**: la foto con la frase la arma `imagen.componer_imagen`, la sube `publicar.subir_imagen_wordpress`, publica
+`publicar.publicar_*`, la cola es la misma tabla `publicaciones` que procesa `procesar_cola.py` cada 15 min. Reglas conservadas: quien no
+publica en real ve todos los canales en simulado; «Enviar a aprobación» solo para WordPress/Instagram/Facebook con el canal real en real o
+borrador; texto plano en redes; Instagram con fecha siempre va a la cola y Facebook fuera de real también; el borrador retomado se elimina al
+enviar; en modo simulado la compuesta no se sube (aviso) y la prueba queda registrada como `prueba`. Diferencias deliberadas: el hook de
+registro ya no deja filas `prueba` del canal wordpress por subidas que no pasaron; las fechas programadas se devuelven y sugieren en hora
+Argentina (Supabase las guarda en UTC; Streamlit mostraba la hora UTC). Probado el 22/10 con dos cuentas temporales (creadora y aprobadora,
+borradas al final): borrador → retomar → ver simulado → a aprobación (compuesta subida a WordPress y borrada después) → aprobar con fecha
+futura → en cola → cancelar; entrada desde el chat y desde un recorte; nada salió a Instagram/Facebook. 15 pruebas en `tests/test_publicar.py`
+(138 en total).
 
 ## Lo que falta / decisiones pendientes
 

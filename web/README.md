@@ -1,4 +1,37 @@
-# Interfaz web propia (fase 1: «Mis recortes» con editor visual · fase 2: el chat, 22/10)
+# Interfaz web propia (fase 1: «Mis recortes» · fase 2: el chat · fase 3: Publicar, Mis publicaciones y Aprobación, 22/10)
+
+## Publicar, Mis publicaciones y Aprobación (fase 3, 22/10)
+
+Las tres pantallas que vivían en Streamlit (`publicar_ui.py`), con la misma lógica de negocio en la API (`api/publicar_rutas.py`) y mejor UX.
+Capturas `capturas/30`–`34` (escritorio y celular).
+
+- **Publicar** (`/publicar`, `src/paginas/Publicar.tsx`): los tres pasos de Streamlit pero **un paso visible a la vez** con el resumen de los
+  anteriores y «Editar». 1 · Qué se publica: canal (Instagram, Facebook, Blogpost, YouTube) con su modo a la vista, título, texto con contador.
+  2 · Foto y diseño: frase sobre la imagen, banco de WordPress (busca sola con la sugerencia del bot o el formato del canal), «Otra imagen» (URL
+  o subir un archivo, que va al banco), formato, logo y posición, firma, tipografía, peso, posición y alineación, «Publicar así»; con un
+  recorte: reel/historia. 3 · Cuándo y enviar: «Cuanto antes» o «Programar» con día, hora (Argentina) y atajos, el aviso de qué va a pasar
+  (`util/publicar.aviso`, = `publicar_ui._aviso`), y **un botón principal según el rol**: «Enviar a aprobación» (creadores) o «Publicar en
+  <canal>» (quien publica directo, con «Entiendo que esto publica de verdad» en modo real); secundarios «Ver simulado» y «Guardar borrador».
+  A la derecha (abajo en celular) la **vista previa en vivo** (`componentes/VistaPrevia.tsx`): Instagram feed cuadrado/vertical, historia 9:16,
+  reel; Facebook (texto arriba, foto abajo); Blogpost (foto destacada, título, cuerpo con markdown/HTML); YouTube (reproductor, título,
+  descripción). La foto con la frase la compone la API (`POST /publicar/componer`) con un retardo de medio segundo al cambiar cualquier
+  control. Al terminar, un panel de resultado con el aviso, los links (posteo, entrada o borrador de WordPress) y «Así quedaría».
+  Entradas: «Publicar» en la barra (pieza nueva), desde el chat (la pieza propuesta llega en `location.state`), desde un recorte listo
+  (`?recorte=<id>`: video precargado, Instagram si es vertical) y desde un borrador (`?borrador=<id>`).
+- **Mis publicaciones** (`/publicaciones`, `src/paginas/Publicaciones.tsx`): solapas Todas / Pendientes / Aprobadas / Publicadas / Borradores /
+  Rechazadas / Pruebas con conteos; tarjetas con miniatura (foto o video), estado, canal y formato, fecha de creación, «sale el», quién aprobó o
+  rechazó y la nota, error; acciones Retomar (borradores; los de newsletter abren Streamlit), Ver el posteo / la entrada, Abrir en WordPress,
+  Descargar HTML (newsletter) y Eliminar con confirmación (solo lo eliminable).
+- **Aprobación** (`/aprobacion`, aprobadores, `src/paginas/Aprobacion.tsx`), con menú propio como Administración: **Para aprobar** (vista previa
+  completa del canal, texto, fecha y hora editables sugeridas en hora Argentina, nota, «Aprobar y programar» / «Rechazar»; newsletter en un
+  iframe con «Aprobar (queda listo para Perfit)» y «Descargar HTML»), **En cola** (cancelar), **Registro** con buscador, **Papelera** de
+  conversaciones (restaurar) y **Clips** (la pantalla de recortes embebida con «Todos» fijo; los admins fijan ahí el **estilo por defecto** de
+  los subtítulos). El contador de pendientes aparece en el menú. Frase del día y Dashboard siguen en Streamlit (link para admins).
+- **Chat**: el recuadro de la pieza propuesta ahora muestra el resumen (canal, título, frase para la imagen, foto sugerida, cuándo, texto) y
+  **«Abrir en Publicar»** (precargado) más «Guardar borrador» como atajo. **Recortes**: cada recorte listo tiene **«Publicar»**.
+- **Barra**: Chat, Publicar, Mis publicaciones, Mis recortes, Newsletter (Streamlit), Aprobación (aprobadores), Administración y Frase del día
+  (Streamlit) para admins.
+- Fuera de esta fase: subir un archivo de video para YouTube (solo recortes), Newsletter y Frase del día en la web, Proyectos, Dashboard.
 # Interfaz web propia (fase 1: «Mis recortes» con editor visual · revisión UX del 21/10 · usuarios y administración del 22/10)
 
 Es la interfaz que reemplaza a Streamlit (decisión de Franco del 22/10: la web es la aplicación definitiva; Streamlit queda de
@@ -79,8 +112,8 @@ La revisión de UX/UI que motivó la segunda vuelta (hallazgos, referencias con 
   registro, papelera) y «admin» (`ADMINS`, default `franco,beto`; un admin también aprueba: además Frase del día, Dashboard y la
   configuración, p. ej. `PUT /recortes/estilo-defecto`). En la web hoy se usa `rol.aprueba` (solapa «Todos», permisos de las
   tarjetas) y el nombre del rol en la barra; `rol.admin` queda para la pantalla de configuración cuando exista.
-- **Barra lateral**: «Chat» (fase 2), «Mis recortes» y un link que por ahora abre la app de Streamlit en producción
-  («Mis publicaciones», URL en `VITE_STREAMLIT_URL`). En celular se vuelve una barra arriba. La página de inicio es el chat.
+- **Barra lateral**: «Chat» (fase 2), «Publicar», «Mis publicaciones» (fase 3), «Mis recortes» y «Newsletter» (abre Streamlit, URL en
+  `VITE_STREAMLIT_URL`). En celular se vuelve una barra arriba. La página de inicio es el chat.
 - **Recortes**: solapas «Mis recortes», «👥 Del equipo» (los listos de otras personas: abrir, sin editar ni borrar) y
   «Todos» para aprobadores; buscador por título, video o quién lo pidió; cada tarjeta con el video (o la miniatura de
   YouTube si todavía no está), formato, tramo, duración, estado (listo · en proceso · regenerando con los cambios · error), nota,
