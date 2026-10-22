@@ -32,7 +32,7 @@ export interface Opciones {
   posiciones: string[];
   estilo_defecto: Estilo;
   estilo_equipo: Estilo | null;
-  limites: { min_ms: number; max_ms: number };
+  limites: { min_ms: number; max_ms: number; min_pedazo_ms?: number };
 }
 
 export interface SinPausas {
@@ -48,9 +48,9 @@ export interface Edicion {
   estilo?: Estilo;
   quitar_pausas?: boolean;
   sin_pausas?: SinPausas;
-  segmentos?: number[][];
+  segmentos?: number[][]; // [[a_ms, b_ms], …] absolutos del original, EN ORDEN DE SALIDA (22/10: se pueden reordenar)
   segmentos_hechos?: number[][];
-  timeline?: number[][];
+  timeline?: number[][]; // lo que queda del tramo plano en el video actual, en el orden en que sale
 }
 
 export interface Recorte {

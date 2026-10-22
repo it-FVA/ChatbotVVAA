@@ -1,13 +1,19 @@
-// Línea de tiempo del editor: el eje es el video ORIGINAL (milisegundos absolutos), desde un poco antes del inicio del recorte
-// actual hasta un poco después del fin. De arriba abajo: un carril para el cabezal y las burbujas de las manijas, la tira de
-// miniaturas de cuadros (sacadas del mp4 en el navegador), la forma de onda del audio y la regla de tiempos. Encima: los pedazos
-// conservados (color) y sacados (rayado), la zona fuera del video actual (rayada: no se puede ver hasta regenerar), el cabezal
-// con su tijera y dos manijas grandes arrastrables (inicio y fin). Zoom con botones, Ctrl+rueda o teclas ± (lo maneja el Editor).
+// Línea de tiempo del editor, en dos carriles (22/10: «cada pedazo es una pieza propia»):
+//  · ARRIBA, el ORIGINAL (eje = milisegundos absolutos del video original, desde un poco antes del inicio del recorte actual hasta
+//    un poco después del fin): carril del cabezal y las burbujas, tira de miniaturas (sacadas del mp4 en el navegador), forma de
+//    onda y regla. Encima, los pedazos conservados (con su número de orden) y los sacados (rayados, con «Restaurar»), la zona fuera
+//    del video actual (rayada), el cabezal con su tijera y las dos manijas grandes del tramo (inicio y fin).
+//  · ABAJO, la SECUENCIA DE SALIDA: los pedazos conservados como bloques contiguos, en el orden en que salen en el video final.
+//    Cada bloque tiene su miniatura, su duración, dos manijas amarillas en los bordes (recortan ESE pedazo sobre el original, sin
+//    pisar a sus vecinos conservados), un agarre para arrastrarlo a otro lugar de la secuencia (soltar entre dos bloques) y
+//    botones ◀ ▶ × (mover un lugar, sacar). Un cabezal rojo muestra dónde está el reproductor dentro de la secuencia.
+// Zoom con botones, Ctrl+rueda o teclas ± (lo maneja el Editor); los dos carriles comparten escala y desplazamiento.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { mmss, tramoAVideo, type Timeline } from "../util/tiempo";
+import { mmss, tramoAVideo, videoATramo, type Timeline } from "../util/tiempo";
 import { Icono } from "./Iconos";
 
 export interface Pieza {
+  id: number;
   a: number; // ms absolutos del original
   b: number;
   conservada: boolean;
@@ -23,8 +29,9 @@ interface Props {
   fin: number;
   ini0: number; // tramo del video actual (columnas de la fila)
   fin0: number;
-  piezas: Pieza[];
-  seleccion: number | null; // índice del pedazo seleccionado (Supr lo saca)
+  piezas: Pieza[]; // partición del tramo [ini, fin] en el orden del original
+  orden: number[]; // ids de los pedazos conservados, en el orden de salida
+  seleccion: number | null; // id del pedazo seleccionado (Supr lo saca)
   timeline: Timeline; // cómo el video actual mapea al tramo plano
   duracionVideo: number; // segundos del video actual
   tiempoVideo: number; // segundo actual del reproductor
@@ -37,26 +44,48 @@ interface Props {
   onIni: (ms: number) => void;
   onFin: (ms: number) => void;
   onIr: (msOriginal: number) => void; // clic en la línea
-  onPieza: (i: number) => void; // chip de un pedazo (conservar / sacar)
-  onSeleccion: (i: number | null) => void;
+  onPieza: (id: number) => void; // chip de un pedazo (conservar / sacar)
+  onSeleccion: (id: number | null) => void;
   onPartir: () => void;
+  onRecortar: (id: number, a: number, b: number) => void; // manijas de un bloque
+  onOrden: (orden: number[]) => void; // arrastre de un bloque a otro lugar
+  onMover: (id: number, dir: -1 | 1) => void; // botones ◀ ▶
 }
 
 export const PASO_MS = 50;
 export const ZOOM_MAX = 12;
+export const MIN_PEDAZO_MS = 500;
 const MARGEN_MS = 10000;
 const CARRIL = 24; // carril de arriba (cabezal, burbujas)
 const ALTO_MINI = 54;
 const ALTO_ONDA = 42;
 const ALTO_REGLA = 18;
 const ALTO = ALTO_MINI + ALTO_ONDA + ALTO_REGLA;
+const SEP = 34; // entre el original y la secuencia (título del carril)
+const ALTO_SEC = 72; // bloques de la secuencia (miniatura + etiqueta)
+const ALTO_SEC_MINI = 50;
+const MIN_BLOQUE = 30; // px: que siempre entren las dos manijas
+const GAP = 3;
+const Y_SEC = CARRIL + ALTO + SEP;
+
+type Arrastre =
+  | { tipo: "ini" | "fin" }
+  | { tipo: "pieza"; id: number; lado: "a" | "b"; x0: number; valor0: number } // el bloque no está donde el pedazo en el original: se mueve por diferencia
+  | { tipo: "mover"; id: number; x0: number; x: number; activo: boolean };
+
+interface Geo {
+  id: number;
+  left: number;
+  width: number;
+  pieza: Pieza;
+}
 
 export default function LineaTiempo(p: Props) {
   const marco = useRef<HTMLDivElement>(null);
   const ref = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [ancho, setAncho] = useState(600);
-  const [arrastre, setArrastre] = useState<"ini" | "fin" | null>(null);
+  const [arrastre, setArrastre] = useState<Arrastre | null>(null);
 
   const desde = Math.max(0, Math.min(p.ini, p.ini0) - MARGEN_MS);
   const hasta = Math.max(p.fin, p.fin0) + MARGEN_MS;
@@ -64,6 +93,26 @@ export default function LineaTiempo(p: Props) {
   const escala = anchoTotal / (hasta - desde); // px por ms
   const x = (ms: number) => (ms - desde) * escala;
   const ms = (px: number) => desde + px / escala;
+
+  const porId = useMemo(() => new Map(p.piezas.map((z) => [z.id, z])), [p.piezas]);
+  const numero = useMemo(() => new Map(p.orden.map((id, i) => [id, i + 1])), [p.orden]);
+
+  // geometría de los bloques de la secuencia (contiguos desde x(ini); un pedazo cortito ocupa al menos MIN_BLOQUE px)
+  const geo = useMemo<Geo[]>(() => {
+    let left = x(p.ini);
+    const out: Geo[] = [];
+    for (const id of p.orden) {
+      const z = porId.get(id);
+      if (!z) continue;
+      const width = Math.max(MIN_BLOQUE, (z.b - z.a) * escala);
+      out.push({ id, left, width, pieza: z });
+      left += width + GAP;
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.orden, porId, p.ini, escala, desde]);
+  const geoRef = useRef(geo);
+  geoRef.current = geo;
 
   useEffect(() => {
     const el = marco.current;
@@ -99,16 +148,26 @@ export default function LineaTiempo(p: Props) {
     return () => m.removeEventListener("wheel", rueda);
   }, [p.zoom, p.onZoom]);
 
-  // Forma de onda, miniaturas y regla, en el eje del original: cada columna de píxel se lleva al segundo del video actual
+  // la miniatura más cercana a un segundo del video actual
+  const miniEn = (tv: number) => {
+    if (!p.miniaturas || !p.miniaturas.length) return null;
+    let mejor = p.miniaturas[0];
+    for (const m of p.miniaturas) if (Math.abs(m.t - tv) < Math.abs(mejor.t - tv)) mejor = m;
+    return mejor.img;
+  };
+
+  // Forma de onda, miniaturas y regla, en el eje del original: cada columna de píxel se lleva al segundo del video actual.
+  // Abajo, las miniaturas de cada bloque de la secuencia.
   useEffect(() => {
     const c = canvas.current;
     if (!c) return;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const altoCanvas = ALTO + SEP + ALTO_SEC;
     c.width = anchoTotal * dpr;
-    c.height = ALTO * dpr;
+    c.height = altoCanvas * dpr;
     const g = c.getContext("2d")!;
     g.scale(dpr, dpr);
-    g.clearRect(0, 0, anchoTotal, ALTO);
+    g.clearRect(0, 0, anchoTotal, altoCanvas);
     g.fillStyle = "#f4f1ea";
     g.fillRect(0, 0, anchoTotal, ALTO);
     const rayas = (x0: number, x1: number) => {
@@ -133,6 +192,7 @@ export default function LineaTiempo(p: Props) {
 
     // miniaturas (solo donde hay video actual)
     const x0v = x(p.ini0), x1v = x(p.fin0);
+    const tw = Math.max(18, Math.round(ALTO_MINI * (p.formato === "vertical" ? 9 / 16 : 16 / 9)));
     g.save();
     g.beginPath();
     g.rect(x0v, 0, x1v - x0v, ALTO_MINI);
@@ -140,15 +200,12 @@ export default function LineaTiempo(p: Props) {
     g.fillStyle = "#1a1a1a";
     g.fillRect(x0v, 0, x1v - x0v, ALTO_MINI);
     if (p.miniaturas && p.miniaturas.length) {
-      const tw = Math.max(18, Math.round(ALTO_MINI * (p.formato === "vertical" ? 9 / 16 : 16 / 9)));
       for (let px = x0v; px < x1v; px += tw) {
-        const tTramo = (ms(px + tw / 2) - p.ini0) / 1000;
-        const tv = tramoAVideo(tTramo, p.timeline, p.duracionVideo);
-        if (tv === null) continue;
-        let mejor = p.miniaturas[0];
-        for (const m of p.miniaturas) if (Math.abs(m.t - tv) < Math.abs(mejor.t - tv)) mejor = m;
+        const tv = tramoAVideo((ms(px + tw / 2) - p.ini0) / 1000, p.timeline, p.duracionVideo);
+        const img = tv === null ? null : miniEn(tv);
+        if (!img) continue;
         try {
-          g.drawImage(mejor.img, px, 0, tw, ALTO_MINI);
+          g.drawImage(img, px, 0, tw, ALTO_MINI);
         } catch {
           /* cuadro no disponible */
         }
@@ -164,8 +221,7 @@ export default function LineaTiempo(p: Props) {
     const mid = ALTO_MINI + ALTO_ONDA / 2;
     if (p.picos && p.picos.length) {
       for (let px = Math.floor(x0v); px <= Math.ceil(x1v); px++) {
-        const tTramo = (ms(px) - p.ini0) / 1000;
-        const tv = tramoAVideo(tTramo, p.timeline, p.duracionVideo);
+        const tv = tramoAVideo((ms(px) - p.ini0) / 1000, p.timeline, p.duracionVideo);
         if (tv === null) continue;
         const i = Math.min(p.picos.length - 1, Math.floor((tv * 1000) / PASO_MS));
         const v = p.picos[i] || 0;
@@ -198,18 +254,79 @@ export default function LineaTiempo(p: Props) {
       g.fillRect(Math.round(x(t)), y0, 1, 8);
       g.fillText(mmss(t, paso < 1000 ? 1 : 0), x(t) + 3, y0 + ALTO_REGLA - 4);
     }
-  }, [anchoTotal, p.picos, p.miniaturas, p.piezas, p.ini0, p.fin0, p.timeline, p.duracionVideo, p.formato, desde, hasta, escala]);
 
-  // Arrastre de manijas (mouse y touch, vía pointer events)
+    // secuencia de salida: las miniaturas de cada bloque, en su orden
+    const ys = ALTO + SEP;
+    for (const b of geo) {
+      g.save();
+      g.beginPath();
+      g.rect(b.left, ys, b.width, ALTO_SEC_MINI);
+      g.clip();
+      g.fillStyle = "#1a1a1a";
+      g.fillRect(b.left, ys, b.width, ALTO_SEC_MINI);
+      const tws = Math.max(18, Math.round(ALTO_SEC_MINI * (p.formato === "vertical" ? 9 / 16 : 16 / 9)));
+      for (let px = b.left; px < b.left + b.width; px += tws) {
+        const tOrig = b.pieza.a + ((Math.min(px + tws / 2, b.left + b.width) - b.left) / b.width) * (b.pieza.b - b.pieza.a);
+        const tv = tramoAVideo((tOrig - p.ini0) / 1000, p.timeline, p.duracionVideo);
+        const img = tv === null ? null : miniEn(tv);
+        if (!img) {
+          // fuera del video actual: rayado
+          g.fillStyle = "rgba(255,255,255,0.12)";
+          g.fillRect(px, ys, tws, ALTO_SEC_MINI);
+          continue;
+        }
+        try {
+          g.drawImage(img, px, ys, tws, ALTO_SEC_MINI);
+        } catch {
+          /* cuadro no disponible */
+        }
+      }
+      g.restore();
+    }
+  }, [anchoTotal, p.picos, p.miniaturas, p.piezas, p.ini0, p.fin0, p.timeline, p.duracionVideo, p.formato, desde, hasta, escala, geo]);
+
+  // Arrastres (mouse y touch, vía pointer events): manijas del tramo, manijas de un bloque, mover un bloque
   useEffect(() => {
     if (!arrastre) return;
-    const mover = (e: PointerEvent) => {
+    const pxDe = (e: PointerEvent) => {
       const r = ref.current!.getBoundingClientRect();
-      const m = Math.round(ms(Math.min(Math.max(0, e.clientX - r.left), anchoTotal)) / 100) * 100;
-      if (arrastre === "ini") p.onIni(Math.max(0, Math.min(m, p.fin - 2000)));
-      else p.onFin(Math.max(m, p.ini + 2000));
+      return Math.min(Math.max(0, e.clientX - r.left), anchoTotal);
     };
-    const soltar = () => setArrastre(null);
+    const mover = (e: PointerEvent) => {
+      const px = pxDe(e);
+      if (arrastre.tipo === "mover") {
+        setArrastre((a) => (a && a.tipo === "mover" ? { ...a, x: px, activo: a.activo || Math.abs(px - a.x0) > 5 } : a));
+        return;
+      }
+      const m = Math.round(ms(px) / 100) * 100;
+      if (arrastre.tipo === "ini") p.onIni(Math.max(0, Math.min(m, p.fin - 2000)));
+      else if (arrastre.tipo === "fin") p.onFin(Math.max(m, p.ini + 2000));
+      else if (arrastre.tipo === "pieza") {
+        const z = porId.get(arrastre.id);
+        if (!z) return;
+        const v = Math.round((arrastre.valor0 + (px - arrastre.x0) / escala) / 100) * 100;
+        if (arrastre.lado === "a") p.onRecortar(z.id, Math.min(v, z.b - MIN_PEDAZO_MS), z.b);
+        else p.onRecortar(z.id, z.a, Math.max(v, z.a + MIN_PEDAZO_MS));
+      }
+    };
+    const soltar = (e: PointerEvent) => {
+      if (arrastre.tipo === "mover") {
+        const z = porId.get(arrastre.id);
+        if (arrastre.activo) {
+          const px = pxDe(e);
+          const otros = geoRef.current.filter((b) => b.id !== arrastre.id);
+          const lugar = otros.filter((b) => b.left + b.width / 2 < px).length;
+          const nuevo = otros.map((b) => b.id);
+          nuevo.splice(lugar, 0, arrastre.id);
+          if (nuevo.some((id, i) => id !== p.orden[i])) p.onOrden(nuevo);
+        } else if (z) {
+          // fue un clic: seleccionar y llevar el reproductor al principio del pedazo
+          p.onSeleccion(z.id);
+          p.onIr(z.a);
+        }
+      }
+      setArrastre(null);
+    };
     window.addEventListener("pointermove", mover);
     window.addEventListener("pointerup", soltar);
     window.addEventListener("pointercancel", soltar);
@@ -220,23 +337,12 @@ export default function LineaTiempo(p: Props) {
     };
   });
 
-  // Cabezal: segundo del video actual → ms del original
-  const cabezal = useMemo(() => {
-    const t = p.tiempoVideo;
-    let tTramo = t;
-    if (p.timeline && p.timeline.length) {
-      let acum = 0;
-      tTramo = p.timeline[p.timeline.length - 1][1];
-      for (const [a, b] of p.timeline) {
-        if (t <= acum + (b - a)) {
-          tTramo = a + (t - acum);
-          break;
-        }
-        acum += b - a;
-      }
-    }
-    return p.ini0 + tTramo * 1000;
-  }, [p.tiempoVideo, p.timeline, p.ini0]);
+  // Cabezal: segundo del video actual → ms del original; y su lugar en la secuencia (si cae en un pedazo conservado)
+  const cabezal = p.ini0 + videoATramo(p.tiempoVideo, p.timeline) * 1000;
+  const cabezalSec = useMemo(() => {
+    for (const b of geo) if (cabezal >= b.pieza.a && cabezal <= b.pieza.b) return b.left + ((cabezal - b.pieza.a) / (b.pieza.b - b.pieza.a)) * b.width;
+    return null;
+  }, [geo, cabezal]);
 
   // Mientras reproduce, la vista sigue al cabezal si se va de pantalla
   useEffect(() => {
@@ -249,11 +355,12 @@ export default function LineaTiempo(p: Props) {
   function clic(e: React.MouseEvent) {
     if (arrastre) return;
     const r = ref.current!.getBoundingClientRect();
+    if (e.clientY - r.top > CARRIL + ALTO) return; // el carril de la secuencia tiene sus propios clics
     const m = Math.round(ms(e.clientX - r.left));
     p.onIr(m);
     if (p.piezas.length > 1) {
-      const i = p.piezas.findIndex((z) => m >= z.a && m < z.b);
-      p.onSeleccion(i >= 0 ? i : null);
+      const z = p.piezas.find((z) => m >= z.a && m < z.b);
+      p.onSeleccion(z ? z.id : null);
     }
   }
 
@@ -267,12 +374,23 @@ export default function LineaTiempo(p: Props) {
     else p.onFin(Math.max(p.fin + d * paso, p.ini + 2000));
   }
 
+  function teclaBloque(z: Pieza, lado: "a" | "b", e: React.KeyboardEvent) {
+    const d = e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0;
+    if (!d) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const paso = e.shiftKey ? 1000 : 100;
+    if (lado === "a") p.onRecortar(z.id, Math.min(z.a + d * paso, z.b - MIN_PEDAZO_MS), z.b);
+    else p.onRecortar(z.id, z.a, Math.max(z.b + d * paso, z.a + MIN_PEDAZO_MS));
+  }
+
   const manija = (cual: "ini" | "fin") => {
     const valor = cual === "ini" ? p.ini : p.fin;
+    const activa = arrastre?.tipo === cual;
     return (
       <div
-        className={"manija " + cual + (arrastre === cual ? " arrastrando" : "")}
-        style={{ left: x(valor) }}
+        className={"manija " + cual + (activa ? " arrastrando" : "")}
+        style={{ left: x(valor), height: ALTO }}
         role="slider"
         tabIndex={0}
         aria-label={cual === "ini" ? "Inicio del recorte" : "Fin del recorte"}
@@ -284,7 +402,7 @@ export default function LineaTiempo(p: Props) {
           e.preventDefault();
           e.stopPropagation();
           (e.currentTarget as HTMLElement).focus();
-          setArrastre(cual);
+          setArrastre({ tipo: cual });
         }}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => teclaManija(cual, e)}
@@ -299,38 +417,55 @@ export default function LineaTiempo(p: Props) {
     );
   };
 
+  const moviendo = arrastre?.tipo === "mover" && arrastre.activo ? arrastre : null;
+  // dónde caería el bloque que se arrastra (marca de inserción)
+  let marcaX: number | null = null;
+  if (moviendo) {
+    const otros = geo.filter((b) => b.id !== moviendo.id);
+    const lugar = otros.filter((b) => b.left + b.width / 2 < moviendo.x).length;
+    if (!otros.length) marcaX = null;
+    else marcaX = lugar < otros.length ? otros[lugar].left - GAP / 2 : otros[otros.length - 1].left + otros[otros.length - 1].width + GAP / 2;
+  }
+  const durSalida = geo.reduce((s, b) => s + (b.pieza.b - b.pieza.a), 0);
+  const ultimoBloque = geo.length ? geo[geo.length - 1].left + geo[geo.length - 1].width : x(p.ini);
+
   return (
     <div className="linea-marco" ref={marco}>
-      <div className="linea" ref={ref} onClick={clic} style={{ width: anchoTotal, height: CARRIL + ALTO }}>
-        <canvas ref={canvas} style={{ width: anchoTotal, height: ALTO, top: CARRIL }} />
-        {/* pedazos conservados / sacados */}
-        {p.piezas.map((z, i) => (
+      <div className="linea" ref={ref} onClick={clic} style={{ width: anchoTotal, height: Y_SEC + ALTO_SEC }}>
+        <canvas ref={canvas} style={{ width: anchoTotal, height: ALTO + SEP + ALTO_SEC, top: CARRIL }} />
+        {/* ---------- original: pedazos conservados / sacados ---------- */}
+        {p.piezas.map((z) => (
           <div
-            key={i}
-            className={"pieza " + (z.conservada ? "conservada" : "sacada") + (p.seleccion === i && p.piezas.length > 1 ? " seleccionada" : "")}
-            style={{ left: x(z.a), width: Math.max(2, x(z.b) - x(z.a)), top: CARRIL }}
+            key={z.id}
+            className={"pieza " + (z.conservada ? "conservada" : "sacada") + (p.seleccion === z.id && p.piezas.length > 1 ? " seleccionada" : "")}
+            style={{ left: x(z.a), width: Math.max(2, x(z.b) - x(z.a)), top: CARRIL, height: ALTO }}
           >
+            {p.piezas.length > 1 && z.conservada && (
+              <span className="pieza-num" title={`Pedazo ${numero.get(z.id)} de la secuencia`}>
+                {numero.get(z.id)}
+              </span>
+            )}
             {p.piezas.length > 1 && x(z.b) - x(z.a) > 44 && (
               <button
                 type="button"
                 className={"pieza-chip" + (z.conservada ? "" : " restaurar")}
-                title={z.conservada ? "Sacar este pedazo del recorte" : "Volver a conservar este pedazo"}
+                title={z.conservada ? "Sacar este pedazo de la secuencia" : "Volver a agregar este pedazo a la secuencia"}
                 onClick={(e) => {
                   e.stopPropagation();
-                  p.onPieza(i);
+                  p.onPieza(z.id);
                 }}
               >
-                <Icono nombre={z.conservada ? "tijera" : "deshacer"} tam={13} />
+                <Icono nombre={z.conservada ? "cruz" : "deshacer"} tam={13} />
                 {z.conservada ? `${((z.b - z.a) / 1000).toFixed(1)} s` : "Restaurar"}
               </button>
             )}
           </div>
         ))}
         {/* fuera del tramo elegido: oscurecido */}
-        <div className="fuera" style={{ left: 0, width: x(p.ini), top: CARRIL }} />
-        <div className="fuera" style={{ left: x(p.fin), width: Math.max(0, anchoTotal - x(p.fin)), top: CARRIL }} />
+        <div className="fuera" style={{ left: 0, width: x(p.ini), top: CARRIL, height: ALTO }} />
+        <div className="fuera" style={{ left: x(p.fin), width: Math.max(0, anchoTotal - x(p.fin)), top: CARRIL, height: ALTO }} />
         {/* cabezal con tiempo y tijera */}
-        <div className="cabezal" style={{ left: x(cabezal) }}>
+        <div className="cabezal" style={{ left: x(cabezal), height: CARRIL + ALTO }}>
           <div className="cabezal-cabeza">
             <span>{mmss(cabezal, 1)}</span>
             <button
@@ -349,6 +484,133 @@ export default function LineaTiempo(p: Props) {
         </div>
         {manija("ini")}
         {manija("fin")}
+
+        {/* ---------- secuencia de salida ---------- */}
+        <div className="sec-titulo chico" style={{ left: x(p.ini), top: CARRIL + ALTO + 6 }}>
+          <strong>Secuencia de salida</strong> · {(durSalida / 1000).toFixed(1)} s ·{" "}
+          {geo.length === 1 ? "1 pedazo" : `${geo.length} pedazos`}
+          {geo.length > 1 && <span className="suave"> · arrastrá un bloque para cambiar el orden</span>}
+        </div>
+        <div className="sec-fondo" style={{ left: x(p.ini), width: Math.max(0, ultimoBloque - x(p.ini)), top: Y_SEC, height: ALTO_SEC }} />
+        {geo.map((b, i) => {
+          const z = b.pieza;
+          const esMovido = moviendo?.id === z.id;
+          const sel = p.seleccion === z.id;
+          const dur = (z.b - z.a) / 1000;
+          const recortando = arrastre?.tipo === "pieza" && arrastre.id === z.id ? arrastre.lado : null;
+          return (
+            <div
+              key={z.id}
+              className={"bloque" + (sel ? " seleccionado" : "") + (esMovido ? " movido" : "") + (b.width < 70 ? " angosto" : "")}
+              style={{ left: b.left, width: b.width, top: Y_SEC, height: ALTO_SEC, transform: esMovido ? `translateX(${moviendo!.x - moviendo!.x0}px)` : undefined }}
+              role="group"
+              aria-label={`Pedazo ${i + 1}: ${mmss(z.a, 1)} a ${mmss(z.b, 1)} del original, ${dur.toFixed(1)} s`}
+              tabIndex={0}
+              onFocus={() => p.onSeleccion(z.id)}
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => {
+                // con mouse, todo el bloque se arrastra; en touch solo el agarre (así el carril se puede desplazar con el dedo)
+                if (e.button !== 0 || e.pointerType !== "mouse") return;
+                e.preventDefault();
+                e.stopPropagation();
+                (e.currentTarget as HTMLElement).focus();
+                const r = ref.current!.getBoundingClientRect();
+                setArrastre({ tipo: "mover", id: z.id, x0: e.clientX - r.left, x: e.clientX - r.left, activo: false });
+              }}
+            >
+              <span className="bloque-num" aria-hidden="true">
+                {i + 1}
+              </span>
+              <span
+                className="bloque-asa"
+                title="Arrastrá para cambiar el orden"
+                aria-hidden="true"
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const r = ref.current!.getBoundingClientRect();
+                  setArrastre({ tipo: "mover", id: z.id, x0: e.clientX - r.left, x: e.clientX - r.left, activo: false });
+                }}
+              >
+                <i />
+                <i />
+                <i />
+              </span>
+              <div className="bloque-pie">
+                <span className="bloque-dur">{dur.toFixed(1)} s</span>
+                <span className="bloque-botones">
+                  <button
+                    type="button"
+                    className="bloque-boton"
+                    disabled={i === 0}
+                    title="Un lugar antes en la secuencia ([)"
+                    aria-label="Un lugar antes"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      p.onMover(z.id, -1);
+                    }}
+                  >
+                    ◀
+                  </button>
+                  <button
+                    type="button"
+                    className="bloque-boton"
+                    disabled={i === geo.length - 1}
+                    title="Un lugar después en la secuencia (])"
+                    aria-label="Un lugar después"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      p.onMover(z.id, 1);
+                    }}
+                  >
+                    ▶
+                  </button>
+                  <button
+                    type="button"
+                    className="bloque-boton sacar"
+                    disabled={p.piezas.length <= 1}
+                    title="Sacar este pedazo de la secuencia (Supr)"
+                    aria-label="Sacar"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      p.onPieza(z.id);
+                    }}
+                  >
+                    <Icono nombre="cruz" tam={12} />
+                  </button>
+                </span>
+              </div>
+              {(["a", "b"] as const).map((lado) => (
+                <div
+                  key={lado}
+                  className={"bloque-manija " + (lado === "a" ? "ini" : "fin") + (recortando === lado ? " arrastrando" : "")}
+                  role="slider"
+                  tabIndex={0}
+                  aria-label={lado === "a" ? `Inicio del pedazo ${i + 1}` : `Fin del pedazo ${i + 1}`}
+                  aria-valuenow={Math.round((lado === "a" ? z.a : z.b) / 1000)}
+                  aria-valuetext={mmss(lado === "a" ? z.a : z.b, 1)}
+                  title={lado === "a" ? "Arrastrá para recortar el inicio de este pedazo (flechas: ±0,1 s; con Shift ±1 s)" : "Arrastrá para recortar el fin de este pedazo (flechas: ±0,1 s; con Shift ±1 s)"}
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    (e.currentTarget as HTMLElement).focus();
+                    const r = ref.current!.getBoundingClientRect();
+                    setArrastre({ tipo: "pieza", id: z.id, lado, x0: e.clientX - r.left, valor0: lado === "a" ? z.a : z.b });
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => teclaBloque(z, lado, e)}
+                >
+                  <span className="burbuja">{mmss(lado === "a" ? z.a : z.b, 1)}</span>
+                </div>
+              ))}
+            </div>
+          );
+        })}
+        {marcaX !== null && <div className="marca-insercion" style={{ left: marcaX, top: Y_SEC - 4, height: ALTO_SEC + 8 }} />}
+        {cabezalSec !== null && <div className="cabezal-sec" style={{ left: cabezalSec, top: Y_SEC - 4, height: ALTO_SEC + 8 }} />}
       </div>
     </div>
   );

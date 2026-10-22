@@ -35,14 +35,16 @@ export function videoATramo(t: number, tl: Timeline): number {
   return tl[tl.length - 1][1];
 }
 
-/** segundo del tramo plano → segundo del video actual (si cae en un pedazo sacado, va al corte). null si está fuera del video. */
+/** segundo del tramo plano → segundo del video actual (si cae en un pedazo sacado, va al principio del pedazo que le sigue en el
+ *  original). null si está fuera del video. (22/10) La timeline puede estar en otro orden que el original (pedazos reordenados). */
 export function tramoAVideo(t: number, tl: Timeline, duracionVideo: number): number | null {
   if (!tl || !tl.length) return t >= 0 && t <= duracionVideo + 0.05 ? Math.min(t, duracionVideo) : null;
   let acum = 0;
+  let siguiente: { a: number; acum: number } | null = null;
   for (const [a, b] of tl) {
-    if (t < a) return acum;
-    if (t <= b) return acum + (t - a);
+    if (t >= a && t <= b) return acum + (t - a);
+    if (t < a && (!siguiente || a < siguiente.a)) siguiente = { a, acum };
     acum += b - a;
   }
-  return null;
+  return siguiente ? siguiente.acum : null;
 }
