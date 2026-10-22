@@ -27,6 +27,12 @@ services:
         value: "gpt-5.6-sol"
       - key: BUSQUEDA_HIBRIDA
         value: "1"
+      # (22/10) Vectores en Supabase (pgvector, tabla fragmentos_emb) en vez del .npy en memoria: misma calidad medida
+      # (39/51 y 41/51, idéntico consulta por consulta), +0,4 s por búsqueda, -52 MB de RAM (400 -> 347 MB). Apagado por
+      # defecto: lo decide Franco (informes/medicion-vectores-supabase-validado.md). Para prenderlo, descomentar:
+      # - key: VECTORES
+      #   value: "supabase"
+      # LEXICO=supabase (texto de Postgres en vez de BM25, -252 MB) NO se recomienda: la recuperación empeora (33/51 sin reranker).
       - key: LIMPIEZA_EXTRA
         value: "1"
       - key: RERANK_CANDIDATOS

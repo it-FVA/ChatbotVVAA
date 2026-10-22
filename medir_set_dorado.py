@@ -89,8 +89,9 @@ def main():
     ap.add_argument("--autor", default="", help='filtro de autor; vacío = sin filtro (el set dorado mezcla autores)')
     ap.add_argument("--set", default="", help="otro CSV del set dorado (por defecto el borrador)")
     ap.add_argument("--solo-validadas", action="store_true", help="solo pasajes OK de la columna Validación y consultas ya revisadas")
-    ap.add_argument("--modos", choices=["expansion", "plan", "reranker", "documento"], default="expansion",
-                    help="expansion: P/L/X (Conceptos relacionados) · plan: A/B/B2/C del plan del buscador (híbrida, limpieza, reranker ampliado)")
+    ap.add_argument("--modos", choices=["expansion", "plan", "reranker", "documento", "vectores"], default="expansion",
+                    help="expansion: P/L/X (Conceptos relacionados) · plan: A/B/B2/C del plan del buscador (híbrida, limpieza, reranker ampliado) "
+                         "· vectores (22/10): producción con los vectores y el léxico en memoria vs. en Supabase (pgvector / to_tsvector)")
     args = ap.parse_args()
     if not os.environ.get("OPENAI_API_KEY"):
         raise SystemExit("Falta OPENAI_API_KEY.")
@@ -101,6 +102,8 @@ def main():
     import nucleo
     consultas = leer_set(args.solo_dificiles, ruta=ruta_set, solo_validadas=args.solo_validadas)
     print(f"{len(consultas)} consultas del set dorado · acierto@{args.n}")
+    if not consultas:
+        raise SystemExit("El set no tiene consultas con ese filtro (con --solo-validadas hace falta el CSV validado, ej. analisis/Set-dorado-validado-2026-10-16.csv).")
 
     if args.modos == "plan":
         from comparar_busqueda import MODOS
@@ -114,24 +117,44 @@ def main():
         from comparar_busqueda import MODOS_DOC         # (16/10) agrupar por documento sobre E
         modos = {k: dict(v, EXPANSION_CONSULTA="0") for k, v in MODOS_DOC.items()}
         variantes = [("con reranker", True)]
+    elif args.modos == "vectores":
+        from comparar_busqueda import MODOS_VECTORES    # (22/10) local vs Supabase, sobre la configuración de producción
+        modos = {k: dict(v, EXPANSION_CONSULTA="0") for k, v in MODOS_VECTORES.items()}
+        variantes = [("sin reranker", False)] + ([("con reranker", True)] if args.con_reranker else [])
+        # Para que la latencia mida solo la recuperación: embeddings y traducciones de todas las consultas ya en caché.
+        for c in consultas:
+            nucleo.embed_query(c["consulta"])
+            try:
+                en = nucleo._traducir_en(c["consulta"])
+                if en and en.lower() != c["consulta"].lower():
+                    nucleo.embed_query(en)
+            except Exception:
+                pass
     else:
         modos = dict(MODOS_EXPANSION)
         variantes = [("sin reranker", False)] + ([("con reranker", True)] if args.con_reranker else [])
     salida = {"expansion": "medicion-set-dorado.md", "plan": "medicion-set-dorado-plan.md",
-              "reranker": "medicion-set-dorado-reranker.md", "documento": "medicion-set-dorado-documento.md"}[args.modos]
+              "reranker": "medicion-set-dorado-reranker.md", "documento": "medicion-set-dorado-documento.md",
+              "vectores": "medicion-vectores-supabase.md"}[args.modos]
     if args.solo_validadas:
         salida = salida.replace(".md", "-validado.md")
     salida = os.path.join(os.path.dirname(os.path.abspath(__file__)), "informes", salida)   # (18/10) informes aparte
 
-    tabla = {}      # (modo, variante) -> {"aciertos": int, "pos": [..], "fallas": [n...]}
+    import time
+    tabla = {}      # (modo, variante) -> {"aciertos": int, "pos": [..], "fallas": [n...], "lat": [segundos por consulta]}
     detalle = {}    # n -> {(modo, variante): pos}
     for nombre, cfg in modos.items():
         for vnombre, rerank in variantes:
             clave = (nombre, vnombre)
-            tabla[clave] = {"aciertos": 0, "pos": [], "fallas": []}
+            tabla[clave] = {"aciertos": 0, "pos": [], "fallas": [], "lat": []}
             poner_modo(cfg)
+            if args.modos == "vectores":
+                nucleo._EMB = None if nucleo._vectores_modo() == "supabase" else nucleo._EMB   # el .npy se recarga si hace falta
+                nucleo.cargar()
             for c in consultas:
+                t0 = time.time()
                 res = nucleo.buscar(c["consulta"], n=args.n, autor=args.autor or None, rerank=rerank)
+                tabla[clave]["lat"].append(time.time() - t0)
                 p = posicion_acierto(c["titulos"], res)
                 detalle.setdefault(c["n"], {})[clave] = p
                 if p:
@@ -140,17 +163,23 @@ def main():
                 else:
                     tabla[clave]["fallas"].append(c["n"])
             t = tabla[clave]
-            print(f"  {nombre:36} {vnombre:13} aciertos {t['aciertos']}/{len(consultas)}")
+            lat = sorted(t["lat"]) or [0.0]
+            t["lat_media"], t["lat_mediana"], t["lat_p90"] = sum(lat) / len(lat), lat[len(lat) // 2], lat[min(int(len(lat) * 0.9), len(lat) - 1)]
+            print(f"  {nombre:36} {vnombre:13} aciertos {t['aciertos']}/{len(consultas)} · latencia media {t['lat_media']:.2f} s, mediana {t['lat_mediana']:.2f} s, p90 {t['lat_p90']:.2f} s")
 
     lineas = [f"# Medición con el set dorado — {datetime.now():%Y-%m-%d %H:%M}", "",
               f"{len(consultas)} consultas{' (solo difíciles)' if args.solo_dificiles else ''}"
               f"{' · solo pasajes validados OK por Pato (' + os.path.basename(ruta_set) + ')' if args.solo_validadas else ''} · acierto@{args.n} = "
               "al menos un título esperado entre los primeros resultados · filtro de autor: "
               f"**{args.autor or 'ninguno'}**", "",
-              "| Modo | Variante | Aciertos | Posición media del primer acierto |", "|---|---|---|---|"]
+              "| Modo | Variante | Aciertos | Posición media del primer acierto | Latencia media | Mediana | p90 |", "|---|---|---|---|---|---|---|"]
     for (m, v), t in tabla.items():
         media = sum(t["pos"]) / len(t["pos"]) if t["pos"] else 0
-        lineas.append(f"| {m} | {v} | **{t['aciertos']}/{len(consultas)}** | {media:.2f} |")
+        lineas.append(f"| {m} | {v} | **{t['aciertos']}/{len(consultas)}** | {media:.2f} | {t['lat_media']:.2f} s | {t['lat_mediana']:.2f} s | {t['lat_p90']:.2f} s |")
+    if args.modos == "vectores":
+        lineas += ["", "Latencia = tiempo de `nucleo.buscar` por consulta, con el embedding y la traducción ya en caché (se precalentaron): "
+                   "mide la recuperación (y el reranker, en la variante con reranker), no la llamada de embedding. "
+                   "Medido desde la máquina de Franco (Windows, Internet doméstica); desde Render (Oregon) a Supabase la ida y vuelta puede ser distinta."]
     lineas += ["", "## Por consulta (posición del primer acierto; — = no apareció)", "",
                "| N° | Consulta | " + " | ".join(f"{m.split(' ·')[0]} {v.split()[0]}" for m, v in tabla) + " |",
                "|---|---|" + "---|" * len(tabla)]

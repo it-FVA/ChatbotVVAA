@@ -17,7 +17,9 @@ con el editor visual de la web (`web/`), borrar, estilo por defecto. **No public
 | `config.py` | variables de entorno; en local carga `.streamlit/secrets.toml` |
 | `migraciones/autorizados_login_google.sql` | tabla `autorizados` (email, rol, agregado_por, creado) para el login con Google |
 | `recortes.py` | router de recortes (fase 1): misma lógica de negocio que `publicar_ui._mis_recortes` / `_editor_recorte`, más `edicion["segmentos"]` |
-| `tests/` | pytest + httpx: 37 pruebas sin OpenAI ni Supabase (`test_api.py`, `test_recortes.py`), y 1 real (marcada `real`) |
+| `salud.py` | (22/10) `GET /salud` (health check) y la base de la pantalla «Salud» / Dashboard de Administración: `/salud/servicios` (13 chequeos con ok / aviso / error y «qué hacer» + bloque `capacidad`), `/salud/historial`, `/salud/capacidad`. Guarda cada corrida en `salud_historial` |
+| `migraciones/salud_historial.sql`, `migraciones/fragmentos_emb_pgvector.sql` | (22/10) tabla del historial de salud; extensión `vector`, tabla `fragmentos_emb`, índice HNSW y funciones `match_fragmentos*`, `match_lexico`, `tamano_base` (todas aplicadas en Supabase el 22/10) |
+| `tests/` | pytest + httpx: 70 pruebas sin OpenAI ni Supabase (`test_api.py`, `test_recortes.py`, `test_salud.py`, `test_capacidad.py`, `test_vectores.py`), y 1 real (marcada `real`) |
 | `ejemplos.http` | llamadas de ejemplo (REST Client / curl) |
 | `Dockerfile`, `requirements.txt` | para desplegar en cualquier hosting que acepte un contenedor |
 
@@ -28,7 +30,11 @@ En `db.py` se agregaron al final (sin cambiar las existentes): `cargar_conversac
 
 | Método y ruta | Quién | Qué devuelve |
 |---|---|---|
-| `GET /salud` | nadie | ok, fragmentos cargados, Supabase sí/no, modelo, si está configurado Google y el `google_client_id` (lo usa el botón de la web; no es secreto) |
+| `GET /salud` | nadie | ok, fragmentos cargados, Supabase sí/no, modelo, si está configurado Google y el `google_client_id` (lo usa el botón de la web; no es secreto); (22/10) más `version`, `arranque`, `vectores` |
+| `GET /salud/servicios` (`?guardar=0`) | admins, o `?token=SALUD_TOKEN` / cabecera `X-Salud-Token` | (22/10) `{creado, estado, chequeos: [{nombre, estado, detalle, que_hacer, desde, …}], capacidad: [...], ms}`; guarda la corrida en `salud_historial` |
+| `GET /salud/capacidad` | ídem | solo el bloque `capacidad` (uso vs. límite del plan por proveedor) |
+| `PUT /salud/capacidad/config` `{umbrales_planes?, presupuesto_openai_usd?, vercel_uso_manual_gb?}` | admins | guarda esas claves en `config` |
+| `GET /salud/historial` (`?limite=`) | ídem | las últimas corridas guardadas (incluye las filas `arranque`) |
 | `POST /login` `{usuario, clave}` | — | pone la cookie; devuelve lo mismo que `/yo` |
 | `POST /login/google` `{id_token}` | — | verifica el token con Google; admite si el email termina en `DOMINIO_FVA` o está en `autorizados` |
 | `POST /logout` | — | borra la cookie |
@@ -107,6 +113,13 @@ Los mismos nombres que los secrets de Streamlit. En un servidor se cargan como v
 | `DOMINIO_FVA` | dominio de la Fundación cuyas cuentas entran solas (ej. `viviragradecidos.org`). Vacío = solo la lista `autorizados` | no |
 | `BUSQUEDA_HIBRIDA`, `RERANK_*`, `CONCEPTOS_URL`, `DISTINCIONES_URL`, `EXPANSION_CONSULTA`, `CONTEXTO_CHARS`, `LIMPIEZA_EXTRA`, `DATOS_FIJOS_URL` | interruptores del buscador, como hoy | no |
 | `API_CARGAR_CORPUS` | `0` para arrancar sin cargar el corpus (tests) | no |
+| `VECTORES` | (22/10) `local` (default: embeddings `.npy` en memoria) o `supabase` (pgvector, tabla `fragmentos_emb`). Ver «Búsqueda en Supabase» | no |
+| `LEXICO` | (22/10) `local` (default: BM25 en memoria) o `supabase` (texto de Postgres). Solo cuenta con `BUSQUEDA_HIBRIDA=1` | no |
+| `VECTORES_K` | cuántos candidatos pide cada búsqueda a Postgres en modo supabase (300) | no |
+| `SALUD_TOKEN` | token para consultar `/salud/servicios` desde un monitor externo sin sesión | no |
+| `MEMORIA_LIMITE_MB` | límite de memoria del plan para la fila «memoria» (512) | no |
+| `META_IG_TOKEN_VENCE` | `AAAA-MM-DD` en que vence el token de Instagram (Meta no lo informa para tokens de Instagram Login); la fila «instagram» avisa 14 días antes | no |
+| `META_IG_TOKEN`, `META_FB_PAGE_TOKEN`, `WP_APP_PASSWORD`, `DRIVE_TOKEN_JSON`, `YOUTUBE_TOKEN_JSON`, `GITHUB_TOKEN` | si están, «Salud» verifica esos servicios (hoy los usa la cola de GitHub Actions, no la API); `GITHUB_TOKEN` solo sube el límite de la API pública de GitHub | no |
 | `PORT` | puerto (lo pone el hosting) | no |
 
 ## Desplegar en Render (API) + Vercel (web) — plan gratuito para probar (21/10)
@@ -166,6 +179,83 @@ API levantada con `uvicorn api.main:app` sobre los secrets reales (modelo y swit
 
 Lo que tarda es el buscador (de los 7 s a los 26 s: búsqueda, reranker y traducción de la consulta), igual que en
 Streamlit; el streaming no lo cambia, solo muestra el texto apenas empieza.
+
+
+## Salud de los servicios (22/10)
+
+`api/salud.py` es la base de la pantalla «Salud» y del Dashboard de Administración (web, pendiente). `GET /salud/servicios`
+corre en paralelo 13 chequeos y devuelve, por cada uno, `estado` (ok / aviso / error), `detalle` (qué midió) y `que_hacer`
+(el paso concreto). Nada se inventa: lo que no se puede verificar (sin credenciales, sin red) lo dice.
+
+| Chequeo | Qué mira | Aviso / error |
+|---|---|---|
+| `supabase` | una consulta mínima a `config` y la latencia | error si no responde; aviso si tarda > 2 s |
+| `openai` | `models.retrieve` del modelo de producción (gratis; cacheado 10 min) | error si la clave falla o el modelo no existe |
+| `wordpress` | `GET /wp-json/` y, con `WP_USER` + `WP_APP_PASSWORD`, `/wp/v2/users/me` | error si el sitio o las credenciales fallan |
+| `instagram` | el token de Instagram Login (`IG…`) contra `graph.instagram.com/me`; el vencimiento sale de `META_IG_TOKEN_VENCE` (Meta no permite `debug_token` con estos tokens, probado 22/10) | aviso 14 días antes de vencer o si falta la fecha; error si venció o no sirve |
+| `facebook` | `debug_token` del token de la página: validez, vencimiento, permisos | ídem |
+| `drive`, `youtube` | canje del `refresh_token` por un access token en Google (no consume cuota) | error si Google lo rechaza (`invalid_grant` = volver a autorizar) |
+| `cola_publicacion` | última corrida de `cola.yml` (API pública de GitHub, cacheada 5 min) + piezas `pendiente` vencidas hace > 30 min | aviso si falló, si tiene > 45 min o si hay piezas sin procesar |
+| `recortes` | ídem con `recortar_pendientes.yml` + clips en `pedido` hace > 1 h | ídem |
+| `frase_del_dia` | interruptor, foto por defecto, frase de hoy y de mañana | aviso si está prendida y falta algo |
+| `api` | versión, desde cuándo corre, corpus cargado, modo de vectores | aviso si el corpus no está cargado |
+| `web` | `GET` a `VITE_WEB_URL` o al primer origen de `CORS_ORIGENES` | error si no responde 200 |
+| `memoria` | RSS del proceso contra `MEMORIA_LIMITE_MB` | aviso al 80 %, error al 95 % |
+
+Cada corrida se guarda resumida en `salud_historial` (`creado`, `estado` general, `detalle` json) y, con eso, cada chequeo
+que no está ok trae `desde`: la fecha de la corrida más vieja de la racha actual con ese estado. Cada arranque de la API
+deja también una fila `estado='arranque'` (sirve para contar los despertares del plan free).
+
+**Bloque `capacidad`** (pedido de Franco, 22/10: «¿funciona? ¿por qué? ¿cuánto cuesta? ¿por qué?»). Por proveedor:
+`{nombre, plan, costo_mensual_usd, metrica, uso, limite, unidad, porcentaje, umbral, estado, justificacion, fuente_limite,
+referencia, desde}`. El plan y el costo salen de la tabla `servicios` (Panel admin → Servicios y costos); el umbral de
+`config.umbrales_planes` (un número o `{"default": 70, "supabase": 80}`; default 70 %): al superarlo el estado pasa a
+`aviso` con la justificación «conviene pasar a plan pago: métrica, cuánto, desde cuándo».
+
+| Proveedor | Uso medido | Límite y fuente |
+|---|---|---|
+| Supabase | tamaño de la base (función SQL `tamano_base()`), filas por tabla; si la consulta falla, «pausada» | 500 MB (supabase.com/pricing, 22/10) |
+| Render | RSS del proceso; arranques en frío en 24 h y 7 días (aviso con 5 o más por día) | 512 MB (render.com/docs/compute-plans, 22/10); 750 h/mes |
+| Vercel | **no se puede leer sin `VERCEL_TOKEN`**: dato manual (`PUT /salud/capacidad/config {vercel_uso_manual_gb}`) | 100 GB/mes de Fast Data Transfer, marcado `referencia: true` (es la guía de uso típico de Hobby, no un derecho del plan; Hobby es solo para uso no comercial) |
+| OpenAI | gasto estimado del mes = `uso_openai` × `config.openai_precios` (misma fórmula que el Panel admin), tokens, proyección a 30 días | `config.presupuesto_openai_usd` (lo fija la Fundación; sin él, no hay porcentaje) |
+
+Primera corrida real (22/10, desde la máquina de Franco): todo ok salvo `api` (sin corpus, esperable en la prueba);
+Instagram válido para @vivir.agradecidos, Facebook sin vencimiento, Drive y YouTube vigentes, cola y recortes corridos
+hace 1-2 min, web en Vercel respondiendo. Capacidad: Supabase 203 MB de 500 (41 %; 190 MB son `fragmentos_emb`),
+OpenAI US$ 0,08 en lo que va del mes (57 llamadas).
+
+## Búsqueda en Supabase (pgvector) — medición del 22/10
+
+Todo esto quedó medido antes de existir el interruptor en Render, con la regla del proyecto (cualquier cambio del buscador se
+mide con el set dorado antes de prenderse). Informe completo: `informes/medicion-vectores-supabase-validado.md`.
+
+**Qué hay.** Extensión `vector` (pgvector 0.8) en Supabase, tabla `fragmentos_emb` (idx = posición en `fragmentos.jsonl`,
+fragmento_id, documento_id, texto, `embedding vector(512)`, `tsv` generado con `to_tsvector('spanish', unaccent(texto))`),
+índice HNSW coseno + GIN, funciones SQL `match_fragmentos(query_embedding, k)`, `match_fragmentos_varios(jsonb, k)` (varias
+consultas fusionadas por máximo, como hace `nucleo._buscar` con la traducción y la expansión) y `match_lexico(consulta, k)`.
+`subir_embeddings.py` subió los 26.448 vectores desde `fragmentos_openai.npy` (lotes de 400, upsert por idx, verificación
+de conteo y muestra al final: OK). En `nucleo.py`, `VECTORES=supabase` consulta Postgres en lugar del `.npy` (que ya no se
+carga) y `LEXICO=supabase` reemplaza BM25 por el texto de Postgres; BM25 y la fusión RRF siguen iguales en modo local.
+El default sigue siendo `local`.
+
+**Medición (22/10, 51 consultas validadas, acierto@6, producción = híbrida + limpieza + reranker 50/400 fusión):**
+
+| Modo | Sin reranker | Con reranker | Latencia media sin / con reranker | RSS del proceso |
+|---|---|---|---|---|
+| V0 · local (producción) | 39/51 | 41/51 | 0,39 s / 1,96 s | 399 MB |
+| V1 · `VECTORES=supabase` | 39/51 (idéntico, consulta por consulta) | 41/51 | 0,76 s / 2,69 s | 347 MB |
+| V2 · `VECTORES=supabase` + `LEXICO=supabase` | **33/51** | 41/51 | 0,61 s / 2,20 s | 148 MB |
+
+Memoria por partes: jsonl 72 MB, `.npy` 52 MB, **BM25 245 MB**. `fragmentos_emb` ocupa 190 MB de los 500 MB del plan Free
+de Supabase.
+
+**Conclusión.** V1 cumple (misma calidad, +0,4 s) pero ahorra poco (52 MB). V2 ahorra 252 MB pero la recuperación empeora
+(6 consultas menos sin reranker; el reranker lo tapa): por la regla del proyecto no se adopta tal como está. La decisión
+de prenderlo o pagar plan es de Franco (ver HANDOFF 70).
+
+**Cómo prenderlo en Render** (solo V1, si Franco lo decide): en `render.yaml`, dentro de `envVars`, descomentar
+`VECTORES: supabase` (está comentado al lado de `BUSQUEDA_HIBRIDA`) y pushear a main; el Blueprint lo sincroniza. La imagen
+sigue llevando el `.npy` (volver a `local` es cambiar la variable). `GET /salud` muestra el modo en `vectores`.
 
 ## Lo que falta / decisiones pendientes
 

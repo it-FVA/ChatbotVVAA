@@ -80,6 +80,14 @@ MODOS_DOC = {
     "G3 · por documento, peso 0.3, top 100": dict(_E, AGRUPAR_DOC="1", AGRUPAR_PESO="0.3", AGRUPAR_TOP="100"),
 }
 
+# (22/10) Vectores y léxico en memoria (producción) vs. en Supabase (pgvector + to_tsvector). Sobre la configuración de
+# producción (E: híbrida, limpieza, reranker 50/400 fusión). Se usa con medir_set_dorado.py --modos vectores.
+MODOS_VECTORES = {
+    "V0 · local (producción)":          dict(_E, VECTORES="local", LEXICO="local"),
+    "V1 · vectores en Supabase":        dict(_E, VECTORES="supabase", LEXICO="local"),
+    "V2 · vectores + léxico en Supabase": dict(_E, VECTORES="supabase", LEXICO="supabase"),
+}
+
 # (5/10) Expansión de consulta: producción tal cual está hoy, con y sin los Conceptos relacionados
 # de Pato (CONCEPTOS_URL tiene que estar en secrets.toml). Se usa con --expansion.
 MODOS_EXPANSION = {
