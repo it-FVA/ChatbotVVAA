@@ -28,7 +28,7 @@ En `db.py` se agregaron al final (sin cambiar las existentes): `cargar_conversac
 
 | Método y ruta | Quién | Qué devuelve |
 |---|---|---|
-| `GET /salud` | nadie | ok, fragmentos cargados, Supabase sí/no, modelo, si está configurado Google |
+| `GET /salud` | nadie | ok, fragmentos cargados, Supabase sí/no, modelo, si está configurado Google y el `google_client_id` (lo usa el botón de la web; no es secreto) |
 | `POST /login` `{usuario, clave}` | — | pone la cookie; devuelve lo mismo que `/yo` |
 | `POST /login/google` `{id_token}` | — | verifica el token con Google; admite si el email termina en `DOMINIO_FVA` o está en `autorizados` |
 | `POST /logout` | — | borra la cookie |

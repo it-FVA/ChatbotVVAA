@@ -13,6 +13,7 @@ def test_salud(cliente):
     assert r.status_code == 200
     d = r.json()
     assert d["ok"] is True and d["supabase"] is False and d["corpus_cargado"] is False
+    assert d["login_google"] is False and d["google_client_id"] is None
 
 
 def test_login_bueno(cliente):

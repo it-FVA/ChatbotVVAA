@@ -1,7 +1,36 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { api, ErrorApi } from "../api";
 import { useSesion } from "../App";
+import type { Yo } from "../tipos";
+
+// Login con Google (21/10, noche): Google Identity Services dibuja el botón; al elegir cuenta devuelve un id_token que se manda a
+// POST /login/google. La API lo verifica con GOOGLE_CLIENT_ID y admite el dominio de la Fundación (DOMINIO_FVA) o la tabla
+// `autorizados`. El client id lo da GET /salud (no es secreto); sin él, el botón queda deshabilitado.
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (cfg: { client_id: string; callback: (r: { credential: string }) => void; ux_mode?: string; auto_select?: boolean }) => void;
+          renderButton: (el: HTMLElement, cfg: Record<string, string | number>) => void;
+        };
+      };
+    };
+  }
+}
+
+function cargarGis(): Promise<void> {
+  if (window.google?.accounts?.id) return Promise.resolve();
+  return new Promise((ok, mal) => {
+    const s = document.createElement("script");
+    s.src = "https://accounts.google.com/gsi/client";
+    s.async = true;
+    s.onload = () => ok();
+    s.onerror = () => mal(new Error("No pude cargar el login de Google."));
+    document.head.appendChild(s);
+  });
+}
 
 export default function Login() {
   const { yo, setYo } = useSesion();
@@ -11,11 +40,51 @@ export default function Login() {
   const [clave, setClave] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
-  const [google, setGoogle] = useState(false);
+  const [clientId, setClientId] = useState<string | null>(null);
+  const [gisListo, setGisListo] = useState(false);
+  const botonGoogle = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    api.salud().then((s) => setGoogle(s.login_google)).catch(() => setGoogle(false));
+    api.salud().then((s) => setClientId(s.google_client_id)).catch(() => setClientId(null));
   }, []);
+
+  function entrar_ok(y: Yo) {
+    setYo(y);
+    const desde = (loc.state as { desde?: string } | null)?.desde;
+    nav(desde && desde !== "/login" ? desde : "/recortes", { replace: true });
+  }
+
+  // Dibuja el botón oficial de Google cuando hay client id
+  useEffect(() => {
+    if (!clientId || !botonGoogle.current) return;
+    let vivo = true;
+    cargarGis()
+      .then(() => {
+        if (!vivo || !window.google || !botonGoogle.current) return;
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          auto_select: false,
+          callback: async (r) => {
+            setError(null);
+            setEnviando(true);
+            try {
+              entrar_ok(await api.loginGoogle(r.credential));
+            } catch (err) {
+              setError(err instanceof ErrorApi ? err.message : "No pude entrar con Google.");
+            } finally {
+              setEnviando(false);
+            }
+          },
+        });
+        window.google.accounts.id.renderButton(botonGoogle.current, { theme: "outline", size: "large", text: "signin_with", locale: "es", width: 330 });
+        setGisListo(true);
+      })
+      .catch((e: Error) => setError(e.message));
+    return () => {
+      vivo = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId]);
 
   if (yo) return <Navigate to="/recortes" replace />;
 
@@ -24,13 +93,9 @@ export default function Login() {
     setError(null);
     setEnviando(true);
     try {
-      const y = await api.login(usuario.trim(), clave);
-      setYo(y);
-      const desde = (loc.state as { desde?: string } | null)?.desde;
-      nav(desde && desde !== "/login" ? desde : "/recortes", { replace: true });
+      entrar_ok(await api.login(usuario.trim(), clave));
     } catch (err) {
-      const m = err instanceof ErrorApi ? err.message : "No pude conectarme con la API.";
-      setError(m);
+      setError(err instanceof ErrorApi ? err.message : "No pude conectarme con la API.");
     } finally {
       setEnviando(false);
     }
@@ -41,7 +106,7 @@ export default function Login() {
       <form className="tarjeta login-caja" onSubmit={entrar}>
         <img src="/logo.png" alt="Vivir Agradecidos" className="login-logo" />
         <h1>Asistente de contenido</h1>
-        <p className="suave">Entrá con tu usuario de siempre.</p>
+        <p className="suave">Entrá con tu usuario de siempre o con la cuenta de Google de la Fundación.</p>
         <label>
           Usuario
           <input value={usuario} onChange={(e) => setUsuario(e.target.value)} autoComplete="username" autoFocus required />
@@ -55,15 +120,24 @@ export default function Login() {
           {enviando ? "Entrando…" : "Entrar"}
         </button>
         <div className="separador">o</div>
-        <button
-          type="button"
-          className="boton"
-          disabled={!google}
-          title={google ? "Entrar con la cuenta de Google de la Fundación" : "Todavía no está configurado: falta el proyecto de Google Cloud (GOOGLE_CLIENT_ID)."}
-        >
-          <GoogleIcono /> Entrar con Google
-        </button>
-        {!google && <p className="suave chico">El login con Google se habilita cuando esté el proyecto de Google Cloud.</p>}
+        <div className="google-caja">
+          <div ref={botonGoogle} style={{ display: gisListo ? "flex" : "none", justifyContent: "center" }} />
+          {!gisListo && (
+            <button
+              type="button"
+              className="boton"
+              disabled
+              title={clientId ? "Cargando el login de Google…" : "Todavía no está configurado: falta GOOGLE_CLIENT_ID en la API."}
+            >
+              <GoogleIcono /> Entrar con Google
+            </button>
+          )}
+        </div>
+        {clientId ? (
+          <p className="suave chico">Entran las cuentas @viviragradecidos.org y las que estén en la lista de autorizados.</p>
+        ) : (
+          <p className="suave chico">El login con Google se habilita cuando la API tenga el proyecto de Google Cloud.</p>
+        )}
       </form>
     </div>
   );

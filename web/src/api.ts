@@ -33,7 +33,8 @@ async function pedir<T>(ruta: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  salud: () => pedir<{ ok: boolean; supabase: boolean; login_google: boolean }>("/salud"),
+  salud: () => pedir<{ ok: boolean; supabase: boolean; login_google: boolean; google_client_id: string | null }>("/salud"),
+  loginGoogle: (id_token: string) => pedir<Yo>("/login/google", { method: "POST", body: JSON.stringify({ id_token }) }),
   yo: () => pedir<Yo>("/yo"),
   login: (usuario: string, clave: string) => pedir<Yo>("/login", { method: "POST", body: JSON.stringify({ usuario, clave }) }),
   logout: () => pedir<{ ok: boolean }>("/logout", { method: "POST" }),

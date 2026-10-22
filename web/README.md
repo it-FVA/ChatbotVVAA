@@ -8,8 +8,12 @@ recortes de esta fase) y no toca Streamlit, que sigue en producción. Las captur
 
 ## Qué hay
 
-- **Login** con usuario y contraseña (los mismos de siempre, `POST /login`). El botón «Entrar con Google» está dibujado pero
-  deshabilitado hasta que exista `GOOGLE_CLIENT_ID` en la API (lo dice `GET /salud`).
+- **Login** con usuario y contraseña (los mismos de siempre, `POST /login`) y **con Google** (Google Identity Services: el botón
+  oficial devuelve un `id_token` que va a `POST /login/google`; la API lo verifica con `GOOGLE_CLIENT_ID` y admite las cuentas
+  `@viviragradecidos.org` (`DOMINIO_FVA`) o las de la tabla `autorizados`). El client id lo publica `GET /salud`; si la API no lo
+  tiene, el botón queda deshabilitado. Orígenes autorizados en Google Cloud: `http://localhost:5173`, `http://localhost:8000`,
+  `http://127.0.0.1:8000` (hay que agregar el dominio de producción cuando exista). No se probó con una cuenta real: el botón
+  carga y abre el selector de Google; el rechazo de un token inválido sí se probó (401).
 - **Barra lateral**: «Mis recortes» (esta pantalla) y dos links que por ahora abren la app de Streamlit en producción
   («Chat» y «Mis publicaciones», URL en `VITE_STREAMLIT_URL`). En celular se vuelve una barra arriba.
 - **Recortes**: solapas «Mis recortes», «👥 Del equipo» (los listos de otras personas: abrir, sin editar ni borrar) y
@@ -97,6 +101,7 @@ corre en local.
 - **Publicar** desde la tarjeta: no está (fase 3); «Mis publicaciones» y el chat abren Streamlit.
 - **Estilo por defecto del equipo**: la API lo expone (`GET/PUT /recortes/estilo-defecto`), la web todavía no tiene la pantalla
   de admin (sigue en Panel admin → Clips de Streamlit).
-- **Login con Google**: botón listo, falta el proyecto de Google Cloud (`GOOGLE_CLIENT_ID`) y el mapeo usuario ↔ email.
+- **Login con Google**: funciona contra la API local (sin probar con una cuenta real); falta el mapeo usuario ↔ email del historial
+  y agregar el dominio de producción a los orígenes autorizados.
 - **Hosting y dominio**: Vercel + Railway/Render o el VPS; CORS y `COOKIE_SAMESITE` dependen de eso.
 - **Idiomas**: la pantalla está solo en español (las cuentas en/de del plan quedan para la fase 2).
