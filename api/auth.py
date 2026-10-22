@@ -71,11 +71,19 @@ def aprobador(request: Request):
     return s["usuario"]
 
 
+def admin(request: Request):
+    """Configuración (estilo por defecto de los subtítulos, etc.): solo admins (ADMINS)."""
+    s = sesion(request)
+    if not _roles.roles(s["usuario"], s.get("rol_tabla"))["admin"]:
+        raise HTTPException(403, "Solo para admins.")
+    return s["usuario"]
+
+
 def yo(s):
     """Lo que devuelve GET /yo: usuario, rol, idioma."""
     r = _roles.roles(s["usuario"], s.get("rol_tabla"))
     return {"usuario": s["usuario"], "origen": s.get("origen", "clave"), "idioma": config.idioma(s["usuario"]),
-            "rol": {"nombre": r["nombre"], "crea": r["crea"], "aprueba": r["aprueba"], "publica": r["publica"]}}
+            "rol": {"nombre": r["nombre"], "crea": r["crea"], "aprueba": r["aprueba"], "admin": r["admin"], "publica": r["publica"]}}
 
 
 # ---------------- Usuario y contraseña ----------------

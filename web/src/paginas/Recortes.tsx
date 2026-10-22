@@ -60,7 +60,7 @@ export default function Recortes() {
           </button>
           {aprueba && (
             <button role="tab" aria-selected={vista === "todos"} className={"solapa" + (vista === "todos" ? " activa" : "")} onClick={() => setVista("todos")}>
-              Todos (admin)
+              Todos
             </button>
           )}
         </div>

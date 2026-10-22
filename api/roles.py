@@ -1,8 +1,8 @@
 """Roles (creador / aprobador / publicación directa).
 
-NOTA: es una COPIA de publicar_ui.roles (13/10). No se importa publicar_ui porque ese módulo importa streamlit
+NOTA: es una COPIA de publicar_ui.roles (13/10; roles admin del 21/10). No se importa publicar_ui porque ese módulo importa streamlit
 en su primera línea y lee st.secrets; acá la lista se lee del entorno con los mismos nombres (APROBADORES,
-PUBLICACION_DIRECTA, separados por coma). Si cambia la regla en publicar_ui.roles, cambiarla acá también
+ADMINS, PUBLICACION_DIRECTA, separados por coma). Si cambia la regla en publicar_ui.roles, cambiarla acá también
 (el plan de migración prevé unificarlas en servicios.py).
 
 (21/10) Para las cuentas que entran con Google el usuario es el email: se admite que la lista tenga el email
@@ -23,14 +23,19 @@ def _esta(usuario, lista):
 
 
 def roles(usuario, rol_tabla=None):
-    """Tres niveles, acumulativos (texto de publicar_ui.roles):
-    - CREADOR DE CONTENIDO (todos): chat, arma piezas en simulado, las manda a aprobación.
-    - APROBADOR / ADMIN (APROBADORES): panel admin: aprueba, rechaza, ve la cola y el registro.
+    """Tres niveles, acumulativos (misma regla que publicar_ui.roles, 21/10, Franco):
+    - CREADOR DE CONTENIDO (todos): chat, arma piezas en simulado, las manda a aprobación, sus recortes.
+    - APROBADOR (APROBADORES): además aprueba y rechaza, ve la cola, el registro, la papelera y los recortes de todos.
+    - ADMIN (ADMINS, por defecto franco,beto): además Frase del día, Dashboard y toda la configuración (estilo por
+      defecto de los subtítulos, precios, servicios y costos, lista de autorizados). Un admin es también aprobador.
+      Julián es aprobador pero no admin.
     - PUBLICACIÓN DIRECTA (PUBLICACION_DIRECTA; por defecto = los aprobadores): publica sin aprobación.
-    rol_tabla: 'aprobador' si la tabla autorizados lo dice (login con Google)."""
-    aprob = _lista("APROBADORES", "julian,franco,beto")
+    rol_tabla: 'aprobador' o 'admin' si la tabla autorizados lo dice (login con Google)."""
+    admins = _lista("ADMINS", "franco,beto")
+    aprob = sorted(set(_lista("APROBADORES", "julian,franco,beto")) | set(admins))
     directa = _lista("PUBLICACION_DIRECTA", ",".join(aprob))
-    aprueba = _esta(usuario, aprob) or (rol_tabla == "aprobador")
-    return {"crea": True, "aprueba": aprueba, "publica": _esta(usuario, directa),
-            "nombre": "aprobador / admin" if aprueba else "creador de contenido",
-            "aprobadores": aprob, "publicadores": directa}
+    admin = _esta(usuario, admins) or (rol_tabla == "admin")
+    aprueba = admin or _esta(usuario, aprob) or (rol_tabla == "aprobador")
+    return {"crea": True, "aprueba": aprueba, "admin": admin, "publica": _esta(usuario, directa),
+            "nombre": "admin" if admin else ("aprobador" if aprueba else "creador de contenido"),
+            "aprobadores": aprob, "admins": admins, "publicadores": directa}

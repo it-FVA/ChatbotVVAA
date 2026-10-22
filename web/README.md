@@ -15,10 +15,15 @@ de UX/UI que motivó la segunda vuelta (hallazgos, referencias con links, qué s
   tiene, el botón queda deshabilitado. Orígenes autorizados en Google Cloud: `http://localhost:5173`, `http://localhost:8000`,
   `http://127.0.0.1:8000` (hay que agregar el dominio de producción cuando exista). No se probó con una cuenta real: el botón
   carga y abre el selector de Google; el rechazo de un token inválido sí se probó (401).
+- **Roles** (21/10, los mismos que Streamlit, los devuelve `GET /yo` en `rol`): «creador de contenido» (todos: chat, piezas a
+  aprobación, sus recortes), «aprobador» (`APROBADORES`: además la solapa «Todos» de recortes, editar y borrar los ajenos, cola,
+  registro, papelera) y «admin» (`ADMINS`, default `franco,beto`; un admin también aprueba: además Frase del día, Dashboard y la
+  configuración, p. ej. `PUT /recortes/estilo-defecto`). En la web hoy se usa `rol.aprueba` (solapa «Todos», permisos de las
+  tarjetas) y el nombre del rol en la barra; `rol.admin` queda para la pantalla de configuración cuando exista.
 - **Barra lateral**: «Mis recortes» (esta pantalla) y dos links que por ahora abren la app de Streamlit en producción
   («Chat» y «Mis publicaciones», URL en `VITE_STREAMLIT_URL`). En celular se vuelve una barra arriba.
 - **Recortes**: solapas «Mis recortes», «👥 Del equipo» (los listos de otras personas: abrir, sin editar ni borrar) y
-  «Todos (admin)» para aprobadores; buscador por título, video o quién lo pidió; cada tarjeta con el video (o la miniatura de
+  «Todos» para aprobadores; buscador por título, video o quién lo pidió; cada tarjeta con el video (o la miniatura de
   YouTube si todavía no está), formato, tramo, duración, estado (listo · en proceso · regenerando con los cambios · error), nota,
   quién lo pidió, «Abrir», «✏️ Editar» y «🗑 Borrar» con confirmación (avisa si una publicación usa el video). Mientras haya
   alguno en proceso, la lista se refresca sola cada minuto.

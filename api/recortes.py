@@ -8,7 +8,7 @@ conservan (partir + sacar del medio, editor visual); la cola (procesar_clips.py)
 Rutas (todas con sesión):
   GET    /recortes                     mis recortes · ?equipo=1 los listos de otras personas · ?todos=1 (aprobadores) todos
   GET    /recortes/opciones            tipografías, tamaños, colores, fondos, posiciones (recortar_clip) + estilo por defecto
-  GET    /recortes/estilo-defecto      config clips_estilo (normalizado)      · PUT (aprobadores) lo cambia
+  GET    /recortes/estilo-defecto      config clips_estilo (normalizado)      · PUT (solo admins) lo cambia
   GET    /recortes/{id}                un recorte con líneas de subtítulo, estilo actual y permisos
   POST   /recortes/{id}/edicion        guarda clips.edicion y vuelve el pedido a 'pedido' (= «🔁 Regenerar el recorte»)
   DELETE /recortes/{id}                borra el archivo de WordPress y la fila (= «🗑 Borrar»)
@@ -159,8 +159,8 @@ def estilo_defecto(request: Request):
 
 
 @router.put("/estilo-defecto")
-def guardar_estilo_defecto(datos: EstiloDefecto, usuario=Depends(auth.aprobador)):
-    """Panel admin → Clips → «💾 Guardar como estilo por defecto»: vale para los recortes verticales nuevos."""
+def guardar_estilo_defecto(datos: EstiloDefecto, usuario=Depends(auth.admin)):
+    """Panel admin → Clips → «💾 Guardar como estilo por defecto»: vale para los recortes verticales nuevos. Es configuración: solo admins (21/10)."""
     if not db.disponible():
         raise HTTPException(503, "Sin Supabase.")
     estilo = rc.normalizar_estilo(datos.estilo)

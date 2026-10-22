@@ -21,7 +21,7 @@ def test_login_bueno(cliente):
     assert r.status_code == 200
     d = r.json()
     assert d["usuario"] == "franco" and d["idioma"] == "es"
-    assert d["rol"]["aprueba"] is True and d["rol"]["nombre"] == "aprobador / admin"
+    assert d["rol"]["aprueba"] is True and d["rol"]["admin"] is True and d["rol"]["nombre"] == "admin"
     assert auth.COOKIE in r.cookies
     yo = cliente.get("/yo")
     assert yo.status_code == 200 and yo.json()["usuario"] == "franco"
@@ -45,10 +45,21 @@ def test_cookie_trucha(cliente):
     assert cliente.get("/yo").status_code == 401
 
 
+def test_aprobador_no_admin(cliente, monkeypatch):
+    """(21/10) Julián: aprobador pero no admin. ADMINS (default franco,beto) implica aprobador."""
+    monkeypatch.setenv("APROBADORES", "franco,lizzie")
+    r = cliente.post("/login", json={"usuario": "lizzie", "clave": "clave-lizzie"}).json()["rol"]
+    assert r["aprueba"] is True and r["admin"] is False and r["nombre"] == "aprobador"
+    assert cliente.put("/recortes/estilo-defecto", json={"estilo": {"color": "crema"}}).status_code == 403
+    monkeypatch.setenv("ADMINS", "lizzie")
+    r = cliente.post("/login", json={"usuario": "lizzie", "clave": "clave-lizzie"}).json()["rol"]
+    assert r["admin"] is True and r["aprueba"] is True and r["nombre"] == "admin"
+
+
 def test_roles_e_idioma(cliente):
     r = cliente.post("/login", json={"usuario": "gratefulness", "clave": "clave-g"})
     d = r.json()
-    assert d["idioma"] == "en" and d["rol"]["aprueba"] is False and d["rol"]["nombre"] == "creador de contenido"
+    assert d["idioma"] == "en" and d["rol"]["aprueba"] is False and d["rol"]["admin"] is False and d["rol"]["nombre"] == "creador de contenido"
     assert cliente.get("/recortes?todos=1").status_code == 403
     assert cliente.get("/publicaciones?todos=1").status_code == 403
     assert cliente.get("/autorizados").status_code == 403

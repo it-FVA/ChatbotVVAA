@@ -99,7 +99,7 @@ Los mismos nombres que los secrets de Streamlit. En un servidor se cargan como v
 | `SUPABASE_URL`, `SUPABASE_KEY` | conversaciones, clips, publicaciones, autorizados | sí (sin ellas anda el chat pero no guarda) |
 | `USUARIOS_JSON` | `{"franco": "clave", …}`: reemplaza la tabla `[usuarios]` de secrets en el servidor | sí (o `[usuarios]` en secrets.toml) |
 | `IDIOMAS_JSON` | `{"gratefulness": "en"}`: reemplaza `[idiomas]` (si falta, valen los defaults de la app) | no |
-| `APROBADORES`, `PUBLICACION_DIRECTA` | roles, como hoy | no (default `julian,franco,beto`) |
+| `APROBADORES`, `ADMINS`, `PUBLICACION_DIRECTA` | roles, como en Streamlit (21/10: creador → aprobador → admin; un admin también aprueba) | no (defaults `julian,franco,beto` / `franco,beto`) |
 | `SESION_SECRETO` | firma de la cookie de sesión; una cadena larga al azar | **sí en producción** (si falta se genera una al arrancar y las sesiones mueren al reiniciar) |
 | `COOKIE_SEGURA` | `1` detrás de HTTPS (cookie `Secure`) | sí en producción |
 | `COOKIE_SAMESITE` | `lax` (default) si interfaz y API comparten dominio; `none` + `COOKIE_SEGURA=1` si están en dominios distintos | no |
