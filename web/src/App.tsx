@@ -58,7 +58,12 @@ export default function App() {
 function Protegido({ children }: { children: React.ReactNode }) {
   const { yo, cargando } = useSesion();
   const loc = useLocation();
-  if (cargando) return <div className="pantalla-centro">Cargando…</div>;
+  if (cargando)
+    return (
+      <div className="pantalla-centro suave" aria-busy="true">
+        <span className="girando" aria-hidden="true" /> Cargando…
+      </div>
+    );
   if (!yo) return <Navigate to="/login" replace state={{ desde: loc.pathname }} />;
   return <>{children}</>;
 }

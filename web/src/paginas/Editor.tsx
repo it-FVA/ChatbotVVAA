@@ -1,13 +1,18 @@
-// «✏️ Editar recorte» con editor visual (fase 1): reproductor + línea de tiempo con manijas, partir y sacar pedazos,
-// subtítulos por línea sincronizados, estilo con vista previa sobre el video, quitar pausas, y un único «Regenerar».
+// «Editar recorte» con editor visual (fase 1 + revisión UX): reproductor + línea de tiempo con miniaturas, onda, zoom y manijas
+// grandes; partir y sacar pedazos (clic selecciona, Supr saca); atajos de teclado; subtítulos por línea sincronizados; estilo con
+// presets y vista previa sobre el video; quitar pausas; un único «Regenerar» (en celular, en una barra inferior fija).
 // La lógica de negocio (qué va a clips.edicion, validaciones) vive en la API (api/recortes.py); acá solo se arma el pedido.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, ErrorApi } from "../api";
 import type { Detalle, Estilo, Linea, Opciones, RespuestaEdicion } from "../tipos";
-import LineaTiempo, { calcularPicos, type Pieza } from "../componentes/LineaTiempo";
+import LineaTiempo, { calcularPicos, sacarMiniaturas, ZOOM_MAX, type Miniatura, type Pieza } from "../componentes/LineaTiempo";
 import Subtitulos, { lineaEn } from "../componentes/Subtitulos";
 import { ControlesEstilo, cssSubtitulo } from "../componentes/Estilo";
+import { Icono } from "../componentes/Iconos";
+import Modal from "../componentes/Modal";
+import { EditorEsqueleto, Migas, Tecla } from "../componentes/Comunes";
+import { useToast } from "../componentes/Toasts";
 import { mmss, tramoAVideo, videoATramo } from "../util/tiempo";
 
 const MIN_MS = 2000;
@@ -32,16 +37,22 @@ export default function Editor() {
   if (error)
     return (
       <div className="pagina">
+        <Migas pasos={[{ texto: "Recortes", a: "/recortes" }, { texto: "Editar" }]} />
         <div className="aviso error">{error}</div>
-        <Link to="/recortes">← Volver a los recortes</Link>
+        <Link className="boton" to="/recortes">
+          <Icono nombre="flechaIzq" /> Volver a los recortes
+        </Link>
       </div>
     );
-  if (!det || !opciones) return <div className="pagina suave">Cargando el recorte…</div>;
+  if (!det || !opciones) return <EditorEsqueleto />;
   if (!det.puede_editar)
     return (
       <div className="pagina">
+        <Migas pasos={[{ texto: "Recortes", a: "/recortes" }, { texto: (det.titulo || det.video_id).slice(0, 60) }]} />
         <div className="aviso">Este recorte no se puede editar desde acá (no está listo, o lo pidió otra persona).</div>
-        <Link to="/recortes">← Volver a los recortes</Link>
+        <Link className="boton" to="/recortes">
+          <Icono nombre="flechaIzq" /> Volver a los recortes
+        </Link>
       </div>
     );
   return <EditorCargado det={det} opciones={opciones} />;
@@ -63,35 +74,58 @@ function piezasIniciales(det: Detalle): Pieza[] {
   return out;
 }
 
+const ATAJOS: [string[], string][] = [
+  [["Espacio"], "Reproducir / pausar"],
+  [["←", "→"], "Un segundo atrás / adelante"],
+  [["Shift", "←/→"], "Una décima de segundo"],
+  [["I"], "Marcar el inicio en el cabezal"],
+  [["O"], "Marcar el fin en el cabezal"],
+  [["S"], "Partir en el cabezal"],
+  [["Supr"], "Sacar el pedazo seleccionado (clic en un pedazo lo selecciona)"],
+  [["+", "−"], "Acercar / alejar la línea de tiempo (también Ctrl + rueda)"],
+  [["0"], "Ver todo el tramo"],
+  [["Inicio", "Fin"], "Ir al principio / al final del video"],
+  [["?"], "Esta ayuda"],
+];
+
 function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) {
   const vertical = det.formato === "vertical";
   const ini0 = det.inicio_ms, fin0 = det.fin_ms;
+  const { avisar } = useToast();
   const [ini, setIni] = useState(ini0);
   const [fin, setFin] = useState(fin0);
   const [piezas, setPiezas] = useState<Pieza[]>(() => piezasIniciales(det));
+  const [seleccion, setSeleccion] = useState<number | null>(null);
   const [lineas, setLineas] = useState<Linea[]>(det.lineas.map((l) => ({ ...l })));
   const [estilo, setEstilo] = useState<Estilo>(det.estilo_actual);
   const [quitarPausas, setQuitarPausas] = useState(!!det.edicion?.quitar_pausas);
   const [descartarSrt, setDescartarSrt] = useState(true);
   const [mostrarPrevia, setMostrarPrevia] = useState(true);
   const [tiempo, setTiempo] = useState(0);
+  const [reproduciendo, setReproduciendo] = useState(false);
   const [duracion, setDuracion] = useState(det.duracion_ms / 1000);
   const [picos, setPicos] = useState<Float32Array | null>(null);
+  const [miniaturas, setMiniaturas] = useState<Miniatura[] | null>(null);
+  const [zoom, setZoom] = useState(1);
   const [altoVideo, setAltoVideo] = useState(0);
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<RespuestaEdicion | null>(null);
-  const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
+  const [ayuda, setAyuda] = useState(false);
   const video = useRef<HTMLVideoElement>(null);
   const timeline = det.timeline;
 
-  // forma de onda
+  // forma de onda y miniaturas (las dos se sacan del mp4 en el navegador)
   useEffect(() => {
     let vivo = true;
-    if (det.url) calcularPicos(det.url).then((p) => vivo && setPicos(p));
+    if (det.url) {
+      calcularPicos(det.url).then((p) => vivo && setPicos(p));
+      const n = Math.min(60, Math.max(20, Math.round(det.duracion_ms / 1500)));
+      sacarMiniaturas(det.url, n, 54, (m) => vivo && setMiniaturas(m)).then((m) => vivo && setMiniaturas(m));
+    }
     return () => {
       vivo = false;
     };
-  }, [det.url]);
+  }, [det.url, det.duracion_ms]);
 
   // alto real del video en pantalla (para escalar la vista previa de los subtítulos)
   useEffect(() => {
@@ -128,29 +162,48 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
       return out;
     });
   }, []);
-  const cambiarIni = (ms: number) => {
-    const v = Math.max(0, Math.min(Math.round(ms), fin - 100));
-    setIni(v);
-    ajustarPiezas(v, fin);
-  };
-  const cambiarFin = (ms: number) => {
-    const v = Math.max(Math.round(ms), ini + 100);
-    setFin(v);
-    ajustarPiezas(ini, v);
-  };
+  const cambiarIni = useCallback(
+    (ms: number) => {
+      const v = Math.max(0, Math.min(Math.round(ms), fin - 100));
+      setIni(v);
+      ajustarPiezas(v, fin);
+    },
+    [fin, ajustarPiezas],
+  );
+  const cambiarFin = useCallback(
+    (ms: number) => {
+      const v = Math.max(Math.round(ms), ini + 100);
+      setFin(v);
+      ajustarPiezas(ini, v);
+    },
+    [ini, ajustarPiezas],
+  );
 
   // --- reproductor ↔ original ---
   const msOriginalActual = ini0 + videoATramo(tiempo, timeline) * 1000;
-  function irA(msOriginal: number) {
-    const tv = tramoAVideo((msOriginal - ini0) / 1000, timeline, duracion);
-    if (tv !== null && video.current) video.current.currentTime = Math.max(0, Math.min(tv, duracion));
-  }
+  const irA = useCallback(
+    (msOriginal: number) => {
+      const tv = tramoAVideo((msOriginal - ini0) / 1000, timeline, duracion);
+      if (tv !== null && video.current) video.current.currentTime = Math.max(0, Math.min(tv, duracion));
+    },
+    [ini0, timeline, duracion],
+  );
   function irASegundoVideo(s: number) {
     if (video.current) video.current.currentTime = Math.max(0, Math.min(s, duracion));
   }
+  function moverVideo(ds: number) {
+    const v = video.current;
+    if (v) v.currentTime = Math.max(0, Math.min(v.currentTime + ds, duracion));
+  }
+  function alternarReproduccion() {
+    const v = video.current;
+    if (!v) return;
+    if (v.paused) v.play().catch(() => {});
+    else v.pause();
+  }
 
   // --- partir y sacar ---
-  function partir() {
+  const partir = useCallback(() => {
     const t = Math.round(msOriginalActual);
     setPiezas((ps) => {
       const i = ps.findIndex((p) => t > p.a + 300 && t < p.b - 300);
@@ -158,12 +211,17 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
       const p = ps[i];
       return [...ps.slice(0, i), { ...p, b: t }, { ...p, a: t }, ...ps.slice(i + 1)];
     });
-  }
+  }, [msOriginalActual]);
   function alternarPieza(i: number) {
     setPiezas((ps) => ps.map((p, j) => (j === i ? { ...p, conservada: !p.conservada } : p)));
   }
+  const sacarSeleccion = useCallback(() => {
+    if (seleccion === null) return;
+    setPiezas((ps) => (ps.length > 1 ? ps.map((p, j) => (j === seleccion ? { ...p, conservada: false } : p)) : ps));
+  }, [seleccion]);
   function unirTodo() {
     setPiezas([{ a: ini, b: fin, conservada: true }]);
+    setSeleccion(null);
   }
 
   const conservadas = piezas.filter((p) => p.conservada);
@@ -174,7 +232,8 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
   const srtCambio = vertical && lineas.some((l, i) => l.texto !== det.lineas[i]?.texto);
   const estiloCambio = vertical && JSON.stringify(estilo) !== JSON.stringify(det.estilo_actual);
   const pausasCambio = quitarPausas !== !!det.edicion?.quitar_pausas;
-  const hayCambios = tramoCambio || segmentosCambio || srtCambio || estiloCambio || pausasCambio;
+  const cambios = [tramoCambio && "tramo", segmentosCambio && "pedazos", srtCambio && "subtítulos", estiloCambio && "estilo", pausasCambio && "pausas"].filter(Boolean) as string[];
+  const hayCambios = cambios.length > 0;
 
   // --- validación (la misma que la API) ---
   let problema: string | null = null;
@@ -186,9 +245,42 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
   else if (durConservada < MIN_MS) problema = "Lo que queda del recorte dura menos de 2 segundos.";
   else if (vertical && lineas.length && !tramoCambio && lineas.every((l) => !l.texto.trim())) problema = "Quedaron todas las líneas vacías: el video saldría sin subtítulos. Dejá al menos una.";
 
+  // --- atajos de teclado (no cuando se está escribiendo en un campo ni con un modal abierto) ---
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (ayuda || (t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA" || t.isContentEditable))) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const k = e.key;
+      const esManija = t?.classList.contains("manija");
+      if (k === " ") {
+        e.preventDefault();
+        alternarReproduccion();
+      } else if ((k === "ArrowLeft" || k === "ArrowRight") && !esManija) {
+        e.preventDefault();
+        moverVideo((k === "ArrowLeft" ? -1 : 1) * (e.shiftKey ? 0.1 : 1));
+      } else if (k === "i" || k === "I") cambiarIni(msOriginalActual);
+      else if (k === "o" || k === "O") cambiarFin(msOriginalActual);
+      else if (k === "s" || k === "S") partir();
+      else if (k === "Delete" || k === "Backspace") {
+        if (seleccion !== null) {
+          e.preventDefault();
+          sacarSeleccion();
+        }
+      } else if (k === "+" || k === "=") setZoom((z) => Math.min(ZOOM_MAX, z * 1.5));
+      else if (k === "-" || k === "_") setZoom((z) => (z / 1.5 < 1.1 ? 1 : z / 1.5));
+      else if (k === "0") setZoom(1);
+      else if (k === "Home") irASegundoVideo(0);
+      else if (k === "End") irASegundoVideo(duracion);
+      else if (k === "?") setAyuda(true);
+      else if (k === "Escape") setSeleccion(null);
+    };
+    window.addEventListener("keydown", tecla);
+    return () => window.removeEventListener("keydown", tecla);
+  });
+
   async function regenerar() {
     setEnviando(true);
-    setErrorEnvio(null);
     const datos: Record<string, unknown> = { segmentos, quitar_pausas: quitarPausas, descartar_srt: descartarSrt };
     if (tramoCambio) {
       datos.inicio_ms = ini;
@@ -199,9 +291,11 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
       if (lineas.length && srtCambio) datos.lineas = lineas.map((l) => ({ inicio: l.inicio, fin: l.fin, texto: l.texto }));
     }
     try {
-      setResultado(await api.editar(det.id, datos));
+      const r = await api.editar(det.id, datos);
+      setResultado(r);
+      avisar("Listo: el recorte se está regenerando.");
     } catch (e) {
-      setErrorEnvio(e instanceof ErrorApi ? e.message : "No pude mandar los cambios.");
+      avisar(e instanceof ErrorApi ? e.message : "No pude mandar los cambios.", "error");
     } finally {
       setEnviando(false);
     }
@@ -210,12 +304,17 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
   const idxLinea = lineaEn(lineas, tiempo);
   const css = cssSubtitulo(estilo, opciones, det.formato, altoVideo || 288);
   const textoPrevia = idxLinea >= 0 ? lineas[idxLinea].texto : lineas.length ? "" : "La gratitud es la llave de la alegría";
+  const titulo = (det.titulo || det.video_id).slice(0, 90);
 
   if (resultado) {
     return (
       <div className="pagina">
+        <Migas pasos={[{ texto: "Recortes", a: "/recortes" }, { texto: titulo }]} />
         <div className="tarjeta listo-caja">
-          <h2>⏳ Regenerando el recorte</h2>
+          <div className="listo-icono">
+            <Icono nombre="regenerar" tam={28} />
+          </div>
+          <h2>Regenerando el recorte</h2>
           <p>{resultado.mensaje}</p>
           {resultado.partes.length > 0 && <p className="suave">Cambios: {resultado.partes.join(", ")}.</p>}
           {resultado.avisos.map((a, i) => (
@@ -225,24 +324,55 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
           ))}
           <p className="suave chico">El video anterior se reemplaza cuando termine (unos 15 minutos). La lista se actualiza sola.</p>
           <Link className="boton primario" to="/recortes">
-            ← Volver a los recortes
+            <Icono nombre="flechaIzq" /> Volver a los recortes
           </Link>
         </div>
       </div>
     );
   }
 
+  const barraRegenerar = (
+    <section className="editor-regenerar" aria-label="Regenerar">
+      {problema && (
+        <div className="aviso error chico">
+          <Icono nombre="alerta" tam={16} /> {problema}
+        </div>
+      )}
+      <div className="regenerar-fila">
+        <div className="regenerar-estado chico">
+          {hayCambios ? (
+            <>
+              <strong>{cambios.length === 1 ? "1 cambio" : `${cambios.length} cambios`}</strong> <span className="suave">({cambios.join(", ")}) · tarda unos 15 min</span>
+            </>
+          ) : (
+            <span className="suave">Todavía no cambiaste nada.</span>
+          )}
+        </div>
+        <button type="button" className="boton primario grande" disabled={!hayCambios || !!problema || enviando} onClick={regenerar}>
+          <Icono nombre="regenerar" /> {enviando ? "Mandando…" : "Regenerar el recorte"}
+        </button>
+      </div>
+    </section>
+  );
+
   return (
     <div className="pagina editor">
       <header className="pagina-cabecera">
-        <Link to="/recortes" className="chico">
-          ← Recortes
-        </Link>
-        <h1>✏️ {(det.titulo || det.video_id).slice(0, 90)}</h1>
-        <p className="suave chico">
-          {vertical ? "📱 vertical" : "🎬 horizontal"} · {mmss(ini0)}–{mmss(fin0)} del original · {(det.duracion_ms / 1000).toFixed(0)} s
-          {det.sin_pausas && ` · ✂️ sin pausas (${det.sin_pausas.antes.toFixed(0)} s → ${det.sin_pausas.despues.toFixed(0)} s)`}
-          {det.segmentos_hechos && ` · ✂️ ${det.segmentos_hechos.length} pedazos conservados`}
+        <Migas pasos={[{ texto: "Recortes", a: "/recortes" }, { texto: titulo }]} />
+        <h1>{titulo}</h1>
+        <p className="suave chico meta">
+          <span>
+            <Icono nombre={vertical ? "celular" : "pelicula"} tam={14} /> {vertical ? "vertical" : "horizontal"}
+          </span>
+          <span>
+            {mmss(ini0)}–{mmss(fin0)} del original · {(det.duracion_ms / 1000).toFixed(0)} s
+          </span>
+          {det.sin_pausas && (
+            <span>
+              sin pausas ({det.sin_pausas.antes.toFixed(0)} s → {det.sin_pausas.despues.toFixed(0)} s)
+            </span>
+          )}
+          {det.segmentos_hechos && <span>{det.segmentos_hechos.length} pedazos conservados</span>}
         </p>
       </header>
 
@@ -250,31 +380,64 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
         {/* ---------- reproductor + vista previa ---------- */}
         <section className="editor-video">
           <div className={"reproductor " + det.formato}>
-            <video ref={video} src={det.url!} controls playsInline onLoadedMetadata={(e) => setDuracion(e.currentTarget.duration || duracion)} />
+            <video
+              ref={video}
+              src={det.url!}
+              controls
+              playsInline
+              onLoadedMetadata={(e) => setDuracion(e.currentTarget.duration || duracion)}
+              onPlay={() => setReproduciendo(true)}
+              onPause={() => setReproduciendo(false)}
+              onEnded={() => setReproduciendo(false)}
+            />
             {vertical && mostrarPrevia && textoPrevia && (
               <div style={css.caja}>
                 <span style={css.texto}>{textoPrevia}</span>
               </div>
             )}
           </div>
-          {vertical && (
-            <label className="casilla chico">
-              <input type="checkbox" checked={mostrarPrevia} onChange={(e) => setMostrarPrevia(e.target.checked)} />
-              <span>Mostrar la vista previa del estilo encima del video</span>
-            </label>
-          )}
-          <p className="suave chico">
-            Segundo {tiempo.toFixed(1)} del recorte = {mmss(msOriginalActual, 1)} del original.
-            {vertical && " La vista previa se dibuja encima del video actual, que ya tiene sus subtítulos quemados: el video nuevo sale solo con los nuevos."}
-          </p>
+          <div className="video-pie">
+            <span className="chico tiempo-actual">
+              <Icono nombre="reloj" tam={14} /> {mmss(tiempo * 1000, 1)} del recorte · <strong>{mmss(msOriginalActual, 1)}</strong> del original
+            </span>
+            {vertical && (
+              <label className="casilla chico">
+                <input type="checkbox" checked={mostrarPrevia} onChange={(e) => setMostrarPrevia(e.target.checked)} />
+                <span>Vista previa del estilo encima del video</span>
+              </label>
+            )}
+          </div>
+          {vertical && <p className="suave chico">El video actual ya tiene sus subtítulos quemados: por eso se ven los dos. El nuevo sale solo con los nuevos.</p>}
         </section>
 
         {/* ---------- tramo + línea de tiempo ---------- */}
         <section className="editor-tramo">
-          <h2>Tramo</h2>
+          <div className="seccion-cabecera">
+            <h2>
+              <Icono nombre="tramo" /> Tramo y cortes
+            </h2>
+            <div className="linea-herramientas" role="toolbar" aria-label="Línea de tiempo">
+              <button type="button" className="boton sutil icono-solo" onClick={() => setZoom((z) => (z / 1.5 < 1.1 ? 1 : z / 1.5))} disabled={zoom <= 1} title="Alejar (−)" aria-label="Alejar">
+                <Icono nombre="lupaMenos" />
+              </button>
+              <span className="zoom-valor chico" aria-live="polite">
+                {zoom.toFixed(1)}×
+              </span>
+              <button type="button" className="boton sutil icono-solo" onClick={() => setZoom((z) => Math.min(ZOOM_MAX, z * 1.5))} disabled={zoom >= ZOOM_MAX} title="Acercar (+)" aria-label="Acercar">
+                <Icono nombre="lupaMas" />
+              </button>
+              <button type="button" className="boton sutil icono-solo" onClick={() => setZoom(1)} disabled={zoom <= 1} title="Ver todo el tramo (0)" aria-label="Ver todo">
+                <Icono nombre="ajustar" />
+              </button>
+              <span className="separador-v" />
+              <button type="button" className="boton sutil chico" onClick={() => setAyuda(true)} title="Atajos de teclado (?)">
+                <Icono nombre="teclado" /> Atajos
+              </button>
+            </div>
+          </div>
           <p className="suave chico">
-            Dónde empieza y dónde termina el recorte, en el video original. Arrastrá las manijas o usá los campos y los botones de ±1 s. Tiene que durar entre 2
-            segundos y 3 minutos. Lo rayado está fuera del video actual: se puede elegir, pero no se ve hasta regenerar.
+            Arrastrá las manijas amarillas para elegir dónde empieza y termina (entre 2 s y 3 min). Lo rayado está fuera del video actual: se puede elegir, pero no
+            se ve hasta regenerar.
           </p>
           <LineaTiempo
             ini={ini}
@@ -282,50 +445,58 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
             ini0={ini0}
             fin0={fin0}
             piezas={piezas}
+            seleccion={seleccion}
             timeline={timeline}
             duracionVideo={duracion}
             tiempoVideo={tiempo}
+            reproduciendo={reproduciendo}
+            formato={det.formato}
             picos={picos}
+            miniaturas={miniaturas}
+            zoom={zoom}
+            onZoom={setZoom}
             onIni={cambiarIni}
             onFin={cambiarFin}
             onIr={irA}
             onPieza={alternarPieza}
+            onSeleccion={setSeleccion}
+            onPartir={partir}
           />
           <div className="tramo-controles">
-            <ControlTiempo etiqueta="Inicio" ms={ini} onCambio={cambiarIni} />
-            <ControlTiempo etiqueta="Fin" ms={fin} onCambio={cambiarFin} />
+            <ControlTiempo etiqueta="Inicio" icono="marcaIni" ms={ini} onCambio={cambiarIni} onMarcar={() => cambiarIni(msOriginalActual)} />
+            <ControlTiempo etiqueta="Fin" icono="marcaFin" ms={fin} onCambio={cambiarFin} onMarcar={() => cambiarFin(msOriginalActual)} />
             <div className="duracion">
-              Duración: <strong>{(durConservada / 1000).toFixed(1)} s</strong>
-              {segmentos.length > 0 && <span className="suave"> (tramo {(durTramo / 1000).toFixed(1)} s, {segmentos.length === 1 ? "1 pedazo conservado" : `${segmentos.length} pedazos conservados`})</span>}
-              {tramoCambio && segmentos.length === 0 && <span className="suave"> (antes {(det.duracion_ms / 1000).toFixed(1)} s)</span>}
+              <span className="suave chico">Dura</span> <strong>{(durConservada / 1000).toFixed(1)} s</strong>
+              {segmentos.length > 0 && <span className="suave chico"> · tramo {(durTramo / 1000).toFixed(1)} s, {segmentos.length === 1 ? "1 pedazo" : `${segmentos.length} pedazos`}</span>}
+              {tramoCambio && segmentos.length === 0 && <span className="suave chico"> · antes {(det.duracion_ms / 1000).toFixed(1)} s</span>}
             </div>
           </div>
           <div className="acciones">
-            <button type="button" className="boton" onClick={partir} title="Parte el recorte en la posición actual del reproductor">
-              ✂️ Partir acá ({mmss(msOriginalActual, 1)})
+            <button type="button" className="boton" onClick={partir} title="Parte el recorte en la posición del reproductor (S)">
+              <Icono nombre="tijera" /> Partir en {mmss(msOriginalActual, 1)}
             </button>
-            {piezas.length > 1 && (
-              <button type="button" className="boton" onClick={unirTodo}>
-                Deshacer los cortes
+            {seleccion !== null && piezas.length > 1 && (
+              <button type="button" className="boton" onClick={() => alternarPieza(seleccion)} title={piezas[seleccion].conservada ? "Sacar el pedazo seleccionado (Supr)" : "Volver a conservar el pedazo seleccionado"}>
+                <Icono nombre={piezas[seleccion].conservada ? "cruz" : "deshacer"} /> {piezas[seleccion].conservada ? "Sacar el pedazo" : "Restaurar el pedazo"}
               </button>
             )}
-            <span className="suave chico">Después de partir, hacé clic en un pedazo para sacarlo (gris) o volver a conservarlo (verde).</span>
+            {piezas.length > 1 && (
+              <button type="button" className="boton sutil" onClick={unirTodo}>
+                <Icono nombre="deshacer" /> Deshacer los cortes
+              </button>
+            )}
+            {piezas.length > 1 && <span className="suave chico">Clic en un pedazo lo selecciona; el botón de cada pedazo lo saca o lo restaura.</span>}
           </div>
           <label className="casilla">
             <input type="checkbox" checked={quitarPausas} onChange={(e) => setQuitarPausas(e.target.checked)} />
             <span>
               Quitar pausas largas (más de 0,7 s)
-              <span className="suave chico">
-                {" "}
-                Saca automáticamente los silencios largos (deja un cuarto de segundo a cada lado). En una charla suele sacar entre un 10 y un 20 % del tiempo;
-                en una meditación casi no cambia nada. Los subtítulos se acomodan solos.
-              </span>
+              <span className="suave chico"> Saca los silencios largos y deja un cuarto de segundo a cada lado. En una charla suele sacar entre un 10 y un 20 % del tiempo. Los subtítulos se acomodan solos.</span>
             </span>
           </label>
           {det.sin_pausas && quitarPausas && !pausasCambio && (
             <p className="suave chico">
-              Este recorte ya está sin pausas largas: duraba {det.sin_pausas.antes.toFixed(0)} s y quedó en {det.sin_pausas.despues.toFixed(0)} s (
-              {det.sin_pausas.pausas} pausas sacadas).
+              Este recorte ya está sin pausas largas: duraba {det.sin_pausas.antes.toFixed(0)} s y quedó en {det.sin_pausas.despues.toFixed(0)} s ({det.sin_pausas.pausas} pausas sacadas).
             </p>
           )}
         </section>
@@ -333,31 +504,32 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
         {/* ---------- subtítulos ---------- */}
         {vertical && (
           <section className="editor-subs">
-            <h2>Subtítulos</h2>
+            <div className="seccion-cabecera">
+              <h2>
+                <Icono nombre="subtitulos" /> Subtítulos
+              </h2>
+              {lineas.length > 0 && <span className="suave chico">{lineas.length} líneas</span>}
+            </div>
             {tramoCambio || segmentosCambio || pausasCambio ? (
               <>
                 {det.srt_corregido || srtCambio ? (
                   <>
-                    <div className="aviso">
-                      Los subtítulos corregidos corresponden al video anterior: con el tramo nuevo (o los pedazos y pausas nuevos) pueden quedar corridos o
-                      cortados.
+                    <div className="aviso chico">
+                      Los subtítulos corregidos corresponden al video anterior: con el tramo nuevo (o los pedazos y pausas nuevos) pueden quedar corridos o cortados.
                     </div>
                     {tramoCambio && (
                       <label className="casilla chico">
-                        <input type="checkbox" checked={descartarSrt} onChange={(e) => setDescartarSrt(e.target.checked)} /> Descartar los subtítulos corregidos
-                        y armarlos de nuevo para el tramo nuevo (después los podés volver a corregir)
+                        <input type="checkbox" checked={descartarSrt} onChange={(e) => setDescartarSrt(e.target.checked)} /> Descartar los subtítulos corregidos y armarlos de nuevo para el
+                        tramo nuevo (después los podés volver a corregir)
                       </label>
                     )}
                   </>
                 ) : (
-                  <p className="suave chico">
-                    Como cambiaste el tramo (o los pedazos / pausas), los subtítulos se arman de nuevo desde la transcripción. Cuando el video esté listo los
-                    podés corregir desde acá.
-                  </p>
+                  <p className="suave chico">Como cambiaste el tramo (o los pedazos / pausas), los subtítulos se arman de nuevo desde la transcripción. Cuando el video esté listo los podés corregir desde acá.</p>
                 )}
               </>
             ) : (
-              <p className="suave chico">Una caja por línea. Clic en el tiempo salta a ese momento del video. Corregí el texto; una línea vacía se saca. Los tiempos no se cambian desde acá.</p>
+              <p className="suave chico">La línea que suena se resalta y la lista la sigue. Clic en el tiempo salta a ese momento. Una línea vacía se saca; los tiempos no se cambian desde acá.</p>
             )}
             <Subtitulos lineas={lineas} actual={idxLinea} onIr={irASegundoVideo} onTexto={(i, t) => setLineas((ls) => ls.map((l, j) => (j === i ? { ...l, texto: t } : l)))} />
           </section>
@@ -366,45 +538,65 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
         {/* ---------- estilo ---------- */}
         {vertical && (
           <section className="editor-estilo">
-            <h2>Estilo de los subtítulos</h2>
-            <p className="suave chico">
-              Cómo se ven las letras sobre el video. Arranca con el estilo de este recorte{det.estilo_propio ? "" : " (el por defecto del equipo)"}. La vista previa
-              se dibuja arriba, sobre el reproductor.
-            </p>
+            <div className="seccion-cabecera">
+              <h2>
+                <Icono nombre="paleta" /> Estilo de los subtítulos
+              </h2>
+              {det.estilo_propio ? <span className="suave chico">estilo propio de este recorte</span> : <span className="suave chico">arranca con el del equipo</span>}
+            </div>
+            <p className="suave chico">Elegí un estilo listo o ajustá cada cosa. La vista previa, sobre el reproductor, cambia al instante.</p>
             <ControlesEstilo estilo={estilo} opciones={opciones} onCambio={setEstilo} />
           </section>
         )}
 
         {/* ---------- regenerar ---------- */}
-        <section className="editor-regenerar">
-          {problema && <div className="aviso error">{problema}</div>}
-          {errorEnvio && <div className="aviso error">{errorEnvio}</div>}
-          <div className="acciones">
-            <button type="button" className="boton primario grande" disabled={!hayCambios || !!problema || enviando} onClick={regenerar}>
-              {enviando ? "Mandando…" : "🔁 Regenerar el recorte"}
-            </button>
-            <span className="suave chico">{hayCambios ? "Vuelve a cortar el video con los cambios. Tarda unos 15 minutos, como cualquier recorte." : "Todavía no cambiaste nada."}</span>
-          </div>
-        </section>
+        {barraRegenerar}
       </div>
+
+      {ayuda && (
+        <Modal titulo="Atajos de teclado" onCerrar={() => setAyuda(false)} ancho={520}>
+          <p className="suave chico">Funcionan cuando no estás escribiendo en un campo. Las manijas también se mueven con las flechas cuando tienen el foco (Tab).</p>
+          <table className="atajos">
+            <tbody>
+              {ATAJOS.map(([teclas, que]) => (
+                <tr key={que}>
+                  <td>
+                    {teclas.map((t, i) => (
+                      <Tecla key={i}>{t}</Tecla>
+                    ))}
+                  </td>
+                  <td>{que}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="acciones" style={{ justifyContent: "flex-end" }}>
+            <button type="button" className="boton primario" onClick={() => setAyuda(false)}>
+              Entendido
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
 
-function ControlTiempo({ etiqueta, ms, onCambio }: { etiqueta: string; ms: number; onCambio: (ms: number) => void }) {
+function ControlTiempo({ etiqueta, icono, ms, onCambio, onMarcar }: { etiqueta: string; icono: "marcaIni" | "marcaFin"; ms: number; onCambio: (ms: number) => void; onMarcar: () => void }) {
   const m = Math.floor(ms / 60000);
   const s = (ms % 60000) / 1000;
   return (
-    <div className="control-tiempo">
-      <strong>{etiqueta}</strong>
-      <button type="button" className="boton chico" onClick={() => onCambio(ms - 1000)} title="Un segundo antes">
-        −1 s
+    <div className="control-tiempo" role="group" aria-label={etiqueta}>
+      <button type="button" className="boton sutil chico" onClick={onMarcar} title={`Poner el ${etiqueta.toLowerCase()} donde está el reproductor (${icono === "marcaIni" ? "I" : "O"})`}>
+        <Icono nombre={icono} tam={15} /> {etiqueta}
       </button>
-      <input type="number" min={0} max={599} value={m} onChange={(e) => onCambio(Number(e.target.value) * 60000 + s * 1000)} aria-label="minutos" />
+      <button type="button" className="boton chico icono-solo" onClick={() => onCambio(ms - 1000)} title="Un segundo antes" aria-label={`${etiqueta}: un segundo antes`}>
+        <Icono nombre="menos" tam={14} />
+      </button>
+      <input type="number" min={0} max={599} value={m} onChange={(e) => onCambio(Number(e.target.value) * 60000 + s * 1000)} aria-label={`${etiqueta}: minutos`} />
       <span>:</span>
-      <input type="number" min={0} max={59.9} step={0.1} value={s.toFixed(1)} onChange={(e) => onCambio(m * 60000 + Number(e.target.value) * 1000)} aria-label="segundos" />
-      <button type="button" className="boton chico" onClick={() => onCambio(ms + 1000)} title="Un segundo después">
-        +1 s
+      <input type="number" min={0} max={59.9} step={0.1} value={s.toFixed(1)} onChange={(e) => onCambio(m * 60000 + Number(e.target.value) * 1000)} aria-label={`${etiqueta}: segundos`} />
+      <button type="button" className="boton chico icono-solo" onClick={() => onCambio(ms + 1000)} title="Un segundo después" aria-label={`${etiqueta}: un segundo después`}>
+        <Icono nombre="mas" tam={14} />
       </button>
     </div>
   );

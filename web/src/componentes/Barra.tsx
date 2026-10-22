@@ -1,6 +1,7 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { api, STREAMLIT_URL } from "../api";
 import { useSesion } from "../App";
+import { Icono } from "./Iconos";
 
 export default function Barra() {
   const { yo, setYo } = useSesion();
@@ -24,15 +25,15 @@ export default function Barra() {
           <div className="suave chico">Asistente de contenido</div>
         </div>
       </div>
-      <nav className="barra-nav">
+      <nav className="barra-nav" aria-label="Secciones">
         <NavLink to="/recortes" className={({ isActive }) => "barra-link" + (isActive ? " activo" : "")}>
-          🎬 Mis recortes
+          <Icono nombre="pelicula" /> Mis recortes
         </NavLink>
         <a className="barra-link externo" href={STREAMLIT_URL} target="_blank" rel="noreferrer" title="Por ahora el chat sigue en la app de Streamlit">
-          💬 Chat <span className="suave chico">↗ Streamlit</span>
+          <Icono nombre="chat" /> Chat <span className="suave chico">Streamlit</span>
         </a>
         <a className="barra-link externo" href={STREAMLIT_URL + "/?vista=publicar"} target="_blank" rel="noreferrer" title="Por ahora las publicaciones siguen en la app de Streamlit">
-          📣 Mis publicaciones <span className="suave chico">↗ Streamlit</span>
+          <Icono nombre="megafono" /> Mis publicaciones <span className="suave chico">Streamlit</span>
         </a>
       </nav>
       <div className="barra-pie">
@@ -40,8 +41,8 @@ export default function Barra() {
           <strong>{yo?.usuario}</strong>
           <div className="suave">{yo?.rol.nombre}</div>
         </div>
-        <button className="boton chico" onClick={salir}>
-          Salir
+        <button className="boton sutil chico" onClick={salir} title="Cerrar la sesión">
+          <Icono nombre="salir" tam={16} /> Salir
         </button>
       </div>
     </aside>
