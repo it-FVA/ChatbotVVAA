@@ -1,1 +1,0 @@
-{"root":["./src/app.tsx","./src/api.ts","./src/main.tsx","./src/tipos.ts","./src/vite-env.d.ts","./src/componentes/barra.tsx","./src/componentes/estilo.tsx","./src/componentes/lineatiempo.tsx","./src/componentes/subtitulos.tsx","./src/paginas/editor.tsx","./src/paginas/login.tsx","./src/paginas/recortes.tsx","./src/util/tiempo.ts"],"version":"5.9.3"}
