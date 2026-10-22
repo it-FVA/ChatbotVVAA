@@ -103,7 +103,7 @@ export default function Usuarios() {
         </div>
       ) : (
         <div className="tarjeta tabla-caja">
-          <table className="tabla">
+          <table className="tabla ancha">
             <thead>
               <tr>
                 <th>Usuario</th>

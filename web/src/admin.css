@@ -2,16 +2,16 @@
    (Usuarios y Lista blanca incluidas). Misma paleta y tipografía que estilos.css; solo clases nuevas o con prefijo .admin. */
 
 /* ---------- ancho útil y menú lateral ---------- */
-.pagina.admin {
+.pagina.pagina.admin {
   max-width: 1480px;
 }
-.admin-grilla {
+.admin .admin-grilla {
   grid-template-columns: 200px minmax(0, 1fr);
 }
-.admin-link {
+.admin-menu .admin-link {
   position: relative;
 }
-.admin-link .badge {
+.admin-menu .admin-link .badge {
   margin-left: auto;
   min-width: 22px;
   height: 22px;
@@ -23,36 +23,89 @@
   place-items: center;
   color: #fff;
 }
-.admin-link .badge.ok {
+.admin-menu .admin-link .badge.e-ok {
   background: var(--verde);
 }
-.admin-link .badge.aviso {
+.admin-menu .admin-link .badge.e-aviso {
   background: var(--amarillo-oscuro);
 }
-.admin-link .badge.error {
+.admin-menu .admin-link .badge.e-error {
   background: var(--rojo);
 }
-.admin-link.activo .badge {
+.admin-menu .admin-link.activo .badge {
   outline: 2px solid #fff;
 }
 
+/* ---------- tablas: columnas con ancho razonable ---------- */
+.admin .tabla td,
+.admin .tabla th {
+  padding: 8px 8px;
+}
+.admin .tabla td[data-col="Email"] {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+  word-break: normal;
+}
+.admin .tabla td[data-col="Nombre"],
+.admin .tabla td[data-col="Usuario"],
+.admin .tabla td[data-col="Persona"] {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 170px;
+}
+.admin .tabla select {
+  width: 182px;
+  min-width: 182px;
+  padding: 4px 4px;
+}
+.admin .tabla .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.admin .tabla th.num {
+  text-align: right;
+}
+.admin .tabla.chica {
+  font-size: 0.84rem;
+}
+.admin .tabla.chica td,
+.admin .tabla.chica th {
+  padding: 6px 8px;
+}
+.admin .tabla tfoot td {
+  background: var(--crema);
+  border-top: 2px solid var(--borde);
+}
+.admin .tabla .celda-larga {
+  max-width: 380px;
+}
+.link-externo {
+  margin-left: 6px;
+  color: var(--verde);
+  vertical-align: middle;
+}
+
 /* anchos medios (notebook con el panel lateral de la app abierto): menú solo con iconos */
-@media (max-width: 1180px) and (min-width: 901px) {
-  .admin-grilla {
+@media (max-width: 1400px) and (min-width: 901px) {
+  .admin .admin-grilla {
     grid-template-columns: 56px minmax(0, 1fr);
     gap: 14px;
   }
-  .admin-link {
+  .admin-menu .admin-link {
     justify-content: center;
     padding: 10px 0;
     font-size: 0;
     gap: 0;
   }
-  .admin-link .icono {
+  .admin-menu .admin-link .icono {
     width: 20px;
     height: 20px;
   }
-  .admin-link .badge {
+  .admin-menu .admin-link .badge {
     position: absolute;
     top: 2px;
     right: 2px;
@@ -61,7 +114,7 @@
     font-size: 0.66rem;
     margin: 0;
   }
-  .admin-link::after {
+  .admin-menu .admin-link::after {
     content: attr(data-texto);
     position: absolute;
     left: 100%;
@@ -79,29 +132,29 @@
     transition: opacity var(--rapido);
     z-index: 5;
   }
-  .admin-link:hover::after,
-  .admin-link:focus-visible::after {
+  .admin-menu .admin-link:hover::after,
+  .admin-menu .admin-link:focus-visible::after {
     opacity: 1;
   }
 }
 
 /* anchos chicos: menú como chips arriba, tablas como tarjetas (hasta 900 px, no solo 760) */
 @media (max-width: 900px) {
-  .admin-grilla {
+  .admin .admin-grilla {
     grid-template-columns: 1fr;
     gap: 12px;
   }
-  .admin-menu {
+  .admin .admin-menu {
     position: static;
     flex-direction: row;
     flex-wrap: wrap;
     gap: 4px;
   }
-  .admin-link {
+  .admin-menu .admin-link {
     padding: 6px 10px;
     font-size: 0.86rem;
   }
-  .admin-link .badge {
+  .admin-menu .admin-link .badge {
     margin-left: 4px;
   }
   .admin .tabla thead {
@@ -152,62 +205,85 @@
   .admin .celda-acciones .etiqueta {
     display: inline;
   }
-  .admin .tabla td[data-col="Email"] {
+  .admin .tabla td[data-col="Email"],
+  .admin .tabla td[data-col="Nombre"],
+  .admin .tabla td[data-col="Usuario"],
+  .admin .tabla td[data-col="Persona"] {
     white-space: normal;
-    word-break: break-all;
+    overflow: visible;
+    text-overflow: clip;
+    max-width: none;
+    overflow-wrap: anywhere;
+    word-break: normal;
   }
   .admin .tabla select {
     width: 100%;
   }
 }
 
-/* ---------- tablas: columnas con ancho razonable ---------- */
-.admin .tabla td,
-.admin .tabla th {
-  padding: 9px 10px;
-}
-.admin .tabla td[data-col="Email"] {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 260px;
-  word-break: normal;
-}
-.admin .tabla td[data-col="Nombre"],
-.admin .tabla td[data-col="Usuario"],
-.admin .tabla td[data-col="Persona"] {
-  white-space: nowrap;
-}
-.admin .tabla select {
-  width: 196px;
-  min-width: 196px;
-}
-.admin .tabla .num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-.admin .tabla th.num {
-  text-align: right;
-}
-.admin .tabla.chica {
-  font-size: 0.84rem;
-}
-.admin .tabla.chica td,
-.admin .tabla.chica th {
-  padding: 6px 8px;
-}
-.admin .tabla tfoot td {
-  background: var(--crema);
-  border-top: 2px solid var(--borde);
-}
-.admin .tabla .celda-larga {
-  max-width: 380px;
-}
-.link-externo {
-  margin-left: 6px;
-  color: var(--verde);
-  vertical-align: middle;
+@media (max-width: 1100px) {
+  .admin .tabla.ancha thead {
+    display: none;
+  }
+  .admin .tabla.ancha,
+  .admin .tabla.ancha tbody,
+  .admin .tabla.ancha tfoot,
+  .admin .tabla.ancha tr,
+  .admin .tabla.ancha td {
+    display: block;
+  }
+  .admin .tabla.ancha tr {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--borde);
+  }
+  .admin .tabla.ancha td {
+    border: 0;
+    padding: 4px 0;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    text-align: left;
+    max-width: none;
+    white-space: normal;
+  }
+  .admin .tabla.ancha td[data-col]:not([data-col=""])::before {
+    content: attr(data-col);
+    color: var(--suave);
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    min-width: 92px;
+    flex: none;
+  }
+  .admin .tabla.ancha td.num {
+    justify-content: flex-start;
+  }
+  .admin .tabla.ancha .celda-acciones {
+    white-space: normal;
+    flex-wrap: wrap;
+    text-align: left;
+    padding-top: 8px !important;
+  }
+  .admin .tabla.ancha .celda-acciones .boton + .boton {
+    margin-left: 0;
+  }
+  .admin .tabla.ancha .celda-acciones .etiqueta {
+    display: inline;
+  }
+  .admin .tabla.ancha td[data-col="Email"],
+  .admin .tabla.ancha td[data-col="Nombre"],
+  .admin .tabla.ancha td[data-col="Usuario"],
+  .admin .tabla.ancha td[data-col="Persona"] {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    max-width: none;
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+  .admin .tabla.ancha select {
+    width: 100%;
+  }
 }
 
 /* ---------- piezas comunes ---------- */
@@ -230,15 +306,15 @@
   border-radius: 50%;
   background: currentColor;
 }
-.estado-chip.ok {
+.estado-chip.e-ok {
   background: var(--verde-claro);
   color: var(--verde-oscuro);
 }
-.estado-chip.aviso {
+.estado-chip.e-aviso {
   background: var(--amarillo-suave);
   color: var(--amarillo-oscuro);
 }
-.estado-chip.error {
+.estado-chip.e-error {
   background: var(--rojo-claro);
   color: var(--rojo);
 }
@@ -311,6 +387,8 @@ h2 .estado-chip {
 .periodo select {
   min-height: 32px;
   padding: 4px 8px;
+  width: auto;
+  max-width: 190px;
 }
 .dos-columnas {
   display: grid;
@@ -351,24 +429,24 @@ h2 .estado-chip {
   flex: none;
   box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.04);
 }
-.funciona.ok {
+.funciona.e-ok {
   border-left-color: var(--verde);
 }
-.funciona.ok .funciona-luz {
+.funciona.e-ok .funciona-luz {
   background: var(--verde);
   box-shadow: 0 0 0 4px var(--verde-claro);
 }
-.funciona.aviso {
+.funciona.e-aviso {
   border-left-color: var(--amarillo);
 }
-.funciona.aviso .funciona-luz {
+.funciona.e-aviso .funciona-luz {
   background: var(--amarillo);
   box-shadow: 0 0 0 4px var(--amarillo-suave);
 }
-.funciona.error {
+.funciona.e-error {
   border-left-color: var(--rojo);
 }
-.funciona.error .funciona-luz {
+.funciona.e-error .funciona-luz {
   background: var(--rojo);
   box-shadow: 0 0 0 4px var(--rojo-claro);
 }
@@ -431,13 +509,13 @@ h2 .estado-chip {
   height: 100%;
   border-radius: 3px;
 }
-.barra-presupuesto .ok {
+.barra-presupuesto .e-ok {
   background: var(--verde);
 }
-.barra-presupuesto .aviso {
+.barra-presupuesto .e-aviso {
   background: var(--amarillo);
 }
-.barra-presupuesto .error {
+.barra-presupuesto .e-error {
   background: var(--rojo);
 }
 .graficos {
@@ -521,10 +599,10 @@ h2 .estado-chip {
   gap: 6px;
   font-size: 0.9rem;
 }
-.avisos-proximos li.error::marker {
+.avisos-proximos li.e-error::marker {
   color: var(--rojo);
 }
-.avisos-proximos li.aviso::marker {
+.avisos-proximos li.e-aviso::marker {
   color: var(--amarillo-oscuro);
 }
 .grupo-chequeos {
@@ -550,13 +628,13 @@ h2 .estado-chip {
   flex-direction: column;
   gap: 6px;
 }
-.chequeo.ok {
+.chequeo.e-ok {
   border-top-color: var(--verde);
 }
-.chequeo.aviso {
+.chequeo.e-aviso {
   border-top-color: var(--amarillo);
 }
-.chequeo.error {
+.chequeo.e-error {
   border-top-color: var(--rojo);
 }
 .chequeo header {
@@ -618,13 +696,13 @@ h2 .estado-chip {
   border: 2px solid #fff;
   background: var(--borde-fuerte);
 }
-.lt-punto.ok {
+.lt-punto.e-ok {
   background: var(--verde);
 }
-.lt-punto.aviso {
+.lt-punto.e-aviso {
   background: var(--amarillo);
 }
-.lt-punto.error {
+.lt-punto.e-error {
   background: var(--rojo);
 }
 .lt-arranque {
@@ -666,13 +744,13 @@ h2 .estado-chip {
   gap: 6px;
   border-top: 4px solid var(--borde);
 }
-.capacidad-item.ok {
+.capacidad-item.e-ok {
   border-top-color: var(--verde);
 }
-.capacidad-item.aviso {
+.capacidad-item.e-aviso {
   border-top-color: var(--amarillo);
 }
-.capacidad-item.error {
+.capacidad-item.e-error {
   border-top-color: var(--rojo);
 }
 .capacidad-item header {
@@ -726,13 +804,13 @@ h2 .estado-chip {
   background: var(--verde);
   transition: width 300ms ease;
 }
-.medidor.aviso .medidor-uso {
+.medidor.e-aviso .medidor-uso {
   background: var(--amarillo);
 }
-.medidor.error .medidor-uso {
+.medidor.e-error .medidor-uso {
   background: var(--rojo);
 }
-.medidor.sin_dato .medidor-uso {
+.medidor.e-sin_dato .medidor-uso {
   background: repeating-linear-gradient(45deg, var(--borde-fuerte) 0 4px, transparent 4px 8px);
   width: 100% !important;
   opacity: 0.6;

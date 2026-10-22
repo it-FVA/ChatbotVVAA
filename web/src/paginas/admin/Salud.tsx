@@ -83,20 +83,20 @@ export default function Salud() {
           </h3>
           <ul>
             {proximos.map(({ c, dias }) => (
-              <li key={"v" + c.nombre} className={dias < 0 ? "error" : dias < AVISO_DIAS ? "error" : "aviso"}>
+              <li key={"v" + c.nombre} className={dias < AVISO_DIAS ? "e-error" : "e-aviso"}>
                 <strong>{nombreChequeo(c.nombre)}</strong>: el token {dias < 0 ? `venció hace ${-dias} días` : dias === 0 ? "vence hoy" : `vence en ${dias} días`} ({fecha(c.vence, false)}).
                 {c.que_hacer && <span className="suave"> {c.que_hacer}</span>}
               </li>
             ))}
             {grupos.error.map((c) => (
-              <li key={"e" + c.nombre} className="error">
+              <li key={"e" + c.nombre} className="e-error">
                 <strong>{nombreChequeo(c.nombre)}</strong>: {c.detalle}
               </li>
             ))}
             {grupos.aviso
               .filter((c) => !proximos.some((p) => p.c.nombre === c.nombre))
               .map((c) => (
-                <li key={"a" + c.nombre} className="aviso">
+                <li key={"a" + c.nombre} className="e-aviso">
                   <strong>{nombreChequeo(c.nombre)}</strong>: {c.detalle}
                 </li>
               ))}
@@ -126,7 +126,7 @@ export default function Salud() {
           (g) =>
             grupos[g].length > 0 && (
               <section key={g} className="grupo-chequeos" aria-label={g}>
-                <h3 className={"grupo-titulo " + g}>
+                <h3 className={"grupo-titulo e-" + g}>
                   <EstadoChip estado={g} texto={g === "error" ? `Errores (${grupos[g].length})` : g === "aviso" ? `Avisos (${grupos[g].length})` : `En orden (${grupos[g].length})`} />
                 </h3>
                 <div className="chequeos">
@@ -156,7 +156,7 @@ export default function Salud() {
 function TarjetaChequeo({ c }: { c: Chequeo }) {
   const dias = diasHasta(c.vence ?? null);
   return (
-    <article className={"tarjeta chequeo " + c.estado}>
+    <article className={"tarjeta chequeo e-" + c.estado}>
       <header>
         <strong>{nombreChequeo(c.nombre)}</strong>
         <EstadoChip estado={c.estado} />
@@ -216,7 +216,7 @@ function Historial({ filas }: { filas: FilaHistorial[] | null }) {
             <span key={"a" + f.id} className="lt-arranque" style={{ left: `${x(f.creado)}%` }} title={`La API arrancó ${fecha(f.creado)} (${hace(f.creado)})`} />
           ))}
           {corridas.map((f) => (
-            <span key={f.id} className={"lt-punto " + f.estado} style={{ left: `${x(f.creado)}%` }} title={`${fecha(f.creado)}: ${f.estado}${(f.detalle?.chequeos ?? []).filter((c) => c.estado !== "ok").map((c) => `\n${nombreChequeo(c.nombre)}: ${c.estado}`).join("")}`} />
+            <span key={f.id} className={"lt-punto e-" + f.estado} style={{ left: `${x(f.creado)}%` }} title={`${fecha(f.creado)}: ${f.estado}${(f.detalle?.chequeos ?? []).filter((c) => c.estado !== "ok").map((c) => `\n${nombreChequeo(c.nombre)}: ${c.estado}`).join("")}`} />
           ))}
         </div>
         <div className="linea-tiempo-fechas suave chico">
@@ -225,13 +225,13 @@ function Historial({ filas }: { filas: FilaHistorial[] | null }) {
         </div>
         <div className="linea-tiempo-leyenda suave chico">
           <span>
-            <i className="lt-punto ok" /> ok
+            <i className="lt-punto e-ok" /> ok
           </span>
           <span>
-            <i className="lt-punto aviso" /> aviso
+            <i className="lt-punto e-aviso" /> aviso
           </span>
           <span>
-            <i className="lt-punto error" /> error
+            <i className="lt-punto e-error" /> error
           </span>
           <span>
             <i className="lt-arranque" /> arranque de la API (plan free: cada uno es un despertar en frío)

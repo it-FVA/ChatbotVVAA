@@ -95,7 +95,7 @@ function Funciona() {
   const titulo =
     estado === "ok" ? "Sí, la app funciona: todo en orden." : estado === "aviso" ? `La app funciona, con ${avisos} aviso${avisos === 1 ? "" : "s"} para mirar.` : estado === "error" ? `Hay ${errores} problema${errores === 1 ? "" : "s"}${avisos ? ` y ${avisos} aviso${avisos === 1 ? "" : "s"}` : ""}.` : "Todavía no sé si funciona.";
   return (
-    <div className={"funciona tarjeta " + estado} role="status">
+    <div className={"funciona tarjeta e-" + estado} role="status">
       <div className="funciona-luz" aria-hidden="true" />
       <div className="funciona-texto">
         <strong>¿Funciona la app?</strong> {titulo}
@@ -146,7 +146,7 @@ function CostoDelMes() {
             </span>
             {sobre !== null && (
               <div className="barra-presupuesto" aria-hidden="true">
-                <div style={{ width: `${sobre * 100}%` }} className={sobre >= 1 ? "error" : sobre >= 0.7 ? "aviso" : "ok"} />
+                <div style={{ width: `${sobre * 100}%` }} className={sobre >= 1 ? "e-error" : sobre >= 0.7 ? "e-aviso" : "e-ok"} />
               </div>
             )}
             {c.modelos_sin_precio.length > 0 && (
@@ -214,7 +214,7 @@ function UsoDetalle({ uso, costos }: { uso: Uso; costos: Costos }) {
       )}
 
       <div className="tarjeta tabla-caja" style={{ marginTop: 14 }}>
-        <table className="tabla">
+        <table className="tabla ancha">
           <thead>
             <tr>
               <th>Persona</th>

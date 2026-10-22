@@ -69,7 +69,7 @@ export const diaCorto = (ymd: string) => (ymd.length >= 10 ? `${ymd.slice(8, 10)
 
 export function EstadoChip({ estado, texto }: { estado: Estado; texto?: string }) {
   return (
-    <span className={"estado-chip " + estado} role="status">
+    <span className={"estado-chip e-" + estado} role="status">
       <span className="punto" aria-hidden="true" />
       {texto ?? ESTADO_TEXTO[estado] ?? estado}
     </span>
@@ -78,7 +78,7 @@ export function EstadoChip({ estado, texto }: { estado: Estado; texto?: string }
 
 export function Metrica({ etiqueta, valor, detalle, estado, children }: { etiqueta: string; valor: ReactNode; detalle?: ReactNode; estado?: Estado; children?: ReactNode }) {
   return (
-    <div className={"metrica tarjeta" + (estado ? " " + estado : "")}>
+    <div className={"metrica tarjeta" + (estado ? " e-" + estado : "")}>
       <div className="metrica-etiqueta">{etiqueta}</div>
       <div className="metrica-valor">{valor}</div>
       {detalle && <div className="metrica-detalle suave chico">{detalle}</div>}

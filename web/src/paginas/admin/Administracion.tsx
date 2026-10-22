@@ -67,7 +67,7 @@ export default function Administracion() {
               <NavLink key={m.a} to={m.a} data-texto={m.texto} title={m.texto} className={({ isActive }) => "admin-link" + (isActive ? " activo" : "")}>
                 <IconoAdmin nombre={m.icono} tam={16} /> {m.texto}
                 {m.badge && s && s.estado !== "sin_dato" && (
-                  <span className={"badge " + badgeEstado} aria-label={avisos ? `${avisos} avisos` : "todo en orden"} title={avisos ? `${s.errores ?? 0} errores, ${s.avisos ?? 0} avisos (último chequeo)` : "Último chequeo: todo en orden"}>
+                  <span className={"badge e-" + badgeEstado} aria-label={avisos ? `${avisos} avisos` : "todo en orden"} title={avisos ? `${s.errores ?? 0} errores, ${s.avisos ?? 0} avisos (último chequeo)` : "Último chequeo: todo en orden"}>
                     {avisos || "✓"}
                   </span>
                 )}

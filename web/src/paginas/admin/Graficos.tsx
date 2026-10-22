@@ -96,7 +96,7 @@ export function BarrasApiladas({ columnas, series, formato = (n) => String(n), a
 export function Medidor({ porcentaje, umbral, estado, etiqueta }: { porcentaje: number | null; umbral: number; estado: string; etiqueta: string }) {
   const p = porcentaje === null ? 0 : Math.min(porcentaje, 100);
   return (
-    <div className={"medidor " + estado} role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={porcentaje ?? undefined} aria-label={etiqueta} title={porcentaje === null ? "Sin dato" : `${porcentaje} % del límite · umbral ${umbral} %`}>
+    <div className={"medidor e-" + estado} role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={porcentaje ?? undefined} aria-label={etiqueta} title={porcentaje === null ? "Sin dato" : `${porcentaje} % del límite · umbral ${umbral} %`}>
       <div className="medidor-pista">
         <div className="medidor-uso" style={{ width: `${p}%` }} />
         <div className="medidor-umbral" style={{ left: `${Math.min(umbral, 100)}%` }} aria-hidden="true">

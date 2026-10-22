@@ -62,7 +62,7 @@ export default function Servicios() {
             <Metrica etiqueta="Fijo + OpenAI del mes" valor={usd(datos.total_mes_usd)} detalle={datos.sin_monto.length ? `Sin monto cargado: ${datos.sin_monto.join(", ")}` : undefined} />
           </div>
           <div className="tarjeta tabla-caja">
-            <table className="tabla servicios">
+            <table className="tabla servicios ancha">
               <thead>
                 <tr>
                   <th>Servicio</th>
@@ -353,7 +353,7 @@ function CapacidadSeccion({ servicios }: { servicios: Servicio[] }) {
           {items.map((c) => {
             const srv = servicios.find((s) => s.activo && ((s.proveedor || "") + " " + s.nombre).toLowerCase().includes(c.proveedor));
             return (
-              <article key={c.proveedor} className={"tarjeta capacidad-item " + c.estado}>
+              <article key={c.proveedor} className={"tarjeta capacidad-item e-" + c.estado}>
                 <header>
                   <div>
                     <strong>{c.nombre}</strong>
