@@ -5,6 +5,7 @@ import type { Yo } from "./tipos";
 import Login from "./paginas/Login";
 import Recortes from "./paginas/Recortes";
 import Editor from "./paginas/Editor";
+import Chat from "./paginas/Chat";
 import Barra from "./componentes/Barra";
 
 interface Sesion {
@@ -40,7 +41,9 @@ export default function App() {
                 <Barra />
                 <main className="contenido">
                   <Routes>
-                    <Route path="/" element={<Navigate to="/recortes" replace />} />
+                    <Route path="/" element={<Navigate to="/chat" replace />} />
+                    <Route path="/chat" element={<Chat />} />
+                    <Route path="/chat/:id" element={<Chat />} />
                     <Route path="/recortes" element={<Recortes />} />
                     <Route path="/recortes/:id" element={<Editor />} />
                     <Route path="*" element={<Navigate to="/recortes" replace />} />

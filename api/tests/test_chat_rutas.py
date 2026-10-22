@@ -153,7 +153,7 @@ def test_enviar_a_aprobacion(logueado, monkeypatch):
     monkeypatch.setattr(db, "proponer_publicacion", _proponer)
     borrados = []
     monkeypatch.setattr(db, "_req", lambda *a, **k: borrados.append((a, k)))
-    r = logueado.post("/publicaciones/a-aprobar", json={"canal": "instagram", "texto": "**Gratitud** es la [llave](https://x.y).", "borrador_id": 5})
+    r = logueado.post("/publicaciones/a-aprobar", json={"canal": "instagram", "texto": "**Gratitud** es la [llave](https://x.y).", "borrador_id": "5a1e"})
     assert r.status_code == 200, r.text
     assert r.json()["id"] == 88 and r.json()["estado"] == "a_aprobar" and "franco" in r.json()["mensaje"]
     assert propuesto["modo"] == "real" and propuesto["texto"] == "Gratitud es la llave." and propuesto["fecha"] is None

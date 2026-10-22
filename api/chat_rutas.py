@@ -69,7 +69,7 @@ class Pieza(BaseModel):
     imagen_busqueda: Optional[str] = None
     video_url: Optional[str] = None
     video_formato: Optional[str] = None
-    borrador_id: Optional[int] = None   # si se está retomando un borrador: se actualiza (o se elimina al mandar a aprobación)
+    borrador_id: Optional[str] = None   # (uuid) si se está retomando un borrador: se actualiza (o se elimina al mandar a aprobación)
 
 
 # ---------------- Helpers ----------------
@@ -333,7 +333,7 @@ def enviar_a_aprobacion(p: Pieza, s=Depends(auth.sesion)):
         raise HTTPException(503, "No pude guardar la pieza para aprobación.")
     if p.borrador_id:        # como Streamlit: al mandarla, el borrador que se estaba retomando se elimina
         try:
-            db._req("DELETE", f"?id=eq.{int(p.borrador_id)}&estado=eq.borrador&usuario=eq.{usuario}", tabla="publicaciones")
+            db._req("DELETE", f"?id=eq.{quote(str(p.borrador_id))}&estado=eq.borrador&usuario=eq.{quote(usuario)}", tabla="publicaciones")
         except Exception:
             pass
     rol = _roles.roles(usuario, s.get("rol_tabla"))

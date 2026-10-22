@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, ErrorApi, STREAMLIT_URL } from "../api";
+import { api, ErrorApi } from "../api";
 import { useSesion } from "../App";
 import type { Recorte, Uso } from "../tipos";
 import { mmss } from "../util/tiempo";
@@ -109,9 +109,9 @@ export default function Recortes() {
               titulo="Todavía no pediste ningún recorte"
               texto="Se piden desde los botones «Pedir el recorte» / «Pedir en vertical» debajo de cada video en el chat, o diciéndole al bot «pedime ese tramo en vertical»."
               accion={
-                <a className="boton primario" href={STREAMLIT_URL} target="_blank" rel="noreferrer">
+                <Link className="boton primario" to="/chat">
                   <Icono nombre="chat" /> Ir al chat a pedir uno
-                </a>
+                </Link>
               }
             />
           )}

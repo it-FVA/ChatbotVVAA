@@ -51,7 +51,7 @@ export default function Login() {
   function entrar_ok(y: Yo) {
     setYo(y);
     const desde = (loc.state as { desde?: string } | null)?.desde;
-    nav(desde && desde !== "/login" ? desde : "/recortes", { replace: true });
+    nav(desde && desde !== "/login" ? desde : "/chat", { replace: true });
   }
 
   // Dibuja el botón oficial de Google cuando hay client id
