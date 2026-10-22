@@ -59,6 +59,16 @@ services:
         value: "17841406237571284"
       - key: META_FB_PAGE_ID
         value: "267335090073960"
+      # (22/10, salud) Vencimiento del token de Instagram Login que está en META_IG_TOKEN: Meta no lo informa por API para este tipo
+      # de token, así que lo anota quien lo genera (dura 60 días). «~22/11/2026» según el HANDOFF; corregirlo al renovar el token.
+      - key: META_IG_TOKEN_VENCE
+        value: "2026-11-22"
+      # Límite de memoria del plan (MB), para la fila «memoria» de /salud/servicios (aviso al 80 %, error al 95 %).
+      - key: MEMORIA_LIMITE_MB
+        value: "512"
+      # Token para consultar /salud/servicios desde un monitor externo sin sesión (?token= o X-Salud-Token). Se carga a mano.
+      - key: SALUD_TOKEN
+        sync: false
       - key: GOOGLE_CLIENT_ID
         value: "975482475680-o1clpt1idim34dormtuecg58knnga3ol.apps.googleusercontent.com"
       - key: DOMINIO_FVA

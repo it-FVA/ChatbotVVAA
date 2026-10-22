@@ -717,3 +717,24 @@ def guardar_servicio(datos, usuario=None):
 
 def borrar_servicio(sid):
     return _req("DELETE", f"?id=eq.{sid}", tabla="servicios")
+
+
+# ---------------- Salud de los servicios (22/10, api/salud.py) ----------------
+# Tabla salud_historial (migración api/migraciones/salud_historial.sql): id, creado, estado (ok/aviso/error), detalle jsonb
+# ({chequeos: [{nombre, estado, detalle}], ms}). Una fila por corrida de GET /salud/servicios; sirve para decir «desde cuándo».
+def guardar_salud(estado, detalle):
+    return _req("POST", "", {"estado": estado, "detalle": detalle}, tabla="salud_historial")
+
+
+def listar_salud(limite=100):
+    """Las últimas corridas, más recientes primero."""
+    if not disponible():
+        return []
+    return _req("GET", f"?select=id,creado,estado,detalle&order=creado.desc&limit={limite}", tabla="salud_historial") or []
+
+
+def clips_pedidos_antes(creado_antes_iso):
+    """Clips que siguen en 'pedido' y se pidieron antes de esa fecha (ISO): los que la cola no procesó a tiempo."""
+    if not disponible():
+        return []
+    return _req("GET", f"?estado=eq.pedido&creado=lt.{urllib.parse.quote(creado_antes_iso)}&select=id,creado,video_id,titulo,pedido_por,formato&order=creado.asc&limit=50", tabla="clips") or []

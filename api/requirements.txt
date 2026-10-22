@@ -8,6 +8,7 @@ uvicorn[standard]
 python-multipart
 google-auth
 requests
+psutil
 itsdangerous
 # Pruebas (api/tests)
 pytest
