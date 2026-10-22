@@ -191,8 +191,17 @@ def _fecha_iso(fecha, hora):
 
 
 def _fecha_hora_de_iso(fp):
+    """('YYYY-MM-DD', 'HH:MM') en hora Argentina. Supabase devuelve fecha_programada en UTC (+00:00): se convierte; sin zona se toma tal cual."""
     fp = str(fp or "")
-    return (fp[:10] if len(fp) >= 10 else None), (fp[11:16] if len(fp) >= 16 else None)
+    if len(fp) < 10:
+        return None, None
+    try:
+        t = datetime.datetime.fromisoformat(fp.replace("Z", "+00:00"))
+        if t.tzinfo is not None:
+            t = t.astimezone(datetime.timezone(datetime.timedelta(hours=-3)))
+        return t.strftime("%Y-%m-%d"), (t.strftime("%H:%M") if len(fp) >= 16 else None)
+    except ValueError:
+        return fp[:10], (fp[11:16] if len(fp) >= 16 else None)
 
 
 def _normalizar_diseno(p: PiezaCompleta, canal):

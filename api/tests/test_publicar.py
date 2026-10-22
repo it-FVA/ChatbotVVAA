@@ -307,6 +307,10 @@ def test_aprobacion_flujo(logueado, lizzie, base, monkeypatch):
     monkeypatch.setattr(db, "listar_a_aprobar", lambda limite=50: [dict(pend)])
     d = logueado.get("/aprobacion/para-aprobar").json()
     assert d["modos"]["instagram"] == "real" and d["piezas"][0]["fecha_sugerida"] == "2026-11-05" and d["piezas"][0]["hora_sugerida"] == "10:30"
+    # Supabase devuelve la fecha en UTC: la sugerencia va en hora Argentina
+    monkeypatch.setattr(db, "listar_a_aprobar", lambda limite=50: [dict(pend, fecha_programada="2027-03-20T12:00:00+00:00")])
+    assert logueado.get("/aprobacion/para-aprobar").json()["piezas"][0]["hora_sugerida"] == "09:00"
+    monkeypatch.setattr(db, "listar_a_aprobar", lambda limite=50: [dict(pend)])
     assert d["piezas"][0]["texto_imagen"] == "frase" and d["piezas"][0]["propuesta_por"] == "lizzie"
     assert lizzie.get("/aprobacion/para-aprobar").status_code == 403
     hecho = {}

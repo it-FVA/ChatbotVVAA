@@ -71,12 +71,30 @@ export default function Publicar() {
   }, [params.get("borrador"), params.get("recorte")]);
 
   if (!form || !op) {
+    if (error)
+      return (
+        <div className="pagina publicar">
+          <header className="pagina-cabecera">
+            <h1>Publicar</h1>
+          </header>
+          <div className="aviso error" role="alert">
+            <Icono nombre="alerta" tam={16} /> <span>{error}</span>
+          </div>
+          <div className="acciones">
+            <button type="button" className="boton" onClick={() => window.location.reload()}>
+              Reintentar
+            </button>
+            <Link className="boton sutil" to="/login">
+              Volver a entrar
+            </Link>
+          </div>
+        </div>
+      );
     return (
       <div className="pagina publicar" aria-busy="true">
         <header className="pagina-cabecera">
           <h1>Publicar</h1>
         </header>
-        {error && <div className="aviso error">{error}</div>}
         <div className="pub-grilla">
           <div>
             <Hueso ancho="100%" alto={120} radio={12} />
