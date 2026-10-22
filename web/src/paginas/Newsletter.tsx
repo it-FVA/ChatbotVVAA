@@ -50,6 +50,26 @@ export default function Newsletter() {
   const [elegirRecorte, setElegirRecorte] = useState(false);
   const [hecho, setHecho] = useState<{ mensaje: string; estado: string } | null>(null);
   const previaRef = useRef<HTMLIFrameElement>(null);
+  const mailRef = useRef<HTMLDivElement>(null);
+
+  // El mail mide 600 px: si el recuadro es más angosto (celular), el iframe se escala para que entre entero.
+  useEffect(() => {
+    const caja = mailRef.current;
+    const ifr = previaRef.current;
+    if (!caja || !ifr) return;
+    const ajustar = () => {
+      const ancho = caja.clientWidth - 20;
+      const escala = Math.min(1, ancho / 600);
+      ifr.style.width = escala < 1 ? "600px" : "100%";
+      ifr.style.height = escala < 1 ? `${(caja.clientHeight - 20) / escala}px` : "100%";
+      ifr.style.transform = escala < 1 ? `scale(${escala})` : "";
+      ifr.style.transformOrigin = "top left";
+    };
+    ajustar();
+    const ro = new ResizeObserver(ajustar);
+    ro.observe(caja);
+    return () => ro.disconnect();
+  }, [d === null, solapa]);
 
   // Carga inicial: plantillas vacías y, si vienen, el borrador a retomar (?borrador=), el recorte (?recorte=) o la pieza del chat.
   useEffect(() => {
@@ -379,7 +399,7 @@ export default function Newsletter() {
               <Icono nombre="sobre" tam={14} /> {titulo}
             </span>
           </div>
-          <div className="nl-mail">
+          <div className="nl-mail" ref={mailRef}>
             <iframe ref={previaRef} title="Vista previa del newsletter" srcDoc={html} sandbox="" />
           </div>
         </aside>
@@ -542,13 +562,14 @@ function EditorRevivi({ d, cambiar }: { d: Datos; cambiar: (f: (x: Datos) => voi
 
 // ---------------- Piezas chicas ----------------
 
+/** `abierto` solo abre el bloque (al cargar o cuando llega contenido, p. ej. un recorte); cerrarlo queda en manos de la persona. */
 function Bloque({ titulo, icono, abierto, children }: { titulo: string; icono: string; abierto: boolean; children: ReactNode }) {
-  const [open, setOpen] = useState(abierto);
+  const ref = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
-    if (abierto) setOpen(true);
+    if (abierto && ref.current) ref.current.open = true;
   }, [abierto]);
   return (
-    <details className="nl-bloque tarjeta" open={open} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
+    <details className="nl-bloque tarjeta" ref={ref}>
       <summary>
         <Icono nombre="chevron" tam={16} />
         <Icono nombre={icono} tam={17} /> <span>{titulo}</span>
@@ -575,7 +596,6 @@ function Fotos({ destinos, onUsar }: { destinos: Destino[]; onUsar: (destino: De
   const [fotos, setFotos] = useState<FotoBanco[] | null>(null);
   const [buscando, setBuscando] = useState(false);
   const [destino, setDestino] = useState(destinos[0]?.clave ?? "");
-  const [abierto, setAbierto] = useState(false);
   const elegido = destinos.find((x) => x.clave === destino) ?? destinos[0];
 
   async function buscar() {
@@ -590,7 +610,7 @@ function Fotos({ destinos, onUsar }: { destinos: Destino[]; onUsar: (destino: De
   }
 
   return (
-    <details className="nl-bloque tarjeta nl-fotos" open={abierto} onToggle={(e) => setAbierto((e.target as HTMLDetailsElement).open)}>
+    <details className="nl-bloque tarjeta nl-fotos">
       <summary>
         <Icono nombre="chevron" tam={16} />
         <Icono nombre="imagen" tam={17} /> <span>Fotos del banco de WordPress</span>

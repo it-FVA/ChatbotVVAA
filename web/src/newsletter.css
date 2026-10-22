@@ -86,14 +86,14 @@
 }
 
 /* las solapas Contenido / Vista previa solo en celular */
-.nl-solapas {
+.newsletter .nl-solapas {
   display: none;
   margin-bottom: 10px;
 }
 
 .nl-grilla {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 640px);
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 560px);
   gap: 18px;
   align-items: start;
 }
@@ -328,7 +328,7 @@
   .nl-plantilla {
     flex: 1;
   }
-  .nl-solapas {
+  .newsletter .nl-solapas {
     display: flex;
     width: fit-content;
   }
