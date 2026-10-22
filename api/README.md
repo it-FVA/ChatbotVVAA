@@ -109,7 +109,22 @@ Los mismos nombres que los secrets de Streamlit. En un servidor se cargan como v
 | `API_CARGAR_CORPUS` | `0` para arrancar sin cargar el corpus (tests) | no |
 | `PORT` | puerto (lo pone el hosting) | no |
 
-## Desplegar (sin elegir todavía: Railway o Render)
+## Desplegar en Render (API) + Vercel (web) — plan gratuito para probar (21/10)
+
+Cuentas: Render (workspace «Vivir Agradecidos») y Vercel (equipo «Vivir Agradecidos»), las dos con el GitHub it-fva.
+
+1. `python api/armar_env.py` en la máquina de Franco → genera `api.env` (secretos; ignorado por git).
+2. Render → New → **Blueprint** → repo `it-FVA/ChatbotVVAA`, rama `claude/deploy-render-vercel` → lee `render.yaml`
+   (servicio `fva-api`, Docker, plan free, health check `/salud`). En **Environment → Add from .env** pegar el contenido
+   de `api.env`. Primer deploy: ~5 min (construye la imagen con el corpus).
+3. Vercel → **Import Project** → mismo repo y rama → *Root Directory* `web`, framework Vite (build `npm run build`, salida
+   `dist`) → variables `VITE_API_URL=https://fva-api.onrender.com` (la URL que dio Render) y
+   `VITE_STREAMLIT_URL=https://chatbotvvaa.streamlit.app` → Deploy.
+4. Si la URL de Vercel no es `https://fva-web.vercel.app`, corregir `CORS_ORIGENES` en Render con la real.
+5. Probar: abrir la web, entrar con un usuario de `[usuarios]`, ver Mis recortes. Si Render se quedó sin memoria
+   (log «Out of memory»), pasar el servicio a Standard o mover los embeddings a Supabase.
+
+## Desplegar (notas generales: Railway o Render)
 
 La API es un contenedor: `api/Dockerfile`, construido desde la raíz del repo (necesita `nucleo.py`, `db.py`, el
 corpus `fragmentos.jsonl` + `fragmentos_openai.npy` y `datos_fijos.md`). Memoria medida el 19/10: ~200 MB con el

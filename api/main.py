@@ -33,6 +33,14 @@ async def _vida(app):
 
 app = FastAPI(title="Asistente · Vivir Agradecidos", version="0.2 (fase 1)", lifespan=_vida)
 
+# (21/10, despliegue) La web en Vercel y la API en Render son dominios distintos: CORS con credenciales para los
+# orígenes de CORS_ORIGENES (separados por coma). En local no se define y no hace falta (proxy de Vite).
+_ORIGENES = [o.strip() for o in os.environ.get("CORS_ORIGENES", "").split(",") if o.strip()]
+if _ORIGENES:
+    from fastapi.middleware.cors import CORSMiddleware
+    app.add_middleware(CORSMiddleware, allow_origins=_ORIGENES, allow_credentials=True,
+                       allow_methods=["*"], allow_headers=["*"])
+
 from . import recortes as _recortes   # noqa: E402  (importa db: va después de config.cargar())
 app.include_router(_recortes.router)
 

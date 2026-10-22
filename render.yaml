@@ -1,0 +1,33 @@
+# (21/10) Despliegue de la API en Render (Blueprint). Plan gratuito para probar: 512 MB y se duerme a los 15 min sin uso
+# (la primera llamada después tarda ~1 min: despierta y recarga el corpus). La API mide ~400 MB con la búsqueda híbrida:
+# si el free no alcanza, pasar a Standard o mover los embeddings a Supabase (plan de la interfaz propia, §3).
+# Las variables con sync: false se cargan a mano en el panel de Render (Environment → Add from .env, pegando api.env,
+# que se genera en local con `python api/armar_env.py` y NO va al repo).
+services:
+  - type: web
+    name: fva-api
+    runtime: docker
+    plan: free
+    region: oregon
+    branch: claude/deploy-render-vercel
+    dockerfilePath: ./api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /salud
+    autoDeploy: true
+    envVars:
+      - key: COOKIE_SEGURA
+        value: "1"
+      - key: COOKIE_SAMESITE
+        value: none
+      - key: CORS_ORIGENES
+        value: https://fva-web.vercel.app
+      - key: SESION_SECRETO
+        generateValue: true
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: USUARIOS_JSON
+        sync: false
