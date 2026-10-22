@@ -3,10 +3,16 @@
 - Sesión: cookie firmada (itsdangerous), HttpOnly, SameSite=Lax, 30 días. Secreto en SESION_SECRETO.
   Si falta, se genera uno al azar al arrancar (las sesiones se pierden al reiniciar; en producción ponerlo).
   COOKIE_SEGURA=1 marca la cookie como Secure (obligatorio detrás de HTTPS en producción).
-- Login por usuario y contraseña: contra [usuarios] (secrets.toml) o USUARIOS_JSON, igual que app.py.
+- Login por usuario y contraseña (22/10): PRIMERO la tabla `usuarios` de Supabase (hash bcrypt, api/cuentas.py);
+  si el usuario no está en la tabla, cae en [usuarios] (secrets.toml) / USUARIOS_JSON, igual que app.py.
+  TRANSICIÓN: cuando todos estén en la tabla (api/importar_usuarios.py), sacar ese fallback (login_clave, roles
+  y _existe_usuario en cuentas.py) y la variable USUARIOS_JSON; Streamlit (app.py) sigue leyendo secrets hasta
+  que se migre o se apague.
+- Roles: si la persona está en la tabla, el rol sale de ahí (roles.roles_de_fila); si no, de las listas
+  APROBADORES/ADMINS como hasta ahora.
 - Login con Google: la interfaz manda el id_token que le dio Google; acá se verifica con GOOGLE_CLIENT_ID
-  y se admite si el email termina en DOMINIO_FVA o está en la tabla `autorizados` de Supabase
-  (decisión de Franco 19/10: dominio de la Fundación MÁS una lista administrable).
+  y se admite si el email ya tiene cuenta en `usuarios`, si termina en DOMINIO_FVA o si está en la lista blanca
+  (`autorizados`). La primera vez crea la fila en `usuarios` con el rol de la lista.
 """
 import os, secrets as _secrets, logging
 from fastapi import HTTPException, Request, Response
@@ -57,7 +63,23 @@ def sesion(request: Request):
     s = leer(request)
     if not s or not s.get("usuario"):
         raise HTTPException(401, "Hay que iniciar sesión.")
+    fila = _fila(s["usuario"])
+    if fila and not fila.get("activo", True):
+        raise HTTPException(401, "La cuenta está desactivada.")
     return s
+
+
+def _fila(usuario):
+    from . import cuentas
+    return cuentas.fila_de(usuario)
+
+
+def rol_sesion(s):
+    """Rol de la sesión: de la tabla `usuarios` si la persona está ahí; si no, de las listas de secrets."""
+    fila = _fila(s["usuario"])
+    if fila:
+        return _roles.roles_de_fila(fila)
+    return _roles.roles(s["usuario"], s.get("rol_tabla"))
 
 
 def usuario_actual(request: Request):
@@ -66,7 +88,7 @@ def usuario_actual(request: Request):
 
 def aprobador(request: Request):
     s = sesion(request)
-    if not _roles.roles(s["usuario"], s.get("rol_tabla"))["aprueba"]:
+    if not rol_sesion(s)["aprueba"]:
         raise HTTPException(403, "Solo para aprobadores.")
     return s["usuario"]
 
@@ -74,23 +96,40 @@ def aprobador(request: Request):
 def admin(request: Request):
     """Configuración (estilo por defecto de los subtítulos, etc.): solo admins (ADMINS)."""
     s = sesion(request)
-    if not _roles.roles(s["usuario"], s.get("rol_tabla"))["admin"]:
+    if not rol_sesion(s)["admin"]:
         raise HTTPException(403, "Solo para admins.")
     return s["usuario"]
 
 
 def yo(s):
     """Lo que devuelve GET /yo: usuario, rol, idioma."""
-    r = _roles.roles(s["usuario"], s.get("rol_tabla"))
+    r = rol_sesion(s)
+    fila = _fila(s["usuario"]) or {}
     return {"usuario": s["usuario"], "origen": s.get("origen", "clave"), "idioma": config.idioma(s["usuario"]),
+            "nombre": fila.get("nombre"), "email": fila.get("email"), "en_tabla": bool(fila),
+            "tiene_clave": bool(fila.get("clave_hash")) if fila else True,
+            "debe_cambiar_clave": bool(fila.get("clave_temporal")),
             "rol": {"nombre": r["nombre"], "crea": r["crea"], "aprueba": r["aprueba"], "admin": r["admin"], "publica": r["publica"]}}
 
 
 # ---------------- Usuario y contraseña ----------------
 def login_clave(usuario, clave):
-    """Misma regla que app.py: el usuario está en la lista y la contraseña coincide tal cual."""
+    """Devuelve la fila de `usuarios` si entró por la tabla, "secrets" si entró por la lista vieja, None si no.
+    Levanta 403/409 si la cuenta de la tabla está desactivada o no tiene clave todavía."""
+    from . import cuentas
+    usuario = (usuario or "").strip()
+    if not usuario:
+        return None
+    fila = cuentas.fila_de(usuario, fresco=True)
+    if fila:
+        if not fila.get("activo", True):
+            raise HTTPException(403, "La cuenta está desactivada. Hablá con un admin.")
+        if not fila.get("clave_hash"):
+            raise HTTPException(409, "Tu cuenta todavía no tiene contraseña: creala desde «¿Primera vez? Creá tu cuenta» con tu email (o entrá con Google).")
+        return fila if cuentas.verificar_hash(clave, fila["clave_hash"]) else None
+    # Fallback (transición): la lista vieja de secrets, tal cual app.py. Sacar cuando todos estén en la tabla.
     us = config.usuarios()
-    return bool(usuario) and usuario in us and str(us[usuario]) == str(clave)
+    return "secrets" if usuario in us and str(us[usuario]) == str(clave) else None
 
 
 # ---------------- Google ----------------
@@ -112,21 +151,37 @@ def verificar_google(id_token):
 
 
 def admitir_google(email):
-    """(email admitido?, rol_tabla, motivo). Dominio de la Fundación o tabla autorizados."""
+    """(fila de usuarios o None, admitido?, rol_tabla, motivo). Orden: cuenta existente por email → dominio de la
+    Fundación → lista blanca. La primera vez crea la fila en `usuarios` (rol de la lista; franco@dominio hereda el
+    de 'franco' en las listas viejas; si existe 'franco' en la tabla sin email, se le asigna este email)."""
     import db
-    dominio = config.dominio_fva()
-    if dominio and email.endswith("@" + dominio):
-        fila = None
+    from . import cuentas
+    email = (email or "").strip().lower()
+    fila = None
+    if db.disponible():
         try:
-            fila = db.autorizado(email)
-        except Exception:
-            pass
-        return True, (fila or {}).get("rol"), "dominio"
-    try:
-        fila = db.autorizado(email)
-    except Exception as e:
-        log.warning("No pude consultar autorizados: %s", e)
-        fila = None
+            fila = db.usuario_por_email(email)
+        except Exception as e:
+            log.warning("No pude buscar el email en usuarios: %s", e)
     if fila:
-        return True, fila.get("rol"), "lista"
-    return False, None, "no_autorizado"
+        if not fila.get("activo", True):
+            raise HTTPException(403, "La cuenta está desactivada. Hablá con un admin.")
+        return fila, True, fila.get("rol"), "cuenta"
+    ok, rol_lista, motivo = cuentas.permitido(email)
+    if not ok:
+        return None, False, None, "no_autorizado"
+    if db.disponible():
+        try:
+            local = email.split("@", 1)[0]
+            vieja = db.usuario_por_nombre(local) if motivo == "dominio" else None
+            if vieja and not vieja.get("email") and vieja.get("activo", True):
+                fila = db.actualizar_usuario(vieja["id"], {"email": email})
+                db.registrar_cambio_usuario(fila["usuario"], "google_vincular", fila["usuario"], {"email": email})
+            else:
+                fila = db.crear_usuario(email, email=email, rol=cuentas.rol_inicial(email, rol_lista), creado_por="google")
+                db.registrar_cambio_usuario(email, "google_alta", email, {"motivo": motivo, "rol": fila["rol"]})
+            cuentas.olvidar(fila["usuario"])
+        except Exception as e:
+            log.warning("No pude crear/vincular la cuenta de Google en usuarios: %s", e)
+            fila = None
+    return fila, True, rol_lista, motivo

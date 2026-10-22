@@ -10,6 +10,7 @@ if RAIZ not in sys.path:
 os.environ["FVA_SECRETS"] = "-"
 os.environ["API_CARGAR_CORPUS"] = "0"
 os.environ["SESION_SECRETO"] = "secreto-de-prueba"
+os.environ["BCRYPT_RONDAS"] = "4"
 os.environ["USUARIOS_JSON"] = json.dumps({"franco": "clave-franco", "lizzie": "clave-lizzie", "gratefulness": "clave-g"})
 os.environ["APROBADORES"] = "franco"
 os.environ["DOMINIO_FVA"] = "viviragradecidos.org"

@@ -1,4 +1,5 @@
 # API HTTP del asistente (fase 0 + recortes de la fase 1 + chat de la fase 2)
+# API HTTP del asistente (fase 0 + recortes de la fase 1 + usuarios)
 
 Es el primer paso del plan de interfaz propia (`fva-transcripcion/analisis/plan-interfaz-propia-2026-10.md`):
 una API en FastAPI que llama al **mismo cerebro** que la app de Streamlit (`nucleo.py`, `db.py`), sin tocarlo.
@@ -14,13 +15,17 @@ las tarjetas, guardar la pieza propuesta como borrador o mandarla a aprobación.
 |---|---|
 | `main.py` | la app FastAPI: carga el corpus una vez al arrancar y define los endpoints |
 | `chat.py` | el chat con streaming (SSE): réplica paso a paso de `nucleo.responder_con_pieza` con la segunda llamada al modelo en streaming; arma las tarjetas de fuentes (traducción en/de, estado de los recortes, «citada») |
-| `auth.py` | cookie de sesión firmada (HttpOnly, SameSite, 30 días), login por usuario/contraseña, login con Google |
-| `roles.py` | copia de `publicar_ui.roles` leyendo del entorno (ese módulo importa Streamlit) |
+| `auth.py` | cookie de sesión firmada (HttpOnly, SameSite, 30 días), login por usuario/contraseña (22/10: primero la tabla `usuarios`, después secrets), login con Google |
+| `roles.py` | copia de `publicar_ui.roles` leyendo del entorno (ese módulo importa Streamlit); `roles_de_fila` para quien está en la tabla |
+| `cuentas.py` | (22/10) cuentas: «¿Primera vez?», cambiar mi contraseña, administración de usuarios y lista blanca (solo admins), registro de cambios |
+| `importar_usuarios.py` | (22/10) pasa UNA vez los usuarios de secrets a la tabla `usuarios` (hash bcrypt, rol de las listas); idempotente, `--dry-run` |
+| `migraciones/usuarios_y_lista_blanca.sql` | (22/10) tablas `usuarios` y `usuarios_cambios`; `autorizados` pasa a lista blanca (rol admin, nota) |
 | `config.py` | variables de entorno; en local carga `.streamlit/secrets.toml` |
 | `migraciones/autorizados_login_google.sql` | tabla `autorizados` (email, rol, agregado_por, creado) para el login con Google |
 | `recortes.py` | router de recortes (fase 1): misma lógica de negocio que `publicar_ui._mis_recortes` / `_editor_recorte`, más `edicion["segmentos"]` |
 | `chat_rutas.py` | router del chat (fase 2): renombrar / papelera / restaurar, `GET …/mensajes/{n}/docx\|xlsx` (usa `documentos.py`, el módulo que compartimos con Streamlit), `POST /recortes` (= botones «Pedir el recorte» con las validaciones del chat), `GET /banco`, `GET /publicaciones/modos`, `POST /publicaciones/borrador` y `/a-aprobar` (mismos campos que `publicar_ui.formulario`) |
 | `tests/` | pytest + httpx: 48 pruebas sin OpenAI ni Supabase (`test_api.py`, `test_recortes.py`, `test_chat_rutas.py`), y 1 real (marcada `real`) |
+| `tests/` | pytest + httpx: 64 pruebas sin OpenAI ni Supabase (`test_api.py`, `test_recortes.py`, `test_cuentas.py` con la tabla simulada en memoria), y 1 real (marcada `real`); `servidor_simulado.py` levanta la API con esa tabla en memoria para probar la web |
 | `ejemplos.http` | llamadas de ejemplo (REST Client / curl) |
 | `Dockerfile`, `requirements.txt` | para desplegar en cualquier hosting que acepte un contenedor |
 
@@ -55,7 +60,18 @@ tiene `md_a_docx`, `tablas_md` y `tablas_a_xlsx`, que antes vivían en `app.py`;
 | `DELETE /recortes/{id}` · `GET /recortes/{id}/usos` | dueño o aprobador | = «🗑 Borrar» (archivo de WordPress + fila) · piezas que usan el video |
 | `POST /recortes/{id}/reintentar` | aprobadores | = «↻ Reintentar» |
 | `GET /publicaciones` (`?todos=1`) | con sesión (`todos`: aprobadores) | «Mis publicaciones»: piezas + solapas por estado (o el registro completo) |
-| `GET /autorizados` | aprobadores | la lista de emails autorizados (solo lectura por ahora) |
+| `GET /autorizados` | aprobadores | la lista blanca (solo lectura; la administración está abajo) |
+| `POST /cuentas/verificar` `{email}` | — | «¿Primera vez?» paso 1: si ese email puede crear cuenta (dominio o lista blanca), o si ya tiene una cuenta sin clave (`usuario` fijado) |
+| `POST /cuentas/primera-vez` `{email, usuario, clave}` | — | paso 2: crea la fila en `usuarios` con el rol de la lista blanca (o creador) y pone la cookie |
+| `POST /cuentas/clave` `{actual, nueva}` | con sesión | cambia mi contraseña (si estoy en la tabla y tengo clave) |
+| `GET /admin/usuarios` | admins | `{usuarios: [...sin hash, con tiene_clave y clave_temporal], en_secrets: [los que todavía no se importaron]}` |
+| `POST /admin/usuarios` `{usuario, email?, nombre?, rol, clave: sin|temporal}` | admins | crea; con `temporal` devuelve `clave_temporal` UNA vez |
+| `PATCH /admin/usuarios/{id}` `{nombre?, email?, rol?, activo?}` | admins | cambia rol, nombre, email, activa/desactiva (no a uno mismo ni al último admin activo) |
+| `POST /admin/usuarios/{id}/renombrar` `{usuario}` | admins | cambia el nombre de usuario y lo actualiza en conversaciones, publicaciones, clips y uso_openai |
+| `POST /admin/usuarios/{id}/clave` `{modo: temporal|sin_clave}` | admins | resetea la contraseña: temporal (se muestra una vez, obliga a cambiarla) o sin clave (la crea desde «Primera vez») |
+| `DELETE /admin/usuarios/{id}` | admins | borra la cuenta (no a uno mismo ni al último admin) |
+| `GET /admin/lista-blanca` · `PUT` `{email, rol, nota}` · `DELETE /admin/lista-blanca/{email}` | admins | la lista blanca (emails de fuera del dominio que pueden crear cuenta / entrar con Google, con rol y nota) |
+| `GET /admin/cambios` | admins | registro de quién hizo cada cambio (`usuarios_cambios`) |
 
 Documentación interactiva en `/docs` (Swagger) cuando la API está corriendo.
 
@@ -76,6 +92,32 @@ párrafo), `citada` (el bot la nombró en la respuesta), `traduccion` (cuentas e
 
 Las mismas herramientas que en Streamlit (`nucleo.TOOLS`): `buscar_material`, `proponer_publicacion`, `pedir_recorte`,
 `estado_recortes`, `analizar_corpus`. Los recortes que pide el bot quedan firmados por la persona de la sesión.
+
+## Usuarios, contraseñas y roles (22/10)
+
+- **Tabla `usuarios`** (Supabase, migración `migraciones/usuarios_y_lista_blanca.sql`): `usuario` (único, minúsculas), `email`
+  (único, puede faltar), `nombre`, `rol` (creador | aprobador | admin), `clave_hash` (bcrypt; null = «sin clave»),
+  `clave_temporal`, `activo`, `creado`, `actualizado`, `ultimo_login`, `creado_por`. Las contraseñas nunca se guardan en claro.
+- **Lista blanca** = tabla `autorizados` (email, rol, nota, agregado_por). Regla: un email `@DOMINIO_FVA` puede crear cuenta y entrar
+  con Google siempre; cualquier otro, solo si está en la lista. El rol de la lista es el rol con el que nace la cuenta.
+- **Cómo se crea una cuenta**: (a) «¿Primera vez? Creá tu cuenta» en la web: email → si puede, elige usuario (3 a 40 caracteres,
+  minúsculas, números, `. _ -`) y contraseña (8+, letras y números) → fila creada y sesión iniciada; (b) «Acceder con Google»: la
+  primera vez crea la fila sola (usuario = el email, salvo que exista un usuario viejo del dominio con ese nombre y sin email: se le
+  asigna el email); (c) un admin la crea desde Administración, sin clave (la persona la crea desde «Primera vez» con su email) o con
+  clave temporal. **Sin verificación por mail** (no hay servicio de mail): pendiente.
+- **Transición (fallback a secrets)**: `auth.login_clave` busca primero en la tabla; si el usuario no está, compara contra
+  `[usuarios]`/`USUARIOS_JSON` como siempre, y el rol sale de `APROBADORES`/`ADMINS`. Así Streamlit (que sigue leyendo secrets) y la
+  API conviven. `python api/importar_usuarios.py --dry-run` muestra quién falta importar; sin `--dry-run` los pasa (hash de la clave
+  actual, rol de las listas; a los que ya están no los toca). **Cuando todos estén en la tabla**, sacar el fallback (está marcado en
+  `auth.py` y `cuentas._existe_usuario`) y la variable `USUARIOS_JSON` del hosting. `GET /admin/usuarios` devuelve en `en_secrets` los
+  que todavía faltan.
+- **Rol**: si la persona está en la tabla, manda la tabla (`roles.roles_de_fila`), aunque las listas de secrets digan otra cosa.
+  `PUBLICACION_DIRECTA` sigue siendo una lista (vacía = publican los aprobadores). La fila se relee cada 30 s (`cuentas.CACHE_SEG`):
+  un cambio de rol o una desactivación tardan como mucho eso en aplicarse a una sesión abierta.
+- **Protecciones**: un admin no puede quitarse el rol admin, desactivarse ni borrarse; tampoco dejar la tabla sin ningún admin activo.
+  Todo cambio de un admin queda en `usuarios_cambios` (nunca con claves).
+- **Clave temporal**: `GET /yo` devuelve `debe_cambiar_clave: true` y la web no deja usar nada hasta cambiarla (`/cuenta`). La API no
+  bloquea los demás endpoints en ese estado (decisión simple; si hace falta, se agrega en `auth.sesion`).
 
 ## Correr en local
 
@@ -108,7 +150,8 @@ Los mismos nombres que los secrets de Streamlit. En un servidor se cargan como v
 |---|---|---|
 | `OPENAI_API_KEY`, `ASISTENTE_MODELO` | el modelo (como hoy) | sí |
 | `SUPABASE_URL`, `SUPABASE_KEY` | conversaciones, clips, publicaciones, autorizados | sí (sin ellas anda el chat pero no guarda) |
-| `USUARIOS_JSON` | `{"franco": "clave", …}`: reemplaza la tabla `[usuarios]` de secrets en el servidor | sí (o `[usuarios]` en secrets.toml) |
+| `USUARIOS_JSON` | `{"franco": "clave", …}`: reemplaza la tabla `[usuarios]` de secrets en el servidor. (22/10) Solo para los usuarios que todavía no están en la tabla `usuarios`; se saca cuando se importen todos | no (sí mientras haya usuarios sin importar) |
+| `BCRYPT_RONDAS` | costo del hash de las contraseñas (default 12; los tests usan 4) | no |
 | `IDIOMAS_JSON` | `{"gratefulness": "en"}`: reemplaza `[idiomas]` (si falta, valen los defaults de la app) | no |
 | `APROBADORES`, `ADMINS`, `PUBLICACION_DIRECTA` | roles, como en Streamlit (21/10: creador → aprobador → admin; un admin también aprueba) | no (defaults `julian,franco,beto` / `franco,beto`) |
 | `SESION_SECRETO` | firma de la cookie de sesión; una cadena larga al azar | **sí en producción** (si falta se genera una al arrancar y las sesiones mueren al reiniciar) |

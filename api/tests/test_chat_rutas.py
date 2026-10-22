@@ -158,7 +158,7 @@ def test_enviar_a_aprobacion(logueado, monkeypatch):
     assert r.json()["id"] == 88 and r.json()["estado"] == "a_aprobar" and "franco" in r.json()["mensaje"]
     assert propuesto["modo"] == "real" and propuesto["texto"] == "Gratitud es la llave." and propuesto["fecha"] is None
     assert propuesto["extra"]["origen"] == "web" and propuesto["imagen_url"] is None
-    assert borrados and "estado=eq.borrador" in borrados[0][0][1]          # el borrador retomado se elimina
+    assert any(b[0][0] == "DELETE" and "estado=eq.borrador" in b[0][1] for b in borrados)   # el borrador retomado se elimina (roles() también consulta la tabla usuarios)
     # WordPress conserva el markdown/HTML y exige título
     assert logueado.post("/publicaciones/a-aprobar", json={"canal": "wordpress", "texto": "x"}).status_code == 400
     r = logueado.post("/publicaciones/a-aprobar", json={"canal": "wordpress", "titulo": "T", "texto": "**x**"})

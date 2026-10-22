@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { api, ErrorApi } from "../api";
 import { useSesion } from "../App";
 import type { Yo } from "../tipos";
@@ -134,10 +134,13 @@ export default function Login() {
           )}
         </div>
         {clientId ? (
-          <p className="suave chico">Entran las cuentas @viviragradecidos.org y las que estén en la lista de autorizados.</p>
+          <p className="suave chico">Entran las cuentas @viviragradecidos.org y las que un admin haya habilitado.</p>
         ) : (
           <p className="suave chico">El login con Google se habilita cuando la API tenga el proyecto de Google Cloud.</p>
         )}
+        <p className="chico primera-vez">
+          ¿Primera vez? <Link to="/primera-vez">Creá tu cuenta</Link>
+        </p>
       </form>
     </div>
   );
