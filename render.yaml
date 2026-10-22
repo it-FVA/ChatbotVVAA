@@ -9,7 +9,7 @@ services:
     runtime: docker
     plan: free
     region: oregon
-    branch: claude/deploy-render-vercel
+    branch: main
     dockerfilePath: ./api/Dockerfile
     dockerContext: .
     healthCheckPath: /salud
