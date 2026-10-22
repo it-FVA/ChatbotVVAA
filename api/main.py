@@ -47,6 +47,8 @@ app.include_router(_recortes.router)
 from . import chat_rutas as _chat_rutas   # noqa: E402  (22/10, fase 2: renombrar/borrar conversaciones, descargas, pedir recorte, pieza a borrador/aprobación)
 app.include_router(_chat_rutas.router)
 app.include_router(_cuentas.router)
+from . import salud as _salud          # noqa: E402
+app.include_router(_salud.router)
 
 
 # ---------------- Modelos de entrada ----------------
@@ -64,14 +66,7 @@ class Mensaje(BaseModel):
     stream: bool = False
 
 
-# ---------------- Salud ----------------
-@app.get("/salud")
-def salud():
-    n = len(nucleo._FRS) if nucleo._FRS is not None else 0
-    return {"ok": True, "corpus_fragmentos": n, "corpus_cargado": n > 0, "supabase": db.disponible(),
-            "modelo": nucleo._modelo(), "login_google": bool(os.environ.get("GOOGLE_CLIENT_ID")),
-            "google_client_id": os.environ.get("GOOGLE_CLIENT_ID", "").strip() or None,   # (21/10 noche) lo usa el botón de la web; no es secreto
-            "dominio_fva": config.dominio_fva()}
+# ---------------- Salud: GET /salud, /salud/servicios y /salud/historial viven en api/salud.py (22/10) ----------------
 
 
 # ---------------- Login y sesión ----------------

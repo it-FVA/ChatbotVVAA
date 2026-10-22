@@ -36,12 +36,40 @@ def _modelo():
 
 
 def cargar():
-    """Carga el corpus una sola vez (queda en memoria del proceso)."""
+    """Carga el corpus una sola vez (queda en memoria del proceso). fragmentos.jsonl siempre (72 MB medidos el 22/10: lo
+    necesitan los filtros y las tarjetas); fragmentos_openai.npy (52 MB) solo con VECTORES=local. Con VECTORES=supabase
+    los vectores viven en Postgres (pgvector, tabla fragmentos_emb) y _EMB queda en None."""
     global _FRS, _EMB
     if _FRS is None:
         _FRS = [json.loads(l) for l in open(os.path.join(HERE, "fragmentos.jsonl"), encoding="utf-8")]
+    if _EMB is None and _vectores_modo() != "supabase":
         _EMB = np.load(os.path.join(HERE, "fragmentos_openai.npy"))
     return _FRS, _EMB
+
+
+# ---------------------------------------------------------------------------
+# (22/10) Dónde viven los vectores y el índice léxico. Medido en la máquina de Franco: el jsonl pesa 72 MB en memoria,
+# el .npy 52 MB y el índice BM25 245 MB (rank_bm25 guarda un dict de frecuencias por fragmento). El plan free de Render
+# tiene 512 MB, así que lo que de verdad alivia es sacar BM25.
+#   VECTORES = local (default: .npy en memoria, como siempre) | supabase (match_fragmentos_varios en Postgres, pgvector HNSW)
+#   LEXICO   = local (default: BM25 en memoria)                | supabase (match_lexico: to_tsvector('spanish') + ts_rank_cd)
+#   VECTORES_K = cuántos candidatos pide cada consulta a Postgres (300). Solo importa en modo supabase.
+# LEXICO solo cuenta si BUSQUEDA_HIBRIDA=1. Los dos modos se midieron con medir_set_dorado.py --modos vectores antes de
+# existir el interruptor en render.yaml (informes/medicion-vectores-supabase*.md). El default NO cambia: lo decide Franco.
+# ---------------------------------------------------------------------------
+def _vectores_modo():
+    return (os.environ.get("VECTORES", "local").strip().lower() or "local")
+
+
+def _lexico_modo():
+    return (os.environ.get("LEXICO", "local").strip().lower() or "local")
+
+
+def _sims_supabase(textos):
+    """{idx: similitud} de los VECTORES_K más parecidos a cualquiera de los textos (fusión por máximo en Postgres)."""
+    import db as _db
+    vectores = [embed_query(t).tolist() for t in textos]
+    return _db.match_fragmentos(vectores, _env_int("VECTORES_K", 300))
 
 
 # ---------------------------------------------------------------------------
@@ -680,12 +708,11 @@ def _agrupar_por_documento(orden, FRS):
 def _buscar(consulta, n, excluir, fuente, autor, max_seg, rerank, idioma):
     FRS, EMB = cargar()
     excluir = set(excluir or [])
-    qv = embed_query(consulta)
-    sims = EMB @ qv
+    textos = [consulta]                    # las consultas que entran al embedding, fusionadas por máximo
     try:                                   # búsqueda bilingüe: también matcheo con la consulta en inglés
         en = _traducir_en(consulta)
         if en and en.lower() != consulta.lower():
-            sims = np.maximum(sims, EMB @ embed_query(en))
+            textos.append(en)
     except Exception:
         pass
     extra = ""
@@ -695,18 +722,37 @@ def _buscar(consulta, n, excluir, fuente, autor, max_seg, rerank, idioma):
         # "lexica" = solo a BM25 (la medición del 5/10 mostró que el embedding con términos genéricos
         # como "Pertenencia" o "Amor" diluye consultas puntuales como "ego").
         if extra and os.environ.get("EXPANSION_MODO", "ambas").strip() != "lexica":
-            sims = np.maximum(sims, EMB @ embed_query(f"{consulta} {extra}"))
+            textos.append(f"{consulta} {extra}")
     except Exception:
         extra = ""
-    orden = np.argsort(-sims)
-    if _hibrida_activa():
+    tokens = _norm_bm25(f"{consulta} {extra}").split() if _hibrida_activa() else []
+    futuro_lexico = None
+    if tokens and _lexico_modo() == "supabase":   # (22/10) texto de Postgres en vez de BM25: se pide EN PARALELO con los vectores
+        from concurrent.futures import ThreadPoolExecutor
+        import db as _db
+        _ex = ThreadPoolExecutor(max_workers=1)
+        futuro_lexico = _ex.submit(_db.match_lexico, " ".join(tokens), _env_int("VECTORES_K", 300))
+        _ex.shutdown(wait=False)
+    if _vectores_modo() == "supabase":     # (22/10) pgvector: solo los VECTORES_K mejores, el resto no existe para el ranking
+        sims_d = _sims_supabase(textos)
+        orden = np.array(sorted(sims_d, key=lambda i: -sims_d[i]), dtype=int)
+        sim = lambda i: sims_d.get(i, 0.0)
+    else:
+        sims = EMB @ embed_query(textos[0])
+        for t in textos[1:]:
+            sims = np.maximum(sims, EMB @ embed_query(t))
+        orden = np.argsort(-sims)
+        sim = lambda i: float(sims[i])
+    if tokens:
         try:
-            tokens = _norm_bm25(f"{consulta} {extra}").split()
-            if tokens:
+            if futuro_lexico is not None:
+                lexico = np.array(futuro_lexico.result(timeout=30), dtype=int)
+            else:
                 lexico = np.argsort(-_bm25().get_scores(tokens))
+            if len(lexico):
                 orden = _rrf(orden, lexico)
         except Exception:
-            pass                           # si falta rank_bm25 o falla, sigue vectorial como siempre
+            pass                           # si falta rank_bm25 o falla Postgres, sigue vectorial como siempre
     orden = _agrupar_por_documento(orden, FRS)
     cand, vistos, huellas = [], set(), set()
     limpieza = _limpieza_extra_activa()
@@ -752,7 +798,7 @@ def _buscar(consulta, n, excluir, fuente, autor, max_seg, rerank, idioma):
             "tag": tag, "titulo": f.get("titulo") or "",
             "texto": re.sub(r"\s+", " ", f.get("texto") or "").strip(),
             "autor": f.get("autor") or "—", "fuente": fu,
-            "url": f.get("url"), "doc": doc, "score": round(float(sims[int(k)]), 2),
+            "url": f.get("url"), "doc": doc, "score": round(sim(int(k)), 2),
             "inicio_ms": f.get("inicio_ms"), "fin_ms": f.get("fin_ms"), "pagina": f.get("pagina"),
         }
         d["ir"] = link_fuente(d)
@@ -873,13 +919,19 @@ def analizar_todo():
 
 def analizar(consulta):
     FRS, EMB = cargar()
-    qv = embed_query(consulta)
-    sims = EMB @ qv
-    orden = np.argsort(-sims)
+    if _vectores_modo() == "supabase":     # (22/10) mismo vecindario (500 fragmentos) pedido a Postgres
+        import db as _db
+        sims_d = _db.match_fragmentos([embed_query(consulta).tolist()], 500)
+        orden = sorted(sims_d, key=lambda i: -sims_d[i])
+        sim = lambda i: sims_d.get(i, 0.0)
+    else:
+        sims = EMB @ embed_query(consulta)
+        orden = np.argsort(-sims)
+        sim = lambda i: float(sims[i])
     docs_por_autor = {}
     total = 0
     for k in orden[:500]:
-        if float(sims[int(k)]) < UMBRAL_AGG:
+        if sim(int(k)) < UMBRAL_AGG:
             break
         fr = FRS[int(k)]
         if JUNK.search(fr.get("texto", "")) or _es_indice(fr.get("texto", "")):

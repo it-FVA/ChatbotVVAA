@@ -8,6 +8,7 @@ uvicorn[standard]
 python-multipart
 google-auth
 requests
+psutil
 itsdangerous
 # Descargas «Word» / «Excel» del chat (documentos.py)
 python-docx>=1.1
