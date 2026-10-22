@@ -381,24 +381,40 @@ def _fila_publicacion(p, mostrar_usuario=False, pref=""):
             c2.markdown(" · ".join(detalle))
 
 
-def _mis_recortes(usuario, todos=False):
+def _mis_recortes(usuario, todos=False, equipo=False, buscar=""):
     """(16/10, pedido de Franco) Los recortes que pidió la persona (desde las tarjetas del chat o pidiéndoselo al bot),
     con estado, link y botón para publicar. todos=True (Panel admin → Clips): los de todo el equipo, con quién lo pidió
-    y «Reintentar» en los que fallaron."""
+    y «Reintentar» en los que fallaron. (21/10, Franco: "un recorte curado lo puede reutilizar otro") equipo=True:
+    biblioteca compartida: los recortes LISTOS de las demás personas, para abrir y publicar; no se editan ni se borran
+    desde acá. buscar: filtra por título, video o quién lo pidió."""
     try:
-        filas = db.listar_clips(100)
-        if not todos:
+        filas = db.listar_clips(200)
+        if equipo:
+            filas = [c for c in filas if c.get("pedido_por") not in (usuario, "bot") and c.get("estado") == "listo" and c.get("url")]
+        elif not todos:
             filas = [c for c in filas if c.get("pedido_por") in (usuario, "bot")]
     except Exception as e:
         st.error(f"No pude leer los recortes: {e}")
         return
+    if buscar:
+        b = buscar.strip().lower()
+        filas = [c for c in filas if b in ((c.get("titulo") or "") + " " + (c.get("video_id") or "") + " " + (c.get("pedido_por") or "")).lower()]
     if not filas:
-        st.caption(("Todavía no se pidió ningún recorte." if todos else "Todavía no pediste ningún recorte.")
-                   + " Se piden desde los botones «✂️ Pedir el recorte» / «📱 Pedir en vertical» "
-                   "debajo de cada video en el chat, o diciéndole al bot «pedime ese tramo en vertical».")
+        if buscar:
+            st.caption("Ningún recorte coincide con la búsqueda.")
+        elif equipo:
+            st.caption("Todavía no hay recortes listos de otras personas del equipo.")
+        else:
+            st.caption(("Todavía no se pidió ningún recorte." if todos else "Todavía no pediste ningún recorte.")
+                       + " Se piden desde los botones «✂️ Pedir el recorte» / «📱 Pedir en vertical» "
+                       "debajo de cada video en el chat, o diciéndole al bot «pedime ese tramo en vertical».")
         return
-    st.caption("Los recortes tardan unos 15 minutos. Cuando están listos aparece el link y el botón para publicar. "
-               "Borrá los que no vayas a usar: cada uno ocupa entre 5 y 50 MB en WordPress.")
+    propio = not equipo     # en la biblioteca del equipo no se edita ni se borra lo ajeno
+    if equipo:
+        st.caption("Recortes listos que pidieron otras personas del equipo. Se pueden abrir y publicar; para cambiarlos o borrarlos, pedíselo a quien lo pidió o a un aprobador.")
+    else:
+        st.caption("Los recortes tardan unos 15 minutos. Cuando están listos aparece el link y el botón para publicar. "
+                   "Borrá los que no vayas a usar: cada uno ocupa entre 5 y 50 MB en WordPress.")
     _EST = {"listo": "✅ listo", "pedido": "⏳ en proceso", "error": "⚠ error"}
     cfg = publicar.Config(st.secrets)
     for c in filas:
@@ -415,7 +431,7 @@ def _mis_recortes(usuario, todos=False):
             c2.markdown(f"**{(c.get('titulo') or c['video_id'])[:90]}**  \n"
                         f"{_fecha(c.get('creado'))} · {fmt} · {mmss_(c['inicio_ms'])}–{mmss_(c['fin_ms'])} · {estado_txt}"
                         + (f" · ✂️ sin pausas ({sp.get('antes', 0):.0f} s → {sp.get('despues', 0):.0f} s)" if sp else "")
-                        + (f" · pidió **{c.get('pedido_por') or '—'}**" if todos else ""))
+                        + (f" · pidió **{c.get('pedido_por') or '—'}**" if (todos or equipo) else ""))
             if c.get("nota"):
                 c2.caption(c["nota"][:160])
             if c.get("estado") == "error" and c.get("error"):
@@ -438,11 +454,11 @@ def _mis_recortes(usuario, todos=False):
                     usados = db.publicaciones_con_video(c["url"])
                 except Exception:
                     pass
-                conf = b4.checkbox("confirmo", key=f"rec_conf_{c['id']}", help="Marcá para habilitar Borrar." + (" OJO: este recorte está en una publicación." if usados else ""))
-                if usados:
+                conf = b4.checkbox("confirmo", key=f"rec_conf_{c['id']}", help="Marcá para habilitar Borrar." + (" OJO: este recorte está en una publicación." if usados else "")) if propio else False
+                if usados and propio:
                     c2.caption("⚠ Este recorte está usado en: " + ", ".join(f"{u.get('canal')} ({u.get('estado')})" for u in usados[:4])
                                + ". Si lo borrás, un blogpost que lo tenga embebido se queda sin video; Instagram, Facebook y YouTube ya tienen su copia.")
-                if b3.button("🗑 Borrar", key=f"rec_del_{c['id']}", disabled=not conf):
+                if propio and b3.button("🗑 Borrar", key=f"rec_del_{c['id']}", disabled=not conf):
                     ok, aviso = publicar.borrar_media_por_url(cfg, c["url"], quien=usuario)
                     if ok:
                         db.borrar_clip(c["id"])
@@ -457,7 +473,8 @@ def _mis_recortes(usuario, todos=False):
                     st.session_state.pop("retomar", None)
                     st.session_state["vista"] = "publicar"
                     st.rerun()
-                _editor_recorte(c, usuario)   # (19/10) Tramo en los dos formatos; Subtítulos y Estilo solo en vertical
+                if propio:
+                    _editor_recorte(c, usuario)   # (19/10) Tramo en los dos formatos; Subtítulos y Estilo solo en vertical
 
 
 def _editor_recorte(c, usuario):
@@ -714,8 +731,14 @@ def mis_publicaciones(usuario):
     (16/10, UX) Con solapas por estado; «Mis recortes» es una pantalla aparte (botón de la barra)."""
     rol = roles(usuario)
     if st.session_state.get("mis_filtro") == "🎬 mis recortes":
-        st.markdown("### 🎬 Mis recortes")
-        _mis_recortes(usuario)
+        st.markdown("### 🎬 Recortes")
+        # (21/10, Franco) Biblioteca compartida: lo que recortó y curó una persona lo puede reutilizar otra.
+        buscar = st.text_input("Buscar", key="rec_buscar", placeholder="Buscar por título, video o quién lo pidió…", label_visibility="collapsed")
+        tm, te = st.tabs(["🎬 Mis recortes", "👥 Del equipo"])
+        with tm:
+            _mis_recortes(usuario, buscar=buscar)
+        with te:
+            _mis_recortes(usuario, equipo=True, buscar=buscar)
         return
     st.markdown("### 📋 Mis publicaciones")
     st.caption(f"Tu rol: **{rol['nombre']}**" + (" · con publicación directa" if rol["publica"] else "")
@@ -805,7 +828,7 @@ def panel_aprobacion(usuario):
         # (15/10) Clips exactos pedidos desde el chat. (16/10, UX) Mismas tarjetas que «Mis recortes», para todo el equipo.
         st.caption("Recortes pedidos desde el chat por todo el equipo. Los corta la nube cada 15 minutos desde los originales en Drive.")
         estilo_por_defecto_admin(usuario)   # (19/10) estilo por defecto de los subtítulos
-        _mis_recortes(usuario, todos=True)
+        _mis_recortes(usuario, todos=True, buscar=st.text_input("Buscar", key="rec_buscar_admin", placeholder="Buscar por título, video o quién lo pidió…", label_visibility="collapsed"))
     with t4:
         # (15/10) Conversaciones borradas por cualquier usuario: se pueden restaurar durante 30 días.
         st.caption(f"Conversaciones que alguien borró. Se restauran desde acá durante {db.PAPELERA_DIAS} días; después se borran de verdad.")
