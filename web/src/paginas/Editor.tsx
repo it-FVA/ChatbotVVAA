@@ -275,7 +275,7 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
       if (ayuda || (t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA" || t.isContentEditable))) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const k = e.key;
-      const esManija = t?.classList.contains("manija") || t?.classList.contains("bloque-manija");
+      const esManija = !!t?.classList?.contains("manija") || !!t?.classList?.contains("bloque-manija");
       if (k === " ") {
         e.preventDefault();
         alternarReproduccion();
@@ -416,6 +416,8 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
               controls
               playsInline
               onLoadedMetadata={(e) => setDuracion(e.currentTarget.duration || duracion)}
+              onSeeked={(e) => setTiempo(e.currentTarget.currentTime)}
+              onTimeUpdate={(e) => setTiempo(e.currentTarget.currentTime)}
               onPlay={() => setReproduciendo(true)}
               onPause={() => {
                 setReproduciendo(false);

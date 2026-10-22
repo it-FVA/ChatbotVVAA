@@ -64,7 +64,7 @@ const ALTO = ALTO_MINI + ALTO_ONDA + ALTO_REGLA;
 const SEP = 34; // entre el original y la secuencia (título del carril)
 const ALTO_SEC = 72; // bloques de la secuencia (miniatura + etiqueta)
 const ALTO_SEC_MINI = 50;
-const MIN_BLOQUE = 30; // px: que siempre entren las dos manijas
+const MIN_BLOQUE = 60; // px: que siempre entren las dos manijas y la duración
 const GAP = 3;
 const Y_SEC = CARRIL + ALTO + SEP;
 
@@ -418,20 +418,34 @@ export default function LineaTiempo(p: Props) {
   };
 
   const moviendo = arrastre?.tipo === "mover" && arrastre.activo ? arrastre : null;
-  // dónde caería el bloque que se arrastra (marca de inserción)
+  // Mientras se arrastra un bloque, los demás se corren para abrir un hueco del tamaño del bloque donde caería (y una marca roja
+  // lo señala): así se ve dónde va a quedar antes de soltar. `vista` es la geometría que se dibuja; `geo` la real.
   let marcaX: number | null = null;
+  let vista = geo;
   if (moviendo) {
+    const movido = geo.find((b) => b.id === moviendo.id);
     const otros = geo.filter((b) => b.id !== moviendo.id);
     const lugar = otros.filter((b) => b.left + b.width / 2 < moviendo.x).length;
-    if (!otros.length) marcaX = null;
-    else marcaX = lugar < otros.length ? otros[lugar].left - GAP / 2 : otros[otros.length - 1].left + otros[otros.length - 1].width + GAP / 2;
+    const hueco = (movido?.width ?? MIN_BLOQUE) + GAP;
+    let left = x(p.ini);
+    vista = [];
+    otros.forEach((b, i) => {
+      if (i === lugar) {
+        marcaX = left - GAP / 2;
+        left += hueco;
+      }
+      vista.push({ ...b, left });
+      left += b.width + GAP;
+    });
+    if (lugar >= otros.length) marcaX = left - GAP / 2;
+    if (movido) vista.push(movido);
   }
   const durSalida = geo.reduce((s, b) => s + (b.pieza.b - b.pieza.a), 0);
   const ultimoBloque = geo.length ? geo[geo.length - 1].left + geo[geo.length - 1].width : x(p.ini);
 
   return (
     <div className="linea-marco" ref={marco}>
-      <div className="linea" ref={ref} onClick={clic} style={{ width: anchoTotal, height: Y_SEC + ALTO_SEC }}>
+      <div className="linea" ref={ref} onClick={clic} style={{ width: Math.max(anchoTotal, ultimoBloque + 8), height: Y_SEC + ALTO_SEC }}>
         <canvas ref={canvas} style={{ width: anchoTotal, height: ALTO + SEP + ALTO_SEC, top: CARRIL }} />
         {/* ---------- original: pedazos conservados / sacados ---------- */}
         {p.piezas.map((z) => (
@@ -489,10 +503,11 @@ export default function LineaTiempo(p: Props) {
         <div className="sec-titulo chico" style={{ left: x(p.ini), top: CARRIL + ALTO + 6 }}>
           <strong>Secuencia de salida</strong> · {(durSalida / 1000).toFixed(1)} s ·{" "}
           {geo.length === 1 ? "1 pedazo" : `${geo.length} pedazos`}
-          {geo.length > 1 && <span className="suave"> · arrastrá un bloque para cambiar el orden</span>}
+          {geo.length > 1 && ancho >= 700 && <span className="suave"> · arrastrá un bloque para cambiar el orden</span>}
         </div>
         <div className="sec-fondo" style={{ left: x(p.ini), width: Math.max(0, ultimoBloque - x(p.ini)), top: Y_SEC, height: ALTO_SEC }} />
-        {geo.map((b, i) => {
+        {vista.map((b) => {
+          const i = geo.findIndex((g) => g.id === b.id);
           const z = b.pieza;
           const esMovido = moviendo?.id === z.id;
           const sel = p.seleccion === z.id;
@@ -501,16 +516,16 @@ export default function LineaTiempo(p: Props) {
           return (
             <div
               key={z.id}
-              className={"bloque" + (sel ? " seleccionado" : "") + (esMovido ? " movido" : "") + (b.width < 70 ? " angosto" : "")}
-              style={{ left: b.left, width: b.width, top: Y_SEC, height: ALTO_SEC, transform: esMovido ? `translateX(${moviendo!.x - moviendo!.x0}px)` : undefined }}
+              className={"bloque" + (sel ? " seleccionado" : "") + (esMovido ? " movido" : "") + (b.width < 96 ? " angosto" : "")}
+              style={{ left: b.left, width: b.width, top: Y_SEC, height: ALTO_SEC, transform: esMovido ? `translateX(${moviendo!.x - moviendo!.x0}px)` : undefined, transition: moviendo && !esMovido ? "left 120ms" : undefined }}
               role="group"
               aria-label={`Pedazo ${i + 1}: ${mmss(z.a, 1)} a ${mmss(z.b, 1)} del original, ${dur.toFixed(1)} s`}
               tabIndex={0}
               onFocus={() => p.onSeleccion(z.id)}
               onClick={(e) => e.stopPropagation()}
               onPointerDown={(e) => {
-                // con mouse, todo el bloque se arrastra; en touch solo el agarre (así el carril se puede desplazar con el dedo)
-                if (e.button !== 0 || e.pointerType !== "mouse") return;
+                // todo el bloque se arrastra (mouse y touch; el carril se desplaza con el dedo desde el original o la barra)
+                if (e.button !== 0) return;
                 e.preventDefault();
                 e.stopPropagation();
                 (e.currentTarget as HTMLElement).focus();
