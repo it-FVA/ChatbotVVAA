@@ -1,0 +1,69 @@
+# Llamadas de ejemplo (formato de la extensión REST Client de VS Code; abajo, las mismas con curl).
+# La sesión es una cookie: el cliente tiene que guardarla después del login (curl: -c/-b cookies.txt).
+@base = http://127.0.0.1:8000
+
+### Salud (sin sesión)
+GET {{base}}/salud
+
+### Login por usuario y contraseña (los de [usuarios] en secrets)
+POST {{base}}/login
+Content-Type: application/json
+
+{"usuario": "franco", "clave": "LA-CLAVE"}
+
+### Login con Google (la interfaz manda el id_token que devolvió Google Identity Services)
+POST {{base}}/login/google
+Content-Type: application/json
+
+{"id_token": "eyJ..."}
+
+### Quién soy (usuario, rol, idioma)
+GET {{base}}/yo
+
+### Mis conversaciones (barra lateral)
+GET {{base}}/conversaciones
+
+### Una conversación (mensajes normalizados + tarjetas de fuentes)
+GET {{base}}/conversaciones/00000000-0000-0000-0000-000000000000
+
+### Mandar un mensaje a una conversación nueva, SIN streaming (devuelve el JSON final)
+POST {{base}}/conversaciones/nueva/mensajes
+Content-Type: application/json
+
+{"texto": "¿qué dice Br. David sobre la gratitud?"}
+
+### El mismo mensaje CON streaming (Server-Sent Events: inicio, estado, fuentes, pieza, texto…, fin)
+POST {{base}}/conversaciones/nueva/mensajes
+Content-Type: application/json
+Accept: text/event-stream
+
+{"texto": "¿qué dice Br. David sobre la gratitud?", "stream": true}
+
+### Seguir una conversación existente
+POST {{base}}/conversaciones/00000000-0000-0000-0000-000000000000/mensajes
+Content-Type: application/json
+
+{"texto": "armame un posteo para Instagram con esa cita"}
+
+### Mis recortes (todos=1 solo para aprobadores: los de todo el equipo)
+GET {{base}}/recortes
+
+### Mis publicaciones (piezas + solapas por estado; todos=1 para el registro completo, aprobadores)
+GET {{base}}/publicaciones
+
+### Lista de autorizados para el login con Google (aprobadores)
+GET {{base}}/autorizados
+
+### Cerrar sesión
+POST {{base}}/logout
+
+
+# ---------------- Con curl ----------------
+# curl -s http://127.0.0.1:8000/salud
+# curl -s -c cookies.txt -H "Content-Type: application/json" -d '{"usuario":"franco","clave":"LA-CLAVE"}' http://127.0.0.1:8000/login
+# curl -s -b cookies.txt http://127.0.0.1:8000/yo
+# curl -s -b cookies.txt http://127.0.0.1:8000/conversaciones
+# curl -s -N -b cookies.txt -H "Content-Type: application/json" -H "Accept: text/event-stream" \
+#      -d '{"texto":"¿qué dice Br. David sobre la gratitud?"}' http://127.0.0.1:8000/conversaciones/nueva/mensajes
+# curl -s -b cookies.txt http://127.0.0.1:8000/recortes
+# curl -s -b cookies.txt http://127.0.0.1:8000/publicaciones

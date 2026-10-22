@@ -33,6 +33,11 @@ aplican vía force_style de libass (estilo_ass). Prueba local: --estilo '{"color
 Quitar pausas largas (21/10, pedido de Julián en la reunión del 19/10, experimento aprobado por Franco): cortar(..., quitar_pausas=True)
 saca los silencios de más de 0,7 s del tramo (ffmpeg silencedetect a -32 dB, dejando 0,25 s a cada lado) antes de armar el video, y
 corre los tiempos de los subtítulos para que sigan sincronizados. CLI: --quitar-pausas. Ver quitar_pausas().
+
+Segmentos (21/10, noche; fase 1 de la interfaz propia, editor visual de «Mis recortes»): cortar(..., segmentos=[(a, b), ...])
+conserva solo esos tramos del clip (segundos relativos al tramo) y los pega uno tras otro: es «partir el recorte y sacar un
+pedazo del medio». En clips.edicion viaja como "segmentos" = [[a_ms, b_ms], ...] absolutos del original (normalizar_segmentos
+los pasa a relativos). Mismo mecanismo que quitar pausas (select/aselect) y los subtítulos se corren igual. Ver conservar_tramos().
 """
 import argparse, io, json, os, re, subprocess, shutil
 
@@ -265,6 +270,19 @@ def _mapear_tiempo(t, keep):
     return acumulado
 
 
+def conservar_tramos(entrada, salida, keep, ffmpeg="ffmpeg", que="conservar los tramos"):
+    """(21/10, noche) Arma `salida` con solo los tramos `keep` = [(a, b), ...] (segundos de `entrada`), pegados uno tras otro
+    en ese orden (select/aselect + setpts/asetpts; re-encode x264 veryfast crf 18, aac 160k). Es el mecanismo de quitar pausas
+    y también el de «sacar un pedazo del medio» (segmentos). Devuelve la duración resultante en segundos."""
+    expr = "+".join(f"between(t,{a:.3f},{b:.3f})" for a, b in keep)
+    r = _run_ffmpeg(ffmpeg, ["-loglevel", "error", "-i", entrada,
+                             "-vf", f"select='{expr}',setpts=N/FRAME_RATE/TB", "-af", f"aselect='{expr}',asetpts=N/SR/TB",
+                             "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-c:a", "aac", "-b:a", "160k", salida])
+    if r.returncode != 0 or not os.path.exists(salida):
+        raise RuntimeError(f"ffmpeg no pudo {que}: " + (r.stderr or "").strip()[-300:])
+    return duracion_video(salida, ffmpeg) or sum(b - a for a, b in keep)
+
+
 def _quitar_pausas_tramos(entrada, salida, ffmpeg="ffmpeg", umbral_db=-32, min_sil=0.7, colchon=0.25):
     """Como quitar_pausas, pero devuelve también los tramos conservados (para correr los subtítulos)."""
     total = duracion_video(entrada, ffmpeg)
@@ -276,14 +294,54 @@ def _quitar_pausas_tramos(entrada, salida, ffmpeg="ffmpeg", umbral_db=-32, min_s
     if not pausas:
         shutil.copyfile(entrada, salida)
         return total, total, 0, [(0.0, total)]
-    expr = "+".join(f"between(t,{a:.3f},{b:.3f})" for a, b in keep)
-    r = _run_ffmpeg(ffmpeg, ["-loglevel", "error", "-i", entrada,
-                             "-vf", f"select='{expr}',setpts=N/FRAME_RATE/TB", "-af", f"aselect='{expr}',asetpts=N/SR/TB",
-                             "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-c:a", "aac", "-b:a", "160k", salida])
-    if r.returncode != 0 or not os.path.exists(salida):
-        raise RuntimeError("ffmpeg no pudo quitar las pausas: " + (r.stderr or "").strip()[-300:])
-    despues = duracion_video(salida, ffmpeg) or sum(b - a for a, b in keep)
+    despues = conservar_tramos(entrada, salida, keep, ffmpeg, "quitar las pausas")
     return total, despues, pausas, keep
+
+
+# ---------------- Segmentos: partir el recorte y sacar un pedazo del medio (21/10, noche; editor visual de la web) ----------------
+def normalizar_segmentos(segmentos, inicio_ms, fin_ms):
+    """clips.edicion["segmentos"] = [[a_ms, b_ms], ...]: los tramos que se CONSERVAN, en milisegundos ABSOLUTOS del video original
+    (como inicio_ms/fin_ms). Devuelve [(a, b), ...] en segundos relativos al tramo [inicio_ms, fin_ms], recortados a él, ordenados
+    y sin solaparse; o None si no hay nada que sacar (vacío, o cubren el tramo entero). ValueError si ninguno cae en el tramo."""
+    if not segmentos:
+        return None
+    tramos = []
+    for s in segmentos:
+        a, b = max(int(s[0]), int(inicio_ms)), min(int(s[1]), int(fin_ms))
+        if b - a >= 50:
+            tramos.append((a, b))
+    tramos.sort()
+    unidos = []
+    for a, b in tramos:
+        if unidos and a <= unidos[-1][1]:
+            unidos[-1] = (unidos[-1][0], max(unidos[-1][1], b))
+        else:
+            unidos.append((a, b))
+    if not unidos:
+        raise ValueError("ningún segmento cae dentro del tramo")
+    if len(unidos) == 1 and unidos[0] == (int(inicio_ms), int(fin_ms)):
+        return None
+    return [((a - inicio_ms) / 1000, (b - inicio_ms) / 1000) for a, b in unidos]
+
+
+def _componer_mapas(mapas):
+    """Varias listas keep aplicadas una tras otra (p. ej. segmentos y después pausas) → una sola lista [(a, b), ...] de lo que
+    queda del tramo plano en el video final, en segundos del tramo plano. Es lo que la web usa para llevar un segundo del
+    reproductor al segundo del original (clips.edicion["timeline"])."""
+    if not mapas:
+        return None
+    res = list(mapas[0])
+    for m in mapas[1:]:
+        nuevo = []
+        for a, b in m:   # (a, b) está en la timeline de SALIDA de res: se lleva a la de entrada
+            acum = 0.0
+            for p, q in res:
+                lo, hi = max(a, acum), min(b, acum + (q - p))
+                if hi - lo > 0.001:
+                    nuevo.append((p + (lo - acum), p + (hi - acum)))
+                acum += q - p
+        res = nuevo
+    return [(round(a, 3), round(b, 3)) for a, b in res]
 
 
 def quitar_pausas(entrada, salida, ffmpeg="ffmpeg", umbral_db=-32, min_sil=0.7, colchon=0.25):
@@ -313,7 +371,7 @@ def _correr_srt(srt_txt, keep):
 
 
 def cortar(entrada, salida, inicio, fin, ffmpeg="ffmpeg", formato="horizontal", palabras=None, srt_texto=None, estilo=None,
-           quitar_pausas=False, srt_ya_sin_pausas=False, info=None):
+           quitar_pausas=False, srt_ya_sin_pausas=False, info=None, segmentos=None):
     """formato 'horizontal': el tramo tal cual (hasta 1280 de ancho). 'vertical' (15/10, pedido de Franco: shorts,
     reels, historias): lienzo 1080x1920 con el video centrado y, de fondo, el mismo video desenfocado.
     palabras: lista [[palabra, inicio_ms, fin_ms], ...] del video entero → subtítulos quemados (None = sin).
@@ -324,32 +382,56 @@ def cortar(entrada, salida, inicio, fin, ffmpeg="ffmpeg", formato="horizontal", 
     `palabras` o de `srt_texto` se corren solos para que los subtítulos sigan sincronizados. srt_ya_sin_pausas=True avisa que
     `srt_texto` ya está en la timeline sin pausas (es el SRT de un video que ya se había hecho sin pausas, con el mismo
     tramo) y no hay que correrlo. Si se pasa un dict en `info`, queda info["sin_pausas"] = {"antes", "despues", "pausas"}.
+    segmentos (21/10, noche): [(a, b), ...] en segundos relativos al tramo [inicio, fin], los pedazos que se conservan (ver
+    normalizar_segmentos); se aplican ANTES de quitar las pausas. info["segmentos"] = {"antes", "despues", "tramos"} e
+    info["timeline"] = lo que queda del tramo plano en el video final (_componer_mapas), para que la web ubique los tiempos.
+    srt_ya_sin_pausas vale también para los segmentos: True = el SRT ya está en la timeline del video final.
     Devuelve el texto SRT que se quemó ('' si el clip salió sin subtítulos)."""
     sub, srt_txt = "", ""
     temporales = []
-    keep = None
-    if quitar_pausas:
-        # 1) el tramo tal cual (sin subtítulos ni lienzo), 2) sin pausas; el resto del corte sigue sobre ese archivo desde 0
+    mapas = []   # listas keep aplicadas en orden (segmentos, pausas): con ellas se corren las palabras y el SRT
+    if segmentos or quitar_pausas:
+        # 1) el tramo tal cual (sin subtítulos ni lienzo); 2) solo los segmentos; 3) sin pausas; el corte de siempre sigue sobre
+        # ese archivo desde 0
         base = os.path.splitext(os.path.basename(salida))[0]
-        tmp_tramo, tmp_sin = f"{base}.tramo.mp4", f"{base}.sinpausas.mp4"
-        temporales += [tmp_tramo, tmp_sin]
+        tmp_tramo = f"{base}.tramo.mp4"
+        temporales.append(tmp_tramo)
         subprocess.check_call([ffmpeg, "-y", "-loglevel", "error", "-ss", f"{inicio:.3f}", "-to", f"{fin:.3f}", "-i", entrada,
                                "-vf", "scale='min(1280,iw)':-2", "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
                                "-c:a", "aac", "-b:a", "160k", tmp_tramo])
-        antes, despues, n_pausas, keep = _quitar_pausas_tramos(tmp_tramo, tmp_sin, ffmpeg)
-        if isinstance(info, dict):
-            info["sin_pausas"] = {"antes": round(antes, 1), "despues": round(despues, 1), "pausas": n_pausas}
-        if palabras:
-            # palabras del video entero (ms absolutos) → relativas al tramo y corridas a la timeline sin pausas
+        if palabras:   # palabras del video entero (ms absolutos) → relativas al tramo plano
             ini_ms, fin_ms = int(inicio * 1000), int(fin * 1000)
-            palabras = [[w[0], int(_mapear_tiempo(max(0, w[1] - ini_ms) / 1000, keep) * 1000),
-                         int(_mapear_tiempo(max(0, min(w[2], w[1] + 1500) - ini_ms) / 1000, keep) * 1000)]
+            palabras = [[w[0], max(0, w[1] - ini_ms), max(0, min(w[2], w[1] + 1500) - ini_ms)]
                         for w in palabras if w[1] < fin_ms and w[2] > ini_ms]
-        entrada, inicio, fin = tmp_sin, 0.0, despues
+        entrada, inicio, fin = tmp_tramo, 0.0, fin - inicio
+        if segmentos:
+            tmp_seg = f"{base}.segmentos.mp4"
+            temporales.append(tmp_seg)
+            antes = fin
+            fin = conservar_tramos(entrada, tmp_seg, segmentos, ffmpeg, "pegar los segmentos")
+            mapas.append(list(segmentos))
+            entrada = tmp_seg
+            if isinstance(info, dict):
+                info["segmentos"] = {"antes": round(antes, 1), "despues": round(fin, 1), "tramos": len(segmentos)}
+        if quitar_pausas:
+            tmp_sin = f"{base}.sinpausas.mp4"
+            temporales.append(tmp_sin)
+            antes, despues, n_pausas, keep = _quitar_pausas_tramos(entrada, tmp_sin, ffmpeg)
+            mapas.append(keep)
+            entrada, fin = tmp_sin, despues
+            if isinstance(info, dict):
+                info["sin_pausas"] = {"antes": round(antes, 1), "despues": round(despues, 1), "pausas": n_pausas}
+        if isinstance(info, dict):
+            info["timeline"] = _componer_mapas(mapas)
+        if palabras:
+            for keep in mapas:
+                palabras = [[w[0], int(_mapear_tiempo(w[1] / 1000, keep) * 1000), int(_mapear_tiempo(w[2] / 1000, keep) * 1000)]
+                            for w in palabras]
     if srt_texto and srt_texto.strip():
         srt_txt = srt_texto.strip().replace("\r", "") + "\n"
-        if keep is not None and not srt_ya_sin_pausas:
-            srt_txt = _correr_srt(srt_txt, keep)
+        if mapas and not srt_ya_sin_pausas:
+            for keep in mapas:
+                srt_txt = _correr_srt(srt_txt, keep)
     elif palabras:
         srt_txt = armar_srt(palabras, inicio, fin)
     if srt_txt:
@@ -418,6 +500,7 @@ def main():
     ap.add_argument("--sin-subir", action="store_true", help="(19/10) solo cortar, sin subir a WordPress")
     ap.add_argument("--estilo", default="", help='(19/10) estilo de los subtítulos, JSON: {"tipografia":"Lato","tamano":"grande","color":"amarillo de la marca","fondo":"borde negro","negrita":true,"posicion":"centro"}')
     ap.add_argument("--quitar-pausas", action="store_true", help="(21/10) sacar los silencios de más de 0,7 s (umbral -32 dB, colchón 0,25 s)")
+    ap.add_argument("--segmentos", default="", help='(21/10, noche) tramos que se conservan, en segundos del ORIGINAL: "58.6-70,75-106.6" (lo demás del tramo se saca)')
     a = ap.parse_args()
     nombre = a.nombre or a.youtube or a.drive_id or os.path.splitext(os.path.basename(a.original))[0]
     srt_texto = open(a.srt, encoding="utf-8").read() if a.srt else None
@@ -438,9 +521,16 @@ def main():
     clip = f"clip-{nombre}-{int(a.inicio)}-{int(a.fin)}{'-vertical' if a.formato == 'vertical' else ''}.mp4"
     estilo = json.loads(a.estilo) if a.estilo else None
     info = {}
+    segmentos = None
+    if a.segmentos:
+        pares = [[int(float(x) * 1000) for x in t.split("-")] for t in a.segmentos.split(",") if t.strip()]
+        segmentos = normalizar_segmentos(pares, int(a.inicio * 1000), int(a.fin * 1000))
     con_sub = cortar(original, clip, a.inicio, a.fin, a.ffmpeg, a.formato, palabras, srt_texto, estilo,
-                     quitar_pausas=a.quitar_pausas, info=info)
+                     quitar_pausas=a.quitar_pausas, info=info, segmentos=segmentos)
     print(f"clip: {clip} ({os.path.getsize(clip) // 1024} KB){' · con subtítulos' if con_sub else ''}")
+    if info.get("segmentos"):
+        sg = info["segmentos"]
+        print(f"segmentos: {sg['antes']:.1f} s → {sg['despues']:.1f} s, {sg['tramos']} tramos conservados")
     if info.get("sin_pausas"):
         sp = info["sin_pausas"]
         print(f"sin pausas: {sp['antes']:.1f} s → {sp['despues']:.1f} s, {sp['pausas']} pausas sacadas")

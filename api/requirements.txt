@@ -1,0 +1,14 @@
+# Lo que usa el cerebro (requirements.txt de la raíz, sin streamlit ni los paquetes de Word/Excel)
+numpy
+openai
+rank_bm25
+# La API
+fastapi
+uvicorn[standard]
+python-multipart
+google-auth
+requests
+itsdangerous
+# Pruebas (api/tests)
+pytest
+httpx

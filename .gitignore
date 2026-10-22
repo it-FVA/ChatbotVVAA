@@ -17,3 +17,6 @@ clip_url.txt
 
 # herramientas locales de Claude Code
 .claude/launch.json
+
+# variables de la API para el hosting (secretos): se genera con api/armar_env.py
+api.env

@@ -574,6 +574,61 @@ def resumen_frases():
             "pendientes_validar": sum(1 for f in todas if not f.get("validada"))}
 
 
+# ---------------- API HTTP (21/10, fase 0 de la interfaz propia; carpeta api/) ----------------
+# Funciones nuevas, solo para la API; las de arriba no cambian.
+
+def cargar_conversacion_de(cid, usuario):
+    """La conversación solo si es de esa persona y no está en la papelera (la API no confía en el id suelto)."""
+    r = _req("GET", f"?id=eq.{urllib.parse.quote(str(cid))}&usuario=eq.{urllib.parse.quote(usuario)}&borrada=is.null"
+                    f"&select=id,usuario,titulo,mensajes,creado,actualizado")
+    return r[0] if r else None
+
+
+# Tabla autorizados(email text pk, rol 'creador'|'aprobador', agregado_por, creado) — migración `autorizados_login_google`.
+# Login con Google: entran las cuentas del dominio de la Fundación (DOMINIO_FVA) MÁS los emails de esta tabla.
+def autorizado(email):
+    if not disponible() or not email:
+        return None
+    r = _req("GET", f"?email=eq.{urllib.parse.quote(email.strip().lower())}&select=email,rol,agregado_por,creado", tabla="autorizados")
+    return r[0] if r else None
+
+
+def listar_autorizados(limite=200):
+    if not disponible():
+        return []
+    return _req("GET", f"?select=email,rol,agregado_por,creado&order=creado.desc&limit={limite}", tabla="autorizados") or []
+
+
+def agregar_autorizado(email, rol, agregado_por):
+    """Alta o cambio de rol (upsert por email)."""
+    if not disponible():
+        return None
+    url, key = _cfg()
+    data = json.dumps({"email": email.strip().lower(), "rol": rol if rol in ("creador", "aprobador") else "creador",
+                       "agregado_por": agregado_por}).encode("utf-8")
+    req = urllib.request.Request(f"{url}/rest/v1/autorizados", data=data, method="POST", headers={
+        "apikey": key, "Authorization": "Bearer " + key, "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates,return=representation"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return json.loads(r.read().decode("utf-8") or "[]")
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"Supabase {e.code}: {e.read().decode('utf-8','ignore')[:200]}")
+
+
+def quitar_autorizado(email):
+    return _req("DELETE", f"?email=eq.{urllib.parse.quote(email.strip().lower())}", tabla="autorizados")
+
+
+# ---------------- API HTTP, fase 1 (21/10, noche): editor de recortes de la web ----------------
+def obtener_clip(cid):
+    """Una fila de clips por id (las mismas columnas que listar_clips), o None."""
+    if not disponible() or not cid:
+        return None
+    r = _req("GET", f"?id=eq.{urllib.parse.quote(str(cid))}&select=id,creado,video_id,inicio_ms,fin_ms,formato,titulo,pedido_por,estado,url,error,procesado_en,srt,edicion,nota,estilo", tabla="clips")
+    return r[0] if r else None
+
+
 # ---------------- Uso (21/10, Franco: "¿hubo movimiento?" en pantalla) ----------------
 def uso_actividad(dias=28):
     """Todo lo que pasó en los últimos `dias`: conversaciones (con cuántos mensajes propios), piezas y recortes.
