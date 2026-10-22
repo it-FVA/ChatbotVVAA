@@ -21,6 +21,7 @@ create table if not exists usuarios (
   creado_por text                               -- quién la creó: 'importar_usuarios', 'primera_vez', 'google' o un admin
 );
 create index if not exists usuarios_email_idx on usuarios (lower(email));
+alter table usuarios enable row level security;   -- como las demás tablas: la API usa la service_role key
 
 -- Registro de cambios hechos por admins (quién, qué, a quién).
 create table if not exists usuarios_cambios (
@@ -31,6 +32,7 @@ create table if not exists usuarios_cambios (
   usuario text,                                 -- a quién (usuario o email)
   detalle jsonb
 );
+alter table usuarios_cambios enable row level security;
 
 -- La lista blanca: `autorizados` suma el rol admin y una nota.
 alter table autorizados drop constraint if exists autorizados_rol_check;
