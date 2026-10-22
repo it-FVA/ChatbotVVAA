@@ -42,7 +42,9 @@ if _ORIGENES:
                        allow_methods=["*"], allow_headers=["*"])
 
 from . import recortes as _recortes   # noqa: E402  (importa db: va después de config.cargar())
+from . import cuentas as _cuentas     # noqa: E402  (22/10: usuarios, lista blanca, administración)
 app.include_router(_recortes.router)
+app.include_router(_cuentas.router)
 
 
 # ---------------- Modelos de entrada ----------------
@@ -73,22 +75,30 @@ def salud():
 # ---------------- Login y sesión ----------------
 @app.post("/login")
 def login(datos: Login, resp: Response):
-    if not config.usuarios():
+    """(22/10) Primero la tabla `usuarios` (hash); si no está ahí, la lista de secrets (transición)."""
+    if not config.usuarios() and not db.disponible():
         raise HTTPException(503, "Falta configurar la lista de usuarios ([usuarios] en secrets o USUARIOS_JSON).")
-    if not auth.login_clave(datos.usuario, datos.clave):
+    r = auth.login_clave(datos.usuario, datos.clave)
+    if not r:
         raise HTTPException(401, "Usuario o contraseña incorrectos.")
-    auth.emitir(resp, datos.usuario, "clave")
-    return auth.yo({"usuario": datos.usuario, "origen": "clave"})
+    usuario = r["usuario"] if isinstance(r, dict) else datos.usuario.strip()
+    if isinstance(r, dict):
+        db.marcar_login(r["id"])
+    auth.emitir(resp, usuario, "clave")
+    return auth.yo({"usuario": usuario, "origen": "clave"})
 
 
 @app.post("/login/google")
 def login_google(datos: LoginGoogle, resp: Response):
     email = auth.verificar_google(datos.id_token)
-    ok, rol_tabla, motivo = auth.admitir_google(email)
+    fila, ok, rol_tabla, motivo = auth.admitir_google(email)
     if not ok:
-        raise HTTPException(403, f"La cuenta {email} no está autorizada: no es del dominio de la Fundación ni está en la lista de autorizados.")
-    auth.emitir(resp, email, "google", rol_tabla)
-    return dict(auth.yo({"usuario": email, "origen": "google", "rol_tabla": rol_tabla}), admitido_por=motivo)
+        raise HTTPException(403, f"La cuenta {email} no está habilitada: no es del dominio de la Fundación ni está en la lista blanca. Pedile a un admin que la agregue.")
+    usuario = fila["usuario"] if fila else email
+    if fila:
+        db.marcar_login(fila["id"])
+    auth.emitir(resp, usuario, "google", rol_tabla)
+    return dict(auth.yo({"usuario": usuario, "origen": "google", "rol_tabla": rol_tabla}), admitido_por=motivo)
 
 
 @app.post("/logout")

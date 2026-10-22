@@ -39,3 +39,18 @@ def roles(usuario, rol_tabla=None):
     return {"crea": True, "aprueba": aprueba, "admin": admin, "publica": _esta(usuario, directa),
             "nombre": "admin" if admin else ("aprobador" if aprueba else "creador de contenido"),
             "aprobadores": aprob, "admins": admins, "publicadores": directa}
+
+
+def roles_de_fila(fila):
+    """(22/10) Rol de una persona que está en la tabla `usuarios`: sale de `fila["rol"]`, sin mirar las listas de
+    secrets (salvo PUBLICACION_DIRECTA, que sigue siendo una lista; si está vacía publican los aprobadores)."""
+    rol = fila.get("rol") or "creador"
+    admin = rol == "admin"
+    aprueba = admin or rol == "aprobador"
+    admins = _lista("ADMINS", "franco,beto")
+    aprob = sorted(set(_lista("APROBADORES", "julian,franco,beto")) | set(admins))
+    directa = _lista("PUBLICACION_DIRECTA", "")
+    publica = aprueba if not directa else _esta(fila.get("usuario"), directa)
+    return {"crea": True, "aprueba": aprueba, "admin": admin, "publica": publica,
+            "nombre": "admin" if admin else ("aprobador" if aprueba else "creador de contenido"),
+            "aprobadores": aprob, "admins": admins, "publicadores": directa}
