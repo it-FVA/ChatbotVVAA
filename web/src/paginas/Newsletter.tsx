@@ -59,6 +59,7 @@ export default function Newsletter() {
     if (!caja || !ifr) return;
     const ajustar = () => {
       const ancho = caja.clientWidth - 20;
+      if (ancho <= 0) return; // oculto (la otra solapa en celular)
       const escala = Math.min(1, ancho / 600);
       ifr.style.width = escala < 1 ? "600px" : "100%";
       ifr.style.height = escala < 1 ? `${(caja.clientHeight - 20) / escala}px` : "100%";
