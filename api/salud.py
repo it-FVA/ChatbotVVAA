@@ -5,6 +5,8 @@
                          chequeos con estado ok / aviso / error, detalle y «qué hacer». Cada corrida se guarda resumida en
                          la tabla salud_historial para poder decir «desde cuándo» está mal algo.
   GET /salud/historial   las últimas corridas guardadas (mismo permiso).
+  GET /salud/capacidad   solo el bloque «capacidad» (uso vs. límite del plan por proveedor; también viene en /salud/servicios).
+  PUT /salud/capacidad/config   (admins) umbrales_planes, presupuesto_openai_usd, vercel_uso_manual_gb.
 
 Qué se chequea (cada uno es una función _chequear_* que devuelve un dict; corren en paralelo, con tope de tiempo):
   supabase          una consulta mínima (tabla config) y su latencia
@@ -28,7 +30,10 @@ Regla de la casa: nada se inventa. Si un chequeo no se puede hacer (sin credenci
 import os, json, time, base64, hmac, logging, datetime as dt, urllib.request, urllib.error, urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 
-from fastapi import APIRouter, HTTPException, Request
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
 
 from . import config, auth
 import nucleo    # noqa: E402  (api/__init__ pone la raíz del repo en sys.path)
@@ -458,15 +463,18 @@ def correr():
     return {"creado": _iso(_ahora()), "estado": general, "chequeos": resultados, "ms": int((time.time() - t) * 1000)}
 
 
-def desde_cuando(informe, historial):
-    """Para cada chequeo que no está ok: la fecha de la corrida más vieja de la racha actual con ese mismo estado
-    (historial = filas de salud_historial más recientes primero, cada una con creado y detalle.chequeos [{nombre, estado}])."""
-    for ch in informe["chequeos"]:
+def desde_cuando(informe, historial, clave="chequeos"):
+    """Para cada chequeo (o fila de capacidad) que no está ok: la fecha de la corrida más vieja de la racha actual con ese
+    mismo estado (historial = filas de salud_historial más recientes primero, sin las de arranque, cada una con creado y
+    detalle[clave] = [{nombre, estado}])."""
+    for ch in informe.get(clave) or []:
         if ch["estado"] == "ok":
             continue
         desde = informe["creado"]
         for fila in historial:
-            previos = {c.get("nombre"): c.get("estado") for c in ((fila.get("detalle") or {}).get("chequeos") or [])}
+            if fila.get("estado") == "arranque":
+                continue
+            previos = {c.get("nombre"): c.get("estado") for c in ((fila.get("detalle") or {}).get(clave) or [])}
             if previos.get(ch["nombre"]) == ch["estado"]:
                 desde = fila.get("creado") or desde
             else:
@@ -482,7 +490,9 @@ def _guardar(informe):
     try:
         historial = db.listar_salud(300)
         desde_cuando(informe, historial)
+        desde_cuando(informe, historial, "capacidad")
         resumen = {"chequeos": [{"nombre": c["nombre"], "estado": c["estado"], "detalle": (c.get("detalle") or "")[:300]} for c in informe["chequeos"]],
+                   "capacidad": [{"nombre": c.get("nombre"), "estado": c.get("estado"), "uso": c.get("uso"), "porcentaje": c.get("porcentaje")} for c in informe.get("capacidad") or []],
                    "ms": informe["ms"]}
         db.guardar_salud(informe["estado"], resumen)
     except Exception as e:
@@ -520,6 +530,7 @@ def servicios(request: Request, token: str = None, guardar: bool = True):
     """Todos los chequeos. Solo admins (o el token de monitoreo). guardar=0 no escribe en salud_historial."""
     quien = _autorizar(request, token)
     informe = correr()
+    informe["capacidad"] = capacidad()
     informe["consultado_por"] = quien
     return _guardar(informe) if guardar else informe
 
@@ -534,3 +545,272 @@ def historial(request: Request, token: str = None, limite: int = 100):
         return db.listar_salud(min(max(limite, 1), 1000))
     except Exception as e:
         raise HTTPException(503, f"No pude leer salud_historial: {str(e)[:150]}")
+
+
+# ====================================================================================================================
+# CAPACIDAD (22/10, pedido de Franco para el Dashboard de Administración): «¿funciona? ¿por qué? ¿cuánto cuesta? ¿por qué?».
+# Por proveedor: uso actual, límite del plan vigente, porcentaje y un umbral (config umbrales_planes, default 70 %) a partir
+# del cual el estado pasa a aviso «conviene pasar a plan pago», con la justificación (métrica, cuánto, desde cuándo).
+# Límites: solo los confirmados en la documentación oficial van sin `referencia`; los demás llevan referencia=True y la fuente.
+# Lo que no se puede medir (Vercel sin API key) se carga a mano (config vercel_uso_manual) y se dice que es manual.
+# ====================================================================================================================
+UMBRAL_DEFAULT = 70
+LIMITES = {
+    # confirmados el 22/10/2026 en la documentación oficial
+    "supabase_db_mb": {"valor": 500, "unidad": "MB", "fuente": "supabase.com/pricing (22/10/2026): «500 MB database size per project included»; los proyectos Free se pausan tras 1 semana sin uso", "referencia": False},
+    "render_ram_mb": {"valor": 512, "unidad": "MB", "fuente": "render.com/docs/compute-plans (22/10/2026): Free = 0.1 CPU, 512 MB; se duerme a los 15 min sin tráfico (render.com/docs/free)", "referencia": False},
+    "render_horas_mes": {"valor": 750, "unidad": "h", "fuente": "render.com/docs/free (22/10/2026): 750 horas de instancia Free por workspace y mes", "referencia": False},
+    # guía de uso, no un derecho del plan: va como referencia
+    "vercel_transferencia_gb": {"valor": 100, "unidad": "GB/mes", "fuente": "vercel.com/docs/limits/fair-use-guidelines (22/10/2026): Hobby «First 100 GB» de Fast Data Transfer, como guía de uso típico; Hobby es solo para uso no comercial", "referencia": True},
+}
+
+
+def _umbral(proveedor):
+    """config umbrales_planes: un número (para todos) o {"default": 70, "supabase": 80, …}."""
+    try:
+        u = db.obtener_config("umbrales_planes") if db.disponible() else None
+    except Exception:
+        u = None
+    if isinstance(u, (int, float)):
+        return float(u)
+    if isinstance(u, dict):
+        v = u.get(proveedor, u.get("default", UMBRAL_DEFAULT))
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return float(UMBRAL_DEFAULT)
+    return float(UMBRAL_DEFAULT)
+
+
+def _plan_y_costo(proveedor):
+    """Plan y costo mensual cargados en la tabla servicios (Panel admin → Servicios y costos), si están."""
+    try:
+        for s in (db.listar_servicios(solo_activos=True) if db.disponible() else []):
+            if proveedor.lower() in ((s.get("proveedor") or "") + " " + (s.get("nombre") or "")).lower():
+                return s.get("plan") or None, s.get("costo_mensual_usd"), bool(s.get("confirmado"))
+    except Exception:
+        pass
+    return None, None, False
+
+
+def _item(nombre, proveedor, metrica, uso, limite, unidad, umbral, fuente=None, referencia=False, plan=None, costo=None,
+          costo_confirmado=False, extra=None, justificacion_ok=None, medido=True):
+    """Arma la fila del Dashboard. porcentaje y estado salen de uso/limite/umbral; la justificación dice qué métrica y cuánto."""
+    pct = round(uso / limite * 100) if (uso is not None and limite) else None
+    if uso is None:
+        estado, just = "sin_dato", justificacion_ok or f"No se pudo medir {metrica}."
+    elif pct is not None and pct >= 100:
+        estado, just = "error", f"{metrica}: {uso:g} de {limite:g} {unidad} ({pct} %): el plan {plan or 'actual'} está al límite."
+    elif pct is not None and pct >= umbral:
+        estado, just = "aviso", f"Conviene pasar a plan pago: {metrica} {uso:g} de {limite:g} {unidad} ({pct} %) supera el umbral del {umbral:g} %."
+    else:
+        estado = "ok"
+        just = justificacion_ok or (f"{metrica}: {uso:g} de {limite:g} {unidad} ({pct} %), por debajo del umbral del {umbral:g} %." if pct is not None
+                                    else f"{metrica}: {uso:g} {unidad}; no hay límite cargado para comparar.")
+    d = {"nombre": nombre, "proveedor": proveedor, "plan": plan, "costo_mensual_usd": costo, "costo_confirmado": costo_confirmado,
+         "metrica": metrica, "uso": uso, "limite": limite, "unidad": unidad, "porcentaje": pct, "umbral": umbral,
+         "estado": estado, "justificacion": just, "fuente_limite": fuente, "referencia": referencia, "medido": medido}
+    d.update(extra or {})
+    return d
+
+
+def _capacidad_supabase():
+    umbral = _umbral("supabase")
+    plan, costo, conf = _plan_y_costo("supabase")
+    lim = LIMITES["supabase_db_mb"]
+    if not db.disponible():
+        return _item("Supabase", "supabase", "tamaño de la base", None, lim["valor"], lim["unidad"], umbral, lim["fuente"], plan=plan, costo=costo,
+                     justificacion_ok="Faltan SUPABASE_URL / SUPABASE_KEY.")
+    try:
+        t = db.tamano_base()
+    except Exception as e:
+        return _item("Supabase", "supabase", "tamaño de la base", None, lim["valor"], lim["unidad"], umbral, lim["fuente"], plan=plan, costo=costo,
+                     justificacion_ok=f"La base no respondió ({str(e)[:120]}): puede estar pausada (Free se pausa tras 1 semana sin uso) o falta la función SQL tamano_base().",
+                     extra={"estado_forzado": "error"})
+    mb = round((t.get("bytes") or 0) / 2 ** 20, 1)
+    tablas = {k: v for k, v in (t.get("tablas") or {}).items()}
+    grandes = sorted(tablas.items(), key=lambda kv: -(kv[1].get("bytes") or 0))[:6]
+    return _item("Supabase", "supabase", "tamaño de la base", mb, lim["valor"], lim["unidad"], umbral, lim["fuente"], plan=plan or "Free",
+                 costo=costo, costo_confirmado=conf,
+                 extra={"tablas": {k: {"filas": v.get("filas"), "mb": round((v.get("bytes") or 0) / 2 ** 20, 1)} for k, v in grandes},
+                        "nota": "El tamaño de la base incluye fragmentos_emb (vectores + texto del corpus) si se subió; las filas por tabla son la estimación de Postgres (reltuples)."})
+
+
+def _capacidad_render():
+    umbral = _umbral("render")
+    plan, costo, conf = _plan_y_costo("render")
+    lim = LIMITES["render_ram_mb"]
+    limite = nucleo._env_int("MEMORIA_LIMITE_MB", lim["valor"])
+    rss = _rss_mb()
+    try:
+        arranques_24h, arranques_7d = db.contar_arranques(24), db.contar_arranques(24 * 7)
+    except Exception:
+        arranques_24h, arranques_7d = None, None
+    extra = {"arranques_24h": arranques_24h, "arranques_7d": arranques_7d, "corre_desde": _iso(dt.datetime.fromtimestamp(ARRANQUE, dt.timezone.utc)),
+             "horas_mes_limite": LIMITES["render_horas_mes"]["valor"], "fuente_horas": LIMITES["render_horas_mes"]["fuente"],
+             "nota": "Cada arranque registrado es un despertar en frío del plan free (~1 min sin responder). La memoria es el RSS del proceso en este instante; el pico (al cargar BM25) puede ser mayor."}
+    it = _item("Render (API)", "render", "memoria del proceso", round(rss) if rss is not None else None, limite, lim["unidad"], umbral, lim["fuente"],
+               plan=plan or "Free", costo=costo, costo_confirmado=conf, extra=extra)
+    if arranques_24h and arranques_24h >= 5 and it["estado"] == "ok":
+        it["estado"] = "aviso"
+        it["justificacion"] += f" Además arrancó {arranques_24h} veces en 24 h: cada vez la gente espera ~1 min; un plan pago (Starter, 512 MB sin dormirse) lo evita."
+    return it
+
+
+def _capacidad_vercel():
+    umbral = _umbral("vercel")
+    plan, costo, conf = _plan_y_costo("vercel")
+    lim = LIMITES["vercel_transferencia_gb"]
+    manual = None
+    try:
+        manual = db.obtener_config("vercel_uso_manual") if db.disponible() else None
+    except Exception:
+        manual = None
+    gb = None
+    if isinstance(manual, dict):
+        try:
+            gb = float(manual.get("gb"))
+        except (TypeError, ValueError):
+            gb = None
+    extra = {"uso_manual": manual if isinstance(manual, dict) else None, "url": _url_web() or None,
+             "nota": "Sin VERCEL_TOKEN la API no puede leer el uso: el dato lo carga un admin (PUT /salud/capacidad/config {vercel_uso_manual_gb}) mirando vercel.com → Usage. La lectura automática queda para cuando haya token."}
+    if gb is None:
+        it = _item("Vercel (web)", "vercel", "transferencia del mes", None, lim["valor"], lim["unidad"], umbral, lim["fuente"], lim["referencia"], plan=plan or "Hobby",
+                   costo=costo, costo_confirmado=conf, extra=extra, medido=False,
+                   justificacion_ok="Uso no cargado: la API no puede leerlo sin VERCEL_TOKEN. Cargarlo a mano desde el panel para comparar con los 100 GB/mes de referencia.")
+    else:
+        it = _item("Vercel (web)", "vercel", "transferencia del mes (dato manual)", gb, lim["valor"], lim["unidad"], umbral, lim["fuente"], lim["referencia"], plan=plan or "Hobby",
+                   costo=costo, costo_confirmado=conf, extra=extra, medido=False)
+        if manual.get("fecha"):
+            it["justificacion"] += f" Dato cargado a mano el {str(manual.get('fecha'))[:10]}" + (f" por {manual.get('por')}" if manual.get("por") else "") + "."
+    return it
+
+
+def _costo_fila(fila, precios):
+    """USD de una fila de uso_openai según config openai_precios (misma fórmula que publicar_ui._costo), o None sin precio."""
+    p = precios.get(fila.get("modelo") or "")
+    if not p:
+        return None
+    ent, cache, sal = fila.get("tokens_entrada") or 0, fila.get("tokens_cache") or 0, fila.get("tokens_salida") or 0
+    pc = p.get("cache") if p.get("cache") is not None else p.get("entrada", 0)
+    return ((ent - cache) * p.get("entrada", 0) + cache * pc + sal * p.get("salida", 0)) / 1_000_000
+
+
+def _capacidad_openai():
+    umbral = _umbral("openai")
+    plan, costo, conf = _plan_y_costo("openai")
+    if not db.disponible():
+        return _item("OpenAI", "openai", "gasto estimado del mes", None, None, "USD", umbral, plan=plan or "pago por uso", costo=costo,
+                     justificacion_ok="Sin Supabase no hay registro de uso (tabla uso_openai).")
+    hoy = _hoy_argentina()
+    desde = hoy.replace(day=1).isoformat()
+    try:
+        filas = db.uso_openai(desde=desde)
+        precios = db.obtener_config("openai_precios") or {}
+        presupuesto = db.obtener_config("presupuesto_openai_usd")
+    except Exception as e:
+        return _item("OpenAI", "openai", "gasto estimado del mes", None, None, "USD", umbral, plan=plan or "pago por uso", costo=costo,
+                     justificacion_ok=f"No pude leer uso_openai / config: {str(e)[:120]}")
+    costos = [_costo_fila(f, precios) for f in filas]
+    usd = round(sum(c for c in costos if c is not None), 2)
+    sin_precio = sorted({(f.get("modelo") or "?") for f, c in zip(filas, costos) if c is None})
+    tokens = {"entrada": sum(f.get("tokens_entrada") or 0 for f in filas), "salida": sum(f.get("tokens_salida") or 0 for f in filas),
+              "cache": sum(f.get("tokens_cache") or 0 for f in filas), "llamadas": len(filas)}
+    try:
+        limite = float(presupuesto) if presupuesto not in (None, "", 0) else None
+    except (TypeError, ValueError):
+        limite = None
+    dias = max(hoy.day, 1)
+    proyeccion = round(usd / dias * 30, 2) if filas else 0.0
+    extra = {"desde": desde, "tokens": tokens, "modelos_sin_precio": sin_precio, "proyeccion_30_dias_usd": proyeccion,
+             "fuente_precios": {m: p.get("fuente") for m, p in precios.items() if isinstance(p, dict)},
+             "nota": "Estimación con los precios de config openai_precios (por millón de tokens); el número real es el de la factura de OpenAI. Sin precio cargado para un modelo, sus tokens cuentan pero su costo no."}
+    just_ok = None
+    if limite is None:
+        just_ok = f"Gasto estimado del mes: US$ {usd:.2f} ({tokens['llamadas']} llamadas). No hay presupuesto mensual cargado (config presupuesto_openai_usd) para comparar."
+    it = _item("OpenAI", "openai", "gasto estimado del mes", usd, limite, "USD", umbral, "config presupuesto_openai_usd (lo fija la Fundación; no es un límite de OpenAI)",
+               plan=plan or "pago por uso", costo=costo, costo_confirmado=conf, extra=extra, justificacion_ok=just_ok)
+    if sin_precio:
+        it["justificacion"] += f" Modelos sin precio cargado: {', '.join(sin_precio)}."
+    return it
+
+
+CAPACIDADES = [_capacidad_supabase, _capacidad_render, _capacidad_vercel, _capacidad_openai]
+
+
+def capacidad():
+    """La lista de proveedores para el Dashboard, con el peor estado al frente."""
+    with ThreadPoolExecutor(max_workers=len(CAPACIDADES)) as ex:
+        futs = [(f, ex.submit(f)) for f in CAPACIDADES]
+        items = []
+        for f, fu in futs:
+            try:
+                it = fu.result(timeout=TIMEOUT + 4)
+                if it.pop("estado_forzado", None):
+                    it["estado"] = "error"
+                items.append(it)
+            except Exception as e:
+                items.append({"nombre": f.__name__.replace("_capacidad_", ""), "estado": "sin_dato", "justificacion": f"El cálculo falló: {type(e).__name__} {str(e)[:120]}"})
+    orden = {"error": 0, "aviso": 1, "sin_dato": 2, "ok": 3}
+    items.sort(key=lambda i: orden.get(i.get("estado"), 2))
+    return items
+
+
+def registrar_arranque():
+    """Una fila estado='arranque' en salud_historial por cada arranque del proceso (para contar despertares del plan free).
+    En un hilo, nunca frena el arranque. No se registra en los tests (API_CARGAR_CORPUS=0) ni sin Supabase."""
+    if not db.disponible() or os.environ.get("API_CARGAR_CORPUS", "1") == "0":
+        return False
+    import threading
+
+    def _ir():
+        try:
+            db.guardar_salud("arranque", {"version": VERSION, "vectores": os.environ.get("VECTORES", "local") or "local"})
+        except Exception as e:
+            log.warning("No pude registrar el arranque en salud_historial: %s", e)
+    threading.Thread(target=_ir, daemon=True).start()
+    return True
+
+
+registrar_arranque()
+
+
+class ConfigCapacidad(BaseModel):
+    """Lo que un admin ajusta desde el Dashboard. Las claves que no vienen no se tocan."""
+    umbrales_planes: Optional[dict] = None          # {"default": 70, "supabase": 80, …} (porcentajes)
+    presupuesto_openai_usd: Optional[float] = None  # presupuesto mensual; 0 = sin presupuesto
+    vercel_uso_manual_gb: Optional[float] = None    # GB transferidos este mes, leídos de vercel.com → Usage
+
+
+@router.get("/salud/capacidad")
+def capacidad_endpoint(request: Request, token: str = None):
+    """Solo el bloque de capacidad (más barato que /salud/servicios): para el Dashboard."""
+    _autorizar(request, token)
+    return {"creado": _iso(_ahora()), "capacidad": capacidad()}
+
+
+@router.put("/salud/capacidad/config")
+def capacidad_config(datos: ConfigCapacidad, usuario=Depends(auth.admin)):
+    if not db.disponible():
+        raise HTTPException(503, "Sin Supabase no hay dónde guardar la configuración.")
+    cambios = {}
+    if datos.umbrales_planes is not None:
+        malos = {k: v for k, v in datos.umbrales_planes.items() if not isinstance(v, (int, float)) or not 1 <= float(v) <= 100}
+        if malos:
+            raise HTTPException(400, f"Umbrales inválidos (tienen que ser porcentajes de 1 a 100): {malos}")
+        db.guardar_config("umbrales_planes", datos.umbrales_planes, usuario)
+        cambios["umbrales_planes"] = datos.umbrales_planes
+    if datos.presupuesto_openai_usd is not None:
+        if datos.presupuesto_openai_usd < 0:
+            raise HTTPException(400, "El presupuesto no puede ser negativo.")
+        db.guardar_config("presupuesto_openai_usd", datos.presupuesto_openai_usd, usuario)
+        cambios["presupuesto_openai_usd"] = datos.presupuesto_openai_usd
+    if datos.vercel_uso_manual_gb is not None:
+        if datos.vercel_uso_manual_gb < 0:
+            raise HTTPException(400, "Los GB no pueden ser negativos.")
+        v = {"gb": datos.vercel_uso_manual_gb, "fecha": _iso(_ahora()), "por": usuario}
+        db.guardar_config("vercel_uso_manual", v, usuario)
+        cambios["vercel_uso_manual"] = v
+    if not cambios:
+        raise HTTPException(400, "No vino nada para cambiar.")
+    return {"ok": True, "cambios": cambios}

@@ -719,6 +719,50 @@ def borrar_servicio(sid):
     return _req("DELETE", f"?id=eq.{sid}", tabla="servicios")
 
 
+# ---------------- Búsqueda en Postgres (22/10, pgvector + texto): nucleo.py con VECTORES=supabase / LEXICO=supabase ----------------
+# Tabla fragmentos_emb y funciones match_fragmentos, match_fragmentos_varios y match_lexico (migración
+# api/migraciones/fragmentos_emb_pgvector.sql; los datos los sube subir_embeddings.py). idx = posición en fragmentos.jsonl.
+def _rpc(nombre, body, timeout=30):
+    url, key = _cfg()
+    req = urllib.request.Request(f"{url}/rest/v1/rpc/{nombre}", data=json.dumps(body).encode("utf-8"), method="POST",
+                                 headers={"apikey": key, "Authorization": "Bearer " + key, "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            txt = r.read().decode("utf-8")
+            return json.loads(txt) if txt.strip() else []
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"Supabase rpc/{nombre} {e.code}: {e.read().decode('utf-8', 'ignore')[:200]}")
+
+
+def match_fragmentos(vectores, k=300):
+    """Los k fragmentos más parecidos a CADA vector (lista de listas de 512 floats), fusionados por máximo.
+    Devuelve {idx: similitud} ordenable; idx es la posición en fragmentos.jsonl."""
+    if not vectores:
+        return {}
+    filas = _rpc("match_fragmentos_varios", {"query_embeddings": vectores, "k": int(k)})
+    return {int(f["idx"]): float(f["similitud"]) for f in filas}
+
+
+def match_lexico(consulta, k=300):
+    """Búsqueda de texto de Postgres (to_tsvector spanish + ts_rank_cd): [idx, ...] del más al menos relevante."""
+    if not (consulta or "").strip():
+        return []
+    return [int(f["idx"]) for f in _rpc("match_lexico", {"consulta": consulta, "k": int(k)})]
+
+
+def contar_fragmentos_emb():
+    """Cuántas filas tiene fragmentos_emb (para verificar que coincide con el corpus); -1 si no se pudo."""
+    url, key = _cfg()
+    req = urllib.request.Request(f"{url}/rest/v1/fragmentos_emb?select=idx&limit=1", headers={
+        "apikey": key, "Authorization": "Bearer " + key, "Prefer": "count=exact", "Range-Unit": "items", "Range": "0-0"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            rango = r.headers.get("Content-Range") or ""
+            return int(rango.split("/")[-1]) if "/" in rango and not rango.endswith("*") else -1
+    except Exception:
+        return -1
+
+
 # ---------------- Salud de los servicios (22/10, api/salud.py) ----------------
 # Tabla salud_historial (migración api/migraciones/salud_historial.sql): id, creado, estado (ok/aviso/error), detalle jsonb
 # ({chequeos: [{nombre, estado, detalle}], ms}). Una fila por corrida de GET /salud/servicios; sirve para decir «desde cuándo».
@@ -731,6 +775,20 @@ def listar_salud(limite=100):
     if not disponible():
         return []
     return _req("GET", f"?select=id,creado,estado,detalle&order=creado.desc&limit={limite}", tabla="salud_historial") or []
+
+
+def contar_arranques(horas=24):
+    """Cuántas veces arrancó la API en las últimas `horas` (filas estado='arranque' de salud_historial: en el plan free de
+    Render cada arranque es un despertar en frío, ~1 min hasta responder)."""
+    if not disponible():
+        return 0
+    desde = (datetime.now(timezone.utc) - timedelta(hours=horas)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return len(_req("GET", f"?estado=eq.arranque&creado=gte.{desde}&select=creado&limit=1000", tabla="salud_historial") or [])
+
+
+def tamano_base():
+    """{bytes, tablas: {nombre: {filas, bytes}}} vía la función SQL tamano_base() (migración tamano_base)."""
+    return _rpc("tamano_base", {})
 
 
 def clips_pedidos_antes(creado_antes_iso):
