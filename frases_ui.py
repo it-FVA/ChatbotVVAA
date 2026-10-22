@@ -50,40 +50,9 @@ def _recortar(t, n=70):
 
 
 # ---------------- Repartir ----------------
-
-def repartir(frases, desde, ocupadas, modo="orden", semilla=None):
-    """Asigna una fecha a cada frase a partir de `desde`, saltando `ocupadas`. Primero las nunca publicadas (modo 'orden' = del
-    Sheet, 'azar' = mezcladas sin repetir autor dos días seguidos cuando se puede), después las ya publicadas de la más antigua
-    a la más reciente (rotación). Devuelve [(frase, fecha)]. No escribe nada."""
-    nuevas = sorted([f for f in frases if not f.get("ultima_publicada")], key=lambda f: (f.get("orden") is None, f.get("orden") or 0))
-    viejas = sorted([f for f in frases if f.get("ultima_publicada")], key=lambda f: f["ultima_publicada"])
-    if modo == "azar":
-        random.Random(semilla).shuffle(nuevas)
-    out, d, autor_prev = [], desde, None
-    for pendientes in (nuevas, viejas):
-        while pendientes:
-            if d.isoformat() in ocupadas:
-                d += datetime.timedelta(days=1)
-                continue
-            elegida = pendientes[0]
-            if modo == "azar" and autor_prev and pendientes is nuevas:
-                for f in pendientes:
-                    if (f.get("autor") or "") != autor_prev:
-                        elegida = f
-                        break
-            pendientes.remove(elegida)
-            out.append((elegida, d))
-            autor_prev = elegida.get("autor") or ""
-            d += datetime.timedelta(days=1)
-    return out
-
-
-def _guardar_reparto(reparto):
-    filas = [{"id": f["id"], "texto": f["texto"], "fecha": d.isoformat(), "estado": "programada", "publicacion_id": None, "piezas": None,
-              "actualizado": db._ahora_iso()} for f, d in reparto]
-    for i in range(0, len(filas), 200):
-        db.upsert_frases(filas[i:i + 200], on_conflict="id")
-    return len(filas)
+# (22/10) La regla vive en programar_frases.repartir / guardar_reparto (sin Streamlit), compartida con la API de la web.
+repartir = pf.repartir
+_guardar_reparto = pf.guardar_reparto
 
 
 # ---------------- Cabecera y configuración ----------------
@@ -233,7 +202,7 @@ def _acciones(usuario, r):
             frases = db.candidatas_rotacion(_hoy().isoformat())
             ocupadas = db.fechas_ocupadas(desde.isoformat(), (desde + datetime.timedelta(days=3 * 365)).isoformat())
             reparto = repartir(frases, desde, ocupadas, "azar" if modo.startswith("Al azar") else "orden")
-            n = _guardar_reparto(reparto)
+            n = _guardar_reparto(db, reparto)
             ultimo = reparto[-1][1] if reparto else desde
             st.success(f"Listo: {n} frases repartidas, del {_fecha_txt(desde)} al {_fecha_txt(ultimo)}. Las fechas que ya tenían frase no se tocaron.")
             st.rerun()
