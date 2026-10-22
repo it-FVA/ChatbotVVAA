@@ -122,6 +122,10 @@ def _hook_registro(entrada):
     ctx = _contexto.get()
     if not ctx:
         return
+    # (22/10) una subida de imagen que NO pasó (modo simulado/apagado) o un borrado de media no son piezas: en Streamlit quedaban
+    # como filas «prueba» del canal wordpress sin texto y confundían en «Mis publicaciones»
+    if entrada.get("accion") in ("subir_imagen", "borrar_media") and entrada.get("resultado") != "subida":
+        return
     pieza = entrada.get("pieza") or {}
     db.registrar_publicacion(
         usuario=ctx["usuario"], canal=entrada.get("canal", ""), modo=entrada.get("modo", ""),

@@ -24,7 +24,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from . import auth, roles as _roles
+from . import auth
 import db                      # noqa: E402  (api/__init__ pone la raíz del repo en sys.path)
 import publicar                # noqa: E402
 import recortar_clip as rc     # noqa: E402
@@ -63,7 +63,7 @@ class EstiloDefecto(BaseModel):
 # ---------------- Helpers ----------------
 def _sesion_y_rol(request: Request):
     s = auth.sesion(request)
-    r = _roles.roles(s["usuario"], s.get("rol_tabla"))
+    r = auth.rol_sesion(s)        # (22/10) el rol sale de la tabla usuarios si la persona está ahí (antes: solo las listas de secrets)
     return s["usuario"], r["aprueba"]
 
 

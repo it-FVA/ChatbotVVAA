@@ -72,16 +72,25 @@ export function fechaIsoDe(p: { fecha: string | null; hora: string | null }): st
   return `${p.fecha}T${hh.padStart(2, "0")}:${(mm || "00").padStart(2, "0")}:00`;
 }
 
-/** Fecha y hora legibles («mié 5/11 10:30») a partir de un ISO (con o sin zona). */
+const ZONA_AR = "America/Argentina/Buenos_Aires";
+const DIAS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+
+/** Fecha y hora legibles («mié 5/11 10:30») en hora de Argentina. Un ISO sin zona (el del formulario) se toma como hora Argentina;
+ *  uno con zona (Supabase devuelve las fechas programadas en UTC) se convierte. */
 export function fechaLegible(iso: string | null | undefined, conHora = true): string {
   if (!iso) return "";
-  const s = String(iso);
-  // las fechas programadas vienen con -03:00: se muestran tal cual están escritas (hora Argentina), sin convertir a la zona del navegador
-  const m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/.exec(s);
-  if (!m) return s;
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  const dia = d.toLocaleDateString("es-AR", { weekday: "short", day: "numeric", month: "numeric" });
-  return conHora && m[4] ? `${dia} ${m[4]}:${m[5]}` : dia;
+  let s = String(iso);
+  if (!/(Z|[+-]\d{2}:?\d{2})$/.test(s) && /^\d{4}-\d{2}-\d{2}T/.test(s)) s += "-03:00";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) s += "T00:00:00-03:00";
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  const partes = Object.fromEntries(
+    new Intl.DateTimeFormat("es-AR", { timeZone: ZONA_AR, weekday: "short", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })
+      .formatToParts(d)
+      .map((p) => [p.type, p.value]),
+  );
+  const dia = `${(partes.weekday || "").replace(".", "").slice(0, 3) || DIAS[d.getDay()]} ${partes.day}/${partes.month}`;
+  return conHora && !/T00:00:00-03:00$/.test(s) ? `${dia} ${partes.hour}:${partes.minute}` : dia;
 }
 
 /** Fecha de creación (UTC en la base) en hora local, corta. */

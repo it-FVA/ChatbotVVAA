@@ -885,6 +885,9 @@
 .recortes-embebidos .filtros {
   margin-top: 0;
 }
+.solapas[hidden] {
+  display: none;
+}
 .pieza-resumen {
   display: grid;
   gap: 10px;
