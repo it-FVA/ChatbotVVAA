@@ -43,6 +43,12 @@ export default function Barra() {
         <NavLink to="/recortes" className={link}>
           <Icono nombre="pelicula" /> Mis recortes
         </NavLink>
+        <NavLink to="/proyectos" className={link}>
+          <Icono nombre="carpeta" /> Proyectos
+        </NavLink>
+        <NavLink to="/compartidos" className={link}>
+          <Icono nombre="compartir" /> Compartidos conmigo
+        </NavLink>
         <a className="barra-link externo" href={STREAMLIT_URL + "/?vista=newsletter"} target="_blank" rel="noreferrer" title="El editor de Newsletter sigue en la app de Streamlit (fase siguiente)">
           <Icono nombre="externo" /> Newsletter <span className="suave chico">Streamlit</span>
         </a>

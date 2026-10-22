@@ -23,11 +23,16 @@ interface Props {
   onReintentar?: () => void;
   /** En celular la lista es un cajón: este botón lo cierra. */
   onCerrar?: () => void;
+  /** (22/10, proyectos) «Mover a…» por menú (alternativa táctil al arrastre) y la carpeta donde está cada conversación. */
+  onMoverA?: (c: ConversacionResumen) => void;
+  carpetaDe?: (id: string) => string | null;
+  /** Encima de la lista (el árbol de proyectos). */
+  arriba?: React.ReactNode;
 }
 
 const ORDEN_GRUPOS = ["hoy", "ayer", "semana", "antes"] as const;
 
-export default function ListaConversaciones({ items, error, actualId, idioma, onNueva, onAbrir, onRenombrar, onBorrar, onRestaurar, onReintentar, onCerrar }: Props) {
+export default function ListaConversaciones({ items, error, actualId, idioma, onNueva, onAbrir, onRenombrar, onBorrar, onRestaurar, onReintentar, onCerrar, onMoverA, carpetaDe, arriba }: Props) {
   const t = textos(idioma);
   const [buscar, setBuscar] = useState("");
   const [aBorrar, setABorrar] = useState<ConversacionResumen | null>(null);
@@ -123,6 +128,7 @@ export default function ListaConversaciones({ items, error, actualId, idioma, on
       )}
 
       <div className="conv-scroll">
+        {arriba}
         {items === null && !error && (
           <div aria-busy="true" aria-label={t("tus")} className="conv-esqueleto">
             {[80, 60, 72, 50, 66].map((w, i) => (
@@ -140,7 +146,7 @@ export default function ListaConversaciones({ items, error, actualId, idioma, on
             <h4 className="conv-grupo-titulo">{t(g.clave)}</h4>
             <ul className="conv-items">
               {g.items.map((c) => (
-                <ItemConversacion key={c.id} c={c} activa={c.id === actualId} idioma={idioma} onAbrir={() => onAbrir(c.id)} onRenombrar={(tit) => onRenombrar(c.id, tit)} onBorrar={() => setABorrar(c)} />
+                <ItemConversacion key={c.id} c={c} activa={c.id === actualId} idioma={idioma} onAbrir={() => onAbrir(c.id)} onRenombrar={(tit) => onRenombrar(c.id, tit)} onBorrar={() => setABorrar(c)} onMoverA={onMoverA ? () => onMoverA(c) : undefined} carpeta={carpetaDe?.(c.id) ?? null} />
               ))}
             </ul>
           </section>
@@ -169,7 +175,7 @@ export default function ListaConversaciones({ items, error, actualId, idioma, on
 
 /** Un ítem: botón con el título y la fecha; al pasar el mouse (o siempre, en táctil) los iconos de renombrar y borrar.
  *  data-id queda para el arrastre a carpetas de la próxima etapa. */
-function ItemConversacion({ c, activa, idioma, onAbrir, onRenombrar, onBorrar }: { c: ConversacionResumen; activa: boolean; idioma: Idioma; onAbrir: () => void; onRenombrar: (t: string) => Promise<void>; onBorrar: () => void }) {
+function ItemConversacion({ c, activa, idioma, onAbrir, onRenombrar, onBorrar, onMoverA, carpeta }: { c: ConversacionResumen; activa: boolean; idioma: Idioma; onAbrir: () => void; onRenombrar: (t: string) => Promise<void>; onBorrar: () => void; onMoverA?: () => void; carpeta?: string | null }) {
   const t = textos(idioma);
   const [editando, setEditando] = useState(false);
   const [valor, setValor] = useState(c.titulo || "");
@@ -212,16 +218,38 @@ function ItemConversacion({ c, activa, idioma, onAbrir, onRenombrar, onBorrar }:
 
   const titulo = c.titulo || t("conversacion");
   return (
-    <li className={"conv-item" + (activa ? " activa" : "")} data-id={c.id}>
+    <li
+      className={"conv-item" + (activa ? " activa" : "")}
+      data-id={c.id}
+      draggable={!!onMoverA && !editando}
+      onDragStart={(e) => {
+        // (22/10) se suelta sobre una carpeta del árbol de proyectos (ArbolProyectos) o de la vista grande
+        e.dataTransfer.setData("application/x-fva-conversacion", c.id);
+        e.dataTransfer.setData("text/plain", titulo);
+        e.dataTransfer.effectAllowed = "move";
+      }}
+    >
       {editando ? (
         <input ref={campo} className="conv-renombrar" value={valor} onChange={(e) => setValor(e.target.value)} onKeyDown={tecla} onBlur={guardar} disabled={guardando} aria-label={t("renombrar")} maxLength={120} />
       ) : (
         <>
           <button type="button" className="conv-abrir" onClick={onAbrir} aria-current={activa ? "page" : undefined} title={titulo}>
             <span className="conv-titulo">{titulo}</span>
-            <span className="conv-fecha suave">{relativa(c.actualizado, idioma)}</span>
+            <span className="conv-fecha suave">
+              {relativa(c.actualizado, idioma)}
+              {carpeta && (
+                <span className="conv-carpeta" title={`En la carpeta ${carpeta}`}>
+                  <Icono nombre="carpeta" tam={11} /> {carpeta}
+                </span>
+              )}
+            </span>
           </button>
           <span className="conv-acciones">
+            {onMoverA && (
+              <button type="button" className="boton sutil chico icono-solo" onClick={onMoverA} aria-label={`Mover a una carpeta: ${titulo}`} title="Mover a una carpeta…">
+                <Icono nombre="carpeta" tam={15} />
+              </button>
+            )}
             <button type="button" className="boton sutil chico icono-solo" onClick={() => setEditando(true)} aria-label={`${t("renombrar")}: ${titulo}`} title={t("renombrar")}>
               <Icono nombre="lapiz" tam={15} />
             </button>

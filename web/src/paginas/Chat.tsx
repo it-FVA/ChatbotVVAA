@@ -16,6 +16,11 @@ import Entrada, { type EntradaRef } from "../componentes/Entrada";
 import { Icono } from "../componentes/Iconos";
 import { Hueso } from "../componentes/Comunes";
 import { useToast } from "../componentes/Toasts";
+import ArbolProyectos from "../componentes/proyectos/ArbolProyectos";
+import MoverA from "../componentes/proyectos/MoverA";
+import CompartirModal from "../componentes/proyectos/CompartirModal";
+import { etiqueta, useProyectos } from "../componentes/proyectos/ProyectosContexto";
+import { apiProyectos } from "../apiProyectos";
 import "../chat.css";
 
 const VACIA = (): Conversacion => ({ id: "", titulo: null, mensajes: [] });
@@ -39,6 +44,10 @@ export default function Chat() {
   const [errorConv, setErrorConv] = useState<string | null>(null);
   const [generando, setGenerando] = useState(false);
   const [cajon, setCajon] = useState(false);
+  // (22/10, proyectos) «Mover a…» desde la lista, compartir la conversación abierta
+  const proyectos = useProyectos();
+  const [aMover, setAMover] = useState<ConversacionResumen | null>(null);
+  const [compartiendo, setCompartiendo] = useState(false);
   const [abajo, setAbajo] = useState(true);
   const abortar = useRef<AbortController | null>(null);
   const saltarCarga = useRef<string | null>(null); // el id al que navegamos nosotros al terminar una respuesta: ya está en pantalla
@@ -79,7 +88,7 @@ export default function Chat() {
       .conversacion(id)
       .then((c) => {
         if (!vivo) return;
-        setConv({ id: c.id, titulo: c.titulo, mensajes: c.mensajes.map((m) => ({ role: m.role, content: m.content, tarjetas: m.tarjetas || [], pieza: m.pieza || null })) });
+        setConv({ id: c.id, titulo: c.titulo, compartida: c.compartida || null, mensajes: c.mensajes.map((m) => ({ role: m.role, content: m.content, tarjetas: m.tarjetas || [], pieza: m.pieza || null })) });
         setAbajo(true);
       })
       .catch((e) => vivo && setErrorConv(e instanceof ErrorApi ? e.message : t("noCargo")))
@@ -311,10 +320,30 @@ export default function Chat() {
 
   // ---------- render ----------
   const titulo = conv.titulo || (conv.id ? t("conversacion") : t("titulo"));
+  const soloLectura = conv.compartida?.permiso === "ver";
+  const carpetaActual = conv.id ? proyectos.carpetaDe("conversacion", conv.id) : null;
   return (
     <div className={"chat" + (cajon ? " con-cajon" : "")} ref={raiz}>
       <aside className="chat-lateral" aria-hidden={!cajon && window.matchMedia("(max-width: 760px)").matches ? true : undefined}>
-        <ListaConversaciones items={lista} error={errorLista} actualId={conv.id || null} idioma={idioma} onNueva={nueva} onAbrir={abrir} onRenombrar={renombrar} onBorrar={borrar} onRestaurar={restaurar} onReintentar={cargarLista} onCerrar={() => setCajon(false)} />
+        <ListaConversaciones
+          items={lista}
+          error={errorLista}
+          actualId={conv.id || null}
+          idioma={idioma}
+          onNueva={nueva}
+          onAbrir={abrir}
+          onRenombrar={renombrar}
+          onBorrar={borrar}
+          onRestaurar={restaurar}
+          onReintentar={cargarLista}
+          onCerrar={() => setCajon(false)}
+          onMoverA={setAMover}
+          carpetaDe={(cid) => {
+            const p = proyectos.carpetaDe("conversacion", cid);
+            return p ? etiqueta(p) : null;
+          }}
+          arriba={<ArbolProyectos />}
+        />
       </aside>
       {cajon && <div className="chat-velo" onClick={() => setCajon(false)} aria-hidden="true" />}
 
@@ -326,6 +355,23 @@ export default function Chat() {
           <h1 className="chat-titulo" title={titulo}>
             {titulo}
           </h1>
+          {conv.compartida && (
+            <span className={"chip chat-compartida" + (soloLectura ? " suave" : "")} title={soloLectura ? "Te la compartieron para ver: no podés escribir." : "Te la compartieron con permiso para escribir."}>
+              <Icono nombre="compartir" tam={12} /> compartida por {conv.compartida.por} · {soloLectura ? "solo lectura" : "podés editar"}
+            </span>
+          )}
+          {conv.id && !conv.compartida && (
+            <span className="chat-herramientas">
+              {carpetaActual && (
+                <button type="button" className="chip suave chat-chip-boton" onClick={() => nav(`/proyectos/${carpetaActual.id}`)} title="Abrir la carpeta">
+                  <Icono nombre="carpeta" tam={12} /> {etiqueta(carpetaActual)}
+                </button>
+              )}
+              <button type="button" className="boton sutil chico" onClick={() => setCompartiendo(true)} title="Compartir esta conversación con otra persona">
+                <Icono nombre="compartir" tam={15} /> <span>Compartir</span>
+              </button>
+            </span>
+          )}
         </header>
 
         <div className="chat-mensajes" ref={panel} onScroll={alScroll} role="log" aria-live="polite" aria-busy={generando || cargando}>
@@ -382,8 +428,35 @@ export default function Chat() {
           </button>
         )}
 
-        <Entrada ref={entrada} placeholder={t("placeholder")} ayuda={t("ayudaEntrada")} enviando={generando} textoEnviar={t("enviar")} textoDetener={t("detener")} onEnviar={enviar} onDetener={detener} />
+        {soloLectura ? (
+          <div className="chat-solo-lectura suave chico">
+            <Icono nombre="ojo" tam={15} /> Esta conversación es de {conv.compartida?.por} y la tenés solo para ver.
+          </div>
+        ) : (
+          <Entrada ref={entrada} placeholder={t("placeholder")} ayuda={t("ayudaEntrada")} enviando={generando} textoEnviar={t("enviar")} textoDetener={t("detener")} onEnviar={enviar} onDetener={detener} />
+        )}
       </section>
+
+      {aMover && (
+        <MoverA
+          titulo="Mover a una carpeta"
+          que={`«${aMover.titulo || t("conversacion")}»`}
+          actualId={proyectos.carpetaDe("conversacion", aMover.id)?.id}
+          textoBoton="Guardar acá"
+          onCerrar={() => setAMover(null)}
+          onElegir={async (pid) => {
+            try {
+              await apiProyectos.agregarItem(pid, "conversacion", aMover.id);
+              await proyectos.recargar();
+              avisar(`Guardada en «${proyectos.porId.get(pid)?.nombre || "la carpeta"}».`);
+            } catch (e) {
+              avisar(e instanceof ErrorApi ? e.message : "No pude moverla.", "error");
+              throw e;
+            }
+          }}
+        />
+      )}
+      {compartiendo && conv.id && <CompartirModal tipo="conversacion" itemId={conv.id} nombre={titulo} onCerrar={() => setCompartiendo(false)} />}
     </div>
   );
 }

@@ -19,6 +19,9 @@ import Salud from "./paginas/admin/Salud";
 import Servicios from "./paginas/admin/Servicios";
 import Configuracion from "./paginas/admin/Configuracion";
 import Barra from "./componentes/Barra";
+import Proyectos from "./paginas/Proyectos";
+import Compartidos from "./paginas/Compartidos";
+import { ProyectosProvider } from "./componentes/proyectos/ProyectosContexto";
 
 interface Sesion {
   yo: Yo | null;
@@ -50,6 +53,7 @@ export default function App() {
           path="/*"
           element={
             <Protegido>
+              <ProyectosProvider>
               <div className="app">
                 <Barra />
                 <main className="contenido">
@@ -59,6 +63,9 @@ export default function App() {
                     <Route path="/chat/:id" element={<Chat />} />
                     <Route path="/recortes" element={<Recortes />} />
                     <Route path="/recortes/:id" element={<Editor />} />
+                    <Route path="/proyectos" element={<Proyectos />} />
+                    <Route path="/proyectos/:id" element={<Proyectos />} />
+                    <Route path="/compartidos" element={<Compartidos />} />
                     <Route path="/cuenta" element={<Cuenta />} />
                     <Route path="/publicar" element={<Publicar />} />
                     <Route path="/publicaciones" element={<Publicaciones />} />
@@ -84,6 +91,7 @@ export default function App() {
                   </Routes>
                 </main>
               </div>
+              </ProyectosProvider>
             </Protegido>
           }
         />

@@ -53,6 +53,8 @@ from . import publicar_rutas as _pub   # noqa: E402  (22/10, fase 3: Publicar, M
 app.include_router(_pub.router)
 from . import admin_rutas as _admin_rutas   # noqa: E402  (22/10: Dashboard, Servicios y costos, Configuración de Administración)
 app.include_router(_admin_rutas.router)
+from . import proyectos as _proyectos   # noqa: E402  (22/10: carpetas colaborativas, compartir, «compartidos conmigo»)
+app.include_router(_proyectos.router)
 
 
 # ---------------- Modelos de entrada ----------------
@@ -126,9 +128,11 @@ def conversaciones(usuario=Depends(auth.usuario_actual)):
 def conversacion(cid: str, usuario=Depends(auth.usuario_actual), s=Depends(auth.sesion)):
     if not db.disponible():
         raise HTTPException(503, "Sin Supabase: no hay conversaciones guardadas.")
-    c = db.cargar_conversacion_de(cid, usuario)
-    if not c:
+    r = _proyectos.conversacion_accesible(cid, usuario)      # (22/10) propia, o compartida conmigo (directo o por un proyecto)
+    if not r:
         raise HTTPException(404, "No existe esa conversación (o no es tuya).")
+    c, permiso = r
+    c["compartida"] = None if permiso == "dueño" else {"por": c.get("usuario"), "permiso": permiso}
     c["mensajes"] = db.normalizar(c.get("mensajes"))
     idioma = config.idioma(usuario)
     for m in c["mensajes"]:
@@ -169,9 +173,10 @@ def mensaje(cid: str, datos: Mensaje, request: Request, usuario=Depends(auth.usu
     if cid != "nueva":
         if not db.disponible():
             raise HTTPException(503, "Sin Supabase: no hay conversaciones guardadas.")
-        c = db.cargar_conversacion_de(cid, usuario)
-        if not c:
-            raise HTTPException(404, "No existe esa conversación (o no es tuya).")
+        r = _proyectos.conversacion_accesible(cid, usuario, editar=True)   # (22/10) compartida con permiso «editar» también
+        if not r:
+            raise HTTPException(404, "No existe esa conversación (o no es tuya, ni la tenés para editar).")
+        c = r[0]
         conv_id, titulo, mensajes = c["id"], c.get("titulo"), db.normalizar(c.get("mensajes"))
     # (8/10, app.py) si el último mensaje de la persona es el mismo, no se duplica
     ultimo = mensajes[-1] if mensajes else None
