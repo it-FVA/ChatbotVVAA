@@ -3,6 +3,7 @@
 // (POST /publicaciones/a-aprobar y /borrador, mismos campos que Streamlit). Publicar en real, la foto con la frase encima y el
 // diseño quedan para la pantalla de Publicar completa (fase 3): hasta entonces, el link lleva a «Mis publicaciones» de Streamlit.
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { ErrorApi, STREAMLIT_URL } from "../api";
 import { apiChat } from "../apiChat";
 import type { FotoBanco, Modos, Pieza, RespuestaPieza } from "../tiposChat";
@@ -112,10 +113,10 @@ export default function PiezaPropuesta({ pieza, abierto }: { pieza: Pieza; abier
         <div className="pieza-cabecera">
           <Icono nombre="megafono" /> <strong>Esta pieza es un newsletter</strong>
         </div>
-        <p className="suave chico">Se arma en el editor de Newsletter, con sus bloques y la vista previa (por ahora en Streamlit).</p>
-        <a className="boton" href={STREAMLIT_URL + "/?vista=newsletter"} target="_blank" rel="noreferrer">
-          <Icono nombre="externo" /> Abrir el editor de Newsletter
-        </a>
+        <p className="suave chico">Se arma en el editor de Newsletter, con sus bloques y la vista previa del mail. El texto de la respuesta entra como reflexión del mes.</p>
+        <Link className="boton primario" to="/newsletter" state={{ pieza: { titulo: pieza.titulo, texto: pieza.texto } }}>
+          <Icono nombre="sobre" /> Abrir en el editor de Newsletter
+        </Link>
       </div>
     );
   }
