@@ -2,7 +2,7 @@
 // Se arrastra una conversación de la lista a una carpeta (HTML5 drag and drop; el tipo de dato es "application/x-fva-conversacion")
 // y también se mueven carpetas entre sí. «Nueva carpeta» acá mismo, «Agrandar» abre la vista grande (/proyectos) y el
 // icono de compartido marca las carpetas compartidas (mías con otros, o de otros conmigo).
-import { useEffect, useState, type DragEvent, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiProyectos } from "../../apiProyectos";
 import { ErrorApi } from "../../api";
@@ -39,6 +39,7 @@ export default function ArbolProyectos({ onCambio }: Props) {
   const [nombre, setNombre] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [sobre, setSobre] = useState<string | null>(null);
+  const creandoYa = useRef(false); // Enter y el blur que sigue al desmontar el input llegan los dos: se crea una sola vez
 
   useEffect(() => {
     localStorage.setItem("fva-proyectos-seccion", abierto ? "abierta" : "cerrada");
@@ -60,6 +61,8 @@ export default function ArbolProyectos({ onCambio }: Props) {
       setCreando(false);
       return;
     }
+    if (creandoYa.current) return;
+    creandoYa.current = true;
     setGuardando(true);
     try {
       const p = await apiProyectos.crear({ nombre: n });
@@ -71,6 +74,7 @@ export default function ArbolProyectos({ onCambio }: Props) {
       avisar(e instanceof ErrorApi ? e.message : "No pude crear la carpeta.", "error");
     } finally {
       setGuardando(false);
+      creandoYa.current = false;
     }
   }
 

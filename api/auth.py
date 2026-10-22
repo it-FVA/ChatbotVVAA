@@ -21,7 +21,7 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from . import config, roles as _roles
 
 log = logging.getLogger("api")
-COOKIE = "fva_sesion"
+COOKIE = os.environ.get("COOKIE_NOMBRE", "fva_sesion")   # (22/10) configurable: varias APIs locales en localhost no se pisan la sesión
 DURACION = 30 * 24 * 3600
 _ser = None
 
