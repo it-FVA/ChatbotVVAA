@@ -43,6 +43,8 @@ if _ORIGENES:
 
 from . import recortes as _recortes   # noqa: E402  (importa db: va después de config.cargar())
 app.include_router(_recortes.router)
+from . import chat_rutas as _chat_rutas   # noqa: E402  (22/10, fase 2: renombrar/borrar conversaciones, descargas, pedir recorte, pieza a borrador/aprobación)
+app.include_router(_chat_rutas.router)
 
 
 # ---------------- Modelos de entrada ----------------

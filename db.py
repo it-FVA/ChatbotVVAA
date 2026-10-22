@@ -717,3 +717,10 @@ def guardar_servicio(datos, usuario=None):
 
 def borrar_servicio(sid):
     return _req("DELETE", f"?id=eq.{sid}", tabla="servicios")
+
+
+def restaurar_conversacion_de(cid, usuario):
+    """(22/10, web) Saca de la papelera una conversación solo si es de esa persona. Devuelve la fila o None."""
+    r = _req("PATCH", f"?id=eq.{urllib.parse.quote(str(cid))}&usuario=eq.{urllib.parse.quote(usuario)}&borrada=not.is.null",
+             {"borrada": None})
+    return r[0] if r else None
