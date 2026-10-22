@@ -109,5 +109,13 @@ el arrastre sale solo desde el agarre (⋮⋮) para no bloquear el desplazamient
 la vista; las burbujas de tiempo de los bloques solo aparecen al arrastrar. Las manijas de un bloque mueven el valor por
 diferencia de píxeles (el bloque no está donde el pedazo en el original).
 
+**Arreglos después de publicar (22/10, tarde).** Franco vio la secuencia rota en producción (bloques apilados, sin manijas): al
+mergear la rama se habían perdido las dos llaves finales de `estilos.css` y todas las reglas nuevas quedaron adentro de un
+`@media (max-width: 760px)` anidado. Además: el editor pasa a una sola columna hasta 1000 px (con la barra lateral, la línea de
+tiempo quedaba en ~100 px entre 760 y 1000); mientras se arrastra un bloque los demás se corren y abren un hueco donde va a caer
+(además de la marca roja); el arrastre arranca desde cualquier parte del bloque también en touch; ancho mínimo de bloque 60 px;
+el cabezal se actualiza con `seeked`/`timeupdate` además del rAF (que se frena con la pestaña oculta). Verificado en 600, 640,
+800, 1000 y 1366 px con un recorte horizontal y uno vertical, con 2 y 3 pedazos.
+
 **Qué quedó fuera.** Deshacer/rehacer general; duplicar un pedazo (el modelo exige que cada instante salga una sola vez);
 arrastrar un pedazo sacado directamente a la secuencia (hoy: «Restaurar» y después mover); transiciones entre pedazos.
