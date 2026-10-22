@@ -16,7 +16,7 @@ con el editor visual de la web (`web/`), borrar, estilo por defecto. **No public
 | `roles.py` | copia de `publicar_ui.roles` leyendo del entorno (ese módulo importa Streamlit) |
 | `config.py` | variables de entorno; en local carga `.streamlit/secrets.toml` |
 | `migraciones/autorizados_login_google.sql` | tabla `autorizados` (email, rol, agregado_por, creado) para el login con Google |
-| `recortes.py` | router de recortes (fase 1): misma lógica de negocio que `publicar_ui._mis_recortes` / `_editor_recorte`, más `edicion["segmentos"]` |
+| `recortes.py` | router de recortes (fase 1): misma lógica de negocio que `publicar_ui._mis_recortes` / `_editor_recorte`, más `edicion["segmentos"]` (pedazos conservados, en orden de salida; 22/10: sin solaparse, ≥ 0,5 s cada uno, total 2 s–3 min) |
 | `tests/` | pytest + httpx: 37 pruebas sin OpenAI ni Supabase (`test_api.py`, `test_recortes.py`), y 1 real (marcada `real`) |
 | `ejemplos.http` | llamadas de ejemplo (REST Client / curl) |
 | `Dockerfile`, `requirements.txt` | para desplegar en cualquier hosting que acepte un contenedor |

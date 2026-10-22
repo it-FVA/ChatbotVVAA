@@ -15,7 +15,9 @@ mismo JSON la marca "sin_pausas" = {"antes", "despues", "pausas"} y en clips.not
 (21/10, noche; fase 1 de la interfaz propia) "segmentos" = [[a_ms, b_ms], ...] absolutos del original: los pedazos del tramo que se
 conservan (el editor visual de la web parte el recorte y saca pedazos del medio); recortar_clip.cortar(segmentos=) los pega. La cola
 deja "segmentos_hechos" (los que aplicó) y "timeline" (lo que queda del tramo plano en el video final, en segundos: la web lo usa
-para llevar un segundo del reproductor al segundo del original). Si no hay "segmentos", todo sigue igual.
+para llevar un segundo del reproductor al segundo del original). Si no hay "segmentos", todo sigue igual. (22/10) La lista va en el
+ORDEN DE SALIDA: si no es el del original, recortar_clip pega los pedazos en ese orden (trim + concat) y rearma los subtítulos
+pedazo por pedazo; "timeline" queda en ese mismo orden.
 
 Variables de entorno: SUPABASE_URL, SUPABASE_KEY, DRIVE_TOKEN_JSON, WP_SITE, WP_USER, WP_APP_PASSWORD,
 PUBLICAR_WORDPRESS. Local: python procesar_clips.py (lee .streamlit/secrets.toml si faltan).

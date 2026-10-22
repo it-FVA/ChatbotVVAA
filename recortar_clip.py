@@ -257,26 +257,87 @@ def tramos_con_voz(total, silencios, colchon=0.25):
     return [(a, b) for a, b in keep if b - a > 0.05]
 
 
+def _en_orden(keep):
+    """(22/10) True si los tramos [(a, b), ...] están en el orden del original (cada uno empieza donde o después de que termina el anterior)."""
+    return all(keep[i][1] <= keep[i + 1][0] for i in range(len(keep) - 1))
+
+
 def _mapear_tiempo(t, keep):
     """Segundo `t` del clip con pausas → segundo del clip sin pausas. Un momento que cayó dentro de una pausa sacada
-    va al punto del corte (ahí no hay palabras, así que los subtítulos no se pierden)."""
+    va al punto del corte (ahí no hay palabras, así que los subtítulos no se pierden).
+    (22/10) Si `keep` está reordenado (pedazos en otro orden que el original), el momento va al lugar del pedazo que lo contiene;
+    si cayó en lo sacado, al principio del pedazo que le sigue en el original (o al final si no hay ninguno)."""
     acumulado = 0.0
+    if _en_orden(keep):
+        for a, b in keep:
+            if t < a:
+                return acumulado
+            if t <= b:
+                return acumulado + (t - a)
+            acumulado += b - a
+        return acumulado
+    siguiente = None
     for a, b in keep:
-        if t < a:
-            return acumulado
-        if t <= b:
+        if a <= t <= b:
             return acumulado + (t - a)
+        if t < a and (siguiente is None or a < siguiente[0]):
+            siguiente = (a, acumulado)
         acumulado += b - a
-    return acumulado
+    return siguiente[1] if siguiente else acumulado
+
+
+def _mapear_palabras(palabras, keep):
+    """(22/10) Palabras [[texto, ini_ms, fin_ms], ...] de la timeline de entrada → la de salida de `keep` (que puede estar en
+    otro orden que el original): cada palabra va al pedazo con el que más se solapa, recortada a él y corrida al lugar que ese
+    pedazo ocupa en la salida; las que caen enteras en lo sacado desaparecen. Salen ordenadas por el tiempo nuevo."""
+    inicios, acum = [], 0.0
+    for a, b in keep:
+        inicios.append(acum)
+        acum += b - a
+    out = []
+    for w in palabras:
+        mejor, solape = None, 0
+        for i, (a, b) in enumerate(keep):
+            a_ms, b_ms = int(round(a * 1000)), int(round(b * 1000))
+            lo, hi = max(w[1], a_ms), min(w[2], b_ms)
+            if hi - lo > solape or (mejor is None and hi >= lo and a_ms <= w[1] < b_ms):
+                mejor, solape = i, hi - lo
+        if mejor is None:
+            continue
+        a_ms, b_ms = int(round(keep[mejor][0] * 1000)), int(round(keep[mejor][1] * 1000))
+        d = int(round(inicios[mejor] * 1000)) - a_ms
+        out.append([w[0], max(w[1], a_ms) + d, min(w[2], b_ms) + d])
+    out.sort(key=lambda w: (w[1], w[2]))
+    return out
 
 
 def conservar_tramos(entrada, salida, keep, ffmpeg="ffmpeg", que="conservar los tramos"):
     """(21/10, noche) Arma `salida` con solo los tramos `keep` = [(a, b), ...] (segundos de `entrada`), pegados uno tras otro
     en ese orden (select/aselect + setpts/asetpts; re-encode x264 veryfast crf 18, aac 160k). Es el mecanismo de quitar pausas
-    y también el de «sacar un pedazo del medio» (segmentos). Devuelve la duración resultante en segundos."""
+    y también el de «sacar un pedazo del medio» (segmentos). Devuelve la duración resultante en segundos.
+    (22/10) Si `keep` no está en el orden del original (pedazos reordenados en el editor), va por concatenar_tramos."""
+    if not _en_orden(keep):
+        return concatenar_tramos(entrada, salida, keep, ffmpeg, que)
     expr = "+".join(f"between(t,{a:.3f},{b:.3f})" for a, b in keep)
     r = _run_ffmpeg(ffmpeg, ["-loglevel", "error", "-i", entrada,
                              "-vf", f"select='{expr}',setpts=N/FRAME_RATE/TB", "-af", f"aselect='{expr}',asetpts=N/SR/TB",
+                             "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-c:a", "aac", "-b:a", "160k", salida])
+    if r.returncode != 0 or not os.path.exists(salida):
+        raise RuntimeError(f"ffmpeg no pudo {que}: " + (r.stderr or "").strip()[-300:])
+    return duracion_video(salida, ffmpeg) or sum(b - a for a, b in keep)
+
+
+def concatenar_tramos(entrada, salida, keep, ffmpeg="ffmpeg", que="pegar los pedazos"):
+    """(22/10) Como conservar_tramos, pero respetando el ORDEN de `keep` aunque no sea el del original: cada pedazo se recorta con
+    trim/atrim (desde el mismo archivo de entrada) y se pegan con el filtro concat, video y audio, con re-encode (x264 veryfast
+    crf 18, aac 160k). Es lo que usa el editor de la web cuando la persona arrastra los pedazos a otro orden."""
+    partes, pines = [], []
+    for i, (a, b) in enumerate(keep):
+        partes.append(f"[0:v]trim=start={a:.3f}:end={b:.3f},setpts=PTS-STARTPTS[v{i}];"
+                      f"[0:a]atrim=start={a:.3f}:end={b:.3f},asetpts=PTS-STARTPTS[a{i}]")
+        pines.append(f"[v{i}][a{i}]")
+    fc = ";".join(partes) + f";{''.join(pines)}concat=n={len(keep)}:v=1:a=1[v][a]"
+    r = _run_ffmpeg(ffmpeg, ["-loglevel", "error", "-i", entrada, "-filter_complex", fc, "-map", "[v]", "-map", "[a]",
                              "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-c:a", "aac", "-b:a", "160k", salida])
     if r.returncode != 0 or not os.path.exists(salida):
         raise RuntimeError(f"ffmpeg no pudo {que}: " + (r.stderr or "").strip()[-300:])
@@ -301,8 +362,11 @@ def _quitar_pausas_tramos(entrada, salida, ffmpeg="ffmpeg", umbral_db=-32, min_s
 # ---------------- Segmentos: partir el recorte y sacar un pedazo del medio (21/10, noche; editor visual de la web) ----------------
 def normalizar_segmentos(segmentos, inicio_ms, fin_ms):
     """clips.edicion["segmentos"] = [[a_ms, b_ms], ...]: los tramos que se CONSERVAN, en milisegundos ABSOLUTOS del video original
-    (como inicio_ms/fin_ms). Devuelve [(a, b), ...] en segundos relativos al tramo [inicio_ms, fin_ms], recortados a él, ordenados
-    y sin solaparse; o None si no hay nada que sacar (vacío, o cubren el tramo entero). ValueError si ninguno cae en el tramo."""
+    (como inicio_ms/fin_ms). (22/10) El ORDEN de la lista es el orden en que salen en el video final: si coincide con el del
+    original todo sigue como antes; si no, la cola los pega en ese orden (concatenar_tramos). Devuelve [(a, b), ...] en segundos
+    relativos al tramo [inicio_ms, fin_ms], recortados a él, en el mismo orden, con los consecutivos que son contiguos en el
+    original unidos en uno (partir sin sacar ni mover nada no cambia el video); o None si no hay nada que hacer (vacío, o un solo
+    pedazo que cubre el tramo entero). ValueError (con el motivo en castellano) si ninguno cae en el tramo o si dos se pisan."""
     if not segmentos:
         return None
     tramos = []
@@ -310,18 +374,26 @@ def normalizar_segmentos(segmentos, inicio_ms, fin_ms):
         a, b = max(int(s[0]), int(inicio_ms)), min(int(s[1]), int(fin_ms))
         if b - a >= 50:
             tramos.append((a, b))
-    tramos.sort()
+    if not tramos:
+        raise ValueError("Ningún pedazo conservado cae dentro del tramo.")
+    ordenados = sorted(tramos)
+    for (a1, b1), (a2, b2) in zip(ordenados, ordenados[1:]):
+        if a2 < b1:
+            raise ValueError(f"Dos pedazos se pisan en el original ({_mmss(a2)}–{_mmss(min(b1, b2))}): cada momento puede salir una sola vez.")
     unidos = []
     for a, b in tramos:
-        if unidos and a <= unidos[-1][1]:
-            unidos[-1] = (unidos[-1][0], max(unidos[-1][1], b))
+        if unidos and a == unidos[-1][1]:
+            unidos[-1] = (unidos[-1][0], b)
         else:
             unidos.append((a, b))
-    if not unidos:
-        raise ValueError("ningún segmento cae dentro del tramo")
     if len(unidos) == 1 and unidos[0] == (int(inicio_ms), int(fin_ms)):
         return None
     return [((a - inicio_ms) / 1000, (b - inicio_ms) / 1000) for a, b in unidos]
+
+
+def _mmss(ms):
+    ms = int(ms)
+    return f"{ms // 60000:02d}:{ms // 1000 % 60:02d},{ms % 1000 // 100}"
 
 
 def _componer_mapas(mapas):
@@ -383,8 +455,11 @@ def cortar(entrada, salida, inicio, fin, ffmpeg="ffmpeg", formato="horizontal", 
     `srt_texto` ya está en la timeline sin pausas (es el SRT de un video que ya se había hecho sin pausas, con el mismo
     tramo) y no hay que correrlo. Si se pasa un dict en `info`, queda info["sin_pausas"] = {"antes", "despues", "pausas"}.
     segmentos (21/10, noche): [(a, b), ...] en segundos relativos al tramo [inicio, fin], los pedazos que se conservan (ver
-    normalizar_segmentos); se aplican ANTES de quitar las pausas. info["segmentos"] = {"antes", "despues", "tramos"} e
-    info["timeline"] = lo que queda del tramo plano en el video final (_componer_mapas), para que la web ubique los tiempos.
+    normalizar_segmentos); se aplican ANTES de quitar las pausas. info["segmentos"] = {"antes", "despues", "tramos", "reordenados"}
+    e info["timeline"] = lo que queda del tramo plano en el video final (_componer_mapas), en el orden en que sale, para que la web
+    ubique los tiempos. (22/10) Si el orden no es el del original, los pedazos se pegan en ese orden (concatenar_tramos) y los
+    subtítulos se rearman desde las palabras pedazo por pedazo (_mapear_palabras), con los tiempos corridos al orden nuevo; un
+    `srt_texto` corregido se corre con _mapear_tiempo (la API y la cola lo descartan antes cuando cambiaron los pedazos).
     srt_ya_sin_pausas vale también para los segmentos: True = el SRT ya está en la timeline del video final.
     Devuelve el texto SRT que se quemó ('' si el clip salió sin subtítulos)."""
     sub, srt_txt = "", ""
@@ -411,8 +486,11 @@ def cortar(entrada, salida, inicio, fin, ffmpeg="ffmpeg", formato="horizontal", 
             fin = conservar_tramos(entrada, tmp_seg, segmentos, ffmpeg, "pegar los segmentos")
             mapas.append(list(segmentos))
             entrada = tmp_seg
+            if palabras:
+                palabras = _mapear_palabras(palabras, segmentos)
             if isinstance(info, dict):
-                info["segmentos"] = {"antes": round(antes, 1), "despues": round(fin, 1), "tramos": len(segmentos)}
+                info["segmentos"] = {"antes": round(antes, 1), "despues": round(fin, 1), "tramos": len(segmentos),
+                                     "reordenados": not _en_orden(segmentos)}
         if quitar_pausas:
             tmp_sin = f"{base}.sinpausas.mp4"
             temporales.append(tmp_sin)
@@ -423,10 +501,10 @@ def cortar(entrada, salida, inicio, fin, ffmpeg="ffmpeg", formato="horizontal", 
                 info["sin_pausas"] = {"antes": round(antes, 1), "despues": round(despues, 1), "pausas": n_pausas}
         if isinstance(info, dict):
             info["timeline"] = _componer_mapas(mapas)
-        if palabras:
-            for keep in mapas:
-                palabras = [[w[0], int(_mapear_tiempo(w[1] / 1000, keep) * 1000), int(_mapear_tiempo(w[2] / 1000, keep) * 1000)]
-                            for w in palabras]
+        if palabras and quitar_pausas:
+            keep = mapas[-1]   # las pausas (los segmentos ya se aplicaron arriba, pedazo por pedazo)
+            palabras = [[w[0], int(_mapear_tiempo(w[1] / 1000, keep) * 1000), int(_mapear_tiempo(w[2] / 1000, keep) * 1000)]
+                        for w in palabras]
     if srt_texto and srt_texto.strip():
         srt_txt = srt_texto.strip().replace("\r", "") + "\n"
         if mapas and not srt_ya_sin_pausas:
@@ -500,7 +578,7 @@ def main():
     ap.add_argument("--sin-subir", action="store_true", help="(19/10) solo cortar, sin subir a WordPress")
     ap.add_argument("--estilo", default="", help='(19/10) estilo de los subtítulos, JSON: {"tipografia":"Lato","tamano":"grande","color":"amarillo de la marca","fondo":"borde negro","negrita":true,"posicion":"centro"}')
     ap.add_argument("--quitar-pausas", action="store_true", help="(21/10) sacar los silencios de más de 0,7 s (umbral -32 dB, colchón 0,25 s)")
-    ap.add_argument("--segmentos", default="", help='(21/10, noche) tramos que se conservan, en segundos del ORIGINAL: "58.6-70,75-106.6" (lo demás del tramo se saca)')
+    ap.add_argument("--segmentos", default="", help='(21/10, noche) tramos que se conservan, en segundos del ORIGINAL: "58.6-70,75-106.6" (lo demás del tramo se saca); (22/10) en el orden en que salen: "90-100,60-70" pega el segundo antes que el primero')
     a = ap.parse_args()
     nombre = a.nombre or a.youtube or a.drive_id or os.path.splitext(os.path.basename(a.original))[0]
     srt_texto = open(a.srt, encoding="utf-8").read() if a.srt else None
@@ -530,7 +608,8 @@ def main():
     print(f"clip: {clip} ({os.path.getsize(clip) // 1024} KB){' · con subtítulos' if con_sub else ''}")
     if info.get("segmentos"):
         sg = info["segmentos"]
-        print(f"segmentos: {sg['antes']:.1f} s → {sg['despues']:.1f} s, {sg['tramos']} tramos conservados")
+        print(f"segmentos: {sg['antes']:.1f} s → {sg['despues']:.1f} s, {sg['tramos']} tramos conservados" + (" (reordenados)" if sg.get("reordenados") else ""))
+        print("timeline:", info.get("timeline"))
     if info.get("sin_pausas"):
         sp = info["sin_pausas"]
         print(f"sin pausas: {sp['antes']:.1f} s → {sp['despues']:.1f} s, {sp['pausas']} pausas sacadas")

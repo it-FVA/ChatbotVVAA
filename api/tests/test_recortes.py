@@ -102,7 +102,7 @@ def test_opciones(logueado, tabla):
     assert d["colores"]["amarillo de la marca"] == "F4B43C"
     assert d["fondos"]["sombra oscura"] == {"tipo": "caja", "color": "000000", "alpha": "90"}
     assert d["estilo_defecto"] == rc.ESTILO_DEFECTO and d["estilo_equipo"] is None
-    assert d["limites"] == {"min_ms": 2000, "max_ms": 180000}
+    assert d["limites"] == {"min_ms": 2000, "max_ms": 180000, "min_pedazo_ms": 500}
 
 
 def test_estilo_defecto(cliente, tabla):
@@ -135,6 +135,13 @@ def test_editar_validaciones(logueado, tabla):
     assert logueado.post("/recortes/c1/edicion", json={"fin_ms": 200000}).status_code == 400         # > 3 min
     assert logueado.post("/recortes/c3/edicion", json={"fin_ms": 9000}).status_code == 409           # no está listo
     assert logueado.post("/recortes/c1/edicion", json={"segmentos": [[0, 1000]]}).status_code == 400  # fuera del tramo
+    # (22/10) pedazos que se pisan, uno de menos de medio segundo, total de menos de 2 s
+    r = logueado.post("/recortes/c1/edicion", json={"segmentos": [[10000, 21000], [20000, 40000]]})
+    assert r.status_code == 400 and "se pisan" in r.json()["detail"]
+    r = logueado.post("/recortes/c1/edicion", json={"segmentos": [[10000, 20000], [25000, 25300]]})
+    assert r.status_code == 400 and "medio segundo" in r.json()["detail"]
+    r = logueado.post("/recortes/c1/edicion", json={"segmentos": [[10000, 10600], [20000, 20700]]})
+    assert r.status_code == 400 and "menos de 2 segundos" in r.json()["detail"]
     assert logueado.post("/recortes/c1/edicion", json={"lineas": [{"inicio": "00:00:00,500", "fin": "00:00:02,000", "texto": "  "}]}).status_code == 400
     assert tabla["cambios"] == []
 
@@ -173,6 +180,36 @@ def test_editar_segmentos(logueado, tabla):
     tabla["filas"][0].update(estado="listo", edicion={"segmentos": [[10000, 20000], [25000, 40000]]})
     r = logueado.post("/recortes/c1/edicion", json={"segmentos": [[10000, 40000]]})
     assert r.status_code == 200 and r.json()["edicion"] == {} and r.json()["partes"] == ["sin pedazos sacados"]
+    # partir sin sacar nada (dos pedazos contiguos, en orden) tampoco es un cambio
+    tabla["filas"][0].update(estado="listo", edicion=None)
+    assert logueado.post("/recortes/c1/edicion", json={"segmentos": [[10000, 20000], [20000, 40000]]}).status_code == 400
+
+
+def test_editar_segmentos_reordenados(logueado, tabla):
+    """(22/10) El orden de la lista es el orden de salida: se guarda tal cual y se avisa en las partes."""
+    r = logueado.post("/recortes/c1/edicion", json={"segmentos": [[30000, 40000], [10000, 15000], [20000, 25000]]})
+    assert r.status_code == 200, r.text
+    assert r.json()["edicion"] == {"segmentos": [[30000, 40000], [10000, 15000], [20000, 25000]]}
+    assert r.json()["partes"] == ["3 pedazos conservados en otro orden"]
+    assert "los pedazos" in r.json()["avisos"][0]    # vertical sin SRT corregido: se arman de nuevo, sin descartar nada
+    # con pedazos contiguos pero en otro orden no se unen: [20-30] + [10-20] sale dado vuelta
+    tabla["filas"][0].update(estado="listo", edicion=None)
+    r = logueado.post("/recortes/c1/edicion", json={"segmentos": [[20000, 30000], [10000, 20000]]})
+    assert r.status_code == 200 and r.json()["edicion"]["segmentos"] == [[20000, 30000], [10000, 20000]]
+    # en un horizontal no hay aviso de subtítulos
+    r = logueado.post("/recortes/c2/edicion", json={"segmentos": [[30000, 40000], [10000, 15000]]})
+    assert r.status_code == 200 and r.json()["avisos"] == []
+
+
+def test_cambiar_pedazos_descarta_srt_corregido(logueado, tabla):
+    """(22/10) Misma regla que al cambiar el tramo: los subtítulos corregidos eran de otra timeline."""
+    tabla["filas"][0]["edicion"] = {"srt": SRT.replace("alegría", "ALEGRÍA")}
+    r = logueado.post("/recortes/c1/edicion", json={"segmentos": [[25000, 40000], [10000, 20000]]})
+    assert r.status_code == 200, r.text
+    assert "srt" not in r.json()["edicion"] and "subtítulos rearmados" in r.json()["partes"] and "los pedazos" in r.json()["avisos"][0]
+    tabla["filas"][0].update(estado="listo", edicion={"srt": SRT.replace("alegría", "ALEGRÍA")})
+    r = logueado.post("/recortes/c1/edicion", json={"segmentos": [[25000, 40000], [10000, 20000]], "descartar_srt": False})
+    assert r.status_code == 200 and "ALEGRÍA" in r.json()["edicion"]["srt"] and "video anterior" in r.json()["avisos"][0]
 
 
 def test_editar_tramo_descarta_srt_corregido(logueado, tabla):
