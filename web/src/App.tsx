@@ -14,6 +14,10 @@ import Publicaciones from "./paginas/Publicaciones";
 import Administracion from "./paginas/admin/Administracion";
 import Usuarios from "./paginas/admin/Usuarios";
 import ListaBlanca from "./paginas/admin/ListaBlanca";
+import Dashboard from "./paginas/admin/Dashboard";
+import Salud from "./paginas/admin/Salud";
+import Servicios from "./paginas/admin/Servicios";
+import Configuracion from "./paginas/admin/Configuracion";
 import Barra from "./componentes/Barra";
 
 interface Sesion {
@@ -67,10 +71,14 @@ export default function App() {
                       <Route path="*" element={<Navigate to="/aprobacion" replace />} />
                     </Route>
                     <Route path="/administracion" element={<Administracion />}>
-                      <Route index element={<Navigate to="/administracion/usuarios" replace />} />
+                      <Route index element={<Navigate to="/administracion/dashboard" replace />} />
+                      <Route path="dashboard" element={<Dashboard />} />
+                      <Route path="salud" element={<Salud />} />
+                      <Route path="servicios" element={<Servicios />} />
                       <Route path="usuarios" element={<Usuarios />} />
                       <Route path="lista-blanca" element={<ListaBlanca />} />
-                      <Route path="*" element={<Navigate to="/administracion/usuarios" replace />} />
+                      <Route path="configuracion" element={<Configuracion />} />
+                      <Route path="*" element={<Navigate to="/administracion/dashboard" replace />} />
                     </Route>
                     <Route path="*" element={<Navigate to="/recortes" replace />} />
                   </Routes>

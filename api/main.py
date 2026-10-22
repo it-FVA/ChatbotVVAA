@@ -51,6 +51,8 @@ from . import salud as _salud          # noqa: E402
 app.include_router(_salud.router)
 from . import publicar_rutas as _pub   # noqa: E402  (22/10, fase 3: Publicar, Mis publicaciones, Aprobación; va después de chat_rutas por /publicaciones/modos)
 app.include_router(_pub.router)
+from . import admin_rutas as _admin_rutas   # noqa: E402  (22/10: Dashboard, Servicios y costos, Configuración de Administración)
+app.include_router(_admin_rutas.router)
 
 
 # ---------------- Modelos de entrada ----------------
