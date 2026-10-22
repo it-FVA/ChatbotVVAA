@@ -56,6 +56,39 @@ secuencia de salida con tres pedazos (12), un bloque arrastrándose con la marca
 La revisión de UX/UI que motivó la segunda vuelta (hallazgos, referencias con links, qué se cambió y qué quedó) está en
 `UX-REVISION.md`; la sección «Pedazos como piezas» de ese documento cuenta el diseño de los dos carriles.
 
+## Administración completa (22/10, noche)
+
+`/administracion` (solo admins) tiene ahora seis pantallas (`src/paginas/admin/`, estilos en `src/admin.css`, cliente y tipos en
+`adminApi.ts`, piezas comunes en `comun.tsx`, gráficos SVG sin librerías en `Graficos.tsx`). Los datos vienen de `api/admin_rutas.py` y
+`api/salud.py`; la lógica de cálculo es la del Dashboard de Streamlit (`publicar_ui.uso_admin` / `costo_openai_admin` / `servicios_admin`).
+
+- **Dashboard** (portada): arriba «¿Funciona la app?» con la luz verde / amarilla / roja, el conteo de avisos del último chequeo guardado y
+  el link a Salud; el **costo del mes** (OpenAI estimado + servicios fijos, con el desglose, la proyección a 30 días, el presupuesto si
+  está cargado y el mes anterior al lado); **¿quién usa la app?** con período 7 / 28 / 90 días o un mes a elegir: personas activas sobre
+  el total, conversaciones, piezas, recortes, OpenAI del período; tabla por persona (última vez, conversaciones, mensajes, piezas,
+  recortes, costo de OpenAI y su parte, lo último que hizo) incluyendo a quienes no hicieron nada; gráficos de conversaciones por semana
+  por persona, costo por día apilado por persona y costo por mes (6 meses); plegados «Consumo por modelo y para qué» y «Lo último que pasó».
+- **Salud**: los 13 chequeos de `GET /salud/servicios` como tarjetas agrupadas (errores, avisos, en orden), cada una con el detalle, «qué
+  hacer», «así desde» y los ms; arriba «Para no quedarse sin nada»: tokens que vencen (rojo a menos de 14 días, amarillo a menos de 30)
+  y todo lo que no está ok; «Volver a chequear» corre todo de nuevo y actualiza el badge del menú; historial como línea de tiempo (puntos
+  por corrida, marcas por arranque de la API), «qué cambió» y las últimas corridas.
+- **Servicios y costos**: inventario con alta / edición / baja en modal (nombre, proveedor, para qué, plan, costo, confirmado o
+  referencia, desde, link, notas, activo), total fijo, OpenAI del mes y la suma; debajo **¿Cuándo hay que pasar a plan pago?**: por
+  proveedor la barra de uso contra el límite con el umbral marcado, el estado, la justificación, la fuente del límite (plegada), los
+  umbrales editables y la carga manual de GB de Vercel.
+- **Configuración**: precios de OpenAI por modelo (entrada, salida, caché, fuente obligatoria, fecha; aviso del precio promocional de
+  gpt-5.6-sol hasta el 21/11/2026), presupuesto mensual, umbrales, estilo por defecto de los subtítulos (mismos controles y endpoint del
+  editor) y la Frase del día (interruptor, hora, canales, foto por defecto, pie), cada bloque con su explicación y quién lo cambió por
+  última vez; «Últimos cambios de configuración y servicios» (registro `usuarios_cambios`).
+- **Menú**: Dashboard · Salud (badge con los avisos) · Servicios y costos · Usuarios · Lista blanca · Configuración, con la pantalla activa.
+- **Responsive** (pedido de Franco: en una notebook con el panel lateral abierto la tabla de Usuarios se apretaba): hasta 1400 px el menú
+  queda solo con iconos (tooltip con el nombre), hasta 900 px pasa a chips arriba; las tablas anchas (Usuarios, personas del Dashboard,
+  Servicios) se vuelven tarjetas apiladas hasta 1100 px y las demás hasta 900; mail y nombre en una línea con elipsis y tooltip,
+  selectores de rol de ancho fijo. Capturas `capturas/30-…-35-…-<ancho>.png` en 1366, 1200, 1000, 768 y 375 (`capturas-admin.mjs`).
+
+Probado el 22/10 con la API local y datos reales: las seis pantallas; alta, edición y baja de un servicio de prueba; umbral de Render
+70 → 75 → 70; el registro de cambios. Pendiente: la frase del día sigue con el calendario en Streamlit (acá solo su configuración).
+
 ## Qué hay
 
 - **Login** con usuario y contraseña (los mismos de siempre, `POST /login`) y **con Google** (Google Identity Services: el botón
