@@ -55,6 +55,10 @@ from . import admin_rutas as _admin_rutas   # noqa: E402  (22/10: Dashboard, Ser
 app.include_router(_admin_rutas.router)
 from . import proyectos as _proyectos   # noqa: E402  (22/10: carpetas colaborativas, compartir, «compartidos conmigo»)
 app.include_router(_proyectos.router)
+from . import newsletter_rutas as _newsletter   # noqa: E402  (22/10: el editor de Newsletter en la web)
+app.include_router(_newsletter.router)
+from . import frases_rutas as _frases           # noqa: E402  (22/10: el calendario de la Frase del día en la web)
+app.include_router(_frases.router)
 
 
 # ---------------- Modelos de entrada ----------------

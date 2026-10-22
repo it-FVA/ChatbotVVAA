@@ -11,6 +11,8 @@ import Cuenta from "./paginas/Cuenta";
 import Aprobacion, { Clips, Cola, Papelera, ParaAprobar, Registro } from "./paginas/Aprobacion";
 import Publicar from "./paginas/Publicar";
 import Publicaciones from "./paginas/Publicaciones";
+import Newsletter from "./paginas/Newsletter";
+import FraseDelDia from "./paginas/FraseDelDia";
 import Administracion from "./paginas/admin/Administracion";
 import Usuarios from "./paginas/admin/Usuarios";
 import ListaBlanca from "./paginas/admin/ListaBlanca";
@@ -67,6 +69,8 @@ export default function App() {
                     <Route path="/proyectos/:id" element={<Proyectos />} />
                     <Route path="/compartidos" element={<Compartidos />} />
                     <Route path="/cuenta" element={<Cuenta />} />
+                    <Route path="/newsletter" element={<Newsletter />} />
+                    <Route path="/frase-del-dia" element={<FraseDelDia />} />
                     <Route path="/publicar" element={<Publicar />} />
                     <Route path="/publicaciones" element={<Publicaciones />} />
                     <Route path="/aprobacion" element={<Aprobacion />}>

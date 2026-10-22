@@ -218,6 +218,11 @@ function Tarjeta({ c, mostrarQuien, aprueba, onBorrar, onCambio }: { c: Recorte;
               <Icono nombre="externo" /> Abrir
             </a>
           )}
+          {listo && (
+            <Link className="boton sutil" to={`/newsletter?recorte=${encodeURIComponent(c.id)}`} title="Ponerlo en el bloque «Un recorte para ver» del newsletter">
+              <Icono nombre="sobre" /> Llevar al newsletter
+            </Link>
+          )}
           {c.estado === "error" && aprueba && (
             <button className="boton" onClick={reintentar} disabled={reintentando}>
               <Icono nombre="regenerar" /> {reintentando ? "Reintentando…" : "Reintentar"}

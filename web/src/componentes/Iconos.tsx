@@ -53,6 +53,7 @@ const TRAZOS: Record<string, string> = {
   mover: "M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20",
   ordenar: "M3 6h18M6 12h12M9 18h6",
   casa: "M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10",
+  sobre: "M3 6h18v12H3zM3 7l9 6 9-6",
 };
 
 export type NombreIcono = keyof typeof TRAZOS;

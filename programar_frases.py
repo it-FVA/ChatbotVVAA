@@ -130,6 +130,42 @@ def encolar_frase(frase, fecha, cfg, db, publicar, hora=None, quien=USUARIO, can
                     + (f"; {aviso_img}" if aviso_img else "") + ")")
 
 
+def repartir(frases, desde, ocupadas, modo="orden", semilla=None):
+    """(19/10, antes en frases_ui) Asigna una fecha a cada frase a partir de `desde`, saltando `ocupadas`. Primero las nunca publicadas
+    (modo 'orden' = del Sheet, 'azar' = mezcladas sin repetir autor dos días seguidos cuando se puede), después las ya publicadas de la
+    más antigua a la más reciente (rotación). Devuelve [(frase, fecha)]. No escribe nada."""
+    nuevas = sorted([f for f in frases if not f.get("ultima_publicada")], key=lambda f: (f.get("orden") is None, f.get("orden") or 0))
+    viejas = sorted([f for f in frases if f.get("ultima_publicada")], key=lambda f: f["ultima_publicada"])
+    if modo == "azar":
+        random.Random(semilla).shuffle(nuevas)
+    out, d, autor_prev = [], desde, None
+    for pendientes in (nuevas, viejas):
+        while pendientes:
+            if d.isoformat() in ocupadas:
+                d += datetime.timedelta(days=1)
+                continue
+            elegida = pendientes[0]
+            if modo == "azar" and autor_prev and pendientes is nuevas:
+                for f in pendientes:
+                    if (f.get("autor") or "") != autor_prev:
+                        elegida = f
+                        break
+            pendientes.remove(elegida)
+            out.append((elegida, d))
+            autor_prev = elegida.get("autor") or ""
+            d += datetime.timedelta(days=1)
+    return out
+
+
+def guardar_reparto(db, reparto):
+    """Escribe el reparto en la tabla (upsert por id, de a 200). Devuelve cuántas frases quedaron con día."""
+    filas = [{"id": f["id"], "texto": f["texto"], "fecha": d.isoformat(), "estado": "programada", "publicacion_id": None, "piezas": None,
+              "actualizado": db._ahora_iso()} for f, d in reparto]
+    for i in range(0, len(filas), 200):
+        db.upsert_frases(filas[i:i + 200], on_conflict="id")
+    return len(filas)
+
+
 def asignar_siguiente(db, fecha):
     """Rotación: le pone a `fecha` la siguiente frase (nunca publicada primero; después la publicada más antigua). Devuelve la frase o None."""
     for f in db.candidatas_rotacion(hoy_argentina().isoformat()):

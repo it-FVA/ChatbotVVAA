@@ -1,0 +1,358 @@
+/* Newsletter (22/10): editor por bloques + vista previa del mail al lado. Mismos colores y piezas que estilos.css. */
+.newsletter .pagina-cabecera {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.newsletter .pagina-cabecera .acciones {
+  margin-top: 4px;
+}
+.nl-arriba {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) 1fr;
+  gap: 18px;
+  align-items: start;
+  margin-bottom: 12px;
+}
+.nl-plantillas {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.nl-plantilla {
+  font: inherit;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 9px 12px;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  background: var(--crema);
+  cursor: pointer;
+  color: var(--tinta);
+  min-height: var(--toque);
+}
+.nl-plantilla:hover {
+  border-color: var(--borde-fuerte);
+}
+.nl-plantilla.activa {
+  background: var(--amarillo-suave);
+  border-color: var(--amarillo);
+  box-shadow: inset 3px 0 0 var(--amarillo);
+}
+.nl-redactar label {
+  margin-bottom: 4px;
+}
+.nl-redactar .campo-con-boton .boton {
+  white-space: nowrap;
+}
+.nl-materiales {
+  margin-top: 8px;
+  font-size: 0.88rem;
+}
+.nl-materiales summary {
+  cursor: pointer;
+  color: var(--suave);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  list-style: none;
+}
+.nl-materiales summary::-webkit-details-marker {
+  display: none;
+}
+.nl-materiales[open] summary .icono:first-child {
+  transform: rotate(90deg);
+}
+.nl-materiales ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+.nl-retomando {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 8px;
+}
+.nl-hecho {
+  background: var(--verde-claro);
+  border-color: #b9d3b4;
+}
+.nl-hecho .acciones {
+  margin-top: 8px;
+}
+
+/* las solapas Contenido / Vista previa solo en celular */
+.newsletter .nl-solapas {
+  display: none;
+  margin-bottom: 10px;
+}
+
+.nl-grilla {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 560px);
+  gap: 18px;
+  align-items: start;
+}
+.nl-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.nl-bloque {
+  padding: 0;
+  overflow: hidden;
+}
+.nl-bloque > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 14px;
+  font-weight: 700;
+  min-height: var(--toque);
+  user-select: none;
+}
+.nl-bloque > summary::-webkit-details-marker {
+  display: none;
+}
+.nl-bloque > summary:hover {
+  background: var(--crema);
+}
+.nl-bloque > summary .icono:first-child {
+  color: var(--suave);
+  transition: transform var(--rapido);
+}
+.nl-bloque[open] > summary .icono:first-child {
+  transform: rotate(90deg);
+}
+.nl-bloque > summary .icono:nth-child(2) {
+  color: var(--verde);
+}
+.nl-bloque-cuerpo {
+  padding: 4px 14px 14px;
+  border-top: 1px solid var(--borde);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.nl-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  min-width: 0;
+}
+.nl-campo textarea {
+  font: inherit;
+  font-weight: 400;
+  padding: 8px 10px;
+  border: 1px solid var(--borde-fuerte);
+  border-radius: 8px;
+  background: #fff;
+  width: 100%;
+  resize: vertical;
+  min-height: 60px;
+  line-height: 1.45;
+}
+.nl-campo textarea:focus {
+  outline: none;
+  border-color: var(--amarillo);
+  box-shadow: var(--foco);
+}
+.nl-campo input {
+  font-weight: 400;
+}
+.nl-pregunta {
+  margin-top: 4px;
+}
+.nl-dos,
+.nl-tres,
+.nl-cuatro {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr 1fr;
+}
+.nl-tres {
+  grid-template-columns: 2fr 2fr 1fr;
+}
+.nl-cuatro {
+  grid-template-columns: repeat(4, 1fr);
+}
+.nl-actividad {
+  border: 1px dashed var(--borde-fuerte);
+  border-radius: 10px;
+  padding: 8px 12px 12px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.nl-actividad legend {
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.nl-fotos .nl-banco {
+  margin-top: 4px;
+}
+.nl-usar {
+  color: var(--verde);
+  font-weight: 700;
+}
+
+/* la vista previa: un «sobre» gris con el mail de 600 px adentro, pegajoso al scrollear el editor */
+.nl-previa {
+  position: sticky;
+  top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.nl-previa-cabecera {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.nl-asunto {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nl-mail {
+  background: #e9e6df;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 10px;
+  height: calc(100vh - 150px);
+  min-height: 420px;
+  overflow: hidden;
+}
+.nl-mail iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #f3f3f3;
+  border-radius: 8px;
+  display: block;
+}
+.nl-acciones {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--borde);
+}
+.nl-lista-borradores {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 60vh;
+  overflow: auto;
+}
+.nl-borrador {
+  font: inherit;
+  text-align: left;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  color: var(--tinta);
+}
+.nl-borrador:hover {
+  border-color: var(--amarillo);
+  background: var(--amarillo-suave);
+}
+.nl-recorte {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+.nl-recorte img,
+.nl-recorte .mini-vacia {
+  width: 84px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex: none;
+  background: var(--verde-claro);
+}
+.nl-recorte > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  .nl-grilla {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 440px);
+  }
+  .nl-cuatro {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 760px) {
+  .nl-arriba {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .nl-plantillas {
+    flex-direction: row;
+  }
+  .nl-plantilla {
+    flex: 1;
+  }
+  .newsletter .nl-solapas {
+    display: flex;
+    width: fit-content;
+  }
+  .nl-grilla {
+    grid-template-columns: 1fr;
+  }
+  .nl-grilla.editor .nl-previa,
+  .nl-grilla.previa .nl-editor {
+    display: none;
+  }
+  .nl-previa {
+    position: static;
+  }
+  .nl-mail {
+    height: 70vh;
+    padding: 4px;
+  }
+  .nl-dos,
+  .nl-tres,
+  .nl-cuatro {
+    grid-template-columns: 1fr;
+  }
+  .nl-acciones .boton {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
