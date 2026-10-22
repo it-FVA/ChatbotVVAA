@@ -28,7 +28,7 @@ function mesesRecientes(n = 6) {
 }
 
 export default function Dashboard() {
-  const { resumen, errorResumen } = useAdmin();
+  const { errorResumen } = useAdmin();
   const [periodo, setPeriodo] = useState<Periodo>({ dias: 28 });
   const [uso, setUso] = useState<Uso | null>(null);
   const [costos, setCostos] = useState<Costos | null>(null);

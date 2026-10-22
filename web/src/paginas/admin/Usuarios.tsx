@@ -134,8 +134,12 @@ export default function Usuarios() {
                       </span>
                     )}
                   </td>
-                  <td data-col="Nombre">{u.nombre || <span className="suave">—</span>}</td>
-                  <td data-col="Email">{u.email || <span className="suave">—</span>}</td>
+                  <td data-col="Nombre" title={u.nombre ?? undefined}>
+                    {u.nombre || <span className="suave">—</span>}
+                  </td>
+                  <td data-col="Email" title={u.email ?? undefined}>
+                    {u.email || <span className="suave">—</span>}
+                  </td>
                   <td data-col="Rol">
                     <select value={u.rol} onChange={(e) => editar(u, { rol: e.target.value })} disabled={soy(u) || ocupado === u.id} aria-label={`Rol de ${u.usuario}`} title={soy(u) ? "No podés cambiar tu propio rol" : undefined}>
                       {ROLES.map((r) => (
