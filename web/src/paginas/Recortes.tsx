@@ -8,6 +8,9 @@ import { Icono } from "../componentes/Iconos";
 import Modal from "../componentes/Modal";
 import { EstadoVacio, TarjetaEsqueleto } from "../componentes/Comunes";
 import { useToast } from "../componentes/Toasts";
+import MoverA from "../componentes/proyectos/MoverA";
+import { apiProyectos } from "../apiProyectos";
+import { etiqueta, useProyectos } from "../componentes/proyectos/ProyectosContexto";
 
 type Vista = "mios" | "equipo" | "todos";
 
@@ -143,6 +146,10 @@ function Tarjeta({ c, mostrarQuien, aprueba, onBorrar, onCambio }: { c: Recorte;
   const { avisar } = useToast();
   const [reintentando, setReintentando] = useState(false);
   const clase = c.regenerando ? "proceso" : c.estado;
+  // (22/10, proyectos) «Guardar en un proyecto»: la carpeta donde está, y el modal para elegir otra
+  const proyectos = useProyectos();
+  const carpeta = proyectos.carpetaDe("recorte", c.id);
+  const [aProyecto, setAProyecto] = useState(false);
 
   async function reintentar() {
     setReintentando(true);
@@ -207,6 +214,9 @@ function Tarjeta({ c, mostrarQuien, aprueba, onBorrar, onCambio }: { c: Recorte;
               <Icono nombre="regenerar" /> {reintentando ? "Reintentando…" : "Reintentar"}
             </button>
           )}
+          <button className="boton sutil" onClick={() => setAProyecto(true)} title={carpeta ? `Está en «${etiqueta(carpeta)}»; mover a otra carpeta` : "Guardar este recorte en un proyecto"}>
+            <Icono nombre="carpeta" /> {carpeta ? etiqueta(carpeta) : "Proyecto"}
+          </button>
           {c.puede_borrar && (
             <button className="boton peligro sutil" onClick={onBorrar}>
               <Icono nombre="tacho" /> Borrar
@@ -214,6 +224,25 @@ function Tarjeta({ c, mostrarQuien, aprueba, onBorrar, onCambio }: { c: Recorte;
           )}
         </div>
       </div>
+      {aProyecto && (
+        <MoverA
+          titulo="Guardar en un proyecto"
+          que={`Recorte «${(c.titulo || c.video_id).slice(0, 80)}»`}
+          actualId={carpeta?.id}
+          textoBoton="Guardar acá"
+          onCerrar={() => setAProyecto(false)}
+          onElegir={async (pid) => {
+            try {
+              await apiProyectos.agregarItem(pid, "recorte", c.id);
+              await proyectos.recargar();
+              avisar(`Guardado en «${proyectos.porId.get(pid)?.nombre || "la carpeta"}».`);
+            } catch (e) {
+              avisar(e instanceof ErrorApi ? e.message : "No pude guardarlo.", "error");
+              throw e;
+            }
+          }}
+        />
+      )}
     </article>
   );
 }

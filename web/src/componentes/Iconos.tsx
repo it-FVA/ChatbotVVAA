@@ -39,6 +39,18 @@ const TRAZOS: Record<string, string> = {
   tramo: "M4 6v12M20 6v12M4 12h16M9 9l-3 3 3 3M15 9l3 3-3 3",
   menu: "M4 7h16M4 12h16M4 17h16",
   descargar: "M12 4v12M6 10l6 6 6-6M4 20h16",
+  // (22/10) proyectos
+  carpeta: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z",
+  carpetaMas: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM12 10v6M9 13h6",
+  compartir: "M18 5a2.5 2.5 0 1 1 0 .01M6 12a2.5 2.5 0 1 1 0 .01M18 19a2.5 2.5 0 1 1 0 .01M8.3 10.8l7.4-4.3M8.3 13.2l7.4 4.3",
+  agrandar: "M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7",
+  grilla: "M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z",
+  lista: "M8 6h13M8 12h13M8 18h13M3 6h.5M3 12h.5M3 18h.5",
+  imagen: "M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M16 9h.5",
+  puntos: "M12 5v.5M12 12v.5M12 19v.5",
+  mover: "M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20",
+  ordenar: "M3 6h18M6 12h12M9 18h6",
+  casa: "M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10",
 };
 
 export type NombreIcono = keyof typeof TRAZOS;

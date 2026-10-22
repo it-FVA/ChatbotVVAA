@@ -59,6 +59,8 @@ export interface Conversacion {
   id: string;
   titulo: string | null;
   mensajes: MensajeChat[];
+  /** (22/10) Si no es mía: quién la compartió y con qué permiso (api/proyectos.conversacion_accesible). */
+  compartida?: { por: string; permiso: "ver" | "editar" } | null;
 }
 
 export interface FinChat {
