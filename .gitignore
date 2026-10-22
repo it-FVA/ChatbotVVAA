@@ -20,3 +20,4 @@ clip_url.txt
 
 # variables de la API para el hosting (secretos): se genera con api/armar_env.py
 api.env
+api.faltantes.env
