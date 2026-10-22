@@ -4,6 +4,9 @@ clips.edicion, la nota, qué se puede borrar y quién), sin inventar otra; si ca
 
 Lo nuevo respecto de Streamlit: `edicion["segmentos"]` = [[a_ms, b_ms], ...] absolutos del original, los pedazos del tramo que se
 conservan (partir + sacar del medio, editor visual); la cola (procesar_clips.py) los aplica con recortar_clip.cortar(segmentos=).
+(22/10) La lista va EN EL ORDEN DE SALIDA: el editor deja mover los pedazos, y si el orden no es el del original la cola los pega en
+ese orden. Validaciones: sin solapamiento entre pedazos, cada uno de al menos 0,5 s, el total entre 2 s y 3 min; si cambian los
+pedazos y había subtítulos corregidos, se descartan con aviso (misma regla que al cambiar el tramo).
 
 Rutas (todas con sesión):
   GET    /recortes                     mis recortes · ?equipo=1 los listos de otras personas · ?todos=1 (aprobadores) todos
@@ -30,6 +33,7 @@ log = logging.getLogger("api")
 router = APIRouter(prefix="/recortes", tags=["recortes"])
 
 MIN_MS, MAX_MS = 2000, 180000          # el tramo tiene que durar entre 2 s y 3 min (publicar_ui._editor_recorte)
+MIN_PEDAZO_MS = 500                    # (22/10) cada pedazo conservado dura al menos medio segundo
 ESTADOS = {"listo": "listo", "pedido": "en proceso", "error": "error"}
 
 
@@ -44,7 +48,7 @@ class Edicion(BaseModel):
     """Lo que la persona cambió en el editor. Las claves que no vienen no se tocan."""
     inicio_ms: Optional[int] = None
     fin_ms: Optional[int] = None
-    segmentos: Optional[list[list[int]]] = None   # [[a_ms, b_ms], ...] absolutos: los pedazos que se conservan; [] = ninguno (todo el tramo)
+    segmentos: Optional[list[list[int]]] = None   # [[a_ms, b_ms], ...] absolutos, EN ORDEN DE SALIDA: los pedazos que se conservan; [] = ninguno (todo el tramo)
     lineas: Optional[list[Linea]] = None          # subtítulos por línea (vertical); si viene, manda sobre `srt`
     srt: Optional[str] = None                     # o el SRT entero
     estilo: Optional[dict] = None
@@ -115,7 +119,7 @@ def _opciones():
         "fondos": {n: {"tipo": t, "color": col, "alpha": a} for n, (t, col, a) in rc.FONDOS.items()},
         "posiciones": list(rc.POSICIONES_SUB),
         "estilo_defecto": dict(rc.ESTILO_DEFECTO),
-        "limites": {"min_ms": MIN_MS, "max_ms": MAX_MS},
+        "limites": {"min_ms": MIN_MS, "max_ms": MAX_MS, "min_pedazo_ms": MIN_PEDAZO_MS},
     }
 
 
@@ -219,21 +223,30 @@ def editar(cid: str, datos: Edicion, request: Request):
         nueva.pop("inicio_ms", None)
         nueva.pop("fin_ms", None)
 
-    # --- Segmentos (partir + sacar del medio): se guardan normalizados, absolutos, en ms ---
+    # --- Segmentos (partir, sacar del medio y, desde el 22/10, reordenar): se guardan normalizados, absolutos, en ms, en orden de salida ---
     if datos.segmentos is not None:
         try:
-            rel = rc.normalizar_segmentos(datos.segmentos, ini_ms, fin_ms)
-        except ValueError:
-            raise HTTPException(400, "Ningún pedazo conservado cae dentro del tramo.")
+            rel = rc.normalizar_segmentos(datos.segmentos, ini_ms, fin_ms)   # recorta al tramo, une contiguos, ValueError si se pisan
+        except ValueError as e:
+            raise HTTPException(400, str(e))
         if rel is None:
             nueva.pop("segmentos", None)
         else:
-            if sum(b - a for a, b in rel) * 1000 < MIN_MS:
+            corto = min(b - a for a, b in rel)
+            if corto * 1000 < MIN_PEDAZO_MS:
+                raise HTTPException(400, f"Hay un pedazo que dura {corto:.1f} s: cada pedazo tiene que durar al menos medio segundo.")
+            total = sum(b - a for a, b in rel) * 1000
+            if total < MIN_MS:
                 raise HTTPException(400, "Lo que queda del recorte dura menos de 2 segundos.")
+            if total > MAX_MS:
+                raise HTTPException(400, f"Los pedazos suman {total / 60000:.1f} min: muy largo. Como mucho 3 minutos.")
             nueva["segmentos"] = [[ini_ms + int(round(a * 1000)), ini_ms + int(round(b * 1000))] for a, b in rel]
-    if nueva.get("segmentos") != edicion.get("segmentos"):
-        n = len(nueva.get("segmentos") or [])
-        partes.append((f"{n} pedazos conservados" if n != 1 else "1 pedazo conservado") if n else "sin pedazos sacados")
+    segmentos_cambio = nueva.get("segmentos") != edicion.get("segmentos")
+    if segmentos_cambio:
+        seg = nueva.get("segmentos") or []
+        n = len(seg)
+        reordenados = any(seg[i][1] > seg[i + 1][0] for i in range(n - 1))
+        partes.append(((f"{n} pedazos conservados" if n != 1 else "1 pedazo conservado") + (" en otro orden" if reordenados else "")) if n else "sin pedazos sacados")
 
     # --- Quitar pausas largas (21/10) ---
     pausas_antes = bool(edicion.get("quitar_pausas"))
@@ -254,19 +267,22 @@ def editar(cid: str, datos: Edicion, request: Request):
             nuevo_srt = rc.armar_srt_de_lineas([l.model_dump() for l in datos.lineas])
         elif datos.srt is not None:
             nuevo_srt = datos.srt.strip().replace("\r", "")
-        if tramo_cambio:
+        if tramo_cambio or segmentos_cambio:
+            # (22/10) cambiar los pedazos (sacar, estirar, reordenar) mueve la timeline igual que cambiar el tramo: misma regla
+            que = "el tramo" if tramo_cambio else "los pedazos"
             corregido = (nuevo_srt if nuevo_srt is not None else edicion.get("srt") or "").strip()
             if (corregido and corregido != (c.get("srt") or "").strip()) or edicion.get("srt"):
                 if datos.descartar_srt:
                     nueva.pop("srt", None)
                     partes.append("subtítulos rearmados")
-                    avisos.append("Como cambiaste el tramo, los subtítulos se arman de nuevo desde la transcripción para el tramo nuevo; "
+                    avisos.append(f"Como cambiaste {que}, los subtítulos se arman de nuevo desde la transcripción para el video nuevo; "
                                   "los corregidos se descartaron. Cuando el video esté listo los podés volver a corregir.")
                 else:
                     nueva["srt"] = corregido
-                    avisos.append("Los subtítulos que corregiste corresponden al tramo anterior: con el tramo nuevo pueden quedar corridos o cortados.")
+                    avisos.append("Los subtítulos que corregiste corresponden al tramo anterior: con el tramo nuevo pueden quedar corridos o cortados." if tramo_cambio
+                                  else "Los subtítulos que corregiste corresponden al video anterior: con los pedazos nuevos pueden quedar corridos o cortados.")
             else:
-                avisos.append("Como cambiaste el tramo, los subtítulos se arman de nuevo desde la transcripción para el tramo nuevo.")
+                avisos.append(f"Como cambiaste {que}, los subtítulos se arman de nuevo desde la transcripción para el video nuevo.")
         elif nuevo_srt is not None:
             if not nuevo_srt.strip():
                 raise HTTPException(400, "Quedaron todas las líneas vacías: el video saldría sin subtítulos. Dejá al menos una.")

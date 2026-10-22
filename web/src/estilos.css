@@ -1755,5 +1755,287 @@ input[type="number"] {
   }
   .barra-grupo {
     display: none;
+/* ---------- secuencia de salida (22/10: cada pedazo es una pieza propia) ---------- */
+.pieza-num {
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--amarillo);
+  color: var(--tinta);
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+.sec-titulo {
+  position: absolute;
+  white-space: nowrap;
+  color: var(--tinta);
+  pointer-events: none;
+}
+.sec-fondo {
+  position: absolute;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.05);
+  pointer-events: none;
+}
+.bloque {
+  position: absolute;
+  border-radius: 7px;
+  overflow: visible;
+  cursor: grab;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  background: transparent;
+  z-index: 2;
+  transition: box-shadow var(--rapido);
+}
+.bloque:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35), var(--foco);
+}
+.bloque.seleccionado {
+  box-shadow: inset 0 0 0 3px var(--amarillo);
+  z-index: 3;
+}
+.bloque.movido {
+  z-index: 6;
+  cursor: grabbing;
+  opacity: 0.85;
+  box-shadow: inset 0 0 0 3px var(--amarillo), 0 6px 18px rgba(0, 0, 0, 0.35);
+  transition: none;
+}
+.bloque-num {
+  position: absolute;
+  left: 15px;
+  top: 4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--amarillo);
+  color: var(--tinta);
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+.bloque-asa {
+  position: absolute;
+  left: 50%;
+  top: 6px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 3px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.85);
+  cursor: grab;
+  touch-action: none;
+  opacity: 0;
+  transition: opacity var(--rapido);
+}
+.bloque-asa i {
+  display: block;
+  width: 2px;
+  height: 10px;
+  border-radius: 2px;
+  background: rgba(43, 43, 43, 0.6);
+}
+.bloque:hover .bloque-asa,
+.bloque.seleccionado .bloque-asa,
+.bloque:focus-within .bloque-asa {
+  opacity: 1;
+}
+.bloque.angosto .bloque-asa {
+  display: none;
+}
+.bloque-pie {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 0 14px 0 16px;
+  background: #fff;
+  border-radius: 0 0 7px 7px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--verde);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.bloque.angosto .bloque-pie {
+  justify-content: center;
+  padding: 0;
+}
+.bloque.angosto .bloque-botones {
+  display: none;
+}
+.bloque-botones {
+  display: inline-flex;
+  gap: 1px;
+}
+.bloque-boton {
+  font: inherit;
+  font-size: 0.62rem;
+  width: 20px;
+  height: 18px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--tinta);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.bloque-boton:hover:not(:disabled) {
+  background: var(--amarillo);
+}
+.bloque-boton:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.bloque-boton.sacar:hover:not(:disabled) {
+  background: var(--rojo-claro);
+  color: var(--rojo);
+}
+.bloque-manija {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  background: var(--amarillo);
+  cursor: ew-resize;
+  touch-action: none;
+  z-index: 4;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
+  transition: background var(--rapido);
+}
+.bloque-manija::before {
+  /* zona de agarre cómoda en touch (36 px), invisible */
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -12px;
+  right: -12px;
+}
+.bloque-manija::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 50%;
+  width: 2px;
+  height: 18px;
+  margin-top: -9px;
+  border-radius: 2px;
+  background: rgba(43, 43, 43, 0.55);
+}
+.bloque-manija.ini {
+  left: 0;
+  border-radius: 7px 0 0 7px;
+}
+.bloque-manija.fin {
+  right: 0;
+  border-radius: 0 7px 7px 0;
+}
+.bloque-manija:hover,
+.bloque-manija.arrastrando {
+  background: var(--amarillo-oscuro);
+}
+.bloque-manija:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3), var(--foco);
+}
+.bloque-manija .burbuja {
+  top: -24px;
+}
+.bloque-manija.ini .burbuja {
+  left: 0;
+  transform: none;
+}
+.bloque-manija.fin .burbuja {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+.bloque-manija:hover .burbuja,
+.bloque-manija:focus-visible .burbuja,
+.bloque-manija.arrastrando .burbuja {
+  opacity: 1;
+}
+.marca-insercion {
+  position: absolute;
+  width: 4px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: var(--rojo);
+  box-shadow: 0 0 0 2px #fff;
+  pointer-events: none;
+  z-index: 7;
+}
+.cabezal-sec {
+  position: absolute;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--rojo);
+  pointer-events: none;
+  z-index: 5;
+}
+.secuencia-marca {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--rojo);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  pointer-events: none;
+}
+.boton.activo,
+.boton.activo:hover:not(:disabled) {
+  background: var(--rojo);
+  color: #fff;
+  border-color: var(--rojo);
+}
+@media (pointer: coarse) {
+  .bloque-asa,
+  .bloque-botones {
+    opacity: 1;
+  }
+  /* en touch las burbujas de los bloques se pisarían entre sí: solo la que se está arrastrando */
+  .bloque-manija .burbuja {
+    opacity: 0;
+  }
+  .bloque-manija.arrastrando .burbuja {
+    opacity: 1;
+  }
+  .bloque-asa {
+    padding: 8px 10px;
+  }
+  .bloque-boton {
+    width: 26px;
+    height: 22px;
+    font-size: 0.72rem;
   }
 }

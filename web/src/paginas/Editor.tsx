@@ -1,12 +1,14 @@
-// «Editar recorte» con editor visual (fase 1 + revisión UX): reproductor + línea de tiempo con miniaturas, onda, zoom y manijas
-// grandes; partir y sacar pedazos (clic selecciona, Supr saca); atajos de teclado; subtítulos por línea sincronizados; estilo con
-// presets y vista previa sobre el video; quitar pausas; un único «Regenerar» (en celular, en una barra inferior fija).
-// La lógica de negocio (qué va a clips.edicion, validaciones) vive en la API (api/recortes.py); acá solo se arma el pedido.
+// «Editar recorte» con editor visual (fase 1 + revisión UX + pedazos como piezas, 22/10): reproductor + línea de tiempo en dos
+// carriles (el original con miniaturas, onda y manijas del tramo; abajo la secuencia de salida con un bloque por pedazo, cada uno
+// con sus manijas, arrastrable para reordenar), partir y sacar pedazos, «Ver secuencia», atajos de teclado, subtítulos por línea
+// sincronizados, estilo con presets y vista previa sobre el video, quitar pausas, un único «Regenerar» (en celular, en una barra
+// inferior fija). La lógica de negocio (qué va a clips.edicion, validaciones) vive en la API (api/recortes.py); acá solo se arma
+// el pedido. Las operaciones sobre los pedazos están en util/piezas.ts.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, ErrorApi } from "../api";
 import type { Detalle, Estilo, Linea, Opciones, RespuestaEdicion } from "../tipos";
-import LineaTiempo, { calcularPicos, sacarMiniaturas, ZOOM_MAX, type Miniatura, type Pieza } from "../componentes/LineaTiempo";
+import LineaTiempo, { calcularPicos, sacarMiniaturas, ZOOM_MAX, type Miniatura } from "../componentes/LineaTiempo";
 import Subtitulos, { lineaEn } from "../componentes/Subtitulos";
 import { ControlesEstilo, cssSubtitulo } from "../componentes/Estilo";
 import { Icono } from "../componentes/Iconos";
@@ -14,6 +16,7 @@ import Modal from "../componentes/Modal";
 import { EditorEsqueleto, Migas, Tecla } from "../componentes/Comunes";
 import { useToast } from "../componentes/Toasts";
 import { mmss, tramoAVideo, videoATramo } from "../util/tiempo";
+import * as pz from "../util/piezas";
 
 const MIN_MS = 2000;
 const MAX_MS = 180000;
@@ -58,30 +61,16 @@ export default function Editor() {
   return <EditorCargado det={det} opciones={opciones} />;
 }
 
-function piezasIniciales(det: Detalle): Pieza[] {
-  const seg = det.edicion?.segmentos;
-  const ini0 = det.inicio_ms, fin0 = det.fin_ms;
-  if (!seg || !seg.length) return [{ a: ini0, b: fin0, conservada: true }];
-  // los segmentos conservados, con los huecos entre ellos como pedazos sacados
-  const out: Pieza[] = [];
-  let t = ini0;
-  for (const [a, b] of [...seg].sort((x, y) => x[0] - y[0])) {
-    if (a > t) out.push({ a: t, b: a, conservada: false });
-    out.push({ a, b, conservada: true });
-    t = b;
-  }
-  if (t < fin0) out.push({ a: t, b: fin0, conservada: false });
-  return out;
-}
-
 const ATAJOS: [string[], string][] = [
   [["Espacio"], "Reproducir / pausar"],
+  [["P"], "Ver la secuencia (reproduce los pedazos en el orden elegido) / parar"],
   [["←", "→"], "Un segundo atrás / adelante"],
   [["Shift", "←/→"], "Una décima de segundo"],
   [["I"], "Marcar el inicio en el cabezal"],
   [["O"], "Marcar el fin en el cabezal"],
-  [["S"], "Partir en el cabezal"],
-  [["Supr"], "Sacar el pedazo seleccionado (clic en un pedazo lo selecciona)"],
+  [["S"], "Partir el pedazo que está bajo el cabezal en dos"],
+  [["Supr"], "Sacar el pedazo seleccionado (clic en un pedazo o en su bloque lo selecciona)"],
+  [["[", "]"], "Mover el pedazo seleccionado un lugar antes / después en la secuencia"],
   [["+", "−"], "Acercar / alejar la línea de tiempo (también Ctrl + rueda)"],
   [["0"], "Ver todo el tramo"],
   [["Inicio", "Fin"], "Ir al principio / al final del video"],
@@ -94,7 +83,8 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
   const { avisar } = useToast();
   const [ini, setIni] = useState(ini0);
   const [fin, setFin] = useState(fin0);
-  const [piezas, setPiezas] = useState<Pieza[]>(() => piezasIniciales(det));
+  const [estado, setEstado] = useState<pz.Estado>(() => pz.piezasIniciales(ini0, fin0, det.edicion?.segmentos));
+  const { piezas, orden } = estado;
   const [seleccion, setSeleccion] = useState<number | null>(null);
   const [lineas, setLineas] = useState<Linea[]>(det.lineas.map((l) => ({ ...l })));
   const [estilo, setEstilo] = useState<Estilo>(det.estilo_actual);
@@ -103,6 +93,7 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
   const [mostrarPrevia, setMostrarPrevia] = useState(true);
   const [tiempo, setTiempo] = useState(0);
   const [reproduciendo, setReproduciendo] = useState(false);
+  const [secuencia, setSecuencia] = useState<number | null>(null); // índice en `orden` del pedazo que se está viendo (null = no)
   const [duracion, setDuracion] = useState(det.duracion_ms / 1000);
   const [picos, setPicos] = useState<Float32Array | null>(null);
   const [miniaturas, setMiniaturas] = useState<Miniatura[] | null>(null);
@@ -113,6 +104,7 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
   const [ayuda, setAyuda] = useState(false);
   const video = useRef<HTMLVideoElement>(null);
   const timeline = det.timeline;
+  const minPedazo = opciones.limites.min_pedazo_ms ?? pz.MIN_PEDAZO_MS;
 
   // forma de onda y miniaturas (las dos se sacan del mp4 en el navegador)
   useEffect(() => {
@@ -137,56 +129,84 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
     return () => ro.disconnect();
   }, []);
 
-  // cabezal fluido mientras reproduce
-  useEffect(() => {
-    let raf = 0;
-    const tick = () => {
-      const v = video.current;
-      if (v) setTiempo(v.currentTime);
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, []);
-
-  // --- tramo: las manijas y los campos numéricos mueven lo mismo; los pedazos se acomodan al tramo nuevo ---
-  const ajustarPiezas = useCallback((a: number, b: number) => {
-    setPiezas((ps) => {
-      let out = ps.map((p) => ({ ...p, a: Math.max(p.a, a), b: Math.min(p.b, b) })).filter((p) => p.b - p.a > 0);
-      if (!out.length) return [{ a, b, conservada: true }];
-      if (out[0].a > a) out = [{ a, b: out[0].a, conservada: out[0].conservada }, ...out];
-      out[0] = { ...out[0], a };
-      const u = out[out.length - 1];
-      if (u.b < b) out = [...out, { a: u.b, b, conservada: u.conservada }];
-      out[out.length - 1] = { ...out[out.length - 1], b };
-      return out;
-    });
-  }, []);
-  const cambiarIni = useCallback(
-    (ms: number) => {
-      const v = Math.max(0, Math.min(Math.round(ms), fin - 100));
-      setIni(v);
-      ajustarPiezas(v, fin);
-    },
-    [fin, ajustarPiezas],
-  );
-  const cambiarFin = useCallback(
-    (ms: number) => {
-      const v = Math.max(Math.round(ms), ini + 100);
-      setFin(v);
-      ajustarPiezas(ini, v);
-    },
-    [ini, ajustarPiezas],
-  );
-
   // --- reproductor ↔ original ---
-  const msOriginalActual = ini0 + videoATramo(tiempo, timeline) * 1000;
   const irA = useCallback(
     (msOriginal: number) => {
       const tv = tramoAVideo((msOriginal - ini0) / 1000, timeline, duracion);
       if (tv !== null && video.current) video.current.currentTime = Math.max(0, Math.min(tv, duracion));
     },
     [ini0, timeline, duracion],
+  );
+  const msOriginalActual = ini0 + videoATramo(tiempo, timeline) * 1000;
+
+  // --- «Ver secuencia»: reproduce los pedazos conservados en el orden elegido, saltando lo sacado y lo que no está en el video ---
+  const secRef = useRef({ secuencia, orden, piezas, timeline, duracion, ini0 });
+  secRef.current = { secuencia, orden, piezas, timeline, duracion, ini0 };
+  const saltarA = useCallback((i: number): boolean => {
+    // busca desde `i` el primer pedazo que esté en el video actual, lleva el reproductor a su inicio y lo deja como actual
+    const s = secRef.current;
+    const porId = new Map(s.piezas.map((p) => [p.id, p]));
+    for (let j = i; j < s.orden.length; j++) {
+      const p = porId.get(s.orden[j]);
+      if (!p) continue;
+      const tv = tramoAVideo((p.a - s.ini0) / 1000, s.timeline, s.duracion);
+      if (tv === null || tv >= s.duracion - 0.05) continue;
+      if (video.current) video.current.currentTime = tv;
+      setSecuencia(j);
+      return true;
+    }
+    setSecuencia(null);
+    return false;
+  }, []);
+  function verSecuencia() {
+    const v = video.current;
+    if (!v) return;
+    if (secuencia !== null) {
+      v.pause();
+      setSecuencia(null);
+      return;
+    }
+    if (saltarA(0)) v.play().catch(() => {});
+  }
+
+  // cabezal fluido mientras reproduce; en modo secuencia, al llegar al fin de un pedazo salta al siguiente
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      const v = video.current;
+      if (v) {
+        setTiempo(v.currentTime);
+        const s = secRef.current;
+        if (s.secuencia !== null && !v.paused) {
+          const p = s.piezas.find((q) => q.id === s.orden[s.secuencia!]);
+          const msOrig = s.ini0 + videoATramo(v.currentTime, s.timeline) * 1000;
+          if (!p || msOrig >= p.b - 40 || v.ended) {
+            if (!saltarA(s.secuencia + 1)) v.pause();
+          }
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [saltarA]);
+
+  // --- tramo: las manijas y los campos numéricos mueven lo mismo; los pedazos se acomodan al tramo nuevo ---
+  const cambiarIni = useCallback(
+    (ms: number) => {
+      const v = Math.max(0, Math.min(Math.round(ms), fin - 100));
+      setIni(v);
+      setEstado((e) => pz.ajustarAlTramo(e, v, fin));
+    },
+    [fin],
+  );
+  const cambiarFin = useCallback(
+    (ms: number) => {
+      const v = Math.max(Math.round(ms), ini + 100);
+      setFin(v);
+      setEstado((e) => pz.ajustarAlTramo(e, ini, v));
+    },
+    [ini],
   );
   function irASegundoVideo(s: number) {
     if (video.current) video.current.currentTime = Math.max(0, Math.min(s, duracion));
@@ -202,48 +222,51 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
     else v.pause();
   }
 
-  // --- partir y sacar ---
+  // --- partir, sacar, recortar, reordenar ---
   const partir = useCallback(() => {
     const t = Math.round(msOriginalActual);
-    setPiezas((ps) => {
-      const i = ps.findIndex((p) => t > p.a + 300 && t < p.b - 300);
-      if (i < 0) return ps;
-      const p = ps[i];
-      return [...ps.slice(0, i), { ...p, b: t }, { ...p, a: t }, ...ps.slice(i + 1)];
-    });
+    setEstado((e) => pz.partirEn(e, t));
   }, [msOriginalActual]);
-  function alternarPieza(i: number) {
-    setPiezas((ps) => ps.map((p, j) => (j === i ? { ...p, conservada: !p.conservada } : p)));
-  }
+  const alternarPieza = useCallback((id: number) => setEstado((e) => (e.piezas.length > 1 ? pz.alternar(e, id) : e)), []);
+  const recortarPieza = useCallback((id: number, a: number, b: number) => setEstado((e) => pz.recortar(e, id, a, b, ini, fin)), [ini, fin]);
+  const moverPieza = useCallback((id: number, dir: -1 | 1) => setEstado((e) => pz.mover(e, id, dir)), []);
+  const reordenar = useCallback((nuevo: number[]) => setEstado((e) => ({ ...e, orden: nuevo })), []);
   const sacarSeleccion = useCallback(() => {
     if (seleccion === null) return;
-    setPiezas((ps) => (ps.length > 1 ? ps.map((p, j) => (j === seleccion ? { ...p, conservada: false } : p)) : ps));
+    setEstado((e) => (e.piezas.length > 1 && e.piezas.find((p) => p.id === seleccion)?.conservada ? pz.alternar(e, seleccion) : e));
   }, [seleccion]);
   function unirTodo() {
-    setPiezas([{ a: ini, b: fin, conservada: true }]);
+    const p = { id: pz.nuevoId(), a: ini, b: fin, conservada: true };
+    setEstado({ piezas: [p], orden: [p.id] });
     setSeleccion(null);
   }
+  const piezaSel = seleccion === null ? null : (piezas.find((p) => p.id === seleccion) ?? null);
 
-  const conservadas = piezas.filter((p) => p.conservada);
-  const segmentos = useMemo(() => (piezas.length === 1 && piezas[0].conservada ? [] : conservadas.map((p) => [p.a, p.b])), [piezas, conservadas]);
+  const segmentos = useMemo(() => pz.segmentosDe(estado, ini, fin), [estado, ini, fin]);
+  const reordenados = pz.reordenada(segmentos);
+  const porId = new Map(piezas.map((p) => [p.id, p]));
+  const conservadas = orden.map((id) => porId.get(id)!).filter(Boolean);
   const durConservada = conservadas.reduce((s, p) => s + (p.b - p.a), 0);
   const tramoCambio = ini !== ini0 || fin !== fin0;
   const segmentosCambio = JSON.stringify(segmentos) !== JSON.stringify(det.edicion?.segmentos ?? []);
   const srtCambio = vertical && lineas.some((l, i) => l.texto !== det.lineas[i]?.texto);
   const estiloCambio = vertical && JSON.stringify(estilo) !== JSON.stringify(det.estilo_actual);
   const pausasCambio = quitarPausas !== !!det.edicion?.quitar_pausas;
-  const cambios = [tramoCambio && "tramo", segmentosCambio && "pedazos", srtCambio && "subtítulos", estiloCambio && "estilo", pausasCambio && "pausas"].filter(Boolean) as string[];
+  const cambios = [tramoCambio && "tramo", segmentosCambio && (reordenados ? "pedazos (en otro orden)" : "pedazos"), srtCambio && "subtítulos", estiloCambio && "estilo", pausasCambio && "pausas"].filter(Boolean) as string[];
   const hayCambios = cambios.length > 0;
 
   // --- validación (la misma que la API) ---
   let problema: string | null = null;
   const durTramo = fin - ini;
+  const corto = conservadas.find((p) => p.b - p.a < minPedazo);
   if (fin <= ini) problema = "El fin tiene que ser después del inicio.";
   else if (durTramo < MIN_MS) problema = `Dura ${(durTramo / 1000).toFixed(1)} s: muy corto. Tiene que durar al menos 2 segundos.`;
   else if (durTramo > MAX_MS) problema = `Dura ${(durTramo / 60000).toFixed(1)} min: muy largo. Como mucho 3 minutos.`;
   else if (!conservadas.length) problema = "Sacaste todos los pedazos: tiene que quedar al menos uno.";
+  else if (corto) problema = `Hay un pedazo que dura ${((corto.b - corto.a) / 1000).toFixed(1)} s: cada pedazo tiene que durar al menos medio segundo.`;
   else if (durConservada < MIN_MS) problema = "Lo que queda del recorte dura menos de 2 segundos.";
-  else if (vertical && lineas.length && !tramoCambio && lineas.every((l) => !l.texto.trim())) problema = "Quedaron todas las líneas vacías: el video saldría sin subtítulos. Dejá al menos una.";
+  else if (durConservada > MAX_MS) problema = `Los pedazos suman ${(durConservada / 60000).toFixed(1)} min: muy largo. Como mucho 3 minutos.`;
+  else if (vertical && lineas.length && !tramoCambio && !segmentosCambio && lineas.every((l) => !l.texto.trim())) problema = "Quedaron todas las líneas vacías: el video saldría sin subtítulos. Dejá al menos una.";
 
   // --- atajos de teclado (no cuando se está escribiendo en un campo ni con un modal abierto) ---
   useEffect(() => {
@@ -252,7 +275,7 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
       if (ayuda || (t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA" || t.isContentEditable))) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const k = e.key;
-      const esManija = t?.classList.contains("manija");
+      const esManija = t?.classList.contains("manija") || t?.classList.contains("bloque-manija");
       if (k === " ") {
         e.preventDefault();
         alternarReproduccion();
@@ -262,12 +285,14 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
       } else if (k === "i" || k === "I") cambiarIni(msOriginalActual);
       else if (k === "o" || k === "O") cambiarFin(msOriginalActual);
       else if (k === "s" || k === "S") partir();
+      else if (k === "p" || k === "P") verSecuencia();
       else if (k === "Delete" || k === "Backspace") {
         if (seleccion !== null) {
           e.preventDefault();
           sacarSeleccion();
         }
-      } else if (k === "+" || k === "=") setZoom((z) => Math.min(ZOOM_MAX, z * 1.5));
+      } else if ((k === "[" || k === "]") && seleccion !== null) moverPieza(seleccion, k === "[" ? -1 : 1);
+      else if (k === "+" || k === "=") setZoom((z) => Math.min(ZOOM_MAX, z * 1.5));
       else if (k === "-" || k === "_") setZoom((z) => (z / 1.5 < 1.1 ? 1 : z / 1.5));
       else if (k === "0") setZoom(1);
       else if (k === "Home") irASegundoVideo(0);
@@ -305,6 +330,7 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
   const css = cssSubtitulo(estilo, opciones, det.formato, altoVideo || 288);
   const textoPrevia = idxLinea >= 0 ? lineas[idxLinea].texto : lineas.length ? "" : "La gratitud es la llave de la alegría";
   const titulo = (det.titulo || det.video_id).slice(0, 90);
+  const hayCortes = piezas.length > 1;
 
   if (resultado) {
     return (
@@ -372,7 +398,11 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
               sin pausas ({det.sin_pausas.antes.toFixed(0)} s → {det.sin_pausas.despues.toFixed(0)} s)
             </span>
           )}
-          {det.segmentos_hechos && <span>{det.segmentos_hechos.length} pedazos conservados</span>}
+          {det.segmentos_hechos && (
+            <span>
+              {det.segmentos_hechos.length} pedazos conservados{pz.reordenada(det.segmentos_hechos) ? " (en otro orden)" : ""}
+            </span>
+          )}
         </p>
       </header>
 
@@ -387,12 +417,20 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
               playsInline
               onLoadedMetadata={(e) => setDuracion(e.currentTarget.duration || duracion)}
               onPlay={() => setReproduciendo(true)}
-              onPause={() => setReproduciendo(false)}
+              onPause={() => {
+                setReproduciendo(false);
+                setSecuencia(null);
+              }}
               onEnded={() => setReproduciendo(false)}
             />
             {vertical && mostrarPrevia && textoPrevia && (
               <div style={css.caja}>
                 <span style={css.texto}>{textoPrevia}</span>
+              </div>
+            )}
+            {secuencia !== null && (
+              <div className="secuencia-marca" aria-live="polite">
+                <Icono nombre="reproducir" tam={12} /> Secuencia · pedazo {secuencia + 1} de {orden.length}
               </div>
             )}
           </div>
@@ -414,7 +452,7 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
         <section className="editor-tramo">
           <div className="seccion-cabecera">
             <h2>
-              <Icono nombre="tramo" /> Tramo y cortes
+              <Icono nombre="tramo" /> Tramo y pedazos
             </h2>
             <div className="linea-herramientas" role="toolbar" aria-label="Línea de tiempo">
               <button type="button" className="boton sutil icono-solo" onClick={() => setZoom((z) => (z / 1.5 < 1.1 ? 1 : z / 1.5))} disabled={zoom <= 1} title="Alejar (−)" aria-label="Alejar">
@@ -436,8 +474,9 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
             </div>
           </div>
           <p className="suave chico">
-            Arrastrá las manijas amarillas para elegir dónde empieza y termina (entre 2 s y 3 min). Lo rayado está fuera del video actual: se puede elegir, pero no
-            se ve hasta regenerar.
+            Arriba, el original: las manijas amarillas grandes eligen dónde empieza y termina (entre 2 s y 3 min); lo rayado está fuera del video actual. Abajo, la
+            secuencia de salida: un bloque por pedazo, en el orden en que va a salir. Cada bloque se recorta con sus dos manijas, se arrastra (o ◀ ▶) para cambiar el orden y se
+            saca con ×.
           </p>
           <LineaTiempo
             ini={ini}
@@ -445,6 +484,7 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
             ini0={ini0}
             fin0={fin0}
             piezas={piezas}
+            orden={orden}
             seleccion={seleccion}
             timeline={timeline}
             duracionVideo={duracion}
@@ -461,32 +501,49 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
             onPieza={alternarPieza}
             onSeleccion={setSeleccion}
             onPartir={partir}
+            onRecortar={recortarPieza}
+            onOrden={reordenar}
+            onMover={moverPieza}
           />
           <div className="tramo-controles">
             <ControlTiempo etiqueta="Inicio" icono="marcaIni" ms={ini} onCambio={cambiarIni} onMarcar={() => cambiarIni(msOriginalActual)} />
             <ControlTiempo etiqueta="Fin" icono="marcaFin" ms={fin} onCambio={cambiarFin} onMarcar={() => cambiarFin(msOriginalActual)} />
             <div className="duracion">
-              <span className="suave chico">Dura</span> <strong>{(durConservada / 1000).toFixed(1)} s</strong>
-              {segmentos.length > 0 && <span className="suave chico"> · tramo {(durTramo / 1000).toFixed(1)} s, {segmentos.length === 1 ? "1 pedazo" : `${segmentos.length} pedazos`}</span>}
-              {tramoCambio && segmentos.length === 0 && <span className="suave chico"> · antes {(det.duracion_ms / 1000).toFixed(1)} s</span>}
+              <span className="suave chico">Sale</span> <strong>{(durConservada / 1000).toFixed(1)} s</strong>
+              {hayCortes && (
+                <span className="suave chico">
+                  {" "}
+                  · tramo {(durTramo / 1000).toFixed(1)} s, {conservadas.length === 1 ? "1 pedazo" : `${conservadas.length} pedazos`}
+                  {reordenados ? " en otro orden" : ""}
+                </span>
+              )}
+              {tramoCambio && !hayCortes && <span className="suave chico"> · antes {(det.duracion_ms / 1000).toFixed(1)} s</span>}
             </div>
           </div>
           <div className="acciones">
-            <button type="button" className="boton" onClick={partir} title="Parte el recorte en la posición del reproductor (S)">
+            <button type="button" className="boton" onClick={partir} title="Parte el pedazo que está bajo el cabezal (S)">
               <Icono nombre="tijera" /> Partir en {mmss(msOriginalActual, 1)}
             </button>
-            {seleccion !== null && piezas.length > 1 && (
-              <button type="button" className="boton" onClick={() => alternarPieza(seleccion)} title={piezas[seleccion].conservada ? "Sacar el pedazo seleccionado (Supr)" : "Volver a conservar el pedazo seleccionado"}>
-                <Icono nombre={piezas[seleccion].conservada ? "cruz" : "deshacer"} /> {piezas[seleccion].conservada ? "Sacar el pedazo" : "Restaurar el pedazo"}
+            <button type="button" className={"boton" + (secuencia !== null ? " activo" : "")} onClick={verSecuencia} disabled={!conservadas.length} title="Reproduce los pedazos en el orden de la secuencia, saltando lo sacado (P)">
+              <Icono nombre={secuencia !== null ? "pausar" : "reproducir"} /> {secuencia !== null ? "Parar la secuencia" : "Ver secuencia"}
+            </button>
+            {piezaSel && hayCortes && (
+              <button type="button" className="boton" onClick={() => alternarPieza(piezaSel.id)} title={piezaSel.conservada ? "Sacar el pedazo seleccionado (Supr)" : "Volver a agregar el pedazo seleccionado"}>
+                <Icono nombre={piezaSel.conservada ? "cruz" : "deshacer"} /> {piezaSel.conservada ? "Sacar el pedazo" : "Volver a agregar el pedazo"}
               </button>
             )}
-            {piezas.length > 1 && (
+            {hayCortes && (
               <button type="button" className="boton sutil" onClick={unirTodo}>
                 <Icono nombre="deshacer" /> Deshacer los cortes
               </button>
             )}
-            {piezas.length > 1 && <span className="suave chico">Clic en un pedazo lo selecciona; el botón de cada pedazo lo saca o lo restaura.</span>}
           </div>
+          {hayCortes && (
+            <p className="suave chico">
+              Lo sacado queda rayado en el original y se puede volver a agregar con «Restaurar». Los pedazos se estiran por sus manijas solo sobre lo sacado o el tramo: no
+              pueden pisar a otro pedazo.
+            </p>
+          )}
           <label className="casilla">
             <input type="checkbox" checked={quitarPausas} onChange={(e) => setQuitarPausas(e.target.checked)} />
             <span>
@@ -517,15 +574,15 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
                     <div className="aviso chico">
                       Los subtítulos corregidos corresponden al video anterior: con el tramo nuevo (o los pedazos y pausas nuevos) pueden quedar corridos o cortados.
                     </div>
-                    {tramoCambio && (
+                    {(tramoCambio || segmentosCambio) && (
                       <label className="casilla chico">
-                        <input type="checkbox" checked={descartarSrt} onChange={(e) => setDescartarSrt(e.target.checked)} /> Descartar los subtítulos corregidos y armarlos de nuevo para el
-                        tramo nuevo (después los podés volver a corregir)
+                        <input type="checkbox" checked={descartarSrt} onChange={(e) => setDescartarSrt(e.target.checked)} /> Descartar los subtítulos corregidos y armarlos de nuevo
+                        para el video nuevo (después los podés volver a corregir)
                       </label>
                     )}
                   </>
                 ) : (
-                  <p className="suave chico">Como cambiaste el tramo (o los pedazos / pausas), los subtítulos se arman de nuevo desde la transcripción. Cuando el video esté listo los podés corregir desde acá.</p>
+                  <p className="suave chico">Como cambiaste el tramo (o los pedazos / pausas), los subtítulos se arman de nuevo desde la transcripción, pedazo por pedazo. Cuando el video esté listo los podés corregir desde acá.</p>
                 )}
               </>
             ) : (
@@ -555,7 +612,9 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
 
       {ayuda && (
         <Modal titulo="Atajos de teclado" onCerrar={() => setAyuda(false)} ancho={520}>
-          <p className="suave chico">Funcionan cuando no estás escribiendo en un campo. Las manijas también se mueven con las flechas cuando tienen el foco (Tab).</p>
+          <p className="suave chico">
+            Funcionan cuando no estás escribiendo en un campo. Las manijas (las del tramo y las de cada bloque) también se mueven con las flechas cuando tienen el foco (Tab).
+          </p>
           <table className="atajos">
             <tbody>
               {ATAJOS.map(([teclas, que]) => (

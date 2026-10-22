@@ -77,3 +77,37 @@ nuevo (las miniaturas se sacan del video en el navegador).
 - Editar los tiempos de cada línea de subtítulo (arrastrar en la línea de tiempo), que tienen Veed y Kapwing.
 - Guardar presets propios de estilo por usuario (OpusClip): hoy solo los tres fijos + el del equipo.
 - Vista previa real con libass (sigue dependiendo de la copia liviana del plan).
+
+
+## Pedazos como piezas (22/10)
+
+Pedido de Franco después de probar el editor publicado: «cada vez que hacemos Split tenemos que tratarlo como un canvas para
+poder mover las piezas dentro del trim, y poder agrandarlas o achicarlas con los agarres de barra amarilla que tienen».
+
+**Qué se hizo.** La línea de tiempo pasó a tener dos carriles: arriba el **original** (como estaba: miniaturas, onda, regla,
+manijas del tramo, cabezal con tijera) con cada pedazo conservado numerado y lo sacado rayado; abajo la **secuencia de salida**,
+un bloque por pedazo conservado, contiguos, en el orden en que salen. Cada bloque tiene miniatura, duración, dos manijas
+amarillas propias (recortan ese pedazo sobre el original: pueden comerse lo sacado de al lado, nunca pisar a otro pedazo
+conservado; mínimo 0,5 s), un agarre para arrastrarlo a otro lugar (marca roja de inserción entre bloques) y botones ◀ ▶ ×.
+«Ver secuencia» (P) reproduce los pedazos en ese orden saltando lo sacado. Atajos nuevos: P, [ y ]. El modelo que viaja a la
+API (`segmentos`) ahora es una lista **ordenada**: el orden de la lista es el orden del video final; la cola concatena con
+trim + concat cuando el orden no es el del original y rearma los subtítulos pedazo por pedazo.
+
+**Referencias (qué se verificó hoy y qué no).**
+
+| Producto | Qué dice | Verificación |
+|---|---|---|
+| Kapwing | Cada capa tiene manijas de recorte en los extremos («white lines»); **S** parte en el seeker; las capas se arrastran a izquierda o derecha sobre la pista para cambiar cuándo entran; *Ripple Delete* saca una sección sin dejar hueco | **Verificado el 22/10** en [Timeline tutorial](https://www.kapwing.com/help/timeline-tutorial/). La página NO describe reordenar capas por arrastre como lista: lo que se arrastra es la posición en el tiempo |
+| Riverside | Partir en el cabezal, sacar secciones, restaurar arrastrando las manijas vecinas | Citado el 21/10 desde los artículos de soporte (ver tabla de arriba). El 22/10 la página «Trim and split» devolvió 403 al pedirla sin navegador: **no se volvió a verificar** |
+| CapCut | Reordenar clips manteniendo apretado y arrastrando | **No verificado**: la página oficial que se intentó (`capcut.com/resource/how-to-rearrange-clips-in-capcut`) dio 404; lo sé por uso, no por una fuente |
+
+**Decisiones de diseño propias (no vienen de una referencia).** Separar «original» y «secuencia» en dos carriles en vez de
+reordenar sobre la misma pista: así el pedazo sigue viéndose dónde estaba en el original (y lo sacado se puede restaurar) mientras
+la secuencia muestra el resultado; es el patrón «fuente + secuencia» de los editores clásicos, pero no se verificó contra una
+página concreta. Los bloques son contiguos y proporcionales a su duración (mínimo 30 px para que entren las manijas). En touch
+el arrastre sale solo desde el agarre (⋮⋮) para no bloquear el desplazamiento del carril, y los botones ◀ ▶ × quedan siempre a
+la vista; las burbujas de tiempo de los bloques solo aparecen al arrastrar. Las manijas de un bloque mueven el valor por
+diferencia de píxeles (el bloque no está donde el pedazo en el original).
+
+**Qué quedó fuera.** Deshacer/rehacer general; duplicar un pedazo (el modelo exige que cada instante salga una sola vez);
+arrastrar un pedazo sacado directamente a la secuencia (hoy: «Restaurar» y después mover); transiciones entre pedazos.

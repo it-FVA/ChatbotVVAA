@@ -3,6 +3,7 @@
 //   node capturas.mjs <token de sesión> <id del recorte a editar> [escritorio|movil]
 // El token es el valor de la cookie fva_sesion que devuelve POST /login (ver README). Deja los .png en esta carpeta.
 // El recorte tiene que ser una FILA DE PRUEBA (el modo escritorio manda a regenerar al final).
+// (22/10) Capturas nuevas: 12 (tres pedazos en la secuencia), 13 (arrastrando un bloque, con la marca de inserción), 14 (viendo la secuencia).
 import { chromium } from "playwright-core";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -131,6 +132,47 @@ const linea = await page.locator(".linea").boundingBox();
 await page.mouse.click(linea.x + linea.width * 0.7, linea.y + linea.height * 0.6);
 await page.waitForTimeout(300);
 await page.keyboard.press("Delete");
+await page.waitForTimeout(300);
+
+// (22/10) cada pedazo es una pieza: restaurar el sacado, partir en tres, arrastrar el tercer bloque al principio de la secuencia
+// (con la marca de inserción a la vista), recortar el primero por su manija y ver la secuencia
+await page.evaluate(() => document.activeElement?.blur());
+const restaurar = page.locator(".pieza-chip.restaurar").first();
+if (await restaurar.count()) await restaurar.click();
+await page.evaluate(() => {
+  const v = document.querySelector("video");
+  v.currentTime = Math.max(1, v.duration * 0.72);
+});
+await page.waitForTimeout(500);
+await page.keyboard.press("s");
+await page.waitForTimeout(400);
+await page.locator(".linea-marco").scrollIntoViewIfNeeded();
+await page.waitForTimeout(300);
+await foto("12-editor-pedazos", { entera: false });
+const bloques = page.locator(".bloque");
+if ((await bloques.count()) >= 3) {
+  const b3 = await bloques.nth(2).boundingBox();
+  const b1 = await bloques.nth(0).boundingBox();
+  await page.mouse.move(b3.x + b3.width / 2, b3.y + b3.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b1.x + 6, b3.y + b3.height / 2, { steps: 10 });
+  await page.waitForTimeout(250);
+  await foto("13-editor-arrastre", { entera: false });
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  // manija de inicio del primer bloque: lo achica un poco (lo que saca queda rayado en el original)
+  const manijaBloque = await bloques.nth(0).locator(".bloque-manija.ini").boundingBox();
+  await page.mouse.move(manijaBloque.x + manijaBloque.width / 2, manijaBloque.y + manijaBloque.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(manijaBloque.x + manijaBloque.width / 2 + (movil ? 12 : 22), manijaBloque.y + manijaBloque.height / 2, { steps: 6 });
+  await page.mouse.up();
+  await page.evaluate(() => document.activeElement?.blur());
+  await page.waitForTimeout(400);
+}
+await page.locator("button", { hasText: "Ver secuencia" }).click();
+await page.waitForTimeout(1500);
+await foto("14-editor-secuencia", { entera: false });
+await page.locator("button", { hasText: "Parar la secuencia" }).click().catch(() => {});
 await page.waitForTimeout(300);
 
 // subtítulos: corregir la primera línea; estilo: preset «Negrita amarilla» y posición centro

@@ -45,6 +45,16 @@ Streamlit no podía hacer:
 
 Capturas del chat: `node capturas/capturas-chat.mjs <token> <id-conversacion> [escritorio|movil]` (mismo mecanismo que
 `capturas.mjs`; solo mira, no manda mensajes ni pide recortes).
+# Interfaz web propia (fase 1: «Mis recortes» con editor visual · revisión UX del 21/10 · pedazos como piezas, 22/10)
+
+Es la primera pantalla de la interfaz que va a reemplazar a Streamlit (plan en
+`fva-transcripcion/analisis/plan-interfaz-propia-2026-10.md`). Habla con la API de `api/` (fase 0 + los endpoints de
+recortes de esta fase) y no toca Streamlit, que sigue en producción. Las capturas de cómo se ve están en `capturas/`
+(escritorio 1366 px y celular 375 px): login, lista (cargando, vacía, normal), editor antes y después de editar, zoom de la
+línea de tiempo, atajos de teclado, confirmación de borrado, pantalla de «regenerando», barra inferior en celular y (22/10) la
+secuencia de salida con tres pedazos (12), un bloque arrastrándose con la marca de inserción (13) y «Ver secuencia» andando (14).
+La revisión de UX/UI que motivó la segunda vuelta (hallazgos, referencias con links, qué se cambió y qué quedó) está en
+`UX-REVISION.md`; la sección «Pedazos como piezas» de ese documento cuenta el diseño de los dos carriles.
 
 ## Qué hay
 
@@ -79,16 +89,28 @@ Capturas del chat: `node capturas/capturas-chat.mjs <token> <id-conversacion> [e
 - **Editor** (`/recortes/<id>`, solo en un recorte listo y propio, o cualquiera si sos aprobador):
   - reproductor del mp4 del recorte, con la **vista previa del estilo** de subtítulos dibujada encima (tipografía, tamaño, color,
     fondo o borde, negrita, posición: la misma traducción a CSS que usaba Streamlit, pero sobre el video real; se puede apagar);
-  - **línea de tiempo** en el eje del video original, con la **tira de miniaturas** (cuadros sacados del mp4 en el navegador con
-    un `<video>` oculto + `<canvas>`, sin ffmpeg ni endpoint), la **forma de onda** (el navegador decodifica el audio; si no
-    puede, marcas cada segundo) y la regla de tiempos; **zoom** (botones − / + / ajustar, teclas ± y 0, Ctrl + rueda) con
-    desplazamiento horizontal y la vista siguiendo al cabezal; dos **manijas grandes** arrastrables (zona de agarre de 44 px,
-    burbuja con el tiempo, `role=slider`, flechas cuando tienen el foco), campos de minutos y segundos y botones ±1 s
-    sincronizados; **cabezal** con el tiempo y una tijera para partir ahí mismo; lo rayado = fuera del video actual;
-  - **partir** en el cabezal (botón, tijera del cabezal o tecla S), clic en un pedazo lo selecciona (borde amarillo), Supr lo
-    saca, el chip de cada pedazo lo saca o lo **restaura**; «Deshacer los cortes» vuelve a un solo pedazo;
-  - **atajos de teclado** (panel «Atajos» o tecla ?): Espacio, ←/→ ±1 s, Shift ±0,1 s, I/O marcan inicio y fin, S parte, Supr,
-    +/−/0 zoom, Inicio/Fin; no actúan mientras se escribe en un campo;
+  - **línea de tiempo en dos carriles** (`componentes/LineaTiempo.tsx`; las operaciones sobre los pedazos, en `util/piezas.ts`):
+    - arriba, el **original**, en el eje del video original: la **tira de miniaturas** (cuadros sacados del mp4 en el navegador
+      con un `<video>` oculto + `<canvas>`, sin ffmpeg ni endpoint), la **forma de onda** (el navegador decodifica el audio; si
+      no puede, marcas cada segundo) y la regla de tiempos; **zoom** (botones − / + / ajustar, teclas ± y 0, Ctrl + rueda) con
+      desplazamiento horizontal y la vista siguiendo al cabezal; dos **manijas grandes** del tramo (zona de agarre de 44 px,
+      burbuja con el tiempo, `role=slider`, flechas cuando tienen el foco), campos de minutos y segundos y botones ±1 s
+      sincronizados; **cabezal** con el tiempo y una tijera para partir ahí mismo; lo rayado = fuera del video actual; cada
+      pedazo conservado lleva el **número** que ocupa en la secuencia, los sacados quedan rayados con un chip «Restaurar»;
+    - abajo, la **secuencia de salida** (22/10, pedido de Franco: «cada vez que hacemos Split tenemos que tratarlo como un canvas
+      para poder mover las piezas»): un **bloque por pedazo conservado**, contiguos, en el orden en que salen en el video final,
+      cada uno con su miniatura, su duración, **dos manijas amarillas** en los bordes que recortan ESE pedazo sobre el original
+      (pueden comerse lo sacado de al lado, nunca pisar a otro pedazo conservado; mínimo 0,5 s), un **agarre para arrastrarlo** a
+      otro lugar (se suelta entre dos bloques, con una marca roja de inserción; con mouse se arrastra desde cualquier parte del
+      bloque, en touch desde el agarre para no bloquear el desplazamiento) y botones **◀ ▶ ×** (un lugar antes / después, sacar);
+      un cabezal rojo muestra dónde está el reproductor dentro de la secuencia;
+  - **partir** el pedazo bajo el cabezal (botón, tijera del cabezal o tecla S), clic en un pedazo o en su bloque lo selecciona
+    (borde amarillo), Supr lo saca, «Restaurar» lo vuelve a agregar en su lugar natural de la secuencia; «Deshacer los cortes»
+    vuelve a un solo pedazo; **«Ver secuencia»** (o tecla P) reproduce los pedazos en el orden elegido saltando lo sacado (el
+    reproductor sigue mostrando el video actual: lo que quedó fuera de él se saltea); «Sale 48,0 s» cuenta lo que va a durar;
+  - **atajos de teclado** (panel «Atajos» o tecla ?): Espacio, P (ver secuencia), ←/→ ±1 s, Shift ±0,1 s, I/O marcan inicio y
+    fin, S parte, Supr saca, [ y ] mueven el pedazo seleccionado en la secuencia, +/−/0 zoom, Inicio/Fin; no actúan mientras se
+    escribe en un campo;
   - **Quitar pausas largas** (casilla, igual que en Streamlit);
   - **subtítulos por línea** (solo vertical): la que suena se resalta y la lista la sigue, clic en el tiempo salta a ese momento,
     se corrige el texto, una línea vacía se saca; contador de caracteres por línea y aviso cuando puede ocupar tres renglones
@@ -103,10 +125,14 @@ Capturas del chat: `node capturas/capturas-chat.mjs <token> <id-conversacion> [e
   migas de pan.
 
 Lo que guarda en `clips.edicion` es lo mismo que Streamlit (`inicio_ms`, `fin_ms`, `srt`, `estilo`, `quitar_pausas`) más una
-clave nueva, `segmentos` = `[[a_ms, b_ms], …]` absolutos del original con los pedazos que se conservan; la cola
-(`procesar_clips.py` → `recortar_clip.cortar(segmentos=)`) los pega y corre los subtítulos. Las validaciones (fin > inicio, de
-2 s a 3 min, aviso si el SRT corregido era del tramo anterior) viven en la API (`api/recortes.py`); la web las repite solo para
-deshabilitar el botón a tiempo.
+clave nueva, `segmentos` = `[[a_ms, b_ms], …]` absolutos del original con los pedazos que se conservan, **en el orden en que
+salen** (22/10): si el orden es el del original, la cola (`procesar_clips.py` → `recortar_clip.cortar(segmentos=)`) los pega
+como antes (select/aselect); si no, recorta cada pedazo y los concatena en ese orden (`recortar_clip.concatenar_tramos`,
+trim + concat con re-encode, audio incluido) y rearma los subtítulos desde las palabras pedazo por pedazo con los tiempos
+corridos al orden nuevo; un SRT corregido se descarta con aviso (misma regla que al cambiar el tramo). Dos pedazos consecutivos
+en la lista y contiguos en el original se unen (partir sin sacar ni mover no cambia nada). Las validaciones (fin > inicio, de
+2 s a 3 min, pedazos sin solaparse, cada uno de al menos 0,5 s, el total entre 2 s y 3 min, aviso si el SRT corregido era de
+otro video) viven en la API (`api/recortes.py`); la web las repite solo para deshabilitar el botón a tiempo.
 
 ## Correr en local
 
@@ -134,6 +160,7 @@ Capturas de las pantallas de cuentas (22/10): `node capturas/capturas-usuarios.m
 `21-primera-vez-paso2-*`, `22-cuenta-*`, `23-admin-usuarios-*`, `24-admin-reset-clave-*`, `25-admin-lista-blanca-*`, `26-aprobacion-*`.
 
 Capturas de pantalla reproducibles: `node capturas/capturas.mjs <token> <id-recorte> [escritorio|movil]` (necesita
+Capturas de pantalla reproducibles (24, las tres últimas del 22/10): `node capturas/capturas.mjs <token> <id-recorte> [escritorio|movil]` (necesita
 `playwright-core`, que no está en `package.json`: `npm install --no-save playwright-core`; usa el Edge o Chrome instalado; el
 token es el valor de la cookie `fva_sesion` que devuelve `POST /login`). El id tiene que ser una **fila de prueba** (el modo
 escritorio manda a regenerar al final; después hay que volverla a `listo` o borrarla).

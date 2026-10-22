@@ -29,6 +29,8 @@ las tarjetas, guardar la pieza propuesta como borrador o mandarla a aprobación.
 | `salud.py` | (22/10) `GET /salud` (health check) y la base de la pantalla «Salud» / Dashboard de Administración: `/salud/servicios` (13 chequeos con ok / aviso / error y «qué hacer» + bloque `capacidad`), `/salud/historial`, `/salud/capacidad`. Guarda cada corrida en `salud_historial` |
 | `migraciones/salud_historial.sql`, `migraciones/fragmentos_emb_pgvector.sql` | (22/10) tabla del historial de salud; extensión `vector`, tabla `fragmentos_emb`, índice HNSW y funciones `match_fragmentos*`, `match_lexico`, `tamano_base` (todas aplicadas en Supabase el 22/10) |
 | `tests/` | pytest + httpx: 70 pruebas sin OpenAI ni Supabase (`test_api.py`, `test_recortes.py`, `test_salud.py`, `test_capacidad.py`, `test_vectores.py`), y 1 real (marcada `real`) |
+| `recortes.py` | router de recortes (fase 1): misma lógica de negocio que `publicar_ui._mis_recortes` / `_editor_recorte`, más `edicion["segmentos"]` (pedazos conservados, en orden de salida; 22/10: sin solaparse, ≥ 0,5 s cada uno, total 2 s–3 min) |
+| `tests/` | pytest + httpx: 37 pruebas sin OpenAI ni Supabase (`test_api.py`, `test_recortes.py`), y 1 real (marcada `real`) |
 | `ejemplos.http` | llamadas de ejemplo (REST Client / curl) |
 | `Dockerfile`, `requirements.txt` | para desplegar en cualquier hosting que acepte un contenedor |
 
