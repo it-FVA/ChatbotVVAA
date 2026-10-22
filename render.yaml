@@ -19,8 +19,54 @@ services:
         value: "1"
       - key: COOKIE_SAMESITE
         value: none
+      # (21/10) Configuración NO secreta, administrada desde acá (el Blueprint la sincroniza en cada push). Lo secreto
+      # (OPENAI_API_KEY, SUPABASE_KEY, USUARIOS_JSON, tokens de WP/Meta/Drive/YouTube) se carga a mano en el panel.
       - key: CORS_ORIGENES
-        value: https://fva-web.vercel.app
+        value: "https://chatbot-vvaa.vercel.app"
+      - key: ASISTENTE_MODELO
+        value: "gpt-5.6-sol"
+      - key: BUSQUEDA_HIBRIDA
+        value: "1"
+      - key: LIMPIEZA_EXTRA
+        value: "1"
+      - key: RERANK_CANDIDATOS
+        value: "50"
+      - key: RERANK_CHARS
+        value: "400"
+      - key: RERANK_MODO
+        value: "fusion"
+      - key: EXPANSION_CONSULTA
+        value: "0"
+      - key: PUBLICAR_WORDPRESS
+        value: "borrador"
+      - key: PUBLICAR_INSTAGRAM
+        value: "real"
+      - key: PUBLICAR_FACEBOOK
+        value: "real"
+      - key: PUBLICAR_YOUTUBE
+        value: "privado"
+      - key: APROBADORES
+        value: "julian,franco,beto"
+      - key: PUBLICACION_DIRECTA
+        value: "julian,franco,beto"
+      - key: ADMINS
+        value: "franco,beto"
+      - key: WP_SITE
+        value: "viviragradecidos.org"
+      - key: WP_USER
+        value: "adminviviragradecidos"
+      - key: META_IG_USER_ID
+        value: "17841406237571284"
+      - key: META_FB_PAGE_ID
+        value: "267335090073960"
+      - key: GOOGLE_CLIENT_ID
+        value: "975482475680-o1clpt1idim34dormtuecg58knnga3ol.apps.googleusercontent.com"
+      - key: DOMINIO_FVA
+        value: "viviragradecidos.org"
+      - key: CONCEPTOS_URL
+        value: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSxLDWgltMTAH6-Nu8rVB0e0QM6PgwvemkKEN78rOq7Bk0qyL-895nQ9zjzrPhvF9JNHy082O4DtN8X/pub?gid=528104219&single=true&output=csv"
+      - key: DISTINCIONES_URL
+        value: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSxLDWgltMTAH6-Nu8rVB0e0QM6PgwvemkKEN78rOq7Bk0qyL-895nQ9zjzrPhvF9JNHy082O4DtN8X/pub?gid=222457179&single=true&output=csv"
       - key: SESION_SECRETO
         generateValue: true
       - key: OPENAI_API_KEY
