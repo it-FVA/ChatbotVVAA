@@ -10,6 +10,7 @@ import Chat from "./paginas/Chat";
 import Cuenta from "./paginas/Cuenta";
 import Aprobacion from "./paginas/Aprobacion";
 import Newsletter from "./paginas/Newsletter";
+import FraseDelDia from "./paginas/FraseDelDia";
 import Administracion from "./paginas/admin/Administracion";
 import Usuarios from "./paginas/admin/Usuarios";
 import ListaBlanca from "./paginas/admin/ListaBlanca";
@@ -56,6 +57,7 @@ export default function App() {
                     <Route path="/recortes/:id" element={<Editor />} />
                     <Route path="/cuenta" element={<Cuenta />} />
                     <Route path="/newsletter" element={<Newsletter />} />
+                    <Route path="/frase-del-dia" element={<FraseDelDia />} />
                     <Route path="/aprobacion" element={<Aprobacion />} />
                     <Route path="/administracion" element={<Administracion />}>
                       <Route index element={<Navigate to="/administracion/usuarios" replace />} />

@@ -37,6 +37,11 @@ export default function Barra() {
         <NavLink to="/recortes" className={link}>
           <Icono nombre="pelicula" /> Mis recortes
         </NavLink>
+        {yo?.rol.aprueba && (
+          <NavLink to="/frase-del-dia" className={link} title="El calendario anual de la frase que sale cada mañana (aprobadores y admins)">
+            <Icono nombre="calendario" /> Frase del día
+          </NavLink>
+        )}
         <NavLink to="/newsletter" className={link}>
           <Icono nombre="sobre" /> Newsletter
         </NavLink>
