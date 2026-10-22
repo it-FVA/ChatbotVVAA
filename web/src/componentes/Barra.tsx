@@ -3,8 +3,8 @@ import { api, STREAMLIT_URL } from "../api";
 import { useSesion } from "../App";
 import { Icono } from "./Iconos";
 
-// Barra lateral (22/10): Mis recortes, Chat y Mis publicaciones (Streamlit), y dos secciones separadas según el rol:
-// «Aprobación» (aprobadores; por ahora lleva a Streamlit) y «Administración» (admins: Usuarios, Lista blanca…).
+// Barra lateral (22/10): Chat, Publicar, Mis publicaciones y Mis recortes en la web; «Newsletter» (y «Frase del día» para admins)
+// siguen abriendo Streamlit hasta la fase siguiente. Dos secciones según el rol: «Aprobación» (aprobadores) y «Administración» (admins).
 // Abajo, el usuario lleva a «Mi cuenta» (cambiar la contraseña).
 export default function Barra() {
   const { yo, setYo } = useSesion();
@@ -34,11 +34,17 @@ export default function Barra() {
         <NavLink to="/chat" className={link}>
           <Icono nombre="chat" /> Chat
         </NavLink>
+        <NavLink to="/publicar" className={link}>
+          <Icono nombre="enviar" /> Publicar
+        </NavLink>
+        <NavLink to="/publicaciones" className={link}>
+          <Icono nombre="megafono" /> Mis publicaciones
+        </NavLink>
         <NavLink to="/recortes" className={link}>
           <Icono nombre="pelicula" /> Mis recortes
         </NavLink>
-        <a className="barra-link externo" href={STREAMLIT_URL + "/?vista=publicar"} target="_blank" rel="noreferrer" title="Por ahora las publicaciones siguen en la app de Streamlit">
-          <Icono nombre="megafono" /> Mis publicaciones <span className="suave chico">Streamlit</span>
+        <a className="barra-link externo" href={STREAMLIT_URL + "/?vista=newsletter"} target="_blank" rel="noreferrer" title="El editor de Newsletter sigue en la app de Streamlit (fase siguiente)">
+          <Icono nombre="externo" /> Newsletter <span className="suave chico">Streamlit</span>
         </a>
         {yo?.rol.aprueba && (
           <>
@@ -49,9 +55,14 @@ export default function Barra() {
           </>
         )}
         {yo?.rol.admin && (
-          <NavLink to="/administracion" className={link}>
-            <Icono nombre="usuarios" /> Administración
-          </NavLink>
+          <>
+            <NavLink to="/administracion" className={link}>
+              <Icono nombre="usuarios" /> Administración
+            </NavLink>
+            <a className="barra-link externo" href={STREAMLIT_URL + "/?vista=publicar"} target="_blank" rel="noreferrer" title="El calendario de la Frase del día sigue en el Panel admin de Streamlit (fase siguiente)">
+              <Icono nombre="calendario" /> Frase del día <span className="suave chico">Streamlit</span>
+            </a>
+          </>
         )}
       </nav>
       <div className="barra-pie">

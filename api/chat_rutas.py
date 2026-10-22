@@ -282,7 +282,7 @@ def publicaciones_modos(s=Depends(auth.sesion)):
     """Para el recuadro: el modo de cada canal (como la línea «Instagram en modo real» del formulario), si esta persona
     publica en real y a qué canales puede mandar a aprobación."""
     r = modos()
-    rol = _roles.roles(s["usuario"], s.get("rol_tabla"))
+    rol = auth.rol_sesion(s)      # (22/10) tabla usuarios primero, como /yo
     return {"canales": {c: {"nombre": nombre, "modo": r.get(c, "apagado"), "texto": MODO_TXT.get(r.get(c, "apagado"), r.get(c, "")),
                             "a_aprobar": _puede_proponer(c, r)} for c, nombre in CANALES.items()},
             "publica": bool(rol.get("publica")), "aprobadores": rol.get("aprobadores") or []}
@@ -336,7 +336,7 @@ def enviar_a_aprobacion(p: Pieza, s=Depends(auth.sesion)):
             db._req("DELETE", f"?id=eq.{quote(str(p.borrador_id))}&estado=eq.borrador&usuario=eq.{quote(usuario)}", tabla="publicaciones")
         except Exception:
             pass
-    rol = _roles.roles(usuario, s.get("rol_tabla"))
+    rol = auth.rol_sesion(s)
     quien = ", ".join(rol.get("aprobadores") or []) or "un aprobador"
     return {"ok": True, "id": pid, "estado": "a_aprobar",
             "mensaje": f"Quedó pendiente de aprobación ({quien}). Si la aprueban, sale por {CANALES[canal]}"

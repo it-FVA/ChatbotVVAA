@@ -39,6 +39,9 @@ const TRAZOS: Record<string, string> = {
   tramo: "M4 6v12M20 6v12M4 12h16M9 9l-3 3 3 3M15 9l3 3-3 3",
   menu: "M4 7h16M4 12h16M4 17h16",
   descargar: "M12 4v12M6 10l6 6 6-6M4 20h16",
+  imagen: "M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15.5 9.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z",
+  enviar: "M21 3L10 14M21 3l-7 18-4-7-7-4z",
+  calendario: "M4 6h16v14H4zM4 10h16M8 3v4M16 3v4M8 14h2M12 14h2M16 14h2",
 };
 
 export type NombreIcono = keyof typeof TRAZOS;

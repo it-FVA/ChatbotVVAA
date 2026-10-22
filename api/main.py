@@ -49,6 +49,8 @@ app.include_router(_chat_rutas.router)
 app.include_router(_cuentas.router)
 from . import salud as _salud          # noqa: E402
 app.include_router(_salud.router)
+from . import publicar_rutas as _pub   # noqa: E402  (22/10, fase 3: Publicar, Mis publicaciones, Aprobación; va después de chat_rutas por /publicaciones/modos)
+app.include_router(_pub.router)
 
 
 # ---------------- Modelos de entrada ----------------
@@ -216,10 +218,10 @@ def publicaciones(request: Request, todos: bool = False, usuario=Depends(auth.us
     por estado. todos=1 (solo aprobadores): el registro completo (Panel admin → Registro)."""
     if todos:
         auth.aprobador(request)
-        return {"piezas": db.listar_registro() if db.disponible() else [], "grupos": GRUPOS}
+        return {"piezas": [_pub.decorar(p) for p in db.listar_registro()] if db.disponible() else [], "grupos": GRUPOS}
     if not db.disponible():
         return {"piezas": [], "grupos": GRUPOS, "solapas": {}}
-    mias = [p for p in db.listar_mias(usuario) if p.get("estado") != "subida"]
+    mias = [_pub.decorar(p) for p in db.listar_mias(usuario) if p.get("estado") != "subida"]   # (22/10) con estado_texto, ver_url, eliminable…
     solapas = {"Todas": [p["id"] for p in mias]}
     for n, estados in GRUPOS.items():
         solapas[n] = [p["id"] for p in mias if p.get("estado") in estados]
