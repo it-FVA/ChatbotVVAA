@@ -125,8 +125,16 @@ def redactar(c: Redaccion, usuario=Depends(auth.usuario_actual)):
     tema = (c.tema or "").strip()
     if not tema:
         raise HTTPException(400, "Falta el tema para que el bot redacte.")
+    # (23/10) Firma las llamadas a OpenAI con la persona (uso_openai): sin esto quedaban como «(sistema)» en el Dashboard.
+    import nucleo    # noqa: E402
+    from .chat import _CANDADO_TOOLS
     try:
-        nuevo, mats = newsletter.redactar(p, tema, _completar(p, c.datos))
+        with _CANDADO_TOOLS:
+            nucleo.USUARIO_ACTUAL = usuario
+            try:
+                nuevo, mats = newsletter.redactar(p, tema, _completar(p, c.datos))
+            finally:
+                nucleo.USUARIO_ACTUAL = ""
     except Exception as e:
         log.exception("newsletter.redactar")
         raise HTTPException(502, f"No pude redactar: {e}")
