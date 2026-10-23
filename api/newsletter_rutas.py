@@ -7,6 +7,8 @@ el HTML aprobado se pega en Perfit.
 Rutas (todas con sesión):
   GET  /newsletter/plantillas            {plantillas: {clave: nombre}, vacios: {clave: datos vacíos}} (newsletter.PLANTILLAS / vacio)
   POST /newsletter/html                  {plantilla, datos} → {html, titulo}  (newsletter.armar_html; la vista previa en vivo)
+  POST /newsletter/cabecera              {foto_url, titulo, color?} → image/jpeg: la cabecera 1600×500 con el título encima (vista previa)
+  POST /newsletter/cabecera?subir=1      la misma, subida a la biblioteca de WordPress → {url, color} para cabecera_url
   POST /newsletter/redactar              {plantilla, tema, datos} → {datos, materiales}  (newsletter.redactar: el bot completa los textos)
   GET  /newsletter/borradores            mis borradores de newsletter [{id, titulo, plantilla, creado, guardado_en}]
   GET  /newsletter/borradores/{id}       uno (solo propio) con {plantilla, datos} para retomarlo
@@ -14,11 +16,12 @@ Rutas (todas con sesión):
   POST /newsletter/a-aprobar             {plantilla, datos, borrador_id?} = «📨 Enviar a aprobación» (el borrador retomado se elimina)
 Las fotos del banco van por GET /banco (chat_rutas) y el recorte para el bloque de video por GET /recortes/{id}.
 """
-import datetime, logging
+import datetime, logging, os
 from typing import Any, Optional
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from . import auth, roles as _roles
@@ -40,6 +43,12 @@ class Redaccion(Contenido):
 
 class Guardar(Contenido):
     borrador_id: Optional[str] = None
+
+
+class Cabecera(BaseModel):
+    foto_url: str
+    titulo: str = ""
+    color: Optional[str] = None     # "blanco" | "azul" para forzar; si no, sale del fondo
 
 
 def _plantilla(p):
@@ -73,7 +82,33 @@ def _borrador_propio(pid, usuario):
 # ---------------- Rutas ----------------
 @router.get("/plantillas")
 def plantillas(usuario=Depends(auth.usuario_actual)):
-    return {"plantillas": dict(newsletter.PLANTILLAS), "vacios": {p: newsletter.vacio(p) for p in newsletter.PLANTILLAS}}
+    return {"plantillas": dict(newsletter.PLANTILLAS), "vacios": {p: newsletter.vacio(p) for p in newsletter.PLANTILLAS},
+            "tipos_recurso": {k: {"emoji": e, "nombre": n} for k, (e, n) in newsletter.TIPOS_RECURSO.items()}}
+
+
+@router.post("/cabecera")
+def cabecera(c: Cabecera, subir: bool = False, usuario=Depends(auth.usuario_actual)):
+    """(23/10, prueba de Julián) La foto elegida recortada a 1600×500 con el título del newsletter encima; la letra va
+    blanca sobre fondo oscuro y azul #00323f sobre fondo claro. Sin `subir`: la imagen para la vista previa. Con `subir`:
+    se sube a la biblioteca de WordPress (como cualquier foto de una pieza) y devuelve la URL para cabecera_url."""
+    import imagen, publicar    # noqa: E402
+    url = (c.foto_url or "").strip()
+    if not url.startswith("http"):
+        raise HTTPException(400, "Elegí primero una foto del banco (o pegá su URL).")
+    try:
+        datos, color = imagen.componer_cabecera(url, c.titulo, color=c.color)
+    except Exception as e:
+        log.warning("cabecera: %s", e)
+        raise HTTPException(502, f"No pude armar la cabecera con esa foto: {e}")
+    if not subir:
+        return Response(content=datos, media_type="image/jpeg", headers={"X-Color": color, "Cache-Control": "no-store"})
+    cfg = publicar.Config(os.environ)
+    nombre = f"newsletter-cabecera-{datetime.date.today().isoformat()}.jpg"
+    r = publicar.subir_imagen_wordpress(cfg, datos, nombre, titulo=(c.titulo or "Cabecera del newsletter"),
+                                        etiquetas=["newsletter", "cabecera"], quien=usuario, pieza="newsletter")
+    if not r.get("url"):
+        raise HTTPException(502, r.get("aviso") or "WordPress no devolvió la URL de la cabecera.")
+    return {"url": r["url"], "color": color}
 
 
 @router.post("/html")

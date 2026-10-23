@@ -356,3 +356,65 @@
     justify-content: center;
   }
 }
+
+/* (23/10, prueba de Julián) cabecera armada y recursos con tipo */
+.nl-cabecera {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.nl-cabecera-previa {
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--crema);
+}
+.nl-cabecera-previa img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 5;
+  object-fit: cover;
+}
+.nl-cabecera-previa .mini-vacia {
+  width: 100%;
+  aspect-ratio: 16 / 5;
+}
+.nl-cabecera-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 10px;
+}
+.nl-cabecera-acciones .boton {
+  margin-left: auto;
+}
+.nl-cabecera-acciones label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.nl-recurso {
+  display: grid;
+  grid-template-columns: 1.3fr 2fr 2fr 1fr auto;
+  gap: 8px;
+  align-items: end;
+  padding: 8px 0;
+  border-top: 1px dashed var(--borde);
+}
+.nl-recurso select {
+  font: inherit;
+  font-weight: 400;
+  padding: 8px 10px;
+  border: 1px solid var(--borde-fuerte);
+  border-radius: 8px;
+  background: #fff;
+}
+.nl-recurso-quitar {
+  margin-bottom: 4px;
+}
+@media (max-width: 760px) {
+  .nl-recurso {
+    grid-template-columns: 1fr 1fr;
+  }
+}

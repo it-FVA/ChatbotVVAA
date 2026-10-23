@@ -20,6 +20,29 @@ import html as _html
 
 PLANTILLAS = {"mensual": "Mensual (reflexión + agenda + recursos)", "revivi": "Reviví (tres episodios de Ecos)"}
 
+# (23/10, prueba de Julián) Tipos de recurso para «Recursos para profundizar»: desplegable, y la cantidad varía (2 o 3, los
+# que haya). Cada ítem es {"tipo", "titulo", "url", "con"}. Los campos viejos lectura/ecos/meditacion siguen funcionando
+# (Streamlit y los borradores anteriores): si no hay `items`, se arman a partir de ellos.
+TIPOS_RECURSO = {
+    "video": ("🎥", "Video de Br. David"),
+    "meditacion": ("🧘", "Meditación con Joaco Grehan"),
+    "pausa": ("🌿", "Pausa de los Viernes"),
+    "ecos": ("🎧", "Capítulo de Ecos"),
+    "articulo": ("📖", "Artículo"),
+    "libro": ("📚", "Libro"),
+}
+
+
+def recursos_items(rc):
+    """La lista de recursos a mostrar: `items` si la web los cargó; si no, los tres campos viejos que tengan título."""
+    rc = rc or {}
+    items = [it for it in (rc.get("items") or []) if isinstance(it, dict) and (it.get("titulo") or "").strip()]
+    if items:
+        return items
+    viejos = (("articulo", "lectura", "de"), ("ecos", "ecos", "con"), ("meditacion", "meditacion", "con"))
+    return [{"tipo": tipo, "titulo": (rc.get(k) or {}).get("titulo", ""), "url": (rc.get(k) or {}).get("url", ""),
+             "con": (rc.get(k) or {}).get(lab, "")} for tipo, k, lab in viejos if (rc.get(k) or {}).get("titulo")]
+
 # Colores sacados del newsletter real
 VERDE = "#1f4d3f"      # títulos
 AMARILLO = "#f4b43c"   # botones
@@ -44,7 +67,7 @@ def vacio(plantilla):
                           "boton_texto": "RESERVÁ TU LUGAR", "boton_url": ""},
             "agenda": [{"fecha_corta": "", "titulo": "", "descripcion": "", "fecha": "", "horario": "", "modalidad": "",
                         "facilitan": "", "boton_texto": "INSCRIBITE", "boton_url": "", "imagen_url": ""} for _ in range(3)],
-            "recursos": {"imagen_url": "",
+            "recursos": {"imagen_url": "", "items": [],
                          "lectura": {"titulo": "", "url": "", "de": "Brother David"},
                          "ecos": {"titulo": "", "url": "", "con": ""},
                          "meditacion": {"titulo": "", "url": "", "con": ""}},
@@ -163,11 +186,10 @@ def armar_html(plantilla, d):
         cuerpo += "".join(_tarjeta_agenda(a, i) for i, a in enumerate(ag))
     rc = d.get("recursos") or {}
     items = []
-    for em, rot, k, lab in (("📖", "Lectura", "lectura", "de"), ("🎧", "Ecos (podcast)", "ecos", "con"), ("🧘", "Meditación guiada", "meditacion", "con")):
-        it = rc.get(k) or {}
-        if it.get("titulo"):
-            quien = f", {lab} {_e(it.get(lab))}" if it.get(lab) else ""
-            items.append(f'<p style="margin:0 0 14px 0;font-family:{FUENTE};font-size:15px;color:{GRIS}">{em} {rot}: <a href="{_e(it.get("url") or "#")}" style="color:{VERDE};font-weight:bold">{_e(it.get("titulo"))}</a>{quien}</p>')
+    for it in recursos_items(rc):
+        em, rot = TIPOS_RECURSO.get(it.get("tipo") or "", ("📖", "Lectura"))
+        quien = f", con {_e(it.get('con'))}" if it.get("con") else ""
+        items.append(f'<p style="margin:0 0 14px 0;font-family:{FUENTE};font-size:15px;color:{GRIS}">{em} {rot}: <a href="{_e(it.get("url") or "#")}" style="color:{VERDE};font-weight:bold">{_e(it.get("titulo"))}</a>{quien}</p>')
     if items:
         cuerpo += _sep() + _img(rc.get("imagen_url"), 544, alt="Recursos para profundizar este mes") + _h("RECURSOS PARA PROFUNDIZAR ESTE MES", size=18) + "".join(items)
     cuerpo += _bloque_video(d.get("video"))
@@ -234,4 +256,7 @@ def redactar(plantilla, tema, d, n_material=8):
     for k in ("lectura", "ecos", "meditacion"):
         if isinstance(j.get(k), dict):
             d["recursos"][k].update({kk: vv for kk, vv in j[k].items() if kk in d["recursos"][k]})
+    # (23/10) la web usa la lista `items` con tipo: lo que propuso el bot va ahí también (solo lo que tiene título)
+    if "items" in d["recursos"]:
+        d["recursos"]["items"] = recursos_items({k: d["recursos"][k] for k in ("lectura", "ecos", "meditacion")})
     return d, mats

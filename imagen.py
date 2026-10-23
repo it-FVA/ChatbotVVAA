@@ -243,3 +243,50 @@ if __name__ == "__main__":
     with open(sys.argv[2], "wb") as f:
         f.write(componer_imagen(sys.argv[1], txt))
     print("ok", sys.argv[2])
+
+
+# ---------------- (23/10, prueba de Julián) Cabecera del newsletter ----------------
+# "Que la imagen se ajuste sola al formato de la cabecera y que el título vaya encima; fondo oscuro → letra blanca,
+# fondo claro → azul de la Fundación." Formato fijo 1600×500 (en el mail se ve a 600×188).
+CABECERA_ANCHO, CABECERA_ALTO = 1600, 500
+AZUL_FUNDACION = (0, 50, 63)       # #00323f
+
+
+def _luminancia(img):
+    """0 (negro) a 255 (blanco): promedio del gris de la imagen (ya recortada a la zona que importa)."""
+    g = img.convert("L").resize((32, 32))
+    px = list(g.getdata())
+    return sum(px) / max(len(px), 1)
+
+
+def componer_cabecera(foto, titulo, ancho=CABECERA_ANCHO, alto=CABECERA_ALTO, calidad=88, color=None):
+    """Devuelve (bytes JPEG, "blanco"|"azul"): la foto recortada a 1600×500 con el título centrado encima.
+    El color de la letra sale solo del fondo (luminancia de la franja central): oscuro → blanco, claro → azul #00323f;
+    `color` lo fuerza. Sin título, devuelve la foto recortada sola."""
+    img = _abrir(foto)
+    img = ImageOps.exif_transpose(img).convert("RGB")
+    img = ImageOps.fit(img, (ancho, alto), method=Image.LANCZOS, centering=(0.5, 0.5))
+    titulo = " ".join((titulo or "").split())
+    franja = img.crop((int(ancho * 0.15), int(alto * 0.2), int(ancho * 0.85), int(alto * 0.8)))
+    oscuro = _luminancia(franja) < 128
+    elegido = color if color in ("blanco", "azul") else ("blanco" if oscuro else "azul")
+    if not titulo:
+        salida = io.BytesIO()
+        img.save(salida, format="JPEG", quality=calidad, optimize=True)
+        return salida.getvalue(), elegido
+    # un velo suave para que la letra se lea sobre fotos con mucho detalle (más oscuro o más claro según la letra)
+    velo = Image.new("RGB", (ancho, alto), (0, 0, 0) if elegido == "blanco" else (255, 255, 255))
+    img = Image.blend(img, velo, 0.18)
+    draw = ImageDraw.Draw(img)
+    f_nombre, _ = TIPOGRAFIAS[TIPOGRAFIA_DEFAULT]
+    margen = int(ancho * 0.08)
+    f, lineas, inter = _ajustar(titulo, draw, ancho - 2 * margen, int(alto * 0.7), f_nombre, tam_max=110, tam_min=48, max_lineas=3, peso=700)
+    rgb = (255, 255, 255) if elegido == "blanco" else AZUL_FUNDACION
+    y = (alto - inter * len(lineas)) // 2
+    for linea in lineas:
+        w = draw.textlength(linea, font=f)
+        draw.text(((ancho - w) / 2, y), linea, font=f, fill=rgb)
+        y += inter
+    salida = io.BytesIO()
+    img.save(salida, format="JPEG", quality=calidad, optimize=True)
+    return salida.getvalue(), elegido

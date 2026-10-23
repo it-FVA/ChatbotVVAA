@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { api, ErrorApi } from "../api";
 import { apiChat } from "../apiChat";
-import { apiNewsletter, type Actividad, type BorradorResumen, type Datos, type Material, type Plantilla } from "../apiNewsletter";
+import { apiNewsletter, type Actividad, type BorradorResumen, type Datos, type Material, type Plantilla, type RecursoItem, type TiposRecurso } from "../apiNewsletter";
 import type { FotoBanco } from "../tiposChat";
 import type { Recorte } from "../tipos";
 import { Icono } from "../componentes/Iconos";
@@ -36,6 +36,7 @@ export default function Newsletter() {
   const loc = useLocation();
   const [params, setParams] = useSearchParams();
   const [vacios, setVacios] = useState<Record<Plantilla, Datos> | null>(null);
+  const [tiposRecurso, setTiposRecurso] = useState<TiposRecurso>({});
   const [plantilla, setPlantilla] = useState<Plantilla>("mensual");
   const [d, setD] = useState<Datos | null>(null);
   const [borradorId, setBorradorId] = useState<string | null>(null);
@@ -87,6 +88,7 @@ export default function Newsletter() {
         const p = await apiNewsletter.plantillas();
         if (!vivo) return;
         setVacios(p.vacios);
+        setTiposRecurso(p.tipos_recurso || {});
         const idBorrador = params.get("borrador");
         const idRecorte = params.get("recorte");
         const pieza = (loc.state as { pieza?: PiezaChat } | null)?.pieza;
@@ -375,7 +377,7 @@ export default function Newsletter() {
       <div className={"nl-grilla " + solapa}>
         <section className="nl-editor" aria-label="Contenido">
           <Fotos destinos={destinos} onUsar={(destino, url) => cambiar((x) => destino.poner(x, url))} />
-          {plantilla === "mensual" ? <EditorMensual d={d} cambiar={cambiar} /> : <EditorRevivi d={d} cambiar={cambiar} />}
+          {plantilla === "mensual" ? <EditorMensual d={d} cambiar={cambiar} tipos={tiposRecurso} /> : <EditorRevivi d={d} cambiar={cambiar} />}
           <Bloque titulo="Un recorte para ver (video)" icono="pelicula" abierto={!!d.video?.url}>
             <p className="suave chico">El mail no reproduce video: va la miniatura con el link al recorte (en WordPress) o a YouTube.</p>
             <div className="acciones" style={{ marginTop: 0 }}>
@@ -477,10 +479,20 @@ export default function Newsletter() {
 
 // ---------------- Editores por plantilla (los mismos campos que newsletter_ui) ----------------
 
-function EditorMensual({ d, cambiar }: { d: Datos; cambiar: (f: (x: Datos) => void) => void }) {
+function EditorMensual({ d, cambiar, tipos }: { d: Datos; cambiar: (f: (x: Datos) => void) => void; tipos: TiposRecurso }) {
   const en = d.encuentro!;
   const rc = d.recursos!;
   const agenda = d.agenda ?? [];
+  const items = rc.items ?? [];
+  const tiposLista = Object.keys(tipos).length ? tipos : { articulo: { emoji: "📖", nombre: "Artículo" } };
+  function cambiarItem(i: number, f: (it: RecursoItem) => void) {
+    cambiar((x) => {
+      const l = [...(x.recursos!.items ?? [])];
+      l[i] = { ...l[i] };
+      f(l[i]);
+      x.recursos!.items = l;
+    });
+  }
   return (
     <>
       <Bloque titulo="Cabecera y reflexión del mes" icono="sobre" abierto>
@@ -488,7 +500,7 @@ function EditorMensual({ d, cambiar }: { d: Datos; cambiar: (f: (x: Datos) => vo
           <Campo etiqueta="Mes" valor={d.mes ?? ""} onChange={(v) => cambiar((x) => (x.mes = v))} placeholder="Noviembre" />
           <Campo etiqueta="Asunto del email" valor={d.asunto} onChange={(v) => cambiar((x) => (x.asunto = v))} placeholder="Noviembre: una invitación a…" />
         </div>
-        <Campo etiqueta="Imagen de cabecera (URL del banco, 600×160)" valor={d.cabecera_url ?? ""} onChange={(v) => cambiar((x) => (x.cabecera_url = v))} placeholder="https://viviragradecidos.org/wp-content/uploads/…" />
+        <Cabecera d={d} cambiar={cambiar} />
         <Campo etiqueta="Reflexión del mes" ayuda="2 párrafos; el segundo arranca con «Brother David nos enseña que…»" valor={d.reflexion ?? ""} onChange={(v) => cambiar((x) => (x.reflexion = v))} filas={7} />
         <label>Preguntas para la reflexión personal</label>
         {[0, 1, 2].map((i) => (
@@ -538,21 +550,51 @@ function EditorMensual({ d, cambiar }: { d: Datos; cambiar: (f: (x: Datos) => vo
           </button>
         )}
       </Bloque>
-      <Bloque titulo="Recursos para profundizar" icono="info" abierto={!!rc.lectura.titulo}>
+      <Bloque titulo="Recursos para profundizar" icono="info" abierto={items.length > 0 || !!rc.lectura.titulo}>
         <Campo etiqueta="Imagen del bloque (URL)" valor={rc.imagen_url} onChange={(v) => cambiar((x) => (x.recursos!.imagen_url = v))} />
-        {(
-          [
-            ["lectura", "📖 Lectura", "de"],
-            ["ecos", "🎧 Ecos (podcast)", "con"],
-            ["meditacion", "🧘 Meditación guiada", "con"],
-          ] as const
-        ).map(([k, rot, lab]) => (
-          <div className="nl-tres" key={k}>
-            <Campo etiqueta={`${rot}: título`} valor={rc[k].titulo} onChange={(v) => cambiar((x) => (x.recursos![k].titulo = v))} />
-            <Campo etiqueta="Link" valor={rc[k].url} onChange={(v) => cambiar((x) => (x.recursos![k].url = v))} />
-            <Campo etiqueta={lab} valor={rc[k][lab] ?? ""} onChange={(v) => cambiar((x) => (x.recursos![k][lab] = v))} />
+        <p className="suave chico">Los que haya: dos o tres. Elegí el tipo de material, el título y el link. Si el bot redactó, acá aparecen sus sugerencias.</p>
+        {items.length === 0 && !!rc.lectura.titulo && <p className="suave chico">Este borrador tiene los recursos en el formato anterior (lectura, Ecos, meditación): se muestran igual en el mail. Si agregás uno acá, pasan a esta lista.</p>}
+        {items.map((it, i) => (
+          <div className="nl-recurso" key={i}>
+            <label className="nl-campo">
+              <span>Tipo</span>
+              <select value={it.tipo} onChange={(e) => cambiarItem(i, (r) => (r.tipo = e.target.value))}>
+                {Object.entries(tiposLista).map(([k, t]) => (
+                  <option key={k} value={k}>
+                    {t.emoji} {t.nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Campo etiqueta="Título" valor={it.titulo} onChange={(v) => cambiarItem(i, (r) => (r.titulo = v))} />
+            <Campo etiqueta="Link" valor={it.url} onChange={(v) => cambiarItem(i, (r) => (r.url = v))} />
+            <Campo etiqueta="Con (quién)" valor={it.con} onChange={(v) => cambiarItem(i, (r) => (r.con = v))} />
+            <button type="button" className="boton sutil chico icono-solo nl-recurso-quitar" onClick={() => cambiar((x) => (x.recursos!.items = (x.recursos!.items ?? []).filter((_, j) => j !== i)))} aria-label="Quitar este recurso" title="Quitar">
+              <Icono nombre="tacho" tam={15} />
+            </button>
           </div>
         ))}
+        {items.length < 4 && (
+          <button
+            type="button"
+            className="boton chico"
+            onClick={() =>
+              cambiar((x) => {
+                const viejos: RecursoItem[] = [];
+                if (!(x.recursos!.items ?? []).length) {
+                  // el formato anterior pasa a la lista para no perderlo
+                  const r = x.recursos!;
+                  if (r.lectura.titulo) viejos.push({ tipo: "articulo", titulo: r.lectura.titulo, url: r.lectura.url, con: r.lectura.de ?? "" });
+                  if (r.ecos.titulo) viejos.push({ tipo: "ecos", titulo: r.ecos.titulo, url: r.ecos.url, con: r.ecos.con ?? "" });
+                  if (r.meditacion.titulo) viejos.push({ tipo: "meditacion", titulo: r.meditacion.titulo, url: r.meditacion.url, con: r.meditacion.con ?? "" });
+                }
+                x.recursos!.items = [...viejos, ...(x.recursos!.items ?? []), { tipo: Object.keys(tiposLista)[0], titulo: "", url: "", con: "" }];
+              })
+            }
+          >
+            <Icono nombre="mas" tam={15} /> Agregar un recurso
+          </button>
+        )}
       </Bloque>
       <Bloque titulo="Cierre y firma" icono="check" abierto={false}>
         <Campo etiqueta="Cierre (frase de deseo para el mes)" valor={d.cierre} onChange={(v) => cambiar((x) => (x.cierre = v))} />
@@ -593,6 +635,96 @@ function EditorRevivi({ d, cambiar }: { d: Datos; cambiar: (f: (x: Datos) => voi
 // ---------------- Piezas chicas ----------------
 
 /** `abierto` solo abre el bloque (al cargar o cuando llega contenido, p. ej. un recorte); cerrarlo queda en manos de la persona. */
+/** (23/10, prueba de Julián) La cabecera se arma sola: la foto elegida recortada a 1600×500 con el título encima, letra blanca
+ * sobre fondo oscuro o azul de la Fundación sobre fondo claro (se puede forzar). «Usar esta cabecera» la sube a WordPress y
+ * deja la URL en cabecera_url, que es lo que va en el mail. También se puede pegar una URL ya armada. */
+function Cabecera({ d, cambiar }: { d: Datos; cambiar: (f: (x: Datos) => void) => void }) {
+  const { avisar } = useToast();
+  const foto = d.cabecera_foto ?? "";
+  const tituloCab = d.cabecera_titulo ?? "";
+  const [color, setColor] = useState<"" | "blanco" | "azul">("");
+  const [previa, setPrevia] = useState<{ url: string; color: string } | null>(null);
+  const [armando, setArmando] = useState(false);
+  const [subiendo, setSubiendo] = useState(false);
+  const [fallo, setFallo] = useState<string | null>(null);
+  const sugerido = tituloCab || d.mes || d.asunto || "";
+
+  // vista previa en vivo: cada cambio de foto, título o color (con una pausa para no pedir en cada tecla)
+  useEffect(() => {
+    if (!foto.startsWith("http")) {
+      setPrevia(null);
+      return;
+    }
+    const ctl = new AbortController();
+    const t = window.setTimeout(async () => {
+      setArmando(true);
+      setFallo(null);
+      try {
+        const r = await apiNewsletter.cabeceraPrevia(foto, sugerido, color || null, ctl.signal);
+        const url = URL.createObjectURL(r.blob);
+        setPrevia((ant) => {
+          if (ant) URL.revokeObjectURL(ant.url);
+          return { url, color: r.color };
+        });
+      } catch (e) {
+        if (!(e instanceof DOMException && e.name === "AbortError")) setFallo(e instanceof ErrorApi ? e.message : "No pude armar la vista previa.");
+      } finally {
+        setArmando(false);
+      }
+    }, 500);
+    return () => {
+      window.clearTimeout(t);
+      ctl.abort();
+    };
+  }, [foto, sugerido, color]);
+
+  async function usar() {
+    setSubiendo(true);
+    try {
+      const r = await apiNewsletter.cabeceraSubir(foto, sugerido, color || null);
+      cambiar((x) => (x.cabecera_url = r.url));
+      avisar("Cabecera lista: ya está en el mail.");
+    } catch (e) {
+      avisar(e instanceof ErrorApi ? e.message : "No pude subir la cabecera.", "error");
+    } finally {
+      setSubiendo(false);
+    }
+  }
+
+  return (
+    <div className="nl-cabecera">
+      <div className="nl-dos">
+        <Campo etiqueta="Foto de fondo" ayuda="del banco, con «Poner en: Cabecera», o una URL" valor={foto} onChange={(v) => cambiar((x) => (x.cabecera_foto = v))} placeholder="https://viviragradecidos.org/wp-content/uploads/…" />
+        <Campo etiqueta="Título sobre la imagen" ayuda="si está vacío, va el mes" valor={tituloCab} onChange={(v) => cambiar((x) => (x.cabecera_titulo = v))} placeholder={d.mes || "Noviembre"} />
+      </div>
+      {foto.startsWith("http") && (
+        <div className="nl-cabecera-previa">
+          {previa ? <img src={previa.url} alt="Vista previa de la cabecera" /> : <div className="mini-vacia" />}
+          <div className="nl-cabecera-acciones">
+            <span className="suave chico">
+              1600×500 · letra {previa?.color === "azul" ? "azul (fondo claro)" : previa?.color === "blanco" ? "blanca (fondo oscuro)" : "según el fondo"}
+              {armando && " · armando…"}
+            </span>
+            <label className="chico">
+              Letra
+              <select value={color} onChange={(e) => setColor(e.target.value as "" | "blanco" | "azul")}>
+                <option value="">automática</option>
+                <option value="blanco">blanca</option>
+                <option value="azul">azul Fundación</option>
+              </select>
+            </label>
+            <button type="button" className="boton chico primario" onClick={usar} disabled={!previa || subiendo || armando}>
+              <Icono nombre="check" tam={15} /> {subiendo ? "Subiendo…" : "Usar esta cabecera"}
+            </button>
+          </div>
+          {fallo && <p className="rojo chico">{fallo}</p>}
+        </div>
+      )}
+      <Campo etiqueta="Cabecera en el mail (URL)" ayuda="se completa sola con «Usar esta cabecera»; también se puede pegar una ya armada" valor={d.cabecera_url ?? ""} onChange={(v) => cambiar((x) => (x.cabecera_url = v))} placeholder="https://viviragradecidos.org/wp-content/uploads/…" />
+    </div>
+  );
+}
+
 function Bloque({ titulo, icono, abierto, children }: { titulo: string; icono: string; abierto: boolean; children: ReactNode }) {
   const ref = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
@@ -776,7 +908,7 @@ function destinosDe(plantilla: Plantilla, d: Datos): Destino[] {
     ];
   }
   return [
-    { clave: "cab", nombre: "Cabecera", poner: (x, u) => void (x.cabecera_url = u) },
+    { clave: "cab", nombre: "Cabecera (foto de fondo)", poner: (x, u) => void (x.cabecera_foto = u) },
     { clave: "enc", nombre: "Encuentro destacado", poner: (x, u) => void (x.encuentro!.imagen_url = u) },
     ...(d.agenda ?? []).map((a, i) => ({ clave: `ag${i}`, nombre: `Actividad ${i + 1}${a.titulo ? " · " + a.titulo.slice(0, 25) : ""}`, poner: (x: Datos, u: string) => void (x.agenda![i].imagen_url = u) })),
     { clave: "rec", nombre: "Recursos", poner: (x, u) => void (x.recursos!.imagen_url = u) },
