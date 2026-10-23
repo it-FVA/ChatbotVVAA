@@ -12,7 +12,7 @@ export function IconoTipo({ tipo, tam = 18 }: { tipo: TipoItem; tam?: number }) 
 
 /** Miniatura grande (grilla) o chica (lista). */
 export function Miniatura({ it, chica = false }: { it: ItemProyecto; chica?: boolean }) {
-  const clase = "item-mini " + it.tipo + (chica ? " chica" : "") + (it.formato === "vertical" ? " vertical" : "");
+  const clase = "item-mini tipo-" + it.tipo + (chica ? " chica" : "") + (it.formato === "vertical" ? " vertical" : "");
   if (it.miniatura && it.existe) {
     return (
       <div className={clase}>

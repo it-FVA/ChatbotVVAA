@@ -486,10 +486,10 @@
   object-fit: contain;
   background: #111;
 }
-.item-mini.sin-foto.conversacion {
+.item-mini.sin-foto.tipo-conversacion {
   background: var(--verde-claro);
 }
-.item-mini.sin-foto.pieza {
+.item-mini.sin-foto.tipo-pieza {
   background: var(--amarillo-suave);
   color: var(--amarillo-oscuro);
 }

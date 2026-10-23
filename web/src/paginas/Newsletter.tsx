@@ -15,6 +15,9 @@ import { Icono } from "../componentes/Iconos";
 import Modal from "../componentes/Modal";
 import { Hueso } from "../componentes/Comunes";
 import { useToast } from "../componentes/Toasts";
+import MoverA from "../componentes/proyectos/MoverA";
+import { apiProyectos } from "../apiProyectos";
+import { etiqueta, useProyectos } from "../componentes/proyectos/ProyectosContexto";
 import "../newsletter.css";
 
 const NOMBRE: Record<Plantilla, string> = { mensual: "Mensual", revivi: "Reviví" };
@@ -44,6 +47,10 @@ export default function Newsletter() {
   const [armando, setArmando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState<"borrador" | "aprobar" | null>(null);
+  // (23/10, Franco) El borrador de newsletter también se guarda en un proyecto, como los recortes y las piezas (tipo «pieza»: es una fila de publicaciones).
+  const proyectos = useProyectos();
+  const carpeta = borradorId ? proyectos.carpetaDe("pieza", borradorId) : null;
+  const [aProyecto, setAProyecto] = useState(false);
   const [solapa, setSolapa] = useState<"editor" | "previa">("editor");
   const [abrirBorradores, setAbrirBorradores] = useState(false);
   const [confirmarReinicio, setConfirmarReinicio] = useState(false);
@@ -413,10 +420,32 @@ export default function Newsletter() {
         <button type="button" className="boton" onClick={() => guardar("borrador")} disabled={enviando !== null} title="Guarda todo sin mandar nada; se retoma desde acá o desde Mis publicaciones">
           <Icono nombre="lapiz" tam={16} /> {enviando === "borrador" ? "Guardando…" : borradorId ? "Guardar el borrador" : "Guardar como borrador"}
         </button>
+        <button type="button" className="boton sutil" onClick={() => setAProyecto(true)} disabled={!borradorId} title={!borradorId ? "Primero guardalo como borrador" : carpeta ? `Está en «${etiqueta(carpeta)}»; mover a otra carpeta` : "Guardar este borrador en un proyecto"}>
+          <Icono nombre="carpeta" tam={16} /> {carpeta ? etiqueta(carpeta) : "Proyecto"}
+        </button>
         <button type="button" className="boton primario" onClick={() => guardar("aprobar")} disabled={enviando !== null || !d.asunto.trim()} title={d.asunto.trim() ? "Un aprobador lo revisa; aprobado, el HTML queda listo para Perfit" : "Falta el asunto del email"}>
           <Icono nombre="check" tam={16} /> {enviando === "aprobar" ? "Enviando…" : "Enviar a aprobación"}
         </button>
       </div>
+      {aProyecto && borradorId && (
+        <MoverA
+          titulo="Guardar en un proyecto"
+          que={`Newsletter «${(d.asunto || "sin asunto").slice(0, 80)}»`}
+          actualId={carpeta?.id}
+          textoBoton="Guardar acá"
+          onCerrar={() => setAProyecto(false)}
+          onElegir={async (pid) => {
+            try {
+              await apiProyectos.agregarItem(pid, "pieza", borradorId);
+              await proyectos.recargar();
+              avisar(`Guardado en «${proyectos.porId.get(pid)?.nombre || "la carpeta"}».`);
+            } catch (e) {
+              avisar(e instanceof ErrorApi ? e.message : "No pude guardarlo.", "error");
+              throw e;
+            }
+          }}
+        />
+      )}
 
       {abrirBorradores && <Borradores onCerrar={() => setAbrirBorradores(false)} onElegir={retomar} />}
       {elegirRecorte && (

@@ -630,7 +630,7 @@ export default function Proyectos() {
                         onClick: (e: MouseEvent) => clicSel(e, s),
                         onDoubleClick: () => abrir(s),
                         onContextMenu: (e: MouseEvent) => abrirMenu(e, s),
-                        className: (vista === "grilla" ? "ficha archivo " + it.tipo : "fila") + (marcada ? " marcada" : "") + (it.existe ? "" : " no-existe"),
+                        className: (vista === "grilla" ? "ficha archivo tipo-" + it.tipo : "fila") + (marcada ? " marcada" : "") + (it.existe ? "" : " no-existe"),
                         tabIndex: 0,
                         role: "option",
                         "aria-selected": marcada,

@@ -1510,6 +1510,18 @@ input[type="number"] {
   padding: 4px 6px;
   margin: -4px -6px;
   display: block;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.barra-yo strong,
+.barra-yo .suave {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.barra-pie .boton {
+  flex: none;
 }
 .barra-yo:hover,
 .barra-yo.activo {
