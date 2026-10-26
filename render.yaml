@@ -99,7 +99,7 @@ services:
       - key: PERFIT_API_KEY
         sync: false
       - key: PERFIT_CUENTA
-        sync: false
+        value: viviragradecido        # nombre de la cuenta en Perfit (no es secreto; verificado el 26/10)
       - key: PERFIT_TRIGGER_URL
         sync: false
       - key: PERFIT_LISTA_FRASE
