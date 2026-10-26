@@ -237,3 +237,13 @@ def test_sin_supabase(logueado, monkeypatch):
     assert logueado.get("/admin/uso").json()["sin_supabase"] is True
     assert logueado.get("/admin/servicios").json()["servicios"] == []
     assert logueado.put("/admin/config", json={"cambios": {"frase_activa": True}}).status_code == 503
+
+
+def test_config_mail(logueado, mundo):
+    # (26/10) hora de inicio del mail y lista de prueba: validadas y normalizadas
+    r = logueado.put("/admin/config", json={"cambios": {"frase_mail_inicio": "15:30", "frase_mail_prueba": "Uno@x.org, dos@x.org\nuno@x.org"}})
+    assert r.status_code == 200, r.text
+    assert mundo["config"]["frase_mail_inicio"] == "15:30" and mundo["config"]["frase_mail_prueba"] == ["uno@x.org", "dos@x.org"]
+    assert logueado.put("/admin/config", json={"cambios": {"frase_mail_inicio": "25:00"}}).status_code == 400
+    assert logueado.put("/admin/config", json={"cambios": {"frase_mail_prueba": ["esto no es un mail"]}}).status_code == 400
+    assert "mail" in logueado.get("/admin/config").json()["frase_canales_posibles"]

@@ -33,7 +33,11 @@ sys.path.insert(0, HERE)
 USUARIO = "frase_del_dia"
 HORA_DEFECTO = "07:00"
 CANALES_DEFECTO = ["instagram"]
-CANALES_POSIBLES = {"instagram": "Instagram (posteo cuadrado)", "facebook": "Facebook (foto con texto)"}   # "mail": cuando haya endpoint
+# (26/10, reunión) Se suman la historia de Instagram (Beto: la frase va como historia diaria, guardada en Destacadas; el posteo
+# satura) y el mail por Perfit (frase_mail.py: custom trigger, 200 por hora, arranca el día anterior a la hora frase_mail_inicio).
+CANALES_POSIBLES = {"historia": "Instagram (historia, 1080×1920, 24 h)", "instagram": "Instagram (posteo cuadrado)",
+                    "facebook": "Facebook (foto con texto)", "mail": "Mail (Perfit, 200 por hora, arranca el día anterior)"}
+MAIL_INICIO_DEFECTO = "15:00"
 PIE_DEFECTO = "#FraseDelDía #VivirAgradecidos #Gratitud"
 ESTILO_DEFECTO = {"logo": "Amarillo", "posicion_logo": "abajo derecha", "tipografia": None, "posicion": "centro",
                   "alineacion": "centro", "peso": "normal", "formato": "cuadrado"}
@@ -78,9 +82,11 @@ def foto_de_fondo(frase, cfg, db, publicar):
     return None, "no hay foto: ni elegida para la frase, ni por defecto (Panel admin → Frase del día → Cómo sale cada día), ni en el banco etiquetada «cuadrado»"
 
 
-def componer(frase, foto, estilo=None):
+def componer(frase, foto, estilo=None, formato=None):
     import imagen
     e = dict(ESTILO_DEFECTO, **(estilo or {}))
+    if formato:
+        e["formato"] = formato
     return imagen.componer_imagen(foto, frase.get("texto") or "", firma=firma_de(frase), formato=e.get("formato") or "cuadrado",
                                   tipografia=e.get("tipografia"), posicion=e.get("posicion") or "centro",
                                   alineacion=e.get("alineacion") or "centro", peso=e.get("peso") or "normal",
@@ -113,14 +119,41 @@ def encolar_frase(frase, fecha, cfg, db, publicar, hora=None, quien=USUARIO, can
     pie = db.obtener_config("frase_pie")
     caption = caption_de(frase, pie)
     modos = cfg.resumen()
+    try:
+        import perfit
+        modos["mail"] = perfit.modo()
+    except Exception:
+        modos["mail"] = "apagado"
+    # (26/10) la historia va en 1080×1920: segunda imagen compuesta, misma foto y estilo
+    imagen_historia = None
+    if "historia" in canales:
+        try:
+            jpg_h = componer(frase, foto, estilo, formato="historia")
+            res_h = publicar.subir_imagen_wordpress(cfg, jpg_h, f"frase-del-dia-{fecha.isoformat()}-historia.jpg",
+                                                    titulo=f"Frase del día {fecha.strftime('%d/%m/%Y')} (historia)",
+                                                    etiquetas=["frase-del-dia", "pieza-compuesta", "historia"], quien=quien,
+                                                    pieza=(frase.get("texto") or "")[:60])
+            imagen_historia = res_h.get("url") or imagen_url
+        except Exception as e:
+            imagen_historia = imagen_url
+            aviso_img = (aviso_img + "; " if aviso_img else "") + f"historia: no pude componer en vertical ({e}); va la cuadrada"
     piezas = {}
     for canal in canales:
-        extra = {"frase_id": frase["id"], "texto_imagen": frase.get("texto"), "formato": "cuadrado", "foto_fondo": foto,
-                 "foto_de": de_donde, "frase_del_dia": fecha.isoformat()}
+        extra = {"frase_id": frase["id"], "texto_imagen": frase.get("texto"), "autor": frase.get("autor"), "formato": "cuadrado",
+                 "foto_fondo": foto, "foto_de": de_donde, "frase_del_dia": fecha.isoformat()}
         if aviso_img:
             extra["aviso_imagen"] = aviso_img
-        pid = db.encolar_publicacion(quien, canal, modos.get(canal, ""), f"Frase del día {fecha.strftime('%d/%m/%Y')}", caption,
-                                     imagen_url, fecha_iso, extra=extra)
+        canal_cola, imagen_pieza, cuando = canal, imagen_url, fecha_iso
+        if canal == "historia":
+            canal_cola, imagen_pieza = "instagram", imagen_historia or imagen_url
+            extra["formato"] = "historia"       # procesar_cola lo publica como historia (media_type=STORIES)
+        elif canal == "mail":
+            # arranca el día anterior: a 200 por hora, 3.140 mails llevan ~16 h; a las 7:00 están todos
+            inicio = db.obtener_config("frase_mail_inicio", MAIL_INICIO_DEFECTO) or MAIL_INICIO_DEFECTO
+            cuando = f"{(fecha - datetime.timedelta(days=1)).isoformat()}T{inicio}:00-03:00"
+        pid = db.encolar_publicacion(quien, canal_cola, modos.get(canal_cola if canal != "mail" else "mail", ""),
+                                     f"Frase del día {fecha.strftime('%d/%m/%Y')}" + (" (historia)" if canal == "historia" else " (mail)" if canal == "mail" else ""),
+                                     caption, imagen_pieza, cuando, extra=extra)
         if pid:
             piezas[canal] = pid
     if piezas:
@@ -177,6 +210,7 @@ def asignar_siguiente(db, fecha):
 def cerrar_circuito(db):
     """Frases con piezas en la cola: toman el estado de la cola. Publicada de verdad por algún canal → 'publicada' (+ ultima_publicada,
     veces_publicada); todas simuladas → 'simulada'; todas canceladas/error → la frase queda libre para volver a encolarse.
+    (26/10) Una pieza 'mail' en 'enviando' (tandas en curso) no cierra nada: la frase sigue 'programada' hasta que termine.
     Devuelve cuántas cambiaron."""
     n = 0
     for f in db.frases_para_marcar_publicadas():
@@ -223,7 +257,12 @@ def main(argv=None):
     hora = db.obtener_config("frase_hora", HORA_DEFECTO) or HORA_DEFECTO
     hoy = hoy_argentina()
     canales = db.obtener_config("frase_canales") or CANALES_DEFECTO
-    print(f"frase del día: activa · hora {hora} · canales {canales} · instagram={cfg.modo_ig} facebook={cfg.modo_fb} wordpress={cfg.modo_wp}")
+    try:
+        import perfit
+        modo_mail = perfit.modo()
+    except Exception:
+        modo_mail = "?"
+    print(f"frase del día: activa · hora {hora} · canales {canales} · instagram={cfg.modo_ig} facebook={cfg.modo_fb} wordpress={cfg.modo_wp} mail={modo_mail}")
     for d in (hoy, hoy + datetime.timedelta(days=1)):
         f = db.frase_del_dia(d.isoformat())
         if not f:

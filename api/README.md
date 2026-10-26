@@ -198,6 +198,16 @@ Los mismos nombres que los secrets de Streamlit. En un servidor se cargan como v
 | `META_IG_TOKEN`, `META_FB_PAGE_TOKEN`, `WP_APP_PASSWORD`, `DRIVE_TOKEN_JSON`, `YOUTUBE_TOKEN_JSON`, `GITHUB_TOKEN` | si están, «Salud» verifica esos servicios (hoy los usa la cola de GitHub Actions, no la API); `GITHUB_TOKEN` solo sube el límite de la API pública de GitHub | no |
 | `PORT` | puerto (lo pone el hosting) | no |
 
+## Frase del día por mail con Perfit (26/10)
+
+Decisión de Beto (reunión 26/10): la Frase del día vuelve por mail con el disparador personalizado de Perfit (200 por hora),
+provisorio hasta la herramienta de email nueva. Módulos: `perfit.py` (API de contactos + custom trigger), `frase_mail.py`
+(tandas de 50 por pasada de la cola, tabla `frase_envios`), canal `mail` en `programar_frases.py` (la pieza arranca el día
+anterior a la hora `frase_mail_inicio`) y en `procesar_cola.py`; rutas `GET /frases/mail/estado` y `POST /frases/mail/prueba`.
+Variables (secretas, las pega Franco en Render, en los secrets de GitHub Actions y en local): `PUBLICAR_MAIL`
+(apagado | simulado | real), `PERFIT_API_KEY`, `PERFIT_CUENTA`, `PERFIT_TRIGGER_URL`, `PERFIT_LISTA_FRASE`. Paso a paso,
+incluida la automation que hay que crear en Perfit: `fva-transcripcion/analisis/perfit-frase-del-dia-setup.md`.
+
 ## Desplegar en Render (API) + Vercel (web) — plan gratuito para probar (21/10)
 
 Cuentas: Render (workspace «Vivir Agradecidos») y Vercel (equipo «Vivir Agradecidos»), las dos con el GitHub it-fva.

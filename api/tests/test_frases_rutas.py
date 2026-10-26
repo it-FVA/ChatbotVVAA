@@ -165,3 +165,39 @@ def test_previa(logueado, tabla, monkeypatch):
     monkeypatch.setattr(db, "obtener_config", lambda k, d=None: None)
     monkeypatch.setattr(fr, "_cfg", lambda: (None, type("P", (), {"buscar_imagenes_banco": staticmethod(lambda *a, **k: [])})))
     assert logueado.get("/frases/f1/previa.jpg").status_code == 404
+
+
+# ---------------- (26/10) Frase del día por mail, con Perfit ----------------
+def test_mail_estado_y_prueba(logueado, tabla, monkeypatch):
+    import perfit, frase_mail
+    monkeypatch.setenv("PUBLICAR_MAIL", "simulado")
+    for k in ("PERFIT_API_KEY", "PERFIT_CUENTA", "PERFIT_TRIGGER_URL", "PERFIT_LISTA_FRASE"):
+        monkeypatch.delenv(k, raising=False)
+    envios = []
+    monkeypatch.setattr(db, "crear_envios_frase", lambda pid, fecha, emails, prueba=False: [envios.append({"id": str(i), "email": e, "estado": "pendiente", "prueba": prueba}) or {"id": str(i), "email": e} for i, e in enumerate(emails)])
+    monkeypatch.setattr(db, "actualizar_envio", lambda eid, campos: next(x for x in envios if x["id"] == eid).update(campos))
+    monkeypatch.setattr(db, "resumen_envios", lambda pid=None, fecha=None, prueba=None: {"pendiente": 0, "enviado": 0, "error": 0, "total": 0})
+    monkeypatch.setattr(db, "ultimos_envios", lambda fecha=None, limite=50, prueba=None: [])
+    disparos = []
+    monkeypatch.setattr(perfit, "disparar", lambda email, ctx, **k: (disparos.append(email), {"ok": True, "estado": "enviado", "aviso": "ok"})[1])
+    monkeypatch.setattr(pf, "componer", lambda f, foto, estilo=None, formato=None: b"jpg")
+    subidas = []
+    monkeypatch.setattr(fr, "_cfg", lambda: (None, type("P", (), {"subir_imagen_wordpress": staticmethod(lambda cfg, datos, nombre, **k: (subidas.append(nombre), {"ok": True, "url": "https://x/compuesta.jpg"})[1]),
+                                                                  "buscar_imagenes_banco": staticmethod(lambda *a, **k: [])})))
+    e = logueado.get("/frases/mail/estado").json()
+    assert e["modo"] == "simulado" and set(e["faltan"]) == {"PERFIT_API_KEY", "PERFIT_CUENTA", "PERFIT_TRIGGER_URL", "PERFIT_LISTA_FRASE"}
+    assert e["canal_prendido"] is False and e["inicio"] == "15:00" and D(0) in e["envios"] and "imagen_url" in e["contexto_plantilla"]
+    # sin lista de prueba → 400
+    assert logueado.post("/frases/mail/prueba", json={}).status_code == 400
+    # con mails en el pedido: en simulado registra y no dispara; guarda la lista en config
+    r = logueado.post("/frases/mail/prueba", json={"emails": ["uno@viviragradecidos.org", "dos@viviragradecidos.org"]})
+    assert r.status_code == 200, r.text
+    j = r.json()
+    assert j["ok"] and j["modo"] == "simulado" and len(j["resultados"]) == 2 and j["contexto"]["fecha"] == D(0)
+    assert j["contexto"]["imagen_url"] == "https://x/compuesta.jpg" and subidas and "prueba" in subidas[0]
+    assert disparos == [] and all(x["estado"] == "enviado" and x["prueba"] for x in envios)
+    assert logueado.get("/frases/mail/estado").json()["lista_prueba"] == ["uno@viviragradecidos.org", "dos@viviragradecidos.org"]
+    # día sin frase → 404; apagado → no manda
+    assert logueado.post("/frases/mail/prueba", json={"fecha": D(9)}).status_code == 404
+    monkeypatch.setenv("PUBLICAR_MAIL", "apagado")
+    assert logueado.post("/frases/mail/prueba", json={}).json()["ok"] is False

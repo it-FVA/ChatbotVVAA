@@ -244,7 +244,7 @@ export interface Config {
   valores: Record<string, ValorConfig>;
   explicaciones: Record<string, string>;
   avisos_precios: Record<string, string>;
-  defaults: { frase_hora: string; frase_pie: string; frase_canales: string[]; umbral: number };
+  defaults: { frase_hora: string; frase_pie: string; frase_canales: string[]; umbral: number; frase_mail_inicio?: string };
   frase_canales_posibles: Record<string, string>;
   modelos_vistos: string[];
   proveedores_umbral: string[];

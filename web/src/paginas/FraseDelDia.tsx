@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } fro
 import { Link, Navigate } from "react-router-dom";
 import { ErrorApi } from "../api";
 import { apiChat } from "../apiChat";
-import { apiFrases, type Backlog, type Dia, type Frase, type Mes, type Proxima, type Resumen } from "../apiFrases";
+import { apiFrases, type Backlog, type Dia, type Frase, type MailEstado, type Mes, type Proxima, type Resumen } from "../apiFrases";
 import { useSesion } from "../App";
 import type { FotoBanco } from "../tiposChat";
 import { Icono } from "../componentes/Iconos";
@@ -259,6 +259,8 @@ export default function FraseDelDia() {
           ))}
         </section>
       )}
+
+      {resumen && <MailPanel admin={resumen.admin} hoy={resumen.hoy} />}
 
       {deshacer && (
         <div className="aviso fd-deshacer" role="status">
@@ -990,5 +992,147 @@ function NuevaFrase({ onCerrar, onHecha }: { onCerrar: () => void; onHecha: () =
         </button>
       </div>
     </Modal>
+  );
+}
+
+
+/** (26/10, reunión: la Frase del día vuelve por mail con el disparador de Perfit) Estado del canal mail y la prueba al equipo.
+ * Lo ven aprobadores y admins; el botón de prueba es de admins. La hora de inicio y la lista de prueba se cargan en Configuración. */
+function MailPanel({ admin, hoy }: { admin: boolean; hoy?: string }) {
+  const { avisar } = useToast();
+  const [est, setEst] = useState<MailEstado | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [probando, setProbando] = useState(false);
+  const [ultima, setUltima] = useState<{ aviso: string; modo: string; resultados: { email: string; ok: boolean; aviso: string }[] } | null>(null);
+  const cargar = useCallback(() => {
+    apiFrases
+      .mailEstado()
+      .then((e) => {
+        setEst(e);
+        setError(null);
+      })
+      .catch((e) => setError(e instanceof ErrorApi ? e.message : "No pude leer el estado del mail."));
+  }, []);
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
+
+  async function probar() {
+    if (!est?.lista_prueba.length) {
+      avisar("Primero cargá los mails de prueba en Administración → Configuración → Frase del día.", "error");
+      return;
+    }
+    setProbando(true);
+    try {
+      const r = await apiFrases.mailPrueba(hoy);
+      setUltima({ aviso: r.aviso, modo: r.modo, resultados: r.resultados });
+      avisar(r.ok ? r.aviso : "No se mandó: " + r.aviso, r.ok ? "info" : "error");
+      cargar();
+    } catch (e) {
+      avisar(e instanceof ErrorApi ? e.message : "No pude mandar la prueba.", "error");
+    } finally {
+      setProbando(false);
+    }
+  }
+
+  const modoTxt = est ? { apagado: "apagado", simulado: "simulado (registra, no manda)", real: "real" }[est.modo] : "";
+  const dias = est ? Object.entries(est.envios) : [];
+  return (
+    <details className="fd-panel tarjeta" open={!!est && (est.canal_prendido || est.modo === "real")}>
+      <summary>
+        <Icono nombre="chevron" tam={16} />
+        <Icono nombre="sobre" tam={17} />
+        <span>
+          Frase por mail (Perfit)
+          {est && (
+            <span className="suave chico">
+              {" "}
+              · {est.canal_prendido ? "canal prendido" : "canal apagado"} · modo {modoTxt}
+              {est.faltan.length > 0 && ` · faltan ${est.faltan.length} variables`}
+            </span>
+          )}
+        </span>
+      </summary>
+      <div className="fd-panel-cuerpo fd-mail">
+        {error && (
+          <div className="aviso error chico">
+            <Icono nombre="alerta" tam={16} /> {error}
+          </div>
+        )}
+        {est && (
+          <>
+            <p className="suave chico">
+              Perfit manda hasta {est.limite_por_hora} mails por hora con su disparador personalizado, así que el envío arranca el día anterior a las {est.inicio} y se completa a la mañana. La automation de Perfit (clave <code>{est.trigger_key}</code>) arma el mail con: {est.contexto_plantilla.join(", ")}.
+            </p>
+            {est.faltan.length > 0 && (
+              <div className="aviso chico">
+                <Icono nombre="alerta" tam={16} /> Faltan variables en el servidor: {est.faltan.join(", ")}. Hasta que estén, el modo real no manda nada.
+              </div>
+            )}
+            {est.error && (
+              <div className="aviso error chico">
+                <Icono nombre="alerta" tam={16} /> Perfit: {est.error}
+              </div>
+            )}
+            {est.lista && (
+              <p className="chico">
+                Lista de Perfit: <strong>{est.lista.nombre}</strong> · {est.lista.activos ?? "?"} contactos activos de {est.lista.total ?? "?"}.
+              </p>
+            )}
+            <ul className="fd-mail-dias">
+              {dias.map(([fecha, d]) => (
+                <li key={fecha}>
+                  <strong>{d.fecha_texto}</strong>:{" "}
+                  {!d.frase ? (
+                    <span className="suave">sin frase asignada</span>
+                  ) : !d.pieza ? (
+                    <span className="suave">«{recortar(d.frase.texto, 60)}» · {est.canal_prendido ? "todavía no está en la cola" : "el canal mail está apagado"}</span>
+                  ) : (
+                    <span>
+                      «{recortar(d.frase.texto, 60)}» · {d.estado}
+                      {d.conteo && d.conteo.total ? ` · ${d.conteo.enviado ?? 0} enviados, ${d.conteo.pendiente ?? 0} pendientes, ${d.conteo.error ?? 0} con error` : ""}
+                      {d.arranca && d.estado === "pendiente" ? ` · arranca ${fechaCorta(d.arranca.slice(0, 10))} ${d.arranca.slice(11, 16)}` : ""}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <div className="fd-mail-prueba">
+              <span className="chico">
+                Mails de prueba: {est.lista_prueba.length ? est.lista_prueba.join(", ") : <span className="suave">ninguno cargado todavía</span>}
+                {admin && (
+                  <>
+                    {" "}
+                    · <Link to="/administracion/configuracion">cambiar</Link>
+                  </>
+                )}
+              </span>
+              {admin && (
+                <button type="button" className="boton chico" onClick={probar} disabled={probando || est.modo === "apagado"} title={est.modo === "apagado" ? "PUBLICAR_MAIL está apagado" : "Manda la frase de hoy a los mails de prueba, ahora"}>
+                  <Icono nombre="sobre" tam={15} /> {probando ? "Mandando…" : "Probar el mail de hoy"}
+                </button>
+              )}
+            </div>
+            {ultima && (
+              <div className="chico">
+                <strong>{ultima.aviso}</strong>
+                <ul className="fd-mail-resultados">
+                  {ultima.resultados.map((r) => (
+                    <li key={r.email} className={r.ok ? "" : "rojo"}>
+                      {r.email}: {r.aviso}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {est.pruebas.length > 0 && (
+              <p className="suave chico">
+                Últimas pruebas: {est.pruebas.slice(0, 5).map((p) => `${p.email} (${p.estado}${p.enviado_en ? ", " + fechaCorta(p.enviado_en.slice(0, 10)) : ""})`).join(" · ")}
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    </details>
   );
 }

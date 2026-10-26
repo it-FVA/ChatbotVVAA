@@ -84,6 +84,11 @@ def main():
                 res = publicar.publicar_instagram(cfg, imagen or "", texto, quien="cola", historia=historia)
             elif canal == "facebook":
                 res = publicar.publicar_facebook(cfg, imagen, texto, quien="cola")
+            elif canal == "mail":
+                # (26/10) Frase del día por mail: arma la lista de destinatarios y la pieza queda 'enviando'; las tandas
+                # las manda frase_mail.avanzar al final de cada pasada (200 por hora, límite de Perfit)
+                import frase_mail, perfit
+                res = frase_mail.iniciar(p, db, perfit)
             elif canal == "wordpress":
                 # (13/10) piezas aprobadas: la imagen ya está en la biblioteca; va como destacada
                 # (16/10) con video_url, el recorte va al principio de la entrada
@@ -94,7 +99,9 @@ def main():
         except Exception as e:
             res = {"ok": False, "aviso": f"excepción: {e}"}
         modo = res.get("modo") or r.get(canal, "")
-        if res.get("ok") and modo == "real":
+        if res.get("ok") and res.get("estado_cola") == "enviando":
+            estado = "enviando"           # mail: sigue en tandas; cierra frase_mail.avanzar
+        elif res.get("ok") and modo == "real":
             estado = "publicada"
         elif res.get("ok"):
             estado = "simulada"
@@ -105,7 +112,7 @@ def main():
         campos = {"estado": estado, "intentos": intentos,
                   "resultado": dict((p.get("resultado") or {}), ultimo=res if isinstance(res, dict) else str(res),
                                     modo_al_procesar=modo)}
-        if estado != "pendiente":
+        if estado not in ("pendiente", "enviando"):
             campos["procesado_en"] = ahora.isoformat()
         try:
             db.actualizar_publicacion(pid, campos)
@@ -117,6 +124,13 @@ def main():
         programar_frases.main(["--simular"] if "--simular" in sys.argv else [])
     except Exception as e:
         print(f"frase del día: no pude programar: {e}")
+    try:   # (26/10) Frase del día por mail: la siguiente tanda de las piezas 'mail' en envío (50 por pasada = 200 por hora)
+        import frase_mail, perfit
+        for x in frase_mail.avanzar(db, perfit):
+            print(f"frase por mail: {x['id']} → {x['enviados']} enviados, {x['errores']} errores, quedan {x['quedan']}"
+                  + (" · Perfit pidió esperar (429)" if x["limite"] else "") + f" · {x['estado']}")
+    except Exception as e:
+        print(f"frase por mail: no pude avanzar: {e}")
     return 0
 
 

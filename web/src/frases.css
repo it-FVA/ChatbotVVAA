@@ -472,3 +472,24 @@
     justify-content: center;
   }
 }
+
+/* (26/10) Frase por mail (Perfit) */
+.fd-mail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fd-mail-dias {
+  margin: 0;
+  padding-left: 18px;
+}
+.fd-mail-prueba {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.fd-mail-resultados {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}

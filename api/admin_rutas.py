@@ -39,7 +39,9 @@ QUE_TEXTO = {"chat": "chat (respuestas con herramientas)", "auxiliar": "auxiliar
 try:
     import programar_frases as _pf
     FRASE_HORA_DEFECTO, FRASE_CANALES, FRASE_PIE_DEFECTO = _pf.HORA_DEFECTO, dict(_pf.CANALES_POSIBLES), _pf.PIE_DEFECTO
+    FRASE_MAIL_INICIO = _pf.MAIL_INICIO_DEFECTO
 except Exception:                                            # pragma: no cover
+    FRASE_MAIL_INICIO = "15:00"
     FRASE_HORA_DEFECTO = "07:00"
     FRASE_CANALES = {"instagram": "Instagram (posteo cuadrado)", "facebook": "Facebook (foto con texto)"}
     FRASE_PIE_DEFECTO = "#FraseDelDía #VivirAgradecidos #Gratitud"
@@ -55,6 +57,8 @@ CLAVES_CONFIG = {
     "frase_canales": "Canales por los que sale la frase cada día (una pieza por canal).",
     "frase_imagen": "URL de la foto de fondo por defecto, para los días sin foto elegida. Sin foto, ese día no se encola.",
     "frase_pie": "Texto que va al final del posteo, después de la frase y el autor (hashtags).",
+    "frase_mail_inicio": "Hora (Argentina) del día ANTERIOR en que arranca el envío por mail: Perfit manda 200 por hora, a la lista de 3.140 le lleva ~16 h. A las 15:00, a las 7:00 están todos.",
+    "frase_mail_prueba": "Mails del equipo para las pruebas (10 a 15). Son los que reciben el envío en modo simulado y el botón «Probar el mail» de la Frase del día.",
     "clips_estilo": "Estilo por defecto de los subtítulos de los recortes verticales nuevos (se edita con los controles del editor).",
 }
 AVISOS_PRECIOS = {"gpt-5.6-sol": "Precio promocional vigente al menos hasta el 21/11/2026 (según la fuente cargada el 21/10): revisarlo después de esa fecha."}
@@ -503,7 +507,8 @@ def leer_config(quien=Depends(_admin)):
         except Exception:
             modelos_vistos = []
     return {"valores": valores, "explicaciones": CLAVES_CONFIG, "avisos_precios": AVISOS_PRECIOS,
-            "defaults": {"frase_hora": FRASE_HORA_DEFECTO, "frase_pie": FRASE_PIE_DEFECTO, "frase_canales": ["instagram"], "umbral": 70},
+            "defaults": {"frase_hora": FRASE_HORA_DEFECTO, "frase_pie": FRASE_PIE_DEFECTO, "frase_canales": ["instagram"], "umbral": 70,
+                         "frase_mail_inicio": FRASE_MAIL_INICIO},
             "frase_canales_posibles": FRASE_CANALES, "modelos_vistos": modelos_vistos,
             "proveedores_umbral": ["default", "supabase", "render", "vercel", "openai"]}
 
@@ -590,6 +595,27 @@ def _validar(clave, v):
         if s and not re.match(r"^https?://", s):
             raise HTTPException(400, "La foto tiene que ser una URL (https://…).")
         return s or None
+    if clave == "frase_mail_inicio":
+        if not isinstance(v, str) or not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", v.strip()):
+            raise HTTPException(400, "La hora de inicio del mail tiene que ser HH:MM (Argentina).")
+        return v.strip()
+    if clave == "frase_mail_prueba":
+        if isinstance(v, str):
+            v = re.split(r"[\s,;]+", v)
+        if not isinstance(v, list):
+            raise HTTPException(400, "La lista de prueba tiene que ser una lista de mails.")
+        mails = []
+        for m in v:
+            m = (m or "").strip().lower()
+            if not m:
+                continue
+            if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", m):
+                raise HTTPException(400, f"«{m}» no parece un mail.")
+            if m not in mails:
+                mails.append(m)
+        if len(mails) > 30:
+            raise HTTPException(400, "La lista de prueba es para el equipo: hasta 30 mails.")
+        return mails
     if clave == "frase_pie":
         if not isinstance(v, str):
             raise HTTPException(400, "El pie tiene que ser texto.")

@@ -21,8 +21,10 @@ Rutas:
   POST  /frases/repartir               {modo: orden|azar, desde}: = «Repartir en el año»
   POST  /frases/vaciar                 {confirmo: true}: saca del calendario las que no salieron ni están en la cola
   PUT   /frases/activa                 {activa}: el interruptor (solo admins)
+  GET   /frases/mail/estado            (26/10) el canal mail por Perfit: modo, qué falta, la lista, el envío de hoy/mañana y las últimas pruebas
+  POST  /frases/mail/prueba            (admins) {fecha?, emails?}: manda la frase de ese día (hoy) a esos mails ahora, con el custom trigger
 """
-import calendar, datetime, logging, re
+import calendar, datetime, logging, os, re
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -71,6 +73,11 @@ class Reparto(BaseModel):
 
 class Vaciar(BaseModel):
     confirmo: bool = False
+
+
+class PruebaMail(BaseModel):
+    fecha: Optional[str] = None
+    emails: Optional[list[str]] = None     # si no vienen, la lista de prueba de config (frase_mail_prueba)
 
 
 class Activa(BaseModel):
@@ -381,3 +388,80 @@ def activa(datos: Activa, usuario=Depends(auth.admin)):
     _con_db()
     db.guardar_config("frase_activa", bool(datos.activa), usuario)
     return {"ok": True, "activa": bool(datos.activa), "mensaje": "Frase del día " + ("activada: cada mañana sale la frase de ese día." if datos.activa else "apagada: el calendario se arma igual pero no sale nada.")}
+
+
+# ---------------- (26/10) Frase del día por mail, con el custom trigger de Perfit ----------------
+def _imagen_publica_para(f, fecha, cfg, publicar):
+    """La URL pública de la imagen compuesta de esa frase: la de la pieza en cola si existe; si no, la compone y la sube a WordPress
+    (en WordPress simulado/apagado, va la foto de fondo sola, igual que hace la cola)."""
+    piezas = f.get("piezas") or {}
+    for canal in ("mail", "instagram", "facebook", "historia"):
+        pid = piezas.get(canal)
+        if pid:
+            p = db.obtener_publicacion(pid)
+            if p and p.get("imagen_url"):
+                return p["imagen_url"], f"la pieza {canal} en cola"
+    foto, de_donde = pf.foto_de_fondo(f, cfg, db, publicar)
+    if not foto:
+        raise HTTPException(409, "Sin foto para la frase: elegí una o cargá una por defecto en Configuración.")
+    try:
+        jpg = pf.componer(f, foto, db.obtener_config("frase_estilo") or {})
+    except Exception as e:
+        raise HTTPException(502, f"No pude componer la imagen: {e}")
+    r = publicar.subir_imagen_wordpress(cfg, jpg, f"frase-del-dia-{str(fecha)[:10]}-prueba.jpg", titulo=f"Frase del día {str(fecha)[:10]} (prueba de mail)",
+                                        etiquetas=["frase-del-dia", "pieza-compuesta", "prueba"], quien="prueba-mail", pieza=(f.get("texto") or "")[:60])
+    if r.get("url"):
+        return r["url"], "compuesta y subida a WordPress para la prueba"
+    return foto, "la foto de fondo sola (WordPress en modo " + str(r.get("modo")) + ")"
+
+
+@router.get("/mail/estado")
+def mail_estado(usuario=Depends(auth.aprobador)):
+    """Cómo está el canal mail: modo, qué secretos faltan, la lista de Perfit, el envío de hoy y mañana (tandas) y las últimas pruebas."""
+    _con_db()
+    import perfit
+    est = perfit.probar_conexion()
+    hoy = _hoy()
+    man = hoy + datetime.timedelta(days=1)
+    envios = {}
+    for d in (hoy, man):
+        f = db.frase_del_dia(d.isoformat())
+        pid = ((f or {}).get("piezas") or {}).get("mail")
+        p = db.obtener_publicacion(pid) if pid else None
+        envios[d.isoformat()] = {"fecha_texto": _fecha_txt(d), "frase": _publica(f) if f else None, "pieza": pid,
+                                 "estado": (p or {}).get("estado"), "arranca": (p or {}).get("fecha_programada"),
+                                 "conteo": db.resumen_envios(pid) if pid else None}
+    canales = db.obtener_config("frase_canales") or pf.CANALES_DEFECTO
+    pruebas = db.ultimos_envios(limite=30, prueba=True)
+    return {"modo": est["modo"], "faltan": est["faltan"], "lista": est["lista"], "error": est["error"],
+            "canal_prendido": "mail" in canales, "inicio": db.obtener_config("frase_mail_inicio", pf.MAIL_INICIO_DEFECTO) or pf.MAIL_INICIO_DEFECTO,
+            "lista_prueba": db.obtener_config("frase_mail_prueba") or [], "trigger_key": os.environ.get("PERFIT_TRIGGER_KEY") or "frase_del_dia",
+            "limite_por_hora": perfit.LIMITE_POR_HORA, "envios": envios, "pruebas": pruebas,
+            "contexto_plantilla": ["frase", "autor", "imagen_url", "fecha", "fecha_texto", "pie", "link"]}
+
+
+@router.post("/mail/prueba")
+def mail_prueba(datos: PruebaMail, request: Request, quien=Depends(auth.admin)):
+    """Manda la frase del día (o de `fecha`) a los mails de prueba, ya mismo. En modo simulado registra pero no manda."""
+    _con_db()
+    import perfit, frase_mail
+    fecha = (datos.fecha or _hoy().isoformat())[:10]
+    try:
+        datetime.date.fromisoformat(fecha)
+    except ValueError:
+        raise HTTPException(400, "La fecha tiene que ser AAAA-MM-DD.")
+    f = db.frase_del_dia(fecha)
+    if not f:
+        raise HTTPException(404, f"El {fecha} no tiene frase asignada.")
+    emails = datos.emails if datos.emails else (db.obtener_config("frase_mail_prueba") or [])
+    emails = [e.strip().lower() for e in emails if isinstance(e, str) and "@" in e]
+    if not emails:
+        raise HTTPException(400, "No hay mails de prueba: cargalos en Administración → Configuración → Frase del día, o mandalos en el pedido.")
+    cfg, publicar = _cfg()
+    imagen_url, de_donde = _imagen_publica_para(f, fecha, cfg, publicar)
+    r = frase_mail.enviar_prueba(f, fecha, imagen_url, emails, db, perfit, pie=db.obtener_config("frase_pie"))
+    r["imagen_de"] = de_donde
+    r["quien"] = quien
+    if datos.emails:
+        db.guardar_config("frase_mail_prueba", emails, quien)
+    return r

@@ -63,6 +63,29 @@ export interface Dia {
   cola: { estado: string; fecha_programada: string | null; permalink: string | null } | null;
   foto: { url: string | null; de_donde: string } | null;
 }
+/** (26/10) El canal mail por Perfit: GET /frases/mail/estado. */
+export interface MailEstado {
+  modo: "apagado" | "simulado" | "real";
+  faltan: string[];
+  lista: { id: number; nombre: string; activos: number | null; total: number | null } | null;
+  error: string | null;
+  canal_prendido: boolean;
+  inicio: string;
+  lista_prueba: string[];
+  trigger_key: string;
+  limite_por_hora: number;
+  envios: Record<string, { fecha_texto: string; frase: Frase | null; pieza: string | null; estado: string | null; arranca: string | null; conteo: { pendiente?: number; enviado?: number; error?: number; total?: number } | null }>;
+  pruebas: { id: string; fecha: string; email: string; estado: string; enviado_en: string | null; error: string | null; creado: string }[];
+  contexto_plantilla: string[];
+}
+export interface MailPrueba {
+  ok: boolean;
+  modo: string;
+  aviso: string;
+  imagen_de?: string;
+  contexto?: Record<string, string>;
+  resultados: { email: string; ok: boolean; aviso: string }[];
+}
 export interface RespuestaFrase {
   ok: boolean;
   frase: Frase;
@@ -100,4 +123,6 @@ export const apiFrases = {
   repartir: (modo: "orden" | "azar", desde: string) => pedir<{ ok: boolean; cantidad: number; desde: string; hasta: string; mensaje: string }>("/frases/repartir", { method: "POST", body: JSON.stringify({ modo, desde }) }),
   vaciar: () => pedir<{ ok: boolean; cantidad: number; mensaje: string }>("/frases/vaciar", { method: "POST", body: JSON.stringify({ confirmo: true }) }),
   activa: (activa: boolean) => pedir<{ ok: boolean; activa: boolean; mensaje: string }>("/frases/activa", { method: "PUT", body: JSON.stringify({ activa }) }),
+  mailEstado: () => pedir<MailEstado>("/frases/mail/estado"),
+  mailPrueba: (fecha?: string, emails?: string[]) => pedir<MailPrueba>("/frases/mail/prueba", { method: "POST", body: JSON.stringify({ fecha, emails }) }),
 };

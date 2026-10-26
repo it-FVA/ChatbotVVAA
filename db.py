@@ -899,3 +899,71 @@ def clips_pedidos_antes(creado_antes_iso):
     if not disponible():
         return []
     return _req("GET", f"?estado=eq.pedido&creado=lt.{urllib.parse.quote(creado_antes_iso)}&select=id,creado,video_id,titulo,pedido_por,formato&order=creado.asc&limit=50", tabla="clips") or []
+
+
+# ---------------- Frase del día por mail (26/10): tabla frase_envios ----------------
+# Un renglón por destinatario y por día. La pieza 'mail' de publicaciones (estado 'enviando') agrupa el envío del día;
+# publicacion_id null + prueba=true = prueba suelta del equipo. Lo escribe frase_mail.py.
+def publicaciones_por_estado(estado, canal=None, limite=20):
+    if not disponible():
+        return []
+    q = f"?estado=eq.{urllib.parse.quote(estado)}&select=id,creado,usuario,canal,modo,titulo,texto,imagen_url,fecha_programada,intentos,resultado&order=fecha_programada.asc&limit={limite}"
+    if canal:
+        q += f"&canal=eq.{urllib.parse.quote(canal)}"
+    return _req("GET", q, tabla="publicaciones") or []
+
+
+def crear_envios_frase(publicacion_id, fecha, emails, prueba=False):
+    """Deja un renglón 'pendiente' por mail (de a 500). Devuelve [{id, email}]."""
+    if not disponible() or not emails:
+        return []
+    out = []
+    for i in range(0, len(emails), 500):
+        filas = [{"publicacion_id": publicacion_id, "fecha": str(fecha)[:10], "email": e, "estado": "pendiente", "prueba": bool(prueba)}
+                 for e in emails[i:i + 500]]
+        r = _req("POST", "?select=id,email", filas, tabla="frase_envios") or []
+        out.extend({"id": x["id"], "email": x["email"]} for x in r)
+    return out
+
+
+def envios_pendientes(publicacion_id, limite=50):
+    if not disponible():
+        return []
+    return _req("GET", f"?publicacion_id=eq.{urllib.parse.quote(str(publicacion_id))}&estado=eq.pendiente&select=id,email&order=creado.asc&limit={int(limite)}",
+                tabla="frase_envios") or []
+
+
+def actualizar_envio(eid, campos):
+    if not disponible():
+        return None
+    return _req("PATCH", f"?id=eq.{urllib.parse.quote(str(eid))}", campos, tabla="frase_envios")
+
+
+def resumen_envios(publicacion_id=None, fecha=None, prueba=None):
+    """{pendiente: n, enviado: n, error: n, total: n} de una pieza (o de una fecha)."""
+    if not disponible():
+        return {}
+    q = "?select=estado&limit=20000"
+    if publicacion_id:
+        q += f"&publicacion_id=eq.{urllib.parse.quote(str(publicacion_id))}"
+    if fecha:
+        q += f"&fecha=eq.{str(fecha)[:10]}"
+    if prueba is not None:
+        q += f"&prueba=is.{'true' if prueba else 'false'}"
+    filas = _req("GET", q, tabla="frase_envios") or []
+    out = {"pendiente": 0, "enviado": 0, "error": 0}
+    for f in filas:
+        out[f.get("estado") or "pendiente"] = out.get(f.get("estado") or "pendiente", 0) + 1
+    out["total"] = len(filas)
+    return out
+
+
+def ultimos_envios(fecha=None, limite=50, prueba=None):
+    if not disponible():
+        return []
+    q = f"?select=id,publicacion_id,fecha,email,estado,prueba,enviado_en,error,creado&order=creado.desc&limit={int(limite)}"
+    if fecha:
+        q += f"&fecha=eq.{str(fecha)[:10]}"
+    if prueba is not None:
+        q += f"&prueba=is.{'true' if prueba else 'false'}"
+    return _req("GET", q, tabla="frase_envios") or []

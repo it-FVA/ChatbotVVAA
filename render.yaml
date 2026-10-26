@@ -93,3 +93,14 @@ services:
         sync: false
       - key: USUARIOS_JSON
         sync: false
+      # (26/10) Frase del día por mail con Perfit (perfit.py): los secretos los pega Franco; el modo arranca en simulado
+      - key: PUBLICAR_MAIL
+        value: simulado
+      - key: PERFIT_API_KEY
+        sync: false
+      - key: PERFIT_CUENTA
+        sync: false
+      - key: PERFIT_TRIGGER_URL
+        sync: false
+      - key: PERFIT_LISTA_FRASE
+        sync: false

@@ -36,4 +36,10 @@ jobs:
           META_FB_PAGE_TOKEN: ${{ secrets.META_FB_PAGE_TOKEN }}
           PUBLICAR_YOUTUBE: ${{ secrets.PUBLICAR_YOUTUBE }}
           YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
+          # (26/10) Frase del día por mail (perfit.py / frase_mail.py): secretos de Perfit; PUBLICAR_MAIL = apagado | simulado | real
+          PUBLICAR_MAIL: ${{ secrets.PUBLICAR_MAIL }}
+          PERFIT_API_KEY: ${{ secrets.PERFIT_API_KEY }}
+          PERFIT_CUENTA: ${{ secrets.PERFIT_CUENTA }}
+          PERFIT_TRIGGER_URL: ${{ secrets.PERFIT_TRIGGER_URL }}
+          PERFIT_LISTA_FRASE: ${{ secrets.PERFIT_LISTA_FRASE }}
         run: python procesar_cola.py
