@@ -193,7 +193,7 @@ def test_mail_estado_y_prueba(logueado, tabla, monkeypatch):
     r = logueado.post("/frases/mail/prueba", json={"emails": ["uno@viviragradecidos.org", "dos@viviragradecidos.org"]})
     assert r.status_code == 200, r.text
     j = r.json()
-    assert j["ok"] and j["modo"] == "simulado" and len(j["resultados"]) == 2 and j["contexto"]["fecha"] == D(0)
+    assert j["ok"] and j["modo"] == "simulado" and len(j["resultados"]) == 2 and j["contexto"]["fecha_iso"] == D(0)
     assert j["contexto"]["imagen_url"] == "https://x/compuesta.jpg" and subidas and "prueba" in subidas[0]
     assert disparos == [] and all(x["estado"] == "enviado" and x["prueba"] for x in envios)
     assert logueado.get("/frases/mail/estado").json()["lista_prueba"] == ["uno@viviragradecidos.org", "dos@viviragradecidos.org"]

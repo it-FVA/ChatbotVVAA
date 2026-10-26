@@ -12,7 +12,7 @@ Variables (todas secretas salvo el modo; se cargan en Render, en los secrets de 
   PERFIT_API_KEY       API key de la cuenta (Perfit → Perfil → API key); va como «Authorization: Bearer …»
   PERFIT_CUENTA        nombre de la cuenta en Perfit (el «micuenta» de https://api.myperfit.com/v2/micuenta/…)
   PERFIT_TRIGGER_URL   la URL que da Perfit al activar Integraciones → Custom Triggers (lleva los ids adentro)
-  PERFIT_TRIGGER_KEY   clave del evento (por defecto frase_del_dia); la automation de Perfit se ata a esta clave
+  PERFIT_TRIGGER_KEY   clave del evento (por defecto frase_del_dia_corpus: la del Automation que ya existe desde agosto)
   PERFIT_LISTA_FRASE   id (número) o nombre exacto de la lista de la Frase del día en Perfit
 Fuente: developers.myperfit.com (Contacts API, Custom Triggers) y perfitapiv2.docs.apiary.io, leídos el 26/10/2026.
 """
@@ -25,7 +25,7 @@ import urllib.request
 
 API = "https://api.myperfit.com/v2"
 MODOS = ("apagado", "simulado", "real")
-TRIGGER_KEY_DEFECTO = "frase_del_dia"
+TRIGGER_KEY_DEFECTO = "frase_del_dia_corpus"   # la clave del Automation que ya existe en Perfit (distribucion/, agosto)
 LIMITE_POR_HORA = 200            # documentado por Perfit (26/10/2026)
 PAGINA = 500                     # contactos por pedido al listar (la API pagina con offset/limit)
 

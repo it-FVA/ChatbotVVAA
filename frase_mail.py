@@ -29,16 +29,21 @@ DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "doming
 MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
 
 
-def fecha_texto(fecha):
+def fecha_texto(fecha, con_anio=False):
     d = datetime.date.fromisoformat(str(fecha)[:10])
-    return f"{DIAS[d.weekday()]} {d.day} de {MESES[d.month - 1]}"
+    return f"{DIAS[d.weekday()]} {d.day} de {MESES[d.month - 1]}" + (f" de {d.year}" if con_anio else "")
 
 
 def contexto_de(frase, fecha, imagen_url, pie=None, link=None):
-    """Lo que viaja en el evento del trigger y usa la plantilla del mail en Perfit."""
-    return {"frase": (frase.get("texto") or "").strip(), "autor": (frase.get("autor") or "").strip(),
-            "imagen_url": imagen_url or "", "fecha": str(fecha)[:10], "fecha_texto": fecha_texto(fecha),
-            "pie": pie or "", "link": link or os.environ.get("DOMINIO_WEB") or "https://viviragradecidos.org"}
+    """Lo que viaja en el evento del trigger y usa la plantilla del mail en Perfit. Mantiene los nombres que ya usa el
+    Automation de agosto (distribucion/newsletter/plantilla-myperfit.html: ${frase} ${autor} ${fuente} ${url} ${fecha}, con
+    la fecha larga) y suma imagen_url, fecha_iso, fecha_texto, pie y link."""
+    sitio = link or os.environ.get("DOMINIO_WEB") or "https://viviragradecidos.org"
+    return {"frase": (frase.get("texto") or "").strip(), "autor": (frase.get("autor") or "").strip() or "Br. David",
+            "fuente": (frase.get("fuente") or "").strip() if isinstance(frase.get("fuente"), str) else "",
+            "url": sitio, "link": sitio, "imagen_url": imagen_url or "",
+            "fecha": fecha_texto(fecha, con_anio=True), "fecha_iso": str(fecha)[:10], "fecha_texto": fecha_texto(fecha),
+            "pie": pie or ""}
 
 
 def _emails_prueba(db):
