@@ -522,7 +522,21 @@ def salud():
             "google_client_id": os.environ.get("GOOGLE_CLIENT_ID", "").strip() or None,   # lo usa el botón de la web; no es secreto
             "dominio_fva": config.dominio_fva(),
             "version": VERSION, "arranque": _iso(dt.datetime.fromtimestamp(ARRANQUE, dt.timezone.utc)),
-            "vectores": os.environ.get("VECTORES", "local").strip().lower() or "local"}
+            "vectores": os.environ.get("VECTORES", "local").strip().lower() or "local",
+            "mail": _mail_publico()}
+
+
+def _mail_publico():
+    """(26/10) Frase del día por mail: solo lo no sensible, para comprobar desde afuera que las variables de Perfit quedaron
+    bien cargadas (modo, qué falta, si la API de Perfit responde y la lista existe). Nunca devuelve claves ni URLs."""
+    try:
+        import perfit
+        est = perfit.probar_conexion()
+        return {"modo": est["modo"], "faltan": est["faltan"],
+                "api_perfit": ("ok" if est["lista"] else ("error" if est["error"] else "sin_probar")),
+                "lista": (est["lista"] or {}).get("nombre"), "activos": (est["lista"] or {}).get("activos")}
+    except Exception as e:   # pragma: no cover
+        return {"modo": "?", "error": str(e)[:80]}
 
 
 @router.get("/salud/servicios")
