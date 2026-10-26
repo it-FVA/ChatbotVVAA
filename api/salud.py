@@ -533,7 +533,8 @@ def _mail_publico():
         import perfit
         est = perfit.probar_conexion()
         return {"modo": est["modo"], "faltan": est["faltan"],
-                "api_perfit": ("ok" if est["lista"] else ("error" if est["error"] else "sin_probar")),
+                "api_perfit": ("ok" if est.get("api_ok") else ("error" if est["error"] else "sin_probar")),
+                "listas_en_perfit": est.get("listas"), "error": (est["error"] or "")[:120] or None,
                 "lista": (est["lista"] or {}).get("nombre"), "activos": (est["lista"] or {}).get("activos")}
     except Exception as e:   # pragma: no cover
         return {"modo": "?", "error": str(e)[:80]}

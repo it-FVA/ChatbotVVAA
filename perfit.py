@@ -142,10 +142,14 @@ def disparar(email, contexto, fuente=None, trigger_key=None, timeout=30):
 def probar_conexion(fuente=None):
     """Para Salud y para la pantalla: qué está cargado y si la API responde. No manda nada."""
     f = fuente if fuente is not None else os.environ
-    out = {"modo": modo(f), "faltan": configurado(f), "lista": None, "error": None}
+    out = {"modo": modo(f), "faltan": configurado(f), "lista": None, "error": None, "api_ok": False, "listas": None}
     if "PERFIT_API_KEY" in out["faltan"] or "PERFIT_CUENTA" in out["faltan"]:
         return out
     try:
+        # primero, ¿la API key sirve? (un pedido chico, aunque todavía no haya lista elegida)
+        r = _req("GET", "/lists?limit=1", fuente=f)
+        out["api_ok"] = bool(r.get("success", True))
+        out["listas"] = int((r.get("paging") or {}).get("total") or 0)
         l = lista_frase(f)
         if l:
             out["lista"] = {"id": l.get("id"), "nombre": l.get("name"), "activos": l.get("activeContacts"), "total": l.get("totalContacts")}
