@@ -339,7 +339,7 @@ function FraseDelDia({ cfg, onGuardado }: { cfg: Config; onGuardado: () => void 
     <Bloque
       titulo="Frase del día"
       icono="megafono"
-      explicacion="Cada día la cola encola la frase asignada en el calendario como posteo (una pieza por canal) a la hora elegida, con la foto de fondo de ese día o la foto por defecto. Las frases y el calendario siguen en el Panel admin de Streamlit."
+      explicacion="Cada día la cola encola la frase asignada en el calendario como posteo (una pieza por canal) a la hora elegida, con la foto de fondo de ese día o la foto por defecto. Las frases y el calendario están en Campañas → Frase del día."
       meta={meta}
       acciones={
         <button className="boton primario" type="button" onClick={() => guardar({ frase_activa: activa, frase_hora: hora, frase_canales: canales, frase_imagen: foto, frase_pie: pie, frase_mail_inicio: mailInicio, frase_mail_prueba: mailPrueba }, "Frase del día guardada.")} disabled={guardando}>

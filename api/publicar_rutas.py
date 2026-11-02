@@ -279,7 +279,7 @@ def _validar(p: PiezaCompleta, simulado=False):
     if canal in ("wordpress", "youtube") and not (p.titulo or "").strip():
         raise HTTPException(400, f"En {CANAL_TXT[canal]} hace falta un título.")
     if canal == "youtube" and not (p.video_url or "").strip() and not simulado:
-        raise HTTPException(400, "En YouTube hace falta el video: publicá un recorte (desde «Mis recortes» → Publicar). Subir un archivo de video sigue en Publicar de Streamlit.")
+        raise HTTPException(400, "En YouTube hace falta el video: publicá un recorte (desde «Mis recortes» → Publicar). Subir un archivo de video propio todavía no se puede desde la web.")
     return canal
 
 

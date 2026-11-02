@@ -1,7 +1,6 @@
 // Aprobación (22/10, fase 3) = publicar_ui.panel_aprobacion, sección aparte para aprobadores: Para aprobar (vista previa completa,
 // aprobar con fecha y hora editables, rechazar con nota), En cola (cancelar), Registro, Papelera de conversaciones (restaurar) y
 // Clips de todo el equipo (la pantalla de recortes con la solapa «Todos» fija; los admins además fijan el estilo por defecto).
-// Frase del día y Dashboard siguen en el Panel admin de Streamlit (fase siguiente).
 import { useCallback, useEffect, useState } from "react";
 import { NavLink, Navigate, Outlet, useOutletContext } from "react-router-dom";
 import { api, ErrorApi } from "../api";

@@ -431,7 +431,7 @@ function Formulario({ inicial, op, origen, avisoInicial, avisar }: { inicial: Pi
                   <div className="aviso">
                     <Icono nombre="info" tam={16} />
                     <span>
-                      En YouTube se publica un recorte: abrí <Link to="/recortes">Mis recortes</Link> y tocá «Publicar» en uno que esté listo. Subir un archivo de video sigue en Publicar de Streamlit.
+                      En YouTube se publica un recorte: abrí <Link to="/recortes">Mis recortes</Link> y tocá «Publicar» en uno que esté listo. Subir un archivo de video propio todavía no se puede desde acá.
                     </span>
                   </div>
                 ) : (

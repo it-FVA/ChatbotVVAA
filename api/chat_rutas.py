@@ -111,7 +111,7 @@ def _fecha_iso(p: Pieza):
 def _validar_pieza(p: Pieza):
     canal = (p.canal or "").strip().lower()
     if canal not in CANALES:
-        raise HTTPException(400, "Elegí el canal (WordPress, Instagram, Facebook o YouTube). El newsletter se arma en su editor, en Streamlit.")
+        raise HTTPException(400, "Elegí el canal (WordPress, Instagram, Facebook o YouTube). El newsletter se arma en su editor: Campañas → Newsletter.")
     if not (p.texto or "").strip():
         raise HTTPException(400, "Falta el texto de la pieza.")
     if canal in ("wordpress", "youtube") and not (p.titulo or "").strip():
@@ -317,7 +317,7 @@ def enviar_a_aprobacion(p: Pieza, s=Depends(auth.sesion)):
     r = modos()
     if not _puede_proponer(canal, r):
         if canal == "youtube":
-            raise HTTPException(400, "YouTube no pasa por aprobación: el video se publica desde Publicar en Streamlit (fase 3 en la web).")
+            raise HTTPException(400, "YouTube no pasa por aprobación: el recorte lo publica quien aprueba desde Mis recortes → Publicar.")
         raise HTTPException(400, f"{CANALES[canal]} está en modo {r.get(canal, 'apagado')}: no hay a dónde mandar la pieza cuando la aprueben. Guardala como borrador.")
     fecha_iso = _fecha_iso(p)
     texto = p.texto if canal == "wordpress" else _texto_plano(p.texto)
