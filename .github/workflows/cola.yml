@@ -25,7 +25,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           PUBLICAR_WORDPRESS: ${{ secrets.PUBLICAR_WORDPRESS }}
-          PUBLICAR_HOME: "borrador"   # (2/11) la frase del día en la home del sitio: borrador | real (decisión de Franco)
+          PUBLICAR_HOME: "real"   # (2/11) la frase del día en la home del sitio: borrador | real (Franco, 2/11: real)
           PUBLICAR_INSTAGRAM: ${{ secrets.PUBLICAR_INSTAGRAM }}
           PUBLICAR_FACEBOOK: ${{ secrets.PUBLICAR_FACEBOOK }}
           WP_SITE: ${{ secrets.WP_SITE }}

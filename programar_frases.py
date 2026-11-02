@@ -104,21 +104,27 @@ def encolar_frase(frase, fecha, cfg, db, publicar, hora=None, quien=USUARIO, can
     hora = hora or db.obtener_config("frase_hora", HORA_DEFECTO) or HORA_DEFECTO
     canales = [c for c in (canales or db.obtener_config("frase_canales") or CANALES_DEFECTO) if c in CANALES_POSIBLES] or CANALES_DEFECTO
     fecha_iso = f"{fecha.isoformat()}T{hora}:00-03:00"
-    foto, de_donde = foto_de_fondo(frase, cfg, db, publicar)
-    if not foto:
-        return {}, de_donde
+    # (2/11) la home del sitio lleva solo texto y autor: si es el único canal, no se compone ni se sube ninguna imagen
+    solo_texto = all(c == "home" for c in canales)
+    if solo_texto:
+        foto, de_donde, imagen_url, res_img = None, "sin imagen (solo la home)", None, {}
+    else:
+        foto, de_donde = foto_de_fondo(frase, cfg, db, publicar)
+        if not foto:
+            return {}, de_donde
     estilo = db.obtener_config("frase_estilo") or {}
-    try:
-        jpg = componer(frase, foto, estilo)
-    except Exception as e:
-        return {}, f"no pude componer la imagen: {e}"
-    nombre = f"frase-del-dia-{fecha.isoformat()}.jpg"
-    res_img = publicar.subir_imagen_wordpress(cfg, jpg, nombre, titulo=f"Frase del día {fecha.strftime('%d/%m/%Y')}",
-                                              etiquetas=["frase-del-dia", "pieza-compuesta"], quien=quien,
-                                              pieza=(frase.get("texto") or "")[:60])
-    imagen_url = res_img.get("url")
+    if not solo_texto:
+        try:
+            jpg = componer(frase, foto, estilo)
+        except Exception as e:
+            return {}, f"no pude componer la imagen: {e}"
+        nombre = f"frase-del-dia-{fecha.isoformat()}.jpg"
+        res_img = publicar.subir_imagen_wordpress(cfg, jpg, nombre, titulo=f"Frase del día {fecha.strftime('%d/%m/%Y')}",
+                                                  etiquetas=["frase-del-dia", "pieza-compuesta"], quien=quien,
+                                                  pieza=(frase.get("texto") or "")[:60])
+        imagen_url = res_img.get("url")
     aviso_img = None
-    if not imagen_url:
+    if not imagen_url and not solo_texto:
         imagen_url = foto     # WordPress apagado/simulado: va la foto sin la frase encima (igual que el formulario)
         aviso_img = (res_img.get("aviso") or "no se pudo subir la imagen compuesta") + " · sale la foto sin la frase encima"
     pie = db.obtener_config("frase_pie")
@@ -163,8 +169,10 @@ def encolar_frase(frase, fecha, cfg, db, publicar, hora=None, quien=USUARIO, can
         if pid:
             piezas[canal] = pid
     if piezas:
-        db.actualizar_frase(frase["id"], {"publicacion_id": piezas.get("instagram") or list(piezas.values())[0],
-                                          "piezas": piezas, "estado": "programada"})
+        # (2/11) si la frase ya tenía piezas (se prendió un canal después, p. ej. la home), se suman; no se pisan
+        todas = dict(frase.get("piezas") or {}, **piezas)
+        db.actualizar_frase(frase["id"], {"publicacion_id": frase.get("publicacion_id") or piezas.get("instagram") or list(piezas.values())[0],
+                                          "piezas": todas, "estado": "programada"})
     return piezas, (f"encolada para el {fecha_iso[:16].replace('T', ' ')} por {', '.join(piezas)} ({de_donde}"
                     + (f"; {aviso_img}" if aviso_img else "") + ")")
 
@@ -246,7 +254,7 @@ def main(argv=None):
     from procesar_cola import _cargar_config_local
     _cargar_config_local()
     if "--simular" in argv:
-        for k in ("PUBLICAR_INSTAGRAM", "PUBLICAR_WORDPRESS"):
+        for k in ("PUBLICAR_INSTAGRAM", "PUBLICAR_WORDPRESS", "PUBLICAR_HOME"):
             os.environ[k] = "simulado"
     import db, publicar
     if not db.disponible():
@@ -279,7 +287,13 @@ def main(argv=None):
             print(f"- {d}: sin frase: asignada por rotación «{(f.get('texto') or '')[:50]}»"
                   + (f" (ya salió {f['veces_publicada']} vez/veces)" if f.get("veces_publicada") else " (nunca publicada)"))
         if f.get("estado") != "programada" or f.get("publicacion_id"):
-            print(f"- {d}: ya está ({f.get('estado')}{', en cola' if f.get('publicacion_id') else ''})")
+            # (2/11) un canal prendido después de encolar la frase (p. ej. la home) se suma como pieza nueva, sin tocar las demás
+            faltan = [c for c in canales if c in CANALES_POSIBLES and c not in (f.get("piezas") or {})] if f.get("estado") == "programada" else []
+            if faltan:
+                piezas, aviso = encolar_frase(f, d, cfg, db, publicar, hora=hora, canales=faltan)
+                print(f"- {d}: en cola; canal/es nuevo/s {faltan} → {aviso}" if piezas else f"- {d}: en cola; NO pude sumar {faltan}: {aviso}")
+            else:
+                print(f"- {d}: ya está ({f.get('estado')}{', en cola' if f.get('publicacion_id') else ''})")
             continue
         piezas, aviso = encolar_frase(f, d, cfg, db, publicar, hora=hora)
         print(f"- {d}: «{(f.get('texto') or '')[:50]}» → {aviso}" if piezas else f"- {d}: NO encolada: {aviso}")
