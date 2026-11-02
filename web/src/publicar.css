@@ -141,6 +141,23 @@
 }
 
 /* canales */
+/* (2/11) canal elegido desde el menú: una línea en vez de las cuatro tarjetas */
+.pub-canal-fijo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  background: #fff;
+  margin-bottom: 8px;
+}
+.pub-titulo-canal {
+  color: var(--suave);
+  font-weight: 500;
+}
 .pub-canales {
   border: 0;
   padding: 0;

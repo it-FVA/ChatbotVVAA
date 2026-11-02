@@ -17,6 +17,14 @@ import { Icono } from "../componentes/Iconos";
 import { Hueso } from "../componentes/Comunes";
 import { useToast } from "../componentes/Toasts";
 
+// (2/11) qué se diseña en cada canal, en una línea (Alberto: cada canal con su particularidad)
+const AYUDA_CANAL: Record<string, string> = {
+  instagram: "Una foto con la frase encima, un reel o una historia. El caption va debajo. Lo publica quien aprueba.",
+  facebook: "Un posteo en la página: foto con la frase y el texto. Lo publica quien aprueba, y se puede programar.",
+  wordpress: "Una entrada del blog en viviragradecidos.org: título, texto (puede ser largo) y foto destacada. Queda en borrador hasta que la publique quien aprueba.",
+  youtube: "Un recorte de video de Mis recortes, con título y descripción. Sube como privado y se revisa en YouTube Studio.",
+};
+
 type Resultado = { tipo: "aprobacion"; r: RespuestaAprobacion } | { tipo: "envio"; r: RespuestaEnvio; modo: "real" | "simulado" } | { tipo: "borrador"; id: string; mensaje: string };
 
 export default function Publicar() {
@@ -115,6 +123,11 @@ export default function Publicar() {
 
 // ---------------------------------------------------------------------------------------------------------------------
 function Formulario({ inicial, op, origen, avisoInicial, avisar }: { inicial: PiezaForm; op: OpcionesPublicar; origen: string; avisoInicial: string | null; avisar: (t: string, tipo?: "ok" | "error" | "info") => void }) {
+  // (2/11, reunión: Alberto) desde «Canales · Diseñar» se entra con el canal ya elegido: la pantalla se centra en ese canal
+  // (título, texto de ayuda, selector plegado); «Cambiar de canal» vuelve a mostrar los cuatro
+  const [paramsMenu] = useSearchParams();
+  const desdeMenu = !!paramsMenu.get("canal") && origen === "nueva";
+  const [elegirCanal, setElegirCanal] = useState(false);
   const nav = useNavigate();
   const [f, setF] = useState<PiezaForm>(inicial);
   const [paso, setPaso] = useState<1 | 2 | 3>(inicial.canal && inicial.texto ? (inicial.video_url ? 2 : 2) : 1);
@@ -305,12 +318,15 @@ function Formulario({ inicial, op, origen, avisoInicial, avisar }: { inicial: Pi
     <div className="pagina publicar">
       <header className="pagina-cabecera">
         <div>
-          <h1>Diseñar</h1>
+          <h1>
+            Diseñar{desdeMenu && canal ? <span className="pub-titulo-canal"> · {NOMBRE_CANAL[canal]}</span> : null}
+          </h1>
           <p className="suave">
-            {origen === "chat" && "La pieza que propuso el bot, lista para ajustar y mandar."}
+            {desdeMenu && canal && (AYUDA_CANAL[canal] ?? "Acá se diseña la pieza: foto, frase, texto y fecha. Publicarla es el paso siguiente, desde Aprobación.")}
+            {!desdeMenu && origen === "chat" && "La pieza que propuso el bot, lista para ajustar y mandar."}
             {origen === "recorte" && "Un recorte listo para publicar: elegí el canal y escribí el texto."}
             {origen === "borrador" && "Retomando un borrador: al guardar se actualiza el mismo; al enviarlo o mandarlo a aprobación, el borrador se elimina."}
-            {origen === "nueva" && "Acá se diseña la pieza: foto, frase, texto y fecha. Publicarla es el paso siguiente, desde Aprobación. También se puede diseñar desde el chat, debajo de la respuesta del bot."}
+            {!desdeMenu && origen === "nueva" && "Acá se diseña la pieza: foto, frase, texto y fecha. Publicarla es el paso siguiente, desde Aprobación. También se puede diseñar desde el chat, debajo de la respuesta del bot."}
           </p>
         </div>
         <Link to="/publicaciones" className="boton sutil">
@@ -332,6 +348,17 @@ function Formulario({ inicial, op, origen, avisoInicial, avisar }: { inicial: Pi
                 <Icono nombre="pelicula" tam={16} /> Recorte exacto{f.video_formato ? ` · ${f.video_formato}` : ""}. Se publica tal cual está.
               </div>
             )}
+            {desdeMenu && canal && !elegirCanal ? (
+              <div className="pub-canal-fijo">
+                <span>
+                  <strong>{NOMBRE_CANAL[canal]}</strong> <span className="suave chico">{CANALES.find((c) => c.clave === canal)?.detalle}</span>
+                  {op.canales[canal] && <span className={"pub-modo chico " + op.canales[canal].modo}> {op.canales[canal].modo}</span>}
+                </span>
+                <button type="button" className="enlace chico" onClick={() => setElegirCanal(true)}>
+                  Cambiar de canal
+                </button>
+              </div>
+            ) : (
             <fieldset className="pub-canales">
               <legend>Canal</legend>
               {CANALES.map((c) => {
@@ -346,13 +373,14 @@ function Formulario({ inicial, op, origen, avisoInicial, avisar }: { inicial: Pi
                 );
               })}
             </fieldset>
+            )}
             {info && (
               <p className={"suave chico pub-modo-texto"}>
                 {info.texto_canal} en modo <strong>{info.modo}</strong>: {info.texto.split(":").slice(1).join(":").trim()}
                 {!op.publica && info.modo_real !== info.modo && <> (el canal real está en {info.modo_real}: lo que mandes a aprobación sale con ese modo).</>}
               </p>
             )}
-            <p className="suave chico">Para el email a la comunidad usá «Email» (o «Newsletter») en el menú: tiene sus plantillas y su vista previa.</p>
+            {!desdeMenu && <p className="suave chico">Para el email a la comunidad usá «Email» (o «Newsletter») en el menú: tiene sus plantillas y su vista previa.</p>}
             <label>
               Título <span className="suave">{canal === "wordpress" || canal === "youtube" ? "(obligatorio)" : "(opcional, para el registro)"}</span>
               <input value={f.titulo} onChange={(e) => set("titulo", e.target.value)} maxLength={150} />
