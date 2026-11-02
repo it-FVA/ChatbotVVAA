@@ -46,6 +46,8 @@ function horaArgentina(iso?: string | null) {
   if (isNaN(f.getTime())) return String(iso).slice(0, 16).replace("T", " ");
   return f.toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).replace(",", "");
 }
+// (2/11) nombres cortos de los canales de la frase para el checklist de la cabecera (los largos tienen el detalle entre paréntesis)
+const CANAL_CORTO: Record<string, string> = { historia: "Historia de Instagram", instagram: "Posteo de Instagram", facebook: "Facebook", mail: "Mail", home: "Sitio web", whatsapp: "WhatsApp" };
 function recortar(t: string, n: number) {
   // (2/11) muchas frases del Sheet ya vienen entre «»: se sacan, porque la pantalla las vuelve a poner («« » se veía doble)
   t = (t || "").replace(/\s+/g, " ").trim().replace(/^[«"“]+\s*/, "").replace(/\s*[»"”]+$/, "");
@@ -262,7 +264,7 @@ export default function FraseDelDia() {
             <span className="suave">Sale por:</span>
             {Object.entries(resumen.canales_posibles ?? {}).map(([k, nombre]) => {
               const on = (resumen.canales ?? []).includes(k);
-              const corto = nombre.split(" (")[0];
+              const corto = CANAL_CORTO[k] ?? nombre.split(" (")[0];
               return aprueba ? (
                 <label key={k} className={"chip fd-canal" + (on ? " on" : "")} title={nombre}>
                   <input type="checkbox" checked={on} disabled={ocupado} onChange={() => cambiarCanales(on ? (resumen.canales ?? []).filter((c) => c !== k) : [...(resumen.canales ?? []), k])} /> {corto}

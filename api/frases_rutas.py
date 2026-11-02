@@ -447,7 +447,8 @@ def canales(datos: Canales, quien=Depends(auth.aprobador)):
     if not elegidos:
         raise HTTPException(400, "Dejá al menos un canal prendido (o apagá la Frase del día con el interruptor).")
     db.guardar_config("frase_canales", elegidos, quien)
-    return {"ok": True, "canales": elegidos, "mensaje": "Sale por " + ", ".join(pf.CANALES_POSIBLES[c].split(" (")[0] for c in elegidos) + ". Vale desde la próxima frase que se encole; la de mañana, si ya está en la cola, suma los canales nuevos en la próxima pasada."}
+    corto = {"historia": "historia de Instagram", "instagram": "posteo de Instagram", "facebook": "Facebook", "mail": "mail", "home": "sitio web", "whatsapp": "WhatsApp"}
+    return {"ok": True, "canales": elegidos, "mensaje": "Sale por " + ", ".join(corto.get(c, c) for c in elegidos) + ". Vale desde la próxima frase que se encole; la de mañana, si ya está en la cola, suma los canales nuevos en la próxima pasada."}
 
 
 def _imagen_publica_para(f, fecha, cfg, publicar):
