@@ -52,7 +52,7 @@ export default function Recortes({ vistaFija }: { vistaFija?: Vista } = {}) {
     <div className={vistaFija ? "recortes-embebidos" : "pagina"}>
       {!vistaFija && (
         <header className="pagina-cabecera">
-          <h1>Recortes</h1>
+          <h1>Mis recortes</h1>
           <p className="suave">Los recortes tardan unos 15 minutos. Cuando están listos aparece el video y los botones «Diseñar», «Editar» y «Abrir». Borrá los que no vayas a usar: cada uno ocupa entre 5 y 50 MB en WordPress.</p>
         </header>
       )}

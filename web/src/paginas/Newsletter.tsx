@@ -280,7 +280,7 @@ export default function Newsletter() {
         <div>
           <h1>Newsletter</h1>
           <p className="suave">
-            El email a la comunidad, bloque por bloque, con las plantillas reales de la Fundación. El bot redacta los textos desde el material; la agenda, las fotos y los links los cargás vos. El email no sale de acá: el HTML aprobado se pega en Perfit. (Una entrada de la web es un «blogpost» y va por Publicar.)
+            El email a la comunidad, bloque por bloque, con las plantillas reales de la Fundación. El bot redacta los textos desde el material; la agenda, las fotos y los links los cargás vos. El email no sale de acá: el HTML aprobado se pega en Perfit. (Una entrada de la web es un «blogpost» y se diseña en Canales → Blogpost.)
           </p>
         </div>
         <div className="acciones">

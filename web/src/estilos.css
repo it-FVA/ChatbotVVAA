@@ -2090,3 +2090,8 @@ input[type="number"] {
     font-size: 0.72rem;
   }
 }
+
+/* (2/11) línea de ayuda debajo de la cabecera de Proyectos */
+.drive-ayuda {
+  margin: -6px 0 10px;
+}

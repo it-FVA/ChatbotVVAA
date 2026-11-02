@@ -48,7 +48,7 @@ export default function Aprobacion() {
       <header className="pagina-cabecera">
         <div>
           <h1>Aprobación</h1>
-          <p className="suave">Piezas para aprobar, la cola, el registro, la papelera y los clips del equipo. La Frase del día está en la barra; el Dashboard, en Administración.</p>
+          <p className="suave">Piezas para aprobar, la cola, el registro, la papelera y los clips del equipo. La Frase del día está en Campañas; el Dashboard, en Administración.</p>
         </div>
       </header>
       <div className="admin-grilla">

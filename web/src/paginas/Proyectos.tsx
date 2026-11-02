@@ -426,6 +426,7 @@ export default function Proyectos() {
           </button>
         </div>
       </header>
+      {!id && <p className="suave chico drive-ayuda">Carpetas para agrupar los chats, las piezas, los recortes y los newsletters de una misma campaña, y compartirlas con el equipo, como en Drive.</p>}
 
       <nav className="drive-migas" aria-label="Dónde estás">
         {migas.map((m, i) => {

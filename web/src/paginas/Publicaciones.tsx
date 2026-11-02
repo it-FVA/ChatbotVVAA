@@ -59,7 +59,7 @@ export default function Publicaciones() {
           <p className="suave">Todas las piezas que mandaste: pendientes, aprobadas, rechazadas, publicadas, borradores y pruebas.</p>
         </div>
         <Link to="/publicar" className="boton primario">
-          <Icono nombre="mas" tam={16} /> Nueva pieza
+          <Icono nombre="mas" tam={16} /> Diseñar una pieza
         </Link>
       </header>
       <div className="solapas pub-solapas" role="tablist" aria-label="Estado de las piezas">
