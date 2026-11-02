@@ -70,7 +70,7 @@ export default function PiezaPropuesta({ pieza, abierto }: { pieza: Pieza; abier
         <Icono nombre="chevron" tam={16} />
         <Icono nombre="megafono" tam={18} />
         <span>
-          Publicar esta pieza
+          Diseñar esta pieza
           {canal && <span className="suave"> · {NOMBRE_CANAL[canal] || canal}</span>}
           {fechaIso && <span className="suave"> · {fechaLegible(fechaIso)}</span>}
         </span>
@@ -135,8 +135,8 @@ export default function PiezaPropuesta({ pieza, abierto }: { pieza: Pieza; abier
           )}
           {error && <div className="aviso error">{error}</div>}
           <div className="acciones">
-            <button type="button" className="boton primario" onClick={() => nav("/publicar", { state: { pieza } })} title="Abre Publicar con la pieza cargada: foto con la frase, diseño, fecha y envío">
-              <Icono nombre="enviar" /> Abrir en Publicar
+            <button type="button" className="boton primario" onClick={() => nav("/publicar", { state: { pieza } })} title="Abre Diseñar con la pieza cargada: foto con la frase, diseño, fecha y envío">
+              <Icono nombre="enviar" /> Abrir en Diseñar
             </button>
             <button type="button" className="boton" onClick={guardarBorrador} disabled={guardando} title="Guarda la pieza tal cual la propuso el bot; se retoma desde Mis publicaciones.">
               <Icono nombre="lapiz" /> {guardando ? "Guardando…" : "Guardar borrador"}

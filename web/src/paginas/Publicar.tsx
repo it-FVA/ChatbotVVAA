@@ -56,7 +56,11 @@ export default function Publicar() {
         } else if (pieza) {
           setForm(desdePropuesta(pieza, o));
           setOrigen("chat");
-        } else setForm(formularioVacio(o));
+        } else {
+          // (2/11) desde el menú «Canales · Diseñar» se entra con el canal ya elegido
+          const canalMenu = params.get("canal");
+          setForm({ ...formularioVacio(o), canal: canalMenu && o.canales[canalMenu] ? (canalMenu as Canal) : "" });
+        }
       } catch (e) {
         if (vivo) {
           setError(e instanceof ErrorApi ? e.message : "No pude conectarme con la API.");
@@ -68,14 +72,14 @@ export default function Publicar() {
       vivo = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.get("borrador"), params.get("recorte")]);
+  }, [params.get("borrador"), params.get("recorte"), params.get("canal")]);
 
   if (!form || !op) {
     if (error)
       return (
         <div className="pagina publicar">
           <header className="pagina-cabecera">
-            <h1>Publicar</h1>
+            <h1>Diseñar</h1>
           </header>
           <div className="aviso error" role="alert">
             <Icono nombre="alerta" tam={16} /> <span>{error}</span>
@@ -93,7 +97,7 @@ export default function Publicar() {
     return (
       <div className="pagina publicar" aria-busy="true">
         <header className="pagina-cabecera">
-          <h1>Publicar</h1>
+          <h1>Diseñar</h1>
         </header>
         <div className="pub-grilla">
           <div>
@@ -301,12 +305,12 @@ function Formulario({ inicial, op, origen, avisoInicial, avisar }: { inicial: Pi
     <div className="pagina publicar">
       <header className="pagina-cabecera">
         <div>
-          <h1>Publicar</h1>
+          <h1>Diseñar</h1>
           <p className="suave">
             {origen === "chat" && "La pieza que propuso el bot, lista para ajustar y mandar."}
             {origen === "recorte" && "Un recorte listo para publicar: elegí el canal y escribí el texto."}
             {origen === "borrador" && "Retomando un borrador: al guardar se actualiza el mismo; al enviarlo o mandarlo a aprobación, el borrador se elimina."}
-            {origen === "nueva" && "Lo normal es publicar desde el chat, debajo de la respuesta del bot. Esta pantalla es para piezas que no salen de una conversación."}
+            {origen === "nueva" && "Acá se diseña la pieza: foto, frase, texto y fecha. Publicarla es el paso siguiente, desde Aprobación. También se puede diseñar desde el chat, debajo de la respuesta del bot."}
           </p>
         </div>
         <Link to="/publicaciones" className="boton sutil">
@@ -708,7 +712,7 @@ function ResultadoPanel({ resultado, previa, canal, info, onVolver, onNueva }: {
   return (
     <div className="pagina publicar">
       <header className="pagina-cabecera">
-        <h1>Publicar</h1>
+        <h1>Diseñar</h1>
       </header>
       <div className={"pub-resultado" + (ok ? "" : " error")} role="status">
         <div className="pub-resultado-cabecera">

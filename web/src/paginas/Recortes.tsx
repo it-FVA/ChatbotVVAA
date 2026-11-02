@@ -53,7 +53,7 @@ export default function Recortes({ vistaFija }: { vistaFija?: Vista } = {}) {
       {!vistaFija && (
         <header className="pagina-cabecera">
           <h1>Recortes</h1>
-          <p className="suave">Los recortes tardan unos 15 minutos. Cuando están listos aparece el video y los botones «Publicar», «Editar» y «Abrir». Borrá los que no vayas a usar: cada uno ocupa entre 5 y 50 MB en WordPress.</p>
+          <p className="suave">Los recortes tardan unos 15 minutos. Cuando están listos aparece el video y los botones «Diseñar», «Editar» y «Abrir». Borrá los que no vayas a usar: cada uno ocupa entre 5 y 50 MB en WordPress.</p>
         </header>
       )}
 
@@ -224,8 +224,8 @@ function Tarjeta({ c, mostrarQuien, aprueba, onBorrar, onCambio }: { c: Recorte;
         {c.estado === "error" && c.error && <p className="aviso error chico">{c.error.slice(0, 200)}</p>}
         <div className="acciones">
           {listo && (
-            <Link className="boton primario" to={`/publicar?recorte=${encodeURIComponent(c.id)}`} title="Publicar este recorte en Instagram, Facebook, YouTube o como blogpost">
-              <Icono nombre="enviar" /> Publicar
+            <Link className="boton primario" to={`/publicar?recorte=${encodeURIComponent(c.id)}`} title="Diseñar una pieza con este recorte para Instagram, Facebook, YouTube o como blogpost">
+              <Icono nombre="enviar" /> Diseñar
             </Link>
           )}
           {c.puede_editar && (

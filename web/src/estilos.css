@@ -161,6 +161,23 @@ button:focus-visible,
 .barra-link .suave {
   margin-left: auto;
 }
+/* (2/11) menú por grupos: los sub-ítems van con sangría; «pronto» es un canal que todavía no existe */
+.barra-link.sub {
+  padding-left: 22px;
+  min-height: 34px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+.barra-link.pronto {
+  color: var(--suave);
+  cursor: default;
+}
+.barra-link.pronto .icono {
+  color: var(--suave);
+}
+.barra-link.pronto:hover {
+  background: none;
+}
 .barra-pie {
   margin-top: auto;
   display: flex;
@@ -1287,6 +1304,13 @@ input[type="number"] {
     gap: 5px;
   }
   .barra-link .suave {
+    display: none;
+  }
+  .barra-link.sub {
+    padding: 6px 9px;
+    min-height: 0;
+  }
+  .barra-link.pronto {
     display: none;
   }
   .barra-pie {
