@@ -22,7 +22,16 @@ Rutas:
   POST  /frases/vaciar                 {confirmo: true}: saca del calendario las que no salieron ni están en la cola
   PUT   /frases/activa                 {activa}: el interruptor (solo admins)
   GET   /frases/mail/estado            (26/10) el canal mail por Perfit: modo, qué falta, la lista, el envío de hoy/mañana y las últimas pruebas
-  POST  /frases/mail/prueba            (admins) {fecha?, emails?}: manda la frase de ese día (hoy) a esos mails ahora, con el custom trigger
+  POST  /frases/mail/prueba            (aprobadores; 2/11 antes solo admins) {fecha?, emails?}: manda la frase de ese día a esos mails ahora
+  GET   /frases/mail/previa/{fecha}    (2/11) el mail de ese día armado con la plantilla local (reproducción de la de Perfit): {html, contexto}
+
+(2/11, reunión del 2/11) Los creadores de contenido también VEN el calendario (resumen, próximas, mes, día, backlog, vista previa:
+auth.usuario_actual) y piden cambios; lo que modifica el calendario sigue siendo de aprobadores:
+  GET   /frases/solicitudes            aprobador: las pendientes + las últimas resueltas; creador: las propias
+  POST  /frases/solicitudes            {fecha, frase_id? | texto+autor?, nota?}: «me gustaría que ese día salga esta frase»
+  POST  /frases/solicitudes/{id}/aceptar   (aprobador) la aplica: crea la frase si es nueva, la mueve al día (o intercambia si está ocupado)
+  POST  /frases/solicitudes/{id}/rechazar  (aprobador) {respuesta?}
+  POST  /frases/solicitudes/{id}/retirar   (quien la pidió) la saca antes de que la resuelvan
 """
 import calendar, datetime, logging, os, re
 from typing import Optional
@@ -84,6 +93,18 @@ class Activa(BaseModel):
     activa: bool
 
 
+class Solicitud(BaseModel):
+    fecha: str
+    frase_id: Optional[str] = None
+    texto: Optional[str] = None
+    autor: Optional[str] = None
+    nota: Optional[str] = None
+
+
+class Resolver(BaseModel):
+    respuesta: Optional[str] = None
+
+
 # ---------------- Helpers ----------------
 def _hoy():
     return pf.hoy_argentina()
@@ -141,10 +162,9 @@ def resumen(request: Request):
     """La cabecera de frases_ui: conteos, interruptor, hasta cuándo alcanzan las nunca publicadas, qué pasa mañana, avisos."""
     s = auth.sesion(request)
     rol = auth.rol_sesion(s)
-    if not rol["aprueba"]:
-        raise HTTPException(403, "Solo para aprobadores.")
+    # (2/11) los creadores de contenido también ven el calendario (solo lectura + solicitudes); `aprueba` le dice a la pantalla qué mostrar
     if not db.disponible():
-        return {"disponible": False, "admin": rol["admin"], "conteos": {}, "activa": False, "avisos": ["Sin Supabase: no hay frases."]}
+        return {"disponible": False, "admin": rol["admin"], "aprueba": rol["aprueba"], "conteos": {}, "activa": False, "avisos": ["Sin Supabase: no hay frases."]}
     r = db.resumen_frases()
     hoy = _hoy()
     programadas = [f for f in db.listar_frases(desde=hoy.isoformat()) if f.get("estado") in ("programada", "saltada")]
@@ -168,14 +188,19 @@ def resumen(request: Request):
               "en_cola": bool(prox and prox.get("publicacion_id"))}
     if activa and not prox:
         avisos.append(f"Mañana ({_fecha_txt(man)}) no tiene frase asignada: no va a salir nada. Repartí o asigná una.")
-    return {"disponible": True, "admin": rol["admin"], "conteos": r, "activa": activa, "hoy": hoy.isoformat(),
+    if rol["aprueba"]:
+        pendientes = len(db.listar_solicitudes_frase(estado="pendiente"))
+    else:
+        pendientes = len([x for x in db.listar_solicitudes_frase(usuario=s["usuario"]) if x.get("estado") == "pendiente"])
+    return {"disponible": True, "admin": rol["admin"], "aprueba": rol["aprueba"], "solicitudes_pendientes": pendientes,
+            "conteos": r, "activa": activa, "hoy": hoy.isoformat(),
             "hora": db.obtener_config("frase_hora", pf.HORA_DEFECTO) or pf.HORA_DEFECTO,
             "canales": db.obtener_config("frase_canales") or pf.CANALES_DEFECTO, "foto_defecto": foto_defecto,
             "frases_nuevas_hasta": hasta, "nuevas_sin_dia": nuevas_backlog, "manana": manana, "avisos": avisos}
 
 
 @router.get("/proximas")
-def proximas(dias: int = 14, usuario=Depends(auth.aprobador)):
+def proximas(dias: int = 14, usuario=Depends(auth.usuario_actual)):
     _con_db()
     dias = max(1, min(int(dias or 14), 60))
     hoy = _hoy()
@@ -189,7 +214,7 @@ def proximas(dias: int = 14, usuario=Depends(auth.aprobador)):
 
 
 @router.get("/backlog")
-def backlog(q: str = "", limite: int = 300, usuario=Depends(auth.aprobador)):
+def backlog(q: str = "", limite: int = 300, usuario=Depends(auth.usuario_actual)):
     """Validadas sin día (asignables) y, aparte, las pendientes de validación de Pato (no asignables)."""
     _con_db()
     ql = (q or "").strip().lower()
@@ -201,7 +226,7 @@ def backlog(q: str = "", limite: int = 300, usuario=Depends(auth.aprobador)):
 
 
 @router.get("/mes/{anio}/{mes}")
-def mes(anio: int, mes: int, usuario=Depends(auth.aprobador)):
+def mes(anio: int, mes: int, usuario=Depends(auth.usuario_actual)):
     _con_db()
     if not (1 <= mes <= 12 and 2000 <= anio <= 2100):
         raise HTTPException(400, "Mes inválido.")
@@ -213,7 +238,7 @@ def mes(anio: int, mes: int, usuario=Depends(auth.aprobador)):
 
 
 @router.get("/dia/{fecha}")
-def dia(fecha: str, usuario=Depends(auth.aprobador)):
+def dia(fecha: str, usuario=Depends(auth.usuario_actual)):
     _con_db()
     d = _fecha(fecha)
     f = db.frase_del_dia(d.isoformat())
@@ -234,7 +259,7 @@ def dia(fecha: str, usuario=Depends(auth.aprobador)):
 
 
 @router.get("/{fid}/previa.jpg")
-def previa(fid: str, usuario=Depends(auth.aprobador)):
+def previa(fid: str, usuario=Depends(auth.usuario_actual)):
     """La imagen compuesta chica (frase + autor + logo sobre la foto), como va a salir (frases_ui._vista_previa)."""
     f = _frase(fid)
     cfg, publicar = _cfg()
@@ -416,7 +441,7 @@ def _imagen_publica_para(f, fecha, cfg, publicar):
 
 
 @router.get("/mail/estado")
-def mail_estado(usuario=Depends(auth.aprobador)):
+def mail_estado(usuario=Depends(auth.usuario_actual)):
     """Cómo está el canal mail: modo, qué secretos faltan, la lista de Perfit, el envío de hoy y mañana (tandas) y las últimas pruebas."""
     _con_db()
     import perfit
@@ -441,7 +466,7 @@ def mail_estado(usuario=Depends(auth.aprobador)):
 
 
 @router.post("/mail/prueba")
-def mail_prueba(datos: PruebaMail, request: Request, quien=Depends(auth.admin)):
+def mail_prueba(datos: PruebaMail, request: Request, quien=Depends(auth.aprobador)):
     """Manda la frase del día (o de `fecha`) a los mails de prueba, ya mismo. En modo simulado registra pero no manda."""
     _con_db()
     import perfit, frase_mail
@@ -465,3 +490,165 @@ def mail_prueba(datos: PruebaMail, request: Request, quien=Depends(auth.admin)):
     if datos.emails:
         db.guardar_config("frase_mail_prueba", emails, quien)
     return r
+
+
+# ---------------- Solicitudes de cambio (2/11): los creadores piden, los aprobadores resuelven ----------------
+def _solicitud_publica(x, frases=None):
+    """La solicitud con la frase pedida (si existe) y la que hoy ocupa ese día, para que la pantalla muestre el cambio completo."""
+    frases = frases if frases is not None else {}
+    fid = x.get("frase_id")
+    if fid and fid not in frases:
+        frases[fid] = db.obtener_frase(fid)
+    fecha = str(x.get("fecha"))[:10]
+    if ("dia:" + fecha) not in frases:
+        frases["dia:" + fecha] = db.frase_del_dia(fecha)
+    d = datetime.date.fromisoformat(fecha)
+    return {"id": x["id"], "creado": x.get("creado"), "usuario": x.get("usuario"), "fecha": fecha, "fecha_texto": f"{DIAS[d.weekday()]} {_fecha_txt(d)}",
+            "frase": _publica(frases.get(fid)) if fid else None, "texto": x.get("texto"), "autor": x.get("autor"), "nota": x.get("nota"),
+            "estado": x.get("estado"), "resuelta_por": x.get("resuelta_por"), "resuelta_en": x.get("resuelta_en"), "respuesta": x.get("respuesta"),
+            "actual": _publica(frases.get("dia:" + fecha)), "pasado": d < _hoy()}
+
+
+@router.get("/solicitudes")
+def solicitudes(request: Request):
+    s = auth.sesion(request)
+    rol = auth.rol_sesion(s)
+    _con_db()
+    cache = {}
+    if rol["aprueba"]:
+        pend = db.listar_solicitudes_frase(estado="pendiente")
+        otras = [x for x in db.listar_solicitudes_frase(limite=60) if x.get("estado") != "pendiente"][:30]
+        return {"aprueba": True, "pendientes": [_solicitud_publica(x, cache) for x in pend], "resueltas": [_solicitud_publica(x, cache) for x in otras]}
+    mias = db.listar_solicitudes_frase(usuario=s["usuario"], limite=60)
+    return {"aprueba": False, "pendientes": [_solicitud_publica(x, cache) for x in mias if x.get("estado") == "pendiente"],
+            "resueltas": [_solicitud_publica(x, cache) for x in mias if x.get("estado") != "pendiente"]}
+
+
+@router.post("/solicitudes", status_code=201)
+def solicitar(datos: Solicitud, usuario=Depends(auth.usuario_actual)):
+    """«Me gustaría que el <día> salga esta frase»: una validada que ya existe (del backlog o de otro día) o una nueva (texto + autor)."""
+    _con_db()
+    d = _fecha(datos.fecha)
+    if d <= _hoy():
+        raise HTTPException(400, "Pedí un cambio para mañana en adelante: la frase de hoy ya está en marcha.")
+    actual = db.frase_del_dia(d.isoformat())
+    if actual and _cerrada(actual):
+        raise HTTPException(409, f"La frase del {_fecha_txt(d)} ya está en la cola o ya salió: ese día no se puede cambiar.")
+    texto = (datos.texto or "").strip()
+    fid = (datos.frase_id or "").strip() or None
+    if fid:
+        f = _frase(fid)
+        if not f.get("validada"):
+            raise HTTPException(409, "Esa frase todavía no está validada.")
+        if f.get("fecha") == d.isoformat():
+            raise HTTPException(400, "Esa frase ya está en ese día.")
+        if _cerrada(f):
+            raise HTTPException(409, "Esa frase ya está en la cola o ya salió: no se puede mover.")
+        texto = None
+    elif not texto:
+        raise HTTPException(400, "Elegí una frase de la lista o escribí una nueva.")
+    sid = db.crear_solicitud_frase(usuario, d.isoformat(), frase_id=fid, texto=texto, autor=(datos.autor or "").strip() or None, nota=(datos.nota or "").strip() or None)
+    if not sid:
+        raise HTTPException(503, "No pude guardar la solicitud.")
+    return {"ok": True, "id": sid, "solicitud": _solicitud_publica(db.obtener_solicitud_frase(sid)),
+            "mensaje": f"Pedido para el {_fecha_txt(d)}. Lo ve quien aprueba la Frase del día; te avisamos acá cuando lo resuelva."}
+
+
+def _solicitud_pendiente(sid):
+    x = db.obtener_solicitud_frase(sid)
+    if not x:
+        raise HTTPException(404, "No existe esa solicitud.")
+    if x.get("estado") != "pendiente":
+        raise HTTPException(409, f"Esa solicitud ya está {x.get('estado')}.")
+    return x
+
+
+@router.post("/solicitudes/{sid}/aceptar")
+def aceptar_solicitud(sid: str, datos: Resolver, quien=Depends(auth.aprobador)):
+    """La aplica al calendario con las mismas reglas que mover / intercambiar / crear, y la marca aceptada."""
+    _con_db()
+    x = _solicitud_pendiente(sid)
+    d = datetime.date.fromisoformat(str(x["fecha"])[:10])
+    if d < _hoy():
+        raise HTTPException(409, "Ese día ya pasó: rechazala o pedí otra fecha.")
+    actual = db.frase_del_dia(d.isoformat())
+    if actual and _cerrada(actual):
+        raise HTTPException(409, f"La frase del {_fecha_txt(d)} ya está en la cola o ya salió: no se puede cambiar.")
+    fid = x.get("frase_id")
+    if not fid:
+        try:
+            fid = db.crear_frase((x.get("texto") or "").strip(), x.get("autor"), validada=True, origen=f"solicitud:{x.get('usuario')}")
+        except Exception as e:
+            raise HTTPException(409, f"No pude crear la frase (¿ya existe una igual?): {str(e)[:160]}")
+    f = _frase(fid)
+    if _cerrada(f):
+        raise HTTPException(409, "La frase pedida ya está en la cola o ya salió: no se puede mover.")
+    if f.get("fecha") != d.isoformat():
+        if actual:
+            db.intercambiar_frases(fid, actual["id"])
+            na = db.obtener_frase(actual["id"])
+            if na.get("estado") == "saltada" and not na.get("fecha"):
+                db.actualizar_frase(na["id"], {"estado": "programada"})
+        else:
+            db.mover_frase(fid, d.isoformat())
+    if f.get("estado") == "saltada":
+        db.actualizar_frase(fid, {"estado": "programada"})
+    db.actualizar_solicitud_frase(sid, {"estado": "aceptada", "resuelta_por": quien, "resuelta_en": db._ahora_iso(), "respuesta": (datos.respuesta or "").strip() or None, "frase_id": fid})
+    que = "intercambiada con la que estaba" if actual and f.get("fecha") not in (None, d.isoformat()) else ("puesta en lugar de la que estaba (que volvió al backlog)" if actual else "asignada")
+    return {"ok": True, "solicitud": _solicitud_publica(db.obtener_solicitud_frase(sid)), "mensaje": f"Aceptada: la frase quedó {que} el {_fecha_txt(d)}."}
+
+
+@router.post("/solicitudes/{sid}/rechazar")
+def rechazar_solicitud(sid: str, datos: Resolver, quien=Depends(auth.aprobador)):
+    _con_db()
+    _solicitud_pendiente(sid)
+    db.actualizar_solicitud_frase(sid, {"estado": "rechazada", "resuelta_por": quien, "resuelta_en": db._ahora_iso(), "respuesta": (datos.respuesta or "").strip() or None})
+    return {"ok": True, "solicitud": _solicitud_publica(db.obtener_solicitud_frase(sid)), "mensaje": "Rechazada. Quien la pidió ve tu respuesta en su lista."}
+
+
+@router.post("/solicitudes/{sid}/retirar")
+def retirar_solicitud(sid: str, usuario=Depends(auth.usuario_actual)):
+    _con_db()
+    x = _solicitud_pendiente(sid)
+    if x.get("usuario") != usuario:
+        raise HTTPException(403, "Esa solicitud es de otra persona.")
+    db.actualizar_solicitud_frase(sid, {"estado": "retirada", "resuelta_por": usuario, "resuelta_en": db._ahora_iso()})
+    return {"ok": True, "mensaje": "Retirada."}
+
+
+# ---------------- Vista previa del mail (2/11, pedido de Alberto y Julián) ----------------
+PLANTILLA_MAIL = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "distribucion", "frase_mail_plantilla.html")
+
+
+@router.get("/mail/previa/{fecha}")
+def mail_previa(fecha: str, usuario=Depends(auth.usuario_actual)):
+    """El mail de la frase de ese día, armado acá con `distribucion/frase_mail_plantilla.html` y el MISMO contexto que recibe la
+    automation de Perfit (frase_mail.contexto_de). Es una reproducción: el mail real lo arma Perfit con su plantilla; para verlo
+    exacto está «Probar el mail». La imagen va embebida (data:) para que la vista previa no dependa de WordPress."""
+    import base64, html as html_mod
+    import frase_mail
+    _con_db()
+    d = _fecha(fecha)
+    f = db.frase_del_dia(d.isoformat())
+    if not f:
+        raise HTTPException(404, f"El {_fecha_txt(d)} no tiene frase asignada.")
+    cfg, publicar = _cfg()
+    imagen = ""
+    de_donde = "sin foto"
+    try:
+        foto, de_donde = pf.foto_de_fondo(f, cfg, db, publicar)
+        if foto:
+            jpg = pf.componer(f, foto, db.obtener_config("frase_estilo") or {})
+            imagen = "data:image/jpeg;base64," + base64.b64encode(jpg).decode("ascii")
+    except Exception as e:
+        de_donde = f"no pude componer la imagen: {e}"
+    ctx = frase_mail.contexto_de(f, d.isoformat(), imagen, pie=db.obtener_config("frase_pie"))
+    try:
+        plantilla = open(PLANTILLA_MAIL, encoding="utf-8").read()
+    except OSError:
+        raise HTTPException(500, "Falta distribucion/frase_mail_plantilla.html.")
+    salida = re.sub(r"\$\{(\w+)\}", lambda m: (ctx.get(m.group(1), "") if m.group(1) == "imagen_url" else html_mod.escape(str(ctx.get(m.group(1), "")))), plantilla)
+    publico = dict(ctx, imagen_url=("(imagen compuesta)" if imagen else ""))
+    return {"fecha": d.isoformat(), "fecha_texto": _fecha_txt(d), "html": salida, "contexto": publico, "imagen_de": de_donde,
+            "asunto": f"Frase del día · {ctx['fecha_texto']}", "frase": _publica(f),
+            "aviso": "Reproducción con la plantilla local y los mismos datos que recibe Perfit. El mail real lo arma la automation de Perfit; para verlo exacto, mandá una prueba."}

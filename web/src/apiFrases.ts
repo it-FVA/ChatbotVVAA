@@ -23,6 +23,8 @@ export interface Frase {
 export interface Resumen {
   disponible: boolean;
   admin: boolean;
+  aprueba?: boolean; // (2/11) false = creador de contenido: ve el calendario y pide cambios
+  solicitudes_pendientes?: number;
   conteos: { total?: number; validadas?: number; con_fecha?: number; publicadas?: number; sin_fecha_validadas?: number; pendientes_validar?: number; programadas?: number };
   activa: boolean;
   hoy?: string;
@@ -86,6 +88,40 @@ export interface MailPrueba {
   contexto?: Record<string, string>;
   resultados: { email: string; ok: boolean; aviso: string }[];
 }
+/** (2/11) Un pedido de cambio del calendario (GET /frases/solicitudes). */
+export interface Solicitud {
+  id: string;
+  creado: string;
+  usuario: string;
+  fecha: string;
+  fecha_texto: string;
+  frase: Frase | null; // la frase pedida, si ya existe
+  texto: string | null; // o una nueva
+  autor: string | null;
+  nota: string | null;
+  estado: "pendiente" | "aceptada" | "rechazada" | "retirada" | string;
+  resuelta_por: string | null;
+  resuelta_en: string | null;
+  respuesta: string | null;
+  actual: Frase | null; // la que hoy ocupa ese día
+  pasado: boolean;
+}
+export interface Solicitudes {
+  aprueba: boolean;
+  pendientes: Solicitud[];
+  resueltas: Solicitud[];
+}
+/** (2/11) El mail de un día armado con la plantilla local (GET /frases/mail/previa/{fecha}). */
+export interface MailPrevia {
+  fecha: string;
+  fecha_texto: string;
+  html: string;
+  contexto: Record<string, string>;
+  imagen_de: string;
+  asunto: string;
+  frase: Frase | null;
+  aviso: string;
+}
 export interface RespuestaFrase {
   ok: boolean;
   frase: Frase;
@@ -125,4 +161,11 @@ export const apiFrases = {
   activa: (activa: boolean) => pedir<{ ok: boolean; activa: boolean; mensaje: string }>("/frases/activa", { method: "PUT", body: JSON.stringify({ activa }) }),
   mailEstado: () => pedir<MailEstado>("/frases/mail/estado"),
   mailPrueba: (fecha?: string, emails?: string[]) => pedir<MailPrueba>("/frases/mail/prueba", { method: "POST", body: JSON.stringify({ fecha, emails }) }),
+  mailPrevia: (fecha: string) => pedir<MailPrevia>(`/frases/mail/previa/${fecha}`),
+  solicitudes: () => pedir<Solicitudes>("/frases/solicitudes"),
+  solicitar: (datos: { fecha: string; frase_id?: string | null; texto?: string | null; autor?: string | null; nota?: string | null }) =>
+    pedir<{ ok: boolean; id: string; solicitud: Solicitud; mensaje: string }>("/frases/solicitudes", { method: "POST", body: JSON.stringify(datos) }),
+  aceptarSolicitud: (id: string, respuesta?: string) => pedir<{ ok: boolean; solicitud: Solicitud; mensaje: string }>(`/frases/solicitudes/${encodeURIComponent(id)}/aceptar`, { method: "POST", body: JSON.stringify({ respuesta }) }),
+  rechazarSolicitud: (id: string, respuesta?: string) => pedir<{ ok: boolean; solicitud: Solicitud; mensaje: string }>(`/frases/solicitudes/${encodeURIComponent(id)}/rechazar`, { method: "POST", body: JSON.stringify({ respuesta }) }),
+  retirarSolicitud: (id: string) => pedir<{ ok: boolean; mensaje: string }>(`/frases/solicitudes/${encodeURIComponent(id)}/retirar`, { method: "POST" }),
 };

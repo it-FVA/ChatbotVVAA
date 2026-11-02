@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<!-- (2/11) Plantilla LOCAL del mail de la Frase del día, para la vista previa de la plataforma (api/frases_rutas.mail_previa).
+     Reproduce el mail que arma la automation de Perfit (clave frase_del_dia_corpus) con el mismo contexto que le manda
+     frase_mail.contexto_de: ${frase} ${autor} ${fuente} ${fecha} ${fecha_texto} ${imagen_url} ${pie} ${link} ${url}.
+     Si cambia la plantilla en Perfit, copiarla acá para que la vista previa siga pareciéndose. -->
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frase del día · ${fecha_texto}</title>
+</head>
+<body style="margin:0;padding:0;background:#f3efe4;font-family:Georgia,'Times New Roman',serif;color:#2b2b2b;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3efe4;padding:24px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:14px;overflow:hidden;">
+        <tr>
+          <td style="padding:22px 28px 10px;text-align:center;">
+            <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#6b8f3f;">Vivir Agradecidos</div>
+            <div style="font-size:22px;color:#2b2b2b;margin-top:6px;">Frase del día</div>
+            <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#8a8a8a;margin-top:4px;">${fecha_texto}</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:8px 28px 0;text-align:center;">
+            <img src="${imagen_url}" alt="La frase del día sobre una foto" width="544" style="width:100%;max-width:544px;height:auto;border-radius:10px;display:block;margin:0 auto;">
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:26px 36px 8px;text-align:center;">
+            <div style="font-size:21px;line-height:1.45;font-style:italic;color:#2b2b2b;">“${frase}”</div>
+            <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#6b8f3f;margin-top:14px;font-weight:bold;">— ${autor}</div>
+            <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#8a8a8a;margin-top:4px;">${fuente}</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:18px 36px 6px;text-align:center;">
+            <a href="${link}" style="display:inline-block;background:#f2c94c;color:#2b2b2b;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;padding:12px 26px;border-radius:999px;">Ir a viviragradecidos.org</a>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 36px 26px;text-align:center;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#8a8a8a;line-height:1.5;">
+            <div>${pie}</div>
+            <div style="margin-top:14px;">Recibís este mail porque te suscribiste a la Frase del día de la Fundación Vivir Agradecidos.<br>
+              <a href="${url}" style="color:#6b8f3f;">${url}</a> · <span style="text-decoration:underline;">Desuscribirme</span></div>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>

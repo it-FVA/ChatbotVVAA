@@ -5,11 +5,14 @@
 // compuesta, editar texto, mover a / intercambiar con otra fecha, cambiar por otra, foto de fondo del banco, saltar, sacar);
 // backlog con buscador (validadas sin día · pendientes de validación); «Repartir en el año», vaciar y agregar una frase.
 // La configuración de salida (hora, canales, foto por defecto, estilo, pie) vive en Administración → Configuración (solo admins).
+// (2/11, reunión del 2/11) Los creadores de contenido también entran: ven el calendario, el backlog y la vista previa, y piden cambios
+// («me gustaría que este día salga esta frase»); los aprobadores los aceptan o rechazan desde el panel «Solicitudes». Y todos pueden
+// ver el mail de un día como lo arma la plantilla (reproducción de la de Perfit) con «Ver el mail».
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { ErrorApi } from "../api";
 import { apiChat } from "../apiChat";
-import { apiFrases, type Backlog, type Dia, type Frase, type MailEstado, type Mes, type Proxima, type Resumen } from "../apiFrases";
+import { apiFrases, type Backlog, type Dia, type Frase, type MailEstado, type MailPrevia, type Mes, type Proxima, type Resumen, type Solicitud, type Solicitudes } from "../apiFrases";
 import { useSesion } from "../App";
 import type { FotoBanco } from "../tiposChat";
 import { Icono } from "../componentes/Iconos";
@@ -57,6 +60,7 @@ export default function FraseDelDia() {
   const [sobre, setSobre] = useState<string | null>(null);
   const [deshacer, setDeshacer] = useState<Deshacer | null>(null);
   const [modal, setModal] = useState<"repartir" | "vaciar" | "nueva" | null>(null);
+  const [verMail, setVerMail] = useState<string | null>(null); // (2/11) la fecha del mail que se está mirando
   const [ocupado, setOcupado] = useState(false);
   const [version, setVersion] = useState(0); // para refrescar backlog y próximas tras un cambio
   const timerDeshacer = useRef<number | null>(null);
@@ -168,8 +172,7 @@ export default function FraseDelDia() {
     return out;
   }, [resumen?.hoy]);
 
-  if (yo && !yo.rol.aprueba) return <Navigate to="/recortes" replace />;
-
+  const aprueba = resumen ? !!resumen.aprueba : !!yo?.rol.aprueba;
   const c = resumen?.conteos ?? {};
 
   return (
@@ -178,16 +181,22 @@ export default function FraseDelDia() {
         <div>
           <h1>Frase del día</h1>
           <p className="suave">
-            Una frase por día, que sale sola cada mañana como posteo de Instagram con una foto de fondo. Solo entran las validadas del Sheet. Arrastrá una frase a otro día para moverla o intercambiarla; desde el backlog, para asignarla.
+            {aprueba
+              ? "Una frase por día, que sale sola cada mañana por mail y redes con una foto de fondo. Solo entran las validadas del Sheet. Arrastrá una frase a otro día para moverla o intercambiarla; desde el backlog, para asignarla."
+              : "Una frase por día, que sale sola cada mañana por mail y redes con una foto de fondo. Acá ves qué sale cada día. Si querés que un día salga otra frase, abrí ese día y pedí el cambio: lo revisa quien aprueba."}
           </p>
         </div>
         <div className="acciones">
-          <button type="button" className="boton primario" onClick={() => setModal("repartir")} disabled={!resumen?.disponible}>
-            <Icono nombre="calendario" tam={16} /> Repartir en el año
-          </button>
-          <button type="button" className="boton" onClick={() => setModal("nueva")} disabled={!resumen?.disponible}>
-            <Icono nombre="mas" tam={16} /> Agregar una frase
-          </button>
+          {aprueba && (
+            <>
+              <button type="button" className="boton primario" onClick={() => setModal("repartir")} disabled={!resumen?.disponible}>
+                <Icono nombre="calendario" tam={16} /> Repartir en el año
+              </button>
+              <button type="button" className="boton" onClick={() => setModal("nueva")} disabled={!resumen?.disponible}>
+                <Icono nombre="mas" tam={16} /> Agregar una frase
+              </button>
+            </>
+          )}
           {resumen?.admin && (
             <Link className="boton sutil" to="/administracion/configuracion" title="Hora de salida, canales, foto por defecto, estilo y pie del posteo">
               <Icono nombre="ajustar" tam={16} /> Configuración
@@ -260,7 +269,8 @@ export default function FraseDelDia() {
         </section>
       )}
 
-      {resumen && <MailPanel admin={resumen.admin} hoy={resumen.hoy} />}
+      {resumen && <MailPanel admin={resumen.admin} aprueba={aprueba} hoy={resumen.hoy} onVerMail={(f) => setVerMail(f)} />}
+      {resumen?.disponible && <SolicitudesPanel aprueba={aprueba} version={version} onCambio={recargar} onVerDia={setDiaSel} />}
 
       {deshacer && (
         <div className="aviso fd-deshacer" role="status">
@@ -324,7 +334,7 @@ export default function FraseDelDia() {
                 const fr = mes.frases[f];
                 const pasado = f < mes.hoy;
                 const hoy = f === mes.hoy;
-                const puedeSoltar = !!arrastre && !pasado && arrastre.desde !== f && !(fr?.cerrada);
+                const puedeSoltar = aprueba && !!arrastre && !pasado && arrastre.desde !== f && !(fr?.cerrada);
                 return (
                   <div
                     key={f}
@@ -358,11 +368,11 @@ export default function FraseDelDia() {
                     </div>
                     {fr ? (
                       <div
-                        className={"fd-frase" + (fr.cerrada || pasado ? " fija" : "")}
-                        draggable={!fr.cerrada && !pasado}
-                        onDragStart={(e) => empezarArrastre(e, { id: fr.id, desde: f, texto: fr.texto }, setArrastre)}
+                        className={"fd-frase" + (fr.cerrada || pasado || !aprueba ? " fija" : "")}
+                        draggable={aprueba && !fr.cerrada && !pasado}
+                        onDragStart={(e) => aprueba && empezarArrastre(e, { id: fr.id, desde: f, texto: fr.texto }, setArrastre)}
                         onDragEnd={() => (setArrastre(null), setSobre(null))}
-                        title={fr.cerrada ? "En la cola o ya salió: no se mueve" : "Arrastrá a otro día para mover o intercambiar"}
+                        title={!aprueba ? "Abrí el día para ver la frase o pedir un cambio" : fr.cerrada ? "En la cola o ya salió: no se mueve" : "Arrastrá a otro día para mover o intercambiar"}
                       >
                         <span className="fd-texto">{recortar(fr.texto, 70)}</span>
                         {fr.autor && <span className="fd-autor suave chico">{fr.autor}</span>}
@@ -379,7 +389,7 @@ export default function FraseDelDia() {
 
         <aside className="fd-lateral">
           <Proximas lista={proximas} onElegir={setDiaSel} />
-          <BacklogPanel version={version} arrastrando={!!arrastre} onArrastrar={setArrastre} onSoltarArrastre={() => (setArrastre(null), setSobre(null))} onElegir={(fr) => setDiaSel(fr.fecha ?? diaSel)} />
+          <BacklogPanel version={version} arrastrando={!!arrastre} soloLectura={!aprueba} onArrastrar={setArrastre} onSoltarArrastre={() => (setArrastre(null), setSobre(null))} onElegir={(fr) => setDiaSel(fr.fecha ?? diaSel)} />
         </aside>
       </div>
 
@@ -387,6 +397,8 @@ export default function FraseDelDia() {
         <DetalleDia
           fecha={diaSel}
           version={version}
+          aprueba={aprueba}
+          onVerMail={() => setVerMail(diaSel)}
           onCerrar={() => setDiaSel(null)}
           onCambio={(nuevaFecha) => {
             recargar();
@@ -395,6 +407,7 @@ export default function FraseDelDia() {
           ofrecerDeshacer={ofrecerDeshacer}
         />
       )}
+      {verMail && <VerMail fecha={verMail} onCerrar={() => setVerMail(null)} />}
       {modal === "repartir" && resumen && (
         <Repartir
           hoy={resumen.hoy || iso(new Date())}
@@ -432,10 +445,14 @@ export default function FraseDelDia() {
       )}
 
       <p className="suave chico fd-pie">
-        <button type="button" className="boton sutil chico" onClick={() => setModal("vaciar")} disabled={!resumen?.disponible}>
-          <Icono nombre="tacho" tam={14} /> Vaciar el calendario
-        </button>{" "}
-        Las frases vienen del Sheet Frases_consolidadas_591 (importar_frases.py). El mail no entra todavía (Julián audita Perfit).
+        {aprueba && (
+          <>
+            <button type="button" className="boton sutil chico" onClick={() => setModal("vaciar")} disabled={!resumen?.disponible}>
+              <Icono nombre="tacho" tam={14} /> Vaciar el calendario
+            </button>{" "}
+          </>
+        )}
+        Las frases vienen del Sheet Frases_consolidadas_591 (importar_frases.py).
       </p>
     </div>
   );
@@ -501,7 +518,7 @@ function Proximas({ lista, onElegir }: { lista: Proxima[] | null; onElegir: (f: 
 }
 
 // ---------------- Backlog ----------------
-function BacklogPanel({ version, arrastrando, onArrastrar, onSoltarArrastre, onElegir }: { version: number; arrastrando: boolean; onArrastrar: (a: Arrastre) => void; onSoltarArrastre: () => void; onElegir: (f: Frase) => void }) {
+function BacklogPanel({ version, arrastrando, soloLectura, onArrastrar, onSoltarArrastre, onElegir }: { version: number; arrastrando: boolean; soloLectura?: boolean; onArrastrar: (a: Arrastre) => void; onSoltarArrastre: () => void; onElegir: (f: Frase) => void }) {
   const [q, setQ] = useState("");
   const [datos, setDatos] = useState<Backlog | null>(null);
   const [solapa, setSolapa] = useState<"sin_dia" | "pendientes">("sin_dia");
@@ -535,19 +552,19 @@ function BacklogPanel({ version, arrastrando, onArrastrar, onSoltarArrastre, onE
           </button>
         </div>
         {solapa === "pendientes" && <p className="suave chico">Las nuevas del Sheet esperan el OK de Pato: no se pueden asignar hasta que estén validadas (se marcan en el Sheet y se vuelve a correr importar_frases.py).</p>}
-        {solapa === "sin_dia" && <p className="suave chico">Arrastrá una frase a un día del calendario para asignarla (si el día está ocupado, la reemplaza y esa vuelve acá).</p>}
+        {solapa === "sin_dia" && <p className="suave chico">{soloLectura ? "Las validadas que todavía no tienen día. Para pedir que una salga un día, abrí ese día en el calendario." : "Arrastrá una frase a un día del calendario para asignarla (si el día está ocupado, la reemplaza y esa vuelve acá)."}</p>}
         <ul className="fd-lista">
           {lista === null && <li className="suave chico">Cargando…</li>}
           {lista && lista.length === 0 && <li className="suave chico">{q ? "Nada que coincida." : solapa === "sin_dia" ? "No hay validadas sin día: están todas en el calendario." : "No hay pendientes."}</li>}
           {lista?.map((f) => (
             <li
               key={f.id}
-              className={"fd-item" + (solapa === "sin_dia" ? " arrastrable" : "")}
-              draggable={solapa === "sin_dia"}
-              onDragStart={(e) => solapa === "sin_dia" && empezarArrastre(e, { id: f.id, desde: null, texto: f.texto }, onArrastrar)}
+              className={"fd-item" + (solapa === "sin_dia" && !soloLectura ? " arrastrable" : "")}
+              draggable={solapa === "sin_dia" && !soloLectura}
+              onDragStart={(e) => solapa === "sin_dia" && !soloLectura && empezarArrastre(e, { id: f.id, desde: null, texto: f.texto }, onArrastrar)}
               onDragEnd={onSoltarArrastre}
               onClick={() => onElegir(f)}
-              title={solapa === "sin_dia" ? "Arrastrá a un día del calendario" : "Pendiente de validación"}
+              title={soloLectura ? (solapa === "sin_dia" ? "Validada, sin día todavía" : "Pendiente de validación") : solapa === "sin_dia" ? "Arrastrá a un día del calendario" : "Pendiente de validación"}
             >
               <span className="fd-texto">{recortar(f.texto, 140)}</span>
               <span className="suave chico">
@@ -566,7 +583,7 @@ function BacklogPanel({ version, arrastrando, onArrastrar, onSoltarArrastre, onE
 // ---------------- Detalle de un día ----------------
 type Solapa = "texto" | "mover" | "cambiar" | "foto" | "saltar";
 
-function DetalleDia({ fecha, version, onCerrar, onCambio, ofrecerDeshacer }: { fecha: string; version: number; onCerrar: () => void; onCambio: (nuevaFecha?: string | null) => void; ofrecerDeshacer: (texto: string, hacer: () => Promise<void>) => void }) {
+function DetalleDia({ fecha, version, aprueba, onVerMail, onCerrar, onCambio, ofrecerDeshacer }: { fecha: string; version: number; aprueba: boolean; onVerMail: () => void; onCerrar: () => void; onCambio: (nuevaFecha?: string | null) => void; ofrecerDeshacer: (texto: string, hacer: () => Promise<void>) => void }) {
   const { avisar } = useToast();
   const [d, setD] = useState<Dia | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -609,7 +626,13 @@ function DetalleDia({ fecha, version, onCerrar, onCambio, ofrecerDeshacer }: { f
     <Modal titulo={titulo} onCerrar={onCerrar} ancho={760}>
       {error && <div className="aviso error">{error}</div>}
       {!d && !error && <p className="suave">Cargando…</p>}
-      {d && !f && (
+      {d && !f && !aprueba && (
+        <>
+          <p className="suave">Este día no tiene frase{d.pasado ? " y ya pasó." : " todavía: la cola le asigna la siguiente de la rotación. Si querés que salga una en particular, pedila:"}</p>
+          {!d.pasado && <SolicitarCambio fecha={fecha} actual={null} onHecho={() => onCambio()} />}
+        </>
+      )}
+      {d && !f && aprueba && (
         <>
           <p className="suave">Este día no tiene frase{d.pasado ? " y ya pasó." : ". Elegí una de las validadas sin día:"}</p>
           {!d.pasado && (
@@ -654,7 +677,7 @@ function DetalleDia({ fecha, version, onCerrar, onCambio, ofrecerDeshacer }: { f
             )}
             {f.cerrada ? (
               <div className="aviso chico">
-                <Icono nombre="info" tam={16} /> Esta frase ya está en la cola o ya salió: no se mueve ni se edita desde acá. Para frenarla, cancelá la pieza en la cola (Aprobación → En cola).
+                <Icono nombre="info" tam={16} /> Esta frase ya está en la cola o ya salió: {aprueba ? "no se mueve ni se edita desde acá. Para frenarla, cancelá la pieza en la cola (Aprobación → En cola)." : "ese día ya no se puede cambiar."}
               </div>
             ) : d.pasado ? (
               <div className="aviso chico">
@@ -670,12 +693,22 @@ function DetalleDia({ fecha, version, onCerrar, onCambio, ofrecerDeshacer }: { f
                 <img src={apiFrases.previaUrl(f.id, `${v}-${f.imagen_url || ""}`)} alt="Así saldría la imagen" onLoad={() => setPreviaOk(true)} onError={() => setPreviaOk(false)} />
               )}
               {d.foto?.url && previaOk !== false && <span className="suave chico">Así saldría (foto: {d.foto.de_donde})</span>}
+              <button type="button" className="boton chico" onClick={onVerMail} title="El mail de ese día, armado con la plantilla">
+                <Icono nombre="sobre" tam={15} /> Ver el mail
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {d && f && !f.cerrada && !d.pasado && (
+      {d && f && !f.cerrada && !d.pasado && !aprueba && (
+        <>
+          <h3 className="fd-sub">Pedir un cambio para este día</h3>
+          <SolicitarCambio fecha={fecha} actual={f} onHecho={() => onCambio()} />
+        </>
+      )}
+
+      {d && f && !f.cerrada && !d.pasado && aprueba && (
         <>
           <div className="solapas chico fd-solapas" role="tablist">
             {(
@@ -998,7 +1031,7 @@ function NuevaFrase({ onCerrar, onHecha }: { onCerrar: () => void; onHecha: () =
 
 /** (26/10, reunión: la Frase del día vuelve por mail con el disparador de Perfit) Estado del canal mail y la prueba al equipo.
  * Lo ven aprobadores y admins; el botón de prueba es de admins. La hora de inicio y la lista de prueba se cargan en Configuración. */
-function MailPanel({ admin, hoy }: { admin: boolean; hoy?: string }) {
+function MailPanel({ admin, aprueba, hoy, onVerMail }: { admin: boolean; aprueba: boolean; hoy?: string; onVerMail: (fecha: string) => void }) {
   const { avisar } = useToast();
   const [est, setEst] = useState<MailEstado | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -1107,7 +1140,12 @@ function MailPanel({ admin, hoy }: { admin: boolean; hoy?: string }) {
                   </>
                 )}
               </span>
-              {admin && (
+              {hoy && (
+                <button type="button" className="boton chico" onClick={() => onVerMail(hoy)} title="El mail de hoy, armado con la plantilla (reproducción de la de Perfit)">
+                  <Icono nombre="ojo" tam={15} /> Ver el mail de hoy
+                </button>
+              )}
+              {aprueba && (
                 <button type="button" className="boton chico" onClick={probar} disabled={probando || est.modo === "apagado"} title={est.modo === "apagado" ? "PUBLICAR_MAIL está apagado" : "Manda la frase de hoy a los mails de prueba, ahora"}>
                   <Icono nombre="sobre" tam={15} /> {probando ? "Mandando…" : "Probar el mail de hoy"}
                 </button>
@@ -1131,6 +1169,215 @@ function MailPanel({ admin, hoy }: { admin: boolean; hoy?: string }) {
               </p>
             )}
           </>
+        )}
+      </div>
+    </details>
+  );
+}
+
+
+// ---------------- (2/11) Ver el mail de un día ----------------
+function VerMail({ fecha, onCerrar }: { fecha: string; onCerrar: () => void }) {
+  const [m, setM] = useState<MailPrevia | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    setM(null);
+    setError(null);
+    apiFrases
+      .mailPrevia(fecha)
+      .then(setM)
+      .catch((e) => setError(mensajeDe(e)));
+  }, [fecha]);
+  return (
+    <Modal titulo={`El mail del ${fechaLarga(fecha)}`} onCerrar={onCerrar} ancho={760}>
+      {error && <div className="aviso error">{error}</div>}
+      {!m && !error && <p className="suave">Armando el mail…</p>}
+      {m && (
+        <div className="fd-mail-previa">
+          <p className="chico">
+            <strong>Asunto:</strong> {m.asunto}
+            <span className="suave"> · foto: {m.imagen_de}</span>
+          </p>
+          <iframe title="Vista previa del mail" srcDoc={m.html} sandbox="" />
+          <p className="suave chico">
+            <Icono nombre="info" tam={14} /> {m.aviso}
+          </p>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+// ---------------- (2/11) Solicitudes de cambio: los creadores piden, los aprobadores resuelven ----------------
+function SolicitarCambio({ fecha, actual, onHecho }: { fecha: string; actual: Frase | null; onHecho: () => void }) {
+  const { avisar } = useToast();
+  const [modo, setModo] = useState<"existente" | "nueva">("existente");
+  const [texto, setTexto] = useState("");
+  const [autor, setAutor] = useState("Br. David");
+  const [nota, setNota] = useState("");
+  const [ocupado, setOcupado] = useState(false);
+  const [hecha, setHecha] = useState<string | null>(null);
+
+  async function mandar(frase_id: string | null) {
+    setOcupado(true);
+    try {
+      const r = await apiFrases.solicitar({ fecha, frase_id, texto: frase_id ? null : texto, autor: frase_id ? null : autor, nota });
+      setHecha(r.mensaje);
+      avisar(r.mensaje);
+      onHecho();
+    } catch (e) {
+      avisar(mensajeDe(e), "error");
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  if (hecha)
+    return (
+      <div className="aviso chico">
+        <Icono nombre="check" tam={16} /> {hecha} Lo seguís en el panel «Solicitudes».
+      </div>
+    );
+  return (
+    <div className="fd-form fd-solicitar">
+      {actual && <p className="suave chico">Hoy ese día tiene «{recortar(actual.texto, 90)}». Si aceptan tu pedido, la que elijas toma su lugar (la que estaba vuelve al backlog o se intercambia).</p>}
+      <div className="solapas chico" role="tablist">
+        <button role="tab" aria-selected={modo === "existente"} className={"solapa" + (modo === "existente" ? " activa" : "")} onClick={() => setModo("existente")}>
+          Una frase que ya está cargada
+        </button>
+        <button role="tab" aria-selected={modo === "nueva"} className={"solapa" + (modo === "nueva" ? " activa" : "")} onClick={() => setModo("nueva")}>
+          Una frase nueva
+        </button>
+      </div>
+      <label className="campo">
+        <span>Comentario para quien aprueba <span className="suave">(opcional)</span></span>
+        <input value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Por qué este día, por ejemplo: es el Día de la Madre" maxLength={300} />
+      </label>
+      {modo === "existente" ? (
+        <Buscador excluir={actual?.id} textoBoton="Pedir que salga este día" ocupado={ocupado} onElegir={(fr) => mandar(fr.id)} />
+      ) : (
+        <>
+          <label className="campo">
+            <span>La frase</span>
+            <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={3} placeholder="Escribí la frase tal cual saldría" />
+          </label>
+          <label className="campo">
+            <span>Autor</span>
+            <input value={autor} onChange={(e) => setAutor(e.target.value)} />
+          </label>
+          <div className="acciones">
+            <button type="button" className="boton primario" disabled={ocupado || !texto.trim()} onClick={() => mandar(null)}>
+              <Icono nombre="enviar" tam={15} /> Pedir que salga este día
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function SolicitudesPanel({ aprueba, version, onCambio, onVerDia }: { aprueba: boolean; version: number; onCambio: () => void; onVerDia: (fecha: string) => void }) {
+  const { avisar } = useToast();
+  const [datos, setDatos] = useState<Solicitudes | null>(null);
+  const [respuesta, setRespuesta] = useState<Record<string, string>>({});
+  const [ocupado, setOcupado] = useState<string | null>(null);
+  const cargar = useCallback(() => {
+    apiFrases.solicitudes().then(setDatos).catch(() => setDatos({ aprueba, pendientes: [], resueltas: [] }));
+  }, [aprueba]);
+  useEffect(cargar, [cargar, version]);
+
+  async function resolver(s: Solicitud, que: "aceptar" | "rechazar" | "retirar") {
+    setOcupado(s.id);
+    try {
+      const r = que === "aceptar" ? await apiFrases.aceptarSolicitud(s.id, respuesta[s.id]) : que === "rechazar" ? await apiFrases.rechazarSolicitud(s.id, respuesta[s.id]) : await apiFrases.retirarSolicitud(s.id);
+      avisar(r.mensaje);
+      cargar();
+      onCambio();
+    } catch (e) {
+      avisar(mensajeDe(e), "error");
+    } finally {
+      setOcupado(null);
+    }
+  }
+
+  const n = datos?.pendientes.length ?? 0;
+  if (datos && !n && !datos.resueltas.length && aprueba) return null;
+  return (
+    <details className="fd-panel tarjeta" open={n > 0}>
+      <summary>
+        <Icono nombre="chevron" tam={16} />
+        <Icono nombre="pregunta" tam={17} />
+        <span>
+          {aprueba ? "Solicitudes del equipo" : "Mis solicitudes"}
+          {datos && (
+            <span className="suave chico">
+              {" "}
+              · {n ? `${n} pendiente${n === 1 ? "" : "s"}` : "nada pendiente"}
+            </span>
+          )}
+        </span>
+      </summary>
+      <div className="fd-panel-cuerpo">
+        {!datos && <p className="suave chico">Cargando…</p>}
+        {datos && !n && <p className="suave chico">{aprueba ? "No hay pedidos de cambio pendientes." : "No tenés pedidos pendientes. Abrí un día del calendario para pedir que salga otra frase."}</p>}
+        <ul className="fd-solicitudes">
+          {datos?.pendientes.map((s) => (
+            <li key={s.id} className="fd-solicitud">
+              <div className="fd-solicitud-cab chico">
+                <button type="button" className="enlace" onClick={() => onVerDia(s.fecha)}>
+                  <strong>{s.fecha_texto}</strong>
+                </button>
+                {aprueba && <span className="suave"> · pide {s.usuario}</span>}
+                <span className="suave"> · {fechaCorta(s.creado.slice(0, 10))}</span>
+                {s.pasado && <span className="rojo"> · ese día ya pasó</span>}
+              </div>
+              <div className="fd-solicitud-cambio chico">
+                <span>
+                  <span className="suave">Que salga:</span> «{recortar(s.frase?.texto || s.texto || "", 160)}» — {s.frase?.autor || s.autor || "(sin autor)"}
+                  {!s.frase && <span className="chip chico"> nueva</span>}
+                  {s.frase?.fecha && s.frase.fecha !== s.fecha && <span className="suave"> (hoy está el {fechaCorta(s.frase.fecha)})</span>}
+                </span>
+                <span className="suave">{s.actual ? `En lugar de: «${recortar(s.actual.texto, 100)}»` : "El día está libre."}</span>
+                {s.nota && <span className="fd-nota">“{s.nota}”</span>}
+              </div>
+              {aprueba ? (
+                <div className="fd-solicitud-acciones">
+                  <input value={respuesta[s.id] ?? ""} onChange={(e) => setRespuesta({ ...respuesta, [s.id]: e.target.value })} placeholder="Respuesta (opcional; al rechazar, decí por qué)" maxLength={300} />
+                  <button type="button" className="boton primario chico" disabled={ocupado === s.id || s.pasado} onClick={() => resolver(s, "aceptar")}>
+                    <Icono nombre="check" tam={14} /> Aceptar
+                  </button>
+                  <button type="button" className="boton chico" disabled={ocupado === s.id} onClick={() => resolver(s, "rechazar")}>
+                    <Icono nombre="cruz" tam={14} /> Rechazar
+                  </button>
+                </div>
+              ) : (
+                <div className="fd-solicitud-acciones">
+                  <span className="suave chico">Esperando a quien aprueba.</span>
+                  <button type="button" className="boton sutil chico" disabled={ocupado === s.id} onClick={() => resolver(s, "retirar")}>
+                    <Icono nombre="tacho" tam={14} /> Retirar
+                  </button>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+        {datos && datos.resueltas.length > 0 && (
+          <details className="fd-resueltas">
+            <summary className="suave chico">Últimas resueltas ({datos.resueltas.length})</summary>
+            <ul className="fd-solicitudes">
+              {datos.resueltas.map((s) => (
+                <li key={s.id} className={"fd-solicitud " + s.estado}>
+                  <div className="chico">
+                    <strong>{s.fecha_texto}</strong>
+                    {aprueba && <span className="suave"> · pidió {s.usuario}</span>} · «{recortar(s.frase?.texto || s.texto || "", 90)}» ·{" "}
+                    <span className={s.estado === "aceptada" ? "verde" : s.estado === "rechazada" ? "rojo" : "suave"}>{s.estado}</span>
+                    {s.resuelta_por && s.estado !== "retirada" && <span className="suave"> por {s.resuelta_por}</span>}
+                    {s.respuesta && <span className="fd-nota"> “{s.respuesta}”</span>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
       </div>
     </details>

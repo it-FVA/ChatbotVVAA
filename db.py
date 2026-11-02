@@ -967,3 +967,41 @@ def ultimos_envios(fecha=None, limite=50, prueba=None):
     if prueba is not None:
         q += f"&prueba=is.{'true' if prueba else 'false'}"
     return _req("GET", q, tabla="frase_envios") or []
+
+
+# ---------------- Frase del día: solicitudes de cambio (2/11): tabla frase_solicitudes ----------------
+# Un creador de contenido pide «que tal día salga tal frase» (una existente o una nueva); un aprobador la acepta (se aplica al
+# calendario) o la rechaza con una respuesta. Lo usa api/frases_rutas.py.
+CAMPOS_SOLICITUD = "id,creado,usuario,fecha,frase_id,texto,autor,nota,estado,resuelta_por,resuelta_en,respuesta"
+
+
+def crear_solicitud_frase(usuario, fecha, frase_id=None, texto=None, autor=None, nota=None):
+    if not disponible():
+        return None
+    r = _req("POST", "", {"usuario": usuario, "fecha": str(fecha)[:10], "frase_id": frase_id, "texto": texto, "autor": autor, "nota": nota},
+             tabla="frase_solicitudes")
+    return r[0]["id"] if r else None
+
+
+def obtener_solicitud_frase(sid):
+    if not disponible():
+        return None
+    r = _req("GET", f"?select={CAMPOS_SOLICITUD}&id=eq.{urllib.parse.quote(str(sid))}", tabla="frase_solicitudes")
+    return r[0] if r else None
+
+
+def listar_solicitudes_frase(estado=None, usuario=None, limite=200):
+    if not disponible():
+        return []
+    q = f"?select={CAMPOS_SOLICITUD}&order=creado.desc&limit={int(limite)}"
+    if estado:
+        q += f"&estado=eq.{urllib.parse.quote(estado)}"
+    if usuario:
+        q += f"&usuario=eq.{urllib.parse.quote(usuario)}"
+    return _req("GET", q, tabla="frase_solicitudes") or []
+
+
+def actualizar_solicitud_frase(sid, campos):
+    if not disponible():
+        return None
+    return _req("PATCH", f"?id=eq.{urllib.parse.quote(str(sid))}", campos, tabla="frase_solicitudes")

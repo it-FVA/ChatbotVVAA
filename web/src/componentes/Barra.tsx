@@ -64,11 +64,9 @@ export default function Barra() {
         </span>
 
         <div className="barra-grupo">Campañas</div>
-        {yo?.rol.aprueba && (
-          <NavLink to="/frase-del-dia" className={sub} title="El calendario anual de la frase que sale cada mañana (aprobadores y admins)">
-            <Icono nombre="calendario" /> Frase del día
-          </NavLink>
-        )}
+        <NavLink to="/frase-del-dia" className={sub} title={yo?.rol.aprueba ? "El calendario anual de la frase que sale cada mañana" : "El calendario de la frase que sale cada mañana: mirá qué sale y pedí cambios"}>
+          <Icono nombre="calendario" /> Frase del día
+        </NavLink>
         <NavLink to="/newsletter" className={sub} title="El newsletter mensual">
           <Icono nombre="sobre" /> Newsletter
         </NavLink>
