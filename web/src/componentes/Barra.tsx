@@ -76,7 +76,7 @@ export default function Barra() {
           <Icono nombre="carpeta" /> Mis proyectos
         </NavLink>
         <NavLink to="/compartidos" className={sub} title="Los proyectos que otras personas compartieron conmigo">
-          <Icono nombre="compartir" /> Compartidos conmigo
+          <Icono nombre="compartir" /> Compartidos
         </NavLink>
 
         <div className="barra-grupo">Herramientas</div>
