@@ -59,7 +59,7 @@ export default function Barra() {
         <NavLink to="/newsletter" className={sub} title="Diseñar un email (el editor del newsletter)">
           <Icono nombre="sobre" /> Email
         </NavLink>
-        <span className="barra-link sub pronto" title="Todavía no: la frase del día al grupo de WhatsApp está en estudio (reunión del 2/11)">
+        <span className="barra-link sub pronto" title="Todavía no se puede diseñar para WhatsApp: no hay forma de mandar desde la cuenta común. El prototipo de la frase del día al grupo se ve en Frase del día → un día → «Ver el WhatsApp»">
           <Icono nombre="celular" /> WhatsApp <span className="suave chico">pronto</span>
         </span>
 

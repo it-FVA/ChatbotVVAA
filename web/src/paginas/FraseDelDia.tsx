@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } fro
 import { Link } from "react-router-dom";
 import { ErrorApi } from "../api";
 import { apiChat } from "../apiChat";
-import { apiFrases, type Backlog, type Dia, type Frase, type MailEstado, type MailPrevia, type Mes, type Proxima, type Resumen, type Solicitud, type Solicitudes } from "../apiFrases";
+import { apiFrases, type Backlog, type Dia, type Frase, type MailEstado, type MailPrevia, type WhatsappPrevia, type Mes, type Proxima, type Resumen, type Solicitud, type Solicitudes } from "../apiFrases";
 import { useSesion } from "../App";
 import type { FotoBanco } from "../tiposChat";
 import { Icono } from "../componentes/Iconos";
@@ -61,6 +61,7 @@ export default function FraseDelDia() {
   const [deshacer, setDeshacer] = useState<Deshacer | null>(null);
   const [modal, setModal] = useState<"repartir" | "vaciar" | "nueva" | null>(null);
   const [verMail, setVerMail] = useState<string | null>(null); // (2/11) la fecha del mail que se está mirando
+  const [verWa, setVerWa] = useState<string | null>(null); // (2/11 tarde) prototipo WhatsApp: la fecha del mensaje que se está mirando
   const [solapaPedida, setSolapaPedida] = useState<{ s: Solapa; n: number } | null>(null); // (2/11 tarde) desde el mail: abrir el día en «Foto de fondo»
   const [ocupado, setOcupado] = useState(false);
   const [version, setVersion] = useState(0); // para refrescar backlog y próximas tras un cambio
@@ -401,6 +402,7 @@ export default function FraseDelDia() {
           version={version}
           aprueba={aprueba}
           onVerMail={() => setVerMail(diaSel)}
+          onVerWhatsapp={() => setVerWa(diaSel)}
           onCerrar={() => setDiaSel(null)}
           onCambio={(nuevaFecha) => {
             recargar();
@@ -409,6 +411,7 @@ export default function FraseDelDia() {
           ofrecerDeshacer={ofrecerDeshacer}
         />
       )}
+      {verWa && <VerWhatsapp fecha={verWa} onCerrar={() => setVerWa(null)} />}
       {verMail && (
         <VerMail
           fecha={verMail}
@@ -596,7 +599,7 @@ function BacklogPanel({ version, arrastrando, soloLectura, onArrastrar, onSoltar
 // ---------------- Detalle de un día ----------------
 type Solapa = "texto" | "mover" | "cambiar" | "foto" | "saltar";
 
-function DetalleDia({ fecha, version, aprueba, solapaPedida, onVerMail, onCerrar, onCambio, ofrecerDeshacer }: { fecha: string; version: number; aprueba: boolean; solapaPedida?: { s: Solapa; n: number } | null; onVerMail: () => void; onCerrar: () => void; onCambio: (nuevaFecha?: string | null) => void; ofrecerDeshacer: (texto: string, hacer: () => Promise<void>) => void }) {
+function DetalleDia({ fecha, version, aprueba, solapaPedida, onVerMail, onVerWhatsapp, onCerrar, onCambio, ofrecerDeshacer }: { fecha: string; version: number; aprueba: boolean; solapaPedida?: { s: Solapa; n: number } | null; onVerMail: () => void; onVerWhatsapp: () => void; onCerrar: () => void; onCambio: (nuevaFecha?: string | null) => void; ofrecerDeshacer: (texto: string, hacer: () => Promise<void>) => void }) {
   const { avisar } = useToast();
   const [d, setD] = useState<Dia | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -709,9 +712,14 @@ function DetalleDia({ fecha, version, aprueba, solapaPedida, onVerMail, onCerrar
                 <img src={apiFrases.previaUrl(f.id, `${v}-${f.imagen_url || ""}`)} alt="Así saldría la imagen" onLoad={() => setPreviaOk(true)} onError={() => setPreviaOk(false)} />
               )}
               {d.foto?.url && previaOk !== false && <span className="suave chico">Así saldría (foto: {d.foto.de_donde})</span>}
-              <button type="button" className="boton chico" onClick={onVerMail} title="El mail de ese día, armado con la plantilla">
-                <Icono nombre="sobre" tam={15} /> Ver el mail
-              </button>
+              <div className="fd-previa-botones">
+                <button type="button" className="boton chico" onClick={onVerMail} title="El mail de ese día, armado con la plantilla">
+                  <Icono nombre="sobre" tam={15} /> Ver el mail
+                </button>
+                <button type="button" className="boton chico" onClick={onVerWhatsapp} title="Cómo saldría en el grupo de WhatsApp de la comunidad (prototipo, todavía no se manda)">
+                  <Icono nombre="celular" tam={15} /> Ver el WhatsApp
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1237,6 +1245,57 @@ function VerMail({ fecha, onCerrar, onCambiarFoto }: { fecha: string; onCerrar: 
               </button>
             </div>
           )}
+          <p className="suave chico">
+            <Icono nombre="info" tam={14} /> {m.aviso}
+          </p>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+/** (2/11 tarde) Prototipo de la reunión: la frase en el grupo de WhatsApp, dibujada como un chat. Todavía no se manda (sin endpoint). */
+function VerWhatsapp({ fecha, onCerrar }: { fecha: string; onCerrar: () => void }) {
+  const [m, setM] = useState<WhatsappPrevia | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    setM(null);
+    setError(null);
+    apiFrases
+      .whatsappPrevia(fecha)
+      .then(setM)
+      .catch((e) => setError(mensajeDe(e)));
+  }, [fecha]);
+  const hora = "07:00";
+  return (
+    <Modal titulo={`El WhatsApp del ${fechaLarga(fecha)}`} onCerrar={onCerrar} ancho={520}>
+      {error && <div className="aviso error">{error}</div>}
+      {!m && !error && <p className="suave">Armando el mensaje…</p>}
+      {m && (
+        <div className="fd-wa">
+          <p className="chico">
+            <strong>Grupo:</strong> {m.grupo}
+            <span className="suave"> · modo {m.modo}{m.canal_prendido ? " · canal prendido" : " · canal apagado en Configuración"}</span>
+            {m.pieza && <span className="suave"> · pieza {m.pieza.estado}</span>}
+          </p>
+          <div className="wa-chat" aria-label="Así se vería en WhatsApp">
+            <div className="wa-cab">
+              <span className="wa-avatar">VA</span>
+              <span>
+                <strong>{m.grupo}</strong>
+                <span className="wa-sub">Vivir Agradecidos, vos y la comunidad</span>
+              </span>
+            </div>
+            <div className="wa-fondo">
+              <div className="wa-dia">{m.fecha_texto}</div>
+              <div className="wa-burbuja">
+                <div className="wa-quien">Vivir Agradecidos</div>
+                {m.imagen ? <img src={m.imagen} alt="La frase sobre la foto" /> : <div className="wa-sin-imagen suave chico">Sin imagen ({m.imagen_de})</div>}
+                <div className="wa-texto">{m.texto}</div>
+                <div className="wa-hora">{hora} ✓✓</div>
+              </div>
+            </div>
+          </div>
           <p className="suave chico">
             <Icono nombre="info" tam={14} /> {m.aviso}
           </p>

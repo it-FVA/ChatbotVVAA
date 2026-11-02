@@ -496,6 +496,103 @@
 
 
 /* (2/11) ver el mail de un día */
+/* (2/11 tarde) prototipo WhatsApp: el mensaje dibujado como un chat */
+.fd-previa-botones {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.fd-wa {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.wa-chat {
+  border: 1px solid var(--borde);
+  border-radius: 14px;
+  overflow: hidden;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.wa-cab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #075e54;
+  color: #fff;
+  font-size: 0.9rem;
+}
+.wa-cab .wa-sub {
+  display: block;
+  font-size: 0.72rem;
+  opacity: 0.85;
+}
+.wa-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #f2c94c;
+  color: #2b2b2b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+.wa-fondo {
+  background: #e5ddd5;
+  padding: 14px 12px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.wa-dia {
+  align-self: center;
+  background: #fff;
+  color: #555;
+  font-size: 0.72rem;
+  padding: 3px 10px;
+  border-radius: 8px;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+}
+.wa-burbuja {
+  align-self: flex-start;
+  background: #fff;
+  border-radius: 10px;
+  border-top-left-radius: 2px;
+  padding: 6px;
+  max-width: 320px;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+  font-size: 0.9rem;
+}
+.wa-quien {
+  color: #d84315;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 2px 4px 4px;
+}
+.wa-burbuja img {
+  width: 100%;
+  border-radius: 8px;
+  display: block;
+}
+.wa-sin-imagen {
+  padding: 24px 8px;
+  text-align: center;
+}
+.wa-texto {
+  white-space: pre-wrap;
+  padding: 6px 4px 2px;
+  color: #111;
+  line-height: 1.35;
+}
+.wa-hora {
+  text-align: right;
+  font-size: 0.68rem;
+  color: #667781;
+  padding: 0 4px 2px;
+}
 .fd-mail-previa {
   display: flex;
   flex-direction: column;

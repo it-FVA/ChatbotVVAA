@@ -25,6 +25,7 @@ Rutas:
   GET   /frases/mail/estado            (26/10) el canal mail por Perfit: modo, qué falta, la lista, el envío de hoy/mañana y las últimas pruebas
   POST  /frases/mail/prueba            (aprobadores; 2/11 antes solo admins) {fecha?, emails?}: manda la frase de ese día a esos mails ahora
   GET   /frases/mail/previa/{fecha}    (2/11) el mail de ese día armado con la plantilla local (reproducción de la de Perfit): {html, contexto}
+  GET   /frases/whatsapp/previa/{fecha} (2/11 tarde) el mensaje al grupo de WhatsApp tal cual saldría (prototipo: texto + imagen embebida, modo)
 
 (2/11, reunión del 2/11) Los creadores de contenido también VEN el calendario (resumen, próximas, mes, día, backlog, vista previa:
 auth.usuario_actual) y piden cambios; lo que modifica el calendario sigue siendo de aprobadores:
@@ -650,6 +651,37 @@ def retirar_solicitud(sid: str, usuario=Depends(auth.usuario_actual)):
         raise HTTPException(403, "Esa solicitud es de otra persona.")
     db.actualizar_solicitud_frase(sid, {"estado": "retirada", "resuelta_por": usuario, "resuelta_en": db._ahora_iso()})
     return {"ok": True, "mensaje": "Retirada."}
+
+
+# ---------------- (2/11 tarde) Prototipo WhatsApp: cómo saldría la frase en el grupo ----------------
+@router.get("/whatsapp/previa/{fecha}")
+def whatsapp_previa(fecha: str, usuario=Depends(auth.usuario_actual)):
+    """El mensaje al grupo de la comunidad tal cual se mandaría (publicar.mensaje_whatsapp + la imagen compuesta embebida).
+    Prototipo de la reunión del 2/11: todavía no hay forma de mandar desde la cuenta común; el modo lo dice."""
+    import base64
+    _con_db()
+    d = _fecha(fecha)
+    f = db.frase_del_dia(d.isoformat())
+    if not f:
+        raise HTTPException(404, f"El {_fecha_txt(d)} no tiene frase asignada.")
+    cfg, publicar = _cfg()
+    imagen, de_donde = "", "sin foto"
+    try:
+        foto, de_donde = pf.foto_de_fondo(f, cfg, db, publicar)
+        if foto:
+            jpg = pf.componer(f, foto, db.obtener_config("frase_estilo") or {})
+            imagen = "data:image/jpeg;base64," + base64.b64encode(jpg).decode("ascii")
+    except Exception as e:
+        de_donde = f"no pude componer la imagen: {e}"
+    pid = ((f.get("piezas") or {}).get("whatsapp"))
+    p = db.obtener_publicacion(pid) if pid else None
+    canales = db.obtener_config("frase_canales") or pf.CANALES_DEFECTO
+    return {"fecha": d.isoformat(), "fecha_texto": _fecha_txt(d), "texto": publicar.mensaje_whatsapp(f.get("texto"), f.get("autor")),
+            "imagen": imagen, "imagen_de": de_donde, "grupo": os.environ.get("WHATSAPP_GRUPO") or "Comunidad Vivir Agradecidos",
+            "modo": cfg.modo_wa, "canal_prendido": "whatsapp" in canales, "frase": _publica(f),
+            "pieza": {"id": pid, "estado": p.get("estado"), "fecha_programada": p.get("fecha_programada")} if p else None,
+            "aviso": ("Prototipo: así saldría en el grupo. Por ahora no se manda: la cuenta común de la fundación no tiene API "
+                      "(la reunión descartó WhatsApp Business). Cuando se defina cómo mandar, se prende el modo real sin cambiar esta pantalla.")}
 
 
 # ---------------- Vista previa del mail (2/11, pedido de Alberto y Julián) ----------------

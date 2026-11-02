@@ -38,6 +38,7 @@ REGISTRO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "registro_pu
 MODOS_WP = ("apagado", "simulado", "borrador", "real")
 MODOS_IG = ("apagado", "simulado", "real")
 MODOS_FB = ("apagado", "simulado", "real")    # real requiere META_FB_PAGE_ID y META_FB_PAGE_TOKEN (24/9)
+MODOS_WA = ("apagado", "simulado")             # (2/11) WhatsApp: prototipo; «real» todavía no existe (ver publicar_whatsapp)
 MODOS_YT = ("apagado", "simulado", "privado", "real")   # (25/9) privado = sube el video como PRIVADO (se revisa en YouTube Studio)
 YT_TOKEN_URL = "https://oauth2.googleapis.com/token"
 YT_UPLOAD_URL = "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status"
@@ -103,6 +104,9 @@ class Config:
         self.modo_yt = g("PUBLICAR_YOUTUBE").lower() or "apagado"
         if self.modo_yt not in MODOS_YT:
             self.modo_yt = "apagado"
+        self.modo_wa = g("PUBLICAR_WHATSAPP").lower() or "apagado"
+        if self.modo_wa not in MODOS_WA:
+            self.modo_wa = "apagado"   # «real» u otro valor: no hay endpoint, no se manda
         # YouTube: el permiso otorgado (youtube_token.json) puede venir pegado en un secret
         # (YOUTUBE_TOKEN_JSON) o como archivo al lado de clave.env. Nunca se imprime.
         self.yt_token_json = g("YOUTUBE_TOKEN_JSON")
@@ -122,7 +126,7 @@ class Config:
         self.fb_token = g("META_FB_PAGE_TOKEN")
 
     def resumen(self):
-        return {"wordpress": self.modo_wp, "instagram": self.modo_ig, "facebook": self.modo_fb, "youtube": self.modo_yt, "home": self.modo_home,
+        return {"wordpress": self.modo_wp, "instagram": self.modo_ig, "facebook": self.modo_fb, "youtube": self.modo_yt, "home": self.modo_home, "whatsapp": self.modo_wa,
                 "yt_configurado": bool(self.yt_token_json),
                 "wp_configurado": bool(self.wp_site and self.wp_user and self.wp_pass),
                 "ig_configurado": bool(self.ig_token and self.ig_id),
@@ -397,6 +401,41 @@ def publicar_frase_home(cfg, texto, autor, fecha=None, quien=""):
             "link_editar": f"https://{cfg.wp_site}/wp-admin/post.php?post={r['id']}&action=edit", "pieza": pieza,
             "aviso": {"draft": "Borrador creado en el sitio: no se ve en la home hasta publicarlo desde WordPress.",
                       "future": f"PROGRAMADA para {fecha}: WordPress la pone en la home sola ese día."}.get(r.get("status"), "PUBLICADA: ya está en la home.")}
+
+
+def mensaje_whatsapp(texto, autor, link=None):
+    """El mensaje del grupo: la frase entre comillas, el autor y el sitio. Sin hashtags (en WhatsApp no sirven)."""
+    t = (texto or "").strip()
+    if t and not (t.startswith(("«", "“", '"')) or t.endswith(("»", "”", '"'))):
+        t = f"«{t}»"
+    partes = [t]
+    if (autor or "").strip():
+        partes.append(f"— {autor.strip()}")
+    partes.append("")
+    partes.append("Frase del día · Vivir Agradecidos")
+    partes.append(link or os.environ.get("DOMINIO_WEB") or "https://viviragradecidos.org")
+    return "\n".join(partes)
+
+
+def publicar_whatsapp(cfg, imagen_url, texto, quien="", grupo=None):
+    """
+    (2/11, reunión: Alberto y Julián) La Frase del día al grupo de WhatsApp de la comunidad, PROTOTIPO. Decisión de la reunión:
+    va por la cuenta común de la fundación, no por WhatsApp Business (a la escuela de Julián le bloquearon una cuenta Business por
+    mandar lo mismo a muchos). Esa cuenta no tiene API: todavía no hay endpoint. Modos (PUBLICAR_WHATSAPP):
+      apagado  -> no hace nada
+      simulado -> arma el mensaje (imagen + texto) tal cual se mandaría y lo muestra; no manda nada
+    Cuando se defina cómo mandar (teléfono con la cuenta común + automatización, o la Cloud API si se acepta Business), se suma el
+    modo «real» acá sin tocar la cola ni la pantalla. Devuelve {"ok", "modo", "aviso", "pieza"}.
+    """
+    modo = cfg.modo_wa
+    pieza = {"grupo": grupo or os.environ.get("WHATSAPP_GRUPO") or "Comunidad Vivir Agradecidos", "imagen_url": imagen_url or "", "texto": texto or ""}
+    base = {"canal": "whatsapp", "accion": "grupo", "modo": modo, "quien": quien, "pieza": pieza}
+    if modo == "simulado":
+        _registrar({**base, "resultado": "simulado"})
+        return {"ok": True, "modo": modo, "estado": "simulado", "pieza": pieza,
+                "aviso": "Simulado: así saldría en el grupo de WhatsApp. No se mandó nada: todavía no hay forma de mandar desde la cuenta común."}
+    _registrar({**base, "resultado": "no se hizo nada (apagado)"})
+    return {"ok": False, "modo": modo, "aviso": "WhatsApp está apagado (y todavía no tiene modo real: no hay endpoint para la cuenta común).", "pieza": pieza}
 
 
 # ----------------------------------------------------------------------------- Instagram

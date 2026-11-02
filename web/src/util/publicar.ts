@@ -9,7 +9,7 @@ export const CANALES: { clave: Canal; nombre: string; detalle: string }[] = [
   { clave: "wordpress", nombre: "Blogpost", detalle: "entrada en viviragradecidos.org" },
   { clave: "youtube", nombre: "YouTube", detalle: "un recorte como video" },
 ];
-export const NOMBRE_CANAL: Record<string, string> = { wordpress: "Blogpost", instagram: "Instagram", facebook: "Facebook", youtube: "YouTube", newsletter: "Newsletter" };
+export const NOMBRE_CANAL: Record<string, string> = { wordpress: "Blogpost", instagram: "Instagram", facebook: "Facebook", youtube: "YouTube", newsletter: "Newsletter", mail: "Mail (frase del día)", home: "Sitio web (home)", whatsapp: "WhatsApp" };
 const NOMBRE_API: Record<string, string> = { wordpress: "WordPress", instagram: "Instagram", facebook: "Facebook", youtube: "YouTube" };
 
 /** publicar_ui._va_a_la_cola */

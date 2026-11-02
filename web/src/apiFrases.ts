@@ -113,6 +113,20 @@ export interface Solicitudes {
   pendientes: Solicitud[];
   resueltas: Solicitud[];
 }
+/** (2/11 tarde) Prototipo: el mensaje al grupo de WhatsApp tal cual saldría (GET /frases/whatsapp/previa/{fecha}). */
+export interface WhatsappPrevia {
+  fecha: string;
+  fecha_texto: string;
+  texto: string;
+  imagen: string;
+  imagen_de: string;
+  grupo: string;
+  modo: string;
+  canal_prendido: boolean;
+  frase: Frase | null;
+  pieza: { id: string; estado: string; fecha_programada: string } | null;
+  aviso: string;
+}
 /** (2/11) El mail de un día armado con la plantilla local (GET /frases/mail/previa/{fecha}). */
 export interface MailPrevia {
   fecha: string;
@@ -165,6 +179,7 @@ export const apiFrases = {
   activa: (activa: boolean) => pedir<{ ok: boolean; activa: boolean; mensaje: string }>("/frases/activa", { method: "PUT", body: JSON.stringify({ activa }) }),
   mailEstado: () => pedir<MailEstado>("/frases/mail/estado"),
   mailPrueba: (fecha?: string, emails?: string[]) => pedir<MailPrueba>("/frases/mail/prueba", { method: "POST", body: JSON.stringify({ fecha, emails }) }),
+  whatsappPrevia: (fecha: string) => pedir<WhatsappPrevia>(`/frases/whatsapp/previa/${encodeURIComponent(fecha)}`),
   mailPrevia: (fecha: string) => pedir<MailPrevia>(`/frases/mail/previa/${fecha}`),
   solicitudes: () => pedir<Solicitudes>("/frases/solicitudes"),
   solicitar: (datos: { fecha: string; frase_id?: string | null; texto?: string | null; autor?: string | null; nota?: string | null; imagen_url?: string | null }) =>

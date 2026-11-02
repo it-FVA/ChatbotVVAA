@@ -89,6 +89,9 @@ def main():
                 # las manda frase_mail.avanzar al final de cada pasada (200 por hora, límite de Perfit)
                 import frase_mail, perfit
                 res = frase_mail.iniciar(p, db, perfit)
+            elif canal == "whatsapp":
+                # (2/11) prototipo: solo simula (no hay endpoint para la cuenta común); ver publicar.publicar_whatsapp
+                res = publicar.publicar_whatsapp(cfg, imagen, texto, quien="cola")
             elif canal == "home":
                 # (2/11) Frase del día en la home del sitio: una entrada del tipo «frase» (texto + autor), la lista el widget de la home
                 ex = p.get("resultado") or {}

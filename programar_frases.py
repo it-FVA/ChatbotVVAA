@@ -37,7 +37,10 @@ CANALES_DEFECTO = ["instagram"]
 # satura) y el mail por Perfit (frase_mail.py: custom trigger, 200 por hora, arranca el día anterior a la hora frase_mail_inicio).
 CANALES_POSIBLES = {"historia": "Instagram (historia, 1080×1920, 24 h)", "instagram": "Instagram (posteo cuadrado)",
                     "facebook": "Facebook (foto con texto)", "mail": "Mail (Perfit, 200 por hora, arranca el día anterior)",
-                    "home": "Sitio web (la frase en la home de viviragradecidos.org)"}
+                    "home": "Sitio web (la frase en la home de viviragradecidos.org)",
+                    "whatsapp": "WhatsApp (el grupo de la comunidad; por ahora solo simulado)"}
+# (2/11, reunión) «whatsapp»: prototipo. La pieza lleva la imagen compuesta y el mensaje (publicar.mensaje_whatsapp); la cola la
+# «manda» con publicar.publicar_whatsapp, que hoy solo simula (no hay endpoint para la cuenta común de la fundación).
 # (2/11, reunión: Alberto) «home»: la sección «Frase del Día» de la home lista la última entrada del tipo de contenido `frase`
 # (la cargaba Maxi a mano). La cola crea esa entrada cada día con publicar.publicar_frase_home: solo texto y autor, sin imagen.
 # Necesita el snippet distribucion/wordpress/frase_home_rest.php activo en el sitio (registra ese tipo y lo expone en la API) y
@@ -105,7 +108,7 @@ def encolar_frase(frase, fecha, cfg, db, publicar, hora=None, quien=USUARIO, can
     canales = [c for c in (canales or db.obtener_config("frase_canales") or CANALES_DEFECTO) if c in CANALES_POSIBLES] or CANALES_DEFECTO
     fecha_iso = f"{fecha.isoformat()}T{hora}:00-03:00"
     # (2/11) la home del sitio lleva solo texto y autor: si es el único canal, no se compone ni se sube ninguna imagen
-    solo_texto = all(c == "home" for c in canales)
+    solo_texto = all(c == "home" for c in canales)     # whatsapp sí lleva la imagen compuesta
     if solo_texto:
         foto, de_donde, imagen_url, res_img = None, "sin imagen (solo la home)", None, {}
     else:
@@ -155,6 +158,9 @@ def encolar_frase(frase, fecha, cfg, db, publicar, hora=None, quien=USUARIO, can
         if aviso_img:
             extra["aviso_imagen"] = aviso_img
         canal_cola, imagen_pieza, cuando = canal, imagen_url, fecha_iso
+        texto_pieza = caption
+        if canal == "whatsapp":
+            texto_pieza = publicar.mensaje_whatsapp(frase.get("texto"), frase.get("autor"))
         if canal == "historia":
             canal_cola, imagen_pieza = "instagram", imagen_historia or imagen_url
             extra["formato"] = "historia"       # procesar_cola lo publica como historia (media_type=STORIES)
@@ -164,8 +170,8 @@ def encolar_frase(frase, fecha, cfg, db, publicar, hora=None, quien=USUARIO, can
             cuando = f"{(fecha - datetime.timedelta(days=1)).isoformat()}T{inicio}:00-03:00"
         modo_canal = modos.get("mail" if canal == "mail" else canal_cola, "")      # home tiene su modo (PUBLICAR_HOME) en cfg.resumen()
         pid = db.encolar_publicacion(quien, canal_cola, modo_canal,
-                                     f"Frase del día {fecha.strftime('%d/%m/%Y')}" + (" (historia)" if canal == "historia" else " (mail)" if canal == "mail" else " (home del sitio)" if canal == "home" else ""),
-                                     caption, imagen_pieza, cuando, extra=extra)
+                                     f"Frase del día {fecha.strftime('%d/%m/%Y')}" + (" (historia)" if canal == "historia" else " (mail)" if canal == "mail" else " (home del sitio)" if canal == "home" else " (WhatsApp)" if canal == "whatsapp" else ""),
+                                     texto_pieza, imagen_pieza, cuando, extra=extra)
         if pid:
             piezas[canal] = pid
     if piezas:
@@ -254,7 +260,7 @@ def main(argv=None):
     from procesar_cola import _cargar_config_local
     _cargar_config_local()
     if "--simular" in argv:
-        for k in ("PUBLICAR_INSTAGRAM", "PUBLICAR_WORDPRESS", "PUBLICAR_HOME"):
+        for k in ("PUBLICAR_INSTAGRAM", "PUBLICAR_WORDPRESS", "PUBLICAR_HOME", "PUBLICAR_WHATSAPP"):
             os.environ[k] = "simulado"
     import db, publicar
     if not db.disponible():
@@ -276,7 +282,7 @@ def main(argv=None):
         modo_mail = perfit.modo()
     except Exception:
         modo_mail = "?"
-    print(f"frase del día: activa · hora {hora} · canales {canales} · instagram={cfg.modo_ig} facebook={cfg.modo_fb} wordpress={cfg.modo_wp} home={cfg.modo_home} mail={modo_mail}")
+    print(f"frase del día: activa · hora {hora} · canales {canales} · instagram={cfg.modo_ig} facebook={cfg.modo_fb} wordpress={cfg.modo_wp} home={cfg.modo_home} whatsapp={cfg.modo_wa} mail={modo_mail}")
     for d in (hoy, hoy + datetime.timedelta(days=1)):
         f = db.frase_del_dia(d.isoformat())
         if not f:

@@ -42,7 +42,8 @@ router = APIRouter(tags=["publicar"])
 CANALES = cr.CANALES                       # {"wordpress": "WordPress", ...}
 ZONA_HORARIA = cr.ZONA_HORARIA             # "-03:00"
 # publicar_ui.CANAL_TXT (16/10, Franco): la entrada en WordPress se llama «Blogpost»; el «Newsletter» es el mail a la comunidad.
-CANAL_TXT = {"wordpress": "Blogpost", "instagram": "Instagram", "facebook": "Facebook", "youtube": "YouTube", "newsletter": "Newsletter"}
+CANAL_TXT = {"wordpress": "Blogpost", "instagram": "Instagram", "facebook": "Facebook", "youtube": "YouTube", "newsletter": "Newsletter",
+             "mail": "Mail (frase del día)", "home": "Sitio web (home)", "whatsapp": "WhatsApp"}
 # publicar_ui.ESTADO_TXT (sin los emojis: la web pone el icono)
 ESTADO_TXT = {"a_aprobar": "pendiente de aprobación", "pendiente": "aprobada · programada", "rechazada": "rechazada",
               "publicada": "publicada", "simulada": "simulada", "error": "error", "cancelada": "cancelada",

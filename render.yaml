@@ -45,6 +45,8 @@ services:
         value: "0"
       - key: PUBLICAR_WORDPRESS
         value: "borrador"
+      - key: PUBLICAR_WHATSAPP    # (2/11) prototipo: apagado | simulado (no hay modo real todavía)
+        value: "simulado"
       - key: PUBLICAR_HOME        # (2/11) la frase del día en la home del sitio (canal «home»): borrador | real (Franco, 2/11: real)
         value: "real"
       - key: PUBLICAR_INSTAGRAM
