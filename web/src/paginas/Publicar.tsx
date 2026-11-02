@@ -68,6 +68,7 @@ export default function Publicar() {
           // (2/11) desde el menú «Canales · Diseñar» se entra con el canal ya elegido
           const canalMenu = params.get("canal");
           setForm({ ...formularioVacio(o), canal: canalMenu && o.canales[canalMenu] ? (canalMenu as Canal) : "" });
+          setOrigen("nueva");
         }
       } catch (e) {
         if (vivo) {
@@ -80,7 +81,7 @@ export default function Publicar() {
       vivo = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.get("borrador"), params.get("recorte"), params.get("canal")]);
+  }, [params.get("borrador"), params.get("recorte")]);
 
   if (!form || !op) {
     if (error)
@@ -118,8 +119,7 @@ export default function Publicar() {
       </div>
     );
   }
-  // (2/11) la key incluye el canal del menú: al pasar de Facebook a YouTube en la barra el formulario se reinicia con el canal nuevo
-  return <Formulario key={form.borrador_id || `${origen}:${params.get("canal") || ""}`} inicial={form} op={op} origen={origen} avisoInicial={error} avisar={avisar} />;
+  return <Formulario key={form.borrador_id || origen} inicial={form} op={op} origen={origen} avisoInicial={error} avisar={avisar} />;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -146,6 +146,11 @@ function Formulario({ inicial, op, origen, avisoInicial, avisar }: { inicial: Pi
   const archivoRef = useRef<HTMLInputElement>(null);
 
   const set = useCallback(<K extends keyof PiezaForm>(k: K, v: PiezaForm[K]) => setF((x) => ({ ...x, [k]: v })), []);
+  // (2/11, Franco) pasar de Facebook a YouTube en el menú cambia el canal de la pieza y conserva título, texto e imagen
+  const canalMenu = paramsMenu.get("canal");
+  useEffect(() => {
+    if (canalMenu && op.canales[canalMenu]) setF((x) => (x.canal === canalMenu ? x : { ...x, canal: canalMenu as Canal }));
+  }, [canalMenu, op.canales]);
   const canal = f.canal;
   const info = canal ? op.canales[canal] : null;
   const modo = info?.modo ?? "apagado";
