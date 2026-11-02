@@ -72,6 +72,7 @@ export default function FraseDelDia() {
   const [modal, setModal] = useState<"repartir" | "vaciar" | "nueva" | null>(null);
   const [verMail, setVerMail] = useState<string | null>(null); // (2/11) la fecha del mail que se está mirando
   const [verWa, setVerWa] = useState<string | null>(null); // (2/11 tarde) prototipo WhatsApp: la fecha del mensaje que se está mirando
+  const [verMailDetalles, setVerMailDetalles] = useState(false); // (2/11 noche) los detalles de Perfit, en una ventana desde la fila Mail
   const [solapaPedida, setSolapaPedida] = useState<{ s: Solapa; n: number } | null>(null); // (2/11 tarde) desde el mail: abrir el día en «Foto de fondo»
   const [ocupado, setOcupado] = useState(false);
   const [version, setVersion] = useState(0); // para refrescar backlog y próximas tras un cambio
@@ -258,6 +259,7 @@ export default function FraseDelDia() {
             }}
             onVerMail={(f) => setVerMail(f)}
             onVerWa={(f) => setVerWa(f)}
+            onDetallesMail={() => setVerMailDetalles(true)}
             onProbarMail={() =>
               correr(async () => {
                 const r = await apiFrases.mailPrueba(resumen.manana?.fecha);
@@ -407,8 +409,12 @@ export default function FraseDelDia() {
         </aside>
       </div>
 
-      {/* (2/11) los detalles del envío por mail (Perfit) quedan abajo, plegados: lo del día a día está en la tarjeta «Mañana» */}
-      {resumen && <MailPanel admin={resumen.admin} />}
+      {/* (2/11 noche, Franco) los detalles del envío por Perfit ya no ocupan la pantalla: se abren desde la fila Mail de la tarjeta */}
+      {verMailDetalles && resumen && (
+        <Modal titulo="Envío por mail (Perfit)" onCerrar={() => setVerMailDetalles(false)} ancho={720}>
+          <MailPanel admin={resumen.admin} />
+        </Modal>
+      )}
       {diaSel && (
         <DetalleDia
           fecha={diaSel}
@@ -1087,6 +1093,7 @@ function NuevaFrase({ onCerrar, onHecha }: { onCerrar: () => void; onHecha: () =
 // (2/11, Franco) achicado: lo del día a día (ver el mail, probar, qué sale mañana) está en la tarjeta «Mañana»; acá quedan los detalles
 // del envío por Perfit: la lista, las variables, el avance de un envío en curso y los mails de prueba.
 function MailPanel({ admin }: { admin: boolean }) {
+  // (2/11 noche) se muestra dentro de una ventana: siempre abierto
   const [est, setEst] = useState<MailEstado | null>(null);
   const [error, setError] = useState<string | null>(null);
   const cargar = useCallback(() => {
@@ -1106,7 +1113,7 @@ function MailPanel({ admin }: { admin: boolean }) {
   // solo los envíos con movimiento (en curso o con conteo): el estado de mañana está en la tarjeta de arriba
   const dias = est ? Object.entries(est.envios).filter(([, d]) => d.pieza && (d.estado === "enviando" || (d.conteo && d.conteo.total))) : [];
   return (
-    <details className="fd-panel tarjeta">
+    <details className="fd-panel" open>
       <summary>
         <Icono nombre="chevron" tam={16} />
         <Icono nombre="sobre" tam={17} />
@@ -1194,7 +1201,7 @@ function MailPanel({ admin }: { admin: boolean }) {
 // ---------------- (2/11) Ver el mail de un día ----------------
 /** (2/11, Franco) La tarjeta «Mañana»: qué sale mañana y por dónde. Para aprobadores con interruptores y acciones; los creadores
  *  ven lo mismo sin poder tocarlo (piden cambios desde el día). */
-function MananaCard({ resumen, aprueba, ocupado, onActiva, onCanales, onEncolar, onFrenar, onVerDia, onVerMail, onVerWa, onProbarMail }: {
+function MananaCard({ resumen, aprueba, ocupado, onActiva, onCanales, onEncolar, onFrenar, onVerDia, onVerMail, onVerWa, onProbarMail, onDetallesMail }: {
   resumen: Resumen;
   aprueba: boolean;
   ocupado: boolean;
@@ -1206,6 +1213,7 @@ function MananaCard({ resumen, aprueba, ocupado, onActiva, onCanales, onEncolar,
   onVerMail: (fecha: string) => void;
   onVerWa: (fecha: string) => void;
   onProbarMail: () => void;
+  onDetallesMail: () => void;
 }) {
   const m = resumen.manana;
   if (!m) return null;
@@ -1247,6 +1255,12 @@ function MananaCard({ resumen, aprueba, ocupado, onActiva, onCanales, onEncolar,
           <span className="suave chico">· sale a las {hora}</span>
         </div>
       </div>
+      {/* (2/11 noche, Franco) el interruptor general y los de cada canal son independientes: se pueden dejar elegidos los canales con todo apagado */}
+      <p className="suave chico fd-manana-nota">
+        {resumen.activa
+          ? "Prendida: cada mañana la frase del día sale por los canales marcados abajo."
+          : "Apagada: no sale nada por ningún canal. Podés dejar marcados los canales que quieras y prenderla cuando decidas; recién ahí se encola."}
+      </p>
 
       {f ? (
         <div className="fd-manana-frase">
@@ -1300,7 +1314,7 @@ function MananaCard({ resumen, aprueba, ocupado, onActiva, onCanales, onEncolar,
         <thead>
           <tr>
             <th>Canal</th>
-            <th>Prendido</th>
+            <th>Sale por acá</th>
             <th>Mañana</th>
             <th>Vista previa</th>
           </tr>
@@ -1337,6 +1351,9 @@ function MananaCard({ resumen, aprueba, ocupado, onActiva, onCanales, onEncolar,
                           Probar
                         </button>
                       )}
+                      <button type="button" className="boton sutil chico" onClick={onDetallesMail} title="La lista de Perfit, las variables, los envíos en curso y los mails de prueba">
+                        Detalles
+                      </button>
                     </>
                   )}
                   {f && x.canal === "whatsapp" && (
