@@ -109,7 +109,7 @@ export function ParaAprobar() {
       </div>
       {error && <div className="aviso error">{error}</div>}
       {piezas === null && <Hueso ancho="100%" alto={220} radio={12} />}
-      {piezas && piezas.length === 0 && !error && <EstadoVacio titulo="No hay piezas esperando aprobación" texto="Cuando alguien mande una pieza a aprobación desde el chat o desde Publicar, aparece acá con su vista previa." />}
+      {piezas && piezas.length === 0 && !error && <EstadoVacio titulo="No hay piezas esperando aprobación" texto="Cuando alguien mande una pieza a aprobación desde el chat o desde Diseñar, aparece acá con su vista previa." />}
       {piezas?.map((p) => <PiezaParaAprobar key={p.id} p={p} modo={modos[p.canal] || "?"} onHecho={hecho} />)}
     </section>
   );
