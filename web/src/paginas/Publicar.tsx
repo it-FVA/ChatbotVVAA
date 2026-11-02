@@ -21,7 +21,7 @@ import { useToast } from "../componentes/Toasts";
 const AYUDA_CANAL: Record<string, string> = {
   instagram: "Una foto con la frase encima, un reel o una historia. El caption va debajo. Lo publica quien aprueba.",
   facebook: "Un posteo en la página: foto con la frase y el texto. Lo publica quien aprueba, y se puede programar.",
-  wordpress: "Una entrada del blog en viviragradecidos.org: título, texto (puede ser largo) y foto destacada. Queda en borrador hasta que la publique quien aprueba.",
+  wordpress: "Una entrada del blog en viviragradecidos.org: título, texto (puede ser largo) y foto destacada. La publica quien aprueba, o la programa para un día.",
   youtube: "Un recorte de video de Mis recortes, con título y descripción. Sube como privado y se revisa en YouTube Studio.",
 };
 
