@@ -220,12 +220,19 @@ def imagenes_recientes_banco(cfg, n=6):
 def _recientes(cfg, n):
     if not cfg.wp_site:
         return []
+    # (2/11) se piden de más y se saltan las piezas compuestas (la frase del día, las piezas ya armadas): son las últimas subidas
+    # y tapaban las fotos de verdad en «Imagen» de Diseñar
     url = _wp_api(cfg, "media") + "?" + urllib.parse.urlencode({
-        "media_type": "image", "per_page": n, "orderby": "date", "order": "desc",
-        "_fields": "id,source_url,title,alt_text,media_details"})
+        "media_type": "image", "per_page": min(n * 5, 60), "orderby": "date", "order": "desc",
+        "_fields": "id,source_url,title,alt_text,media_details,description"})
     r, err = _http(url, headers=_wp_headers(cfg) if cfg.wp_user and cfg.wp_pass else {"User-Agent": "fva-herramienta/0.1"})
     out = []
     for m in (r or []):
+        desc = ((m.get("description") or {}).get("rendered") or "") + " " + ((m.get("title") or {}).get("rendered") or "")
+        if "pieza-compuesta" in desc or "frase-del-dia" in desc or "Frase del d" in desc:
+            continue
+        if len(out) >= n:
+            break
         sizes = ((m.get("media_details") or {}).get("sizes") or {})
         mini = (sizes.get("medium") or sizes.get("thumbnail") or {}).get("source_url") or m["source_url"]
         out.append({"id": m["id"], "url": m["source_url"], "miniatura": mini,

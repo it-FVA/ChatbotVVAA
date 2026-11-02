@@ -191,7 +191,7 @@ def test_ver_simulado_creadora(lizzie, base, monkeypatch):
     d = r.json()
     assert d["ok"] is True and d["modo"] == "simulado" and d["simulado"] is True and d["encolada"] is False
     assert d["pieza"]["caption"] == "Hola mundo" and d["texto_final"] == "Hola mundo" and d["imagen_url"] == "https://wp/f.jpg"
-    assert any("sin la frase" in a for a in d["avisos"])            # la compuesta no se pudo subir (WP simulado)
+    assert any("foto sola" in a for a in d["avisos"])              # (2/11) la compuesta no se sube en la prueba: aviso claro, no de configuración
     registros = [l for l in llamadas if l[0] == "registro"]
     assert any(k["estado"] == "prueba" and k["usuario"] == "lizzie" and k["canal"] == "instagram" for _, k in registros)
     assert any(k["resultado"].get("texto_imagen") == "frase" and k["resultado"].get("origen") == "web" for _, k in registros)

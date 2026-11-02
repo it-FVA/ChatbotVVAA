@@ -265,8 +265,13 @@ def _subir_compuesta(cfg, compuesta, titulo, texto, usuario, avisos):
                                               pieza=titulo or texto[:60], etiquetas=["pieza-compuesta"])
     if res_img.get("url"):
         return res_img["url"]
+    if res_img.get("modo") == "simulado":
+        # (2/11) en «Ver simulado» todos los canales van en simulado, WordPress también: la compuesta no se sube y la vista
+        # muestra la foto sola. No es un problema de configuración: al enviar de verdad se sube (WordPress está en borrador o real).
+        avisos.append("Prueba simulada: la imagen con la frase encima no se sube al banco, por eso acá se ve la foto sola. Al enviarla de verdad se sube y sale con la frase.")
+        return None
     avisos.append((res_img.get("aviso") or "No se pudo subir la imagen compuesta.") + " Se publica la foto sin la frase encima."
-                  + (" (Para que funcione, WordPress tiene que estar en modo borrador o real.)" if res_img.get("modo") in ("apagado", "simulado") else ""))
+                  + (" (Para que funcione, WordPress tiene que estar en modo borrador o real.)" if res_img.get("modo") == "apagado" else ""))
     return None
 
 
