@@ -314,7 +314,7 @@ function Formulario({ inicial, op, origen, avisoInicial, avisar }: { inicial: Pi
           </p>
         </div>
         <Link to="/publicaciones" className="boton sutil">
-          <Icono nombre="megafono" tam={16} /> Mis publicaciones
+          <Icono nombre="lista" tam={16} /> Mis publicaciones
         </Link>
       </header>
       {error && (
@@ -352,7 +352,7 @@ function Formulario({ inicial, op, origen, avisoInicial, avisar }: { inicial: Pi
                 {!op.publica && info.modo_real !== info.modo && <> (el canal real está en {info.modo_real}: lo que mandes a aprobación sale con ese modo).</>}
               </p>
             )}
-            <p className="suave chico">Para el email a la comunidad usá «Newsletter» en la barra lateral: tiene sus plantillas y su vista previa.</p>
+            <p className="suave chico">Para el email a la comunidad usá «Email» (o «Newsletter») en el menú: tiene sus plantillas y su vista previa.</p>
             <label>
               Título <span className="suave">{canal === "wordpress" || canal === "youtube" ? "(obligatorio)" : "(opcional, para el registro)"}</span>
               <input value={f.titulo} onChange={(e) => set("titulo", e.target.value)} maxLength={150} />
@@ -736,7 +736,7 @@ function ResultadoPanel({ resultado, previa, canal, info, onVolver, onNueva }: {
         )}
         <div className="acciones">
           <Link className="boton primario" to="/publicaciones">
-            <Icono nombre="megafono" tam={16} /> Ver en Mis publicaciones
+            <Icono nombre="lista" tam={16} /> Ver en Mis publicaciones
           </Link>
           {resultado.tipo === "borrador" || !ok ? (
             <button type="button" className="boton" onClick={onVolver}>

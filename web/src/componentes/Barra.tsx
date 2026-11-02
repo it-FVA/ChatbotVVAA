@@ -75,7 +75,7 @@ export default function Barra() {
         <NavLink to="/proyectos" className={sub} title="Carpetas para agrupar chats, piezas, recortes y newsletters de una misma campaña, y compartirlas con el equipo">
           <Icono nombre="carpeta" /> Mis proyectos
         </NavLink>
-        <NavLink to="/compartidos" className={sub}>
+        <NavLink to="/compartidos" className={sub} title="Los proyectos que otras personas compartieron conmigo">
           <Icono nombre="compartir" /> Compartidos conmigo
         </NavLink>
 

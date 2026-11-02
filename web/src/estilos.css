@@ -105,13 +105,14 @@ button:focus-visible,
   flex: 0 0 230px;
   background: #fff;
   border-right: 1px solid var(--borde);
-  padding: 18px 14px;
+  padding: 14px 12px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
   position: sticky;
   top: 0;
   height: 100vh;
+  overflow: hidden; /* (2/11) el menú creció: la lista de secciones scrollea sola y el pie (usuario, salir) queda siempre a la vista */
 }
 .barra-marca {
   display: flex;
@@ -130,7 +131,12 @@ button:focus-visible,
 .barra-nav {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding-right: 2px;
 }
 .barra-link {
   display: flex;
@@ -164,9 +170,10 @@ button:focus-visible,
 /* (2/11) menú por grupos: los sub-ítems van con sangría; «pronto» es un canal que todavía no existe */
 .barra-link.sub {
   padding-left: 22px;
-  min-height: 34px;
-  padding-top: 5px;
-  padding-bottom: 5px;
+  min-height: 30px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  white-space: nowrap;
 }
 .barra-link.pronto {
   color: var(--suave);
@@ -180,6 +187,7 @@ button:focus-visible,
 }
 .barra-pie {
   margin-top: auto;
+  flex: none;
   display: flex;
   justify-content: space-between;
   align-items: center;
