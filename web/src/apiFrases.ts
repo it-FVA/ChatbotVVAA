@@ -20,6 +20,15 @@ export interface Frase {
   cerrada: boolean; // en la cola o ya salió: no se mueve ni se edita
 }
 
+/** (2/11 tarde) Una fila de la tarjeta «Mañana»: el canal, si está prendido, su modo y la pieza de mañana si existe. */
+export interface CanalManana {
+  canal: string;
+  nombre: string;
+  prendido: boolean;
+  modo: string;
+  pieza: { id: string; estado: string; fecha_programada: string } | null;
+}
+
 export interface Resumen {
   disponible: boolean;
   admin: boolean;
@@ -34,7 +43,7 @@ export interface Resumen {
   foto_defecto?: string | null;
   frases_nuevas_hasta?: string | null;
   nuevas_sin_dia?: number;
-  manana?: { fecha: string; fecha_texto: string; frase: Frase | null; en_cola: boolean };
+  manana?: { fecha: string; fecha_texto: string; dia?: string; frase: Frase | null; en_cola: boolean; canales?: CanalManana[] };
   avisos: string[];
 }
 
@@ -177,6 +186,8 @@ export const apiFrases = {
   intercambiar: (id_a: string, id_b: string) => pedir<{ ok: boolean; a: Frase; b: Frase; mensaje: string }>("/frases/intercambiar", { method: "POST", body: JSON.stringify({ id_a, id_b }) }),
   repartir: (modo: "orden" | "azar", desde: string) => pedir<{ ok: boolean; cantidad: number; desde: string; hasta: string; mensaje: string }>("/frases/repartir", { method: "POST", body: JSON.stringify({ modo, desde }) }),
   vaciar: () => pedir<{ ok: boolean; cantidad: number; mensaje: string }>("/frases/vaciar", { method: "POST", body: JSON.stringify({ confirmo: true }) }),
+  mananaEncolar: () => pedir<{ ok: boolean; canales: string[]; mensaje: string }>("/frases/manana/encolar", { method: "POST" }),
+  mananaFrenar: () => pedir<{ ok: boolean; canceladas: number; mensaje: string }>("/frases/manana/frenar", { method: "POST" }),
   canales: (canales: string[]) => pedir<{ ok: boolean; canales: string[]; mensaje: string }>("/frases/canales", { method: "PUT", body: JSON.stringify({ canales }) }),
   activa: (activa: boolean) => pedir<{ ok: boolean; activa: boolean; mensaje: string }>("/frases/activa", { method: "PUT", body: JSON.stringify({ activa }) }),
   mailEstado: () => pedir<MailEstado>("/frases/mail/estado"),

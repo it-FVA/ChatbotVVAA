@@ -34,6 +34,112 @@
 .fd-activa.solo-lectura {
   cursor: default;
 }
+/* (2/11 tarde, Franco) la tarjeta «Mañana» */
+.fd-manana-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.fd-manana-cab {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.fd-manana-cab h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.fd-manana-estado {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.fd-manana-frase {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.fd-manana-img {
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: zoom-in;
+}
+.fd-manana-img img {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 10px;
+  display: block;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+.fd-manana-texto .fd-cita {
+  margin: 0 0 4px;
+  font-size: 0.98rem;
+}
+.fd-manana-texto p {
+  margin: 0 0 8px;
+}
+.fd-manana-acciones {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.fd-canales-tabla {
+  width: 100%;
+  border-collapse: collapse;
+}
+.fd-canales-tabla th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--suave);
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--borde);
+}
+.fd-canales-tabla td {
+  padding: 6px;
+  border-bottom: 1px solid var(--borde);
+  vertical-align: middle;
+}
+.fd-canales-tabla tr.apagado td:first-child {
+  color: var(--suave);
+}
+.fd-canales-tabla td:first-child .pub-modo {
+  margin-left: 6px;
+}
+.fd-canales-tabla td:last-child {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.fd-canales-tabla .interruptor.chico input {
+  margin: 0;
+}
+.sr-solo {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+.fd-conteos.chico {
+  margin: 0 0 10px;
+}
+@media (max-width: 700px) {
+  .fd-manana-frase {
+    grid-template-columns: 1fr;
+  }
+  .fd-manana-img img {
+    width: 100%;
+    height: auto;
+    max-width: 260px;
+  }
+}
 /* (2/11) checklist de canales en la cabecera y botones de «mañana» */
 .fd-canales {
   display: flex;

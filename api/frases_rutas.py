@@ -22,7 +22,9 @@ Rutas:
   POST  /frases/repartir               {modo: orden|azar, desde}: = «Repartir en el año»
   POST  /frases/vaciar                 {confirmo: true}: saca del calendario las que no salieron ni están en la cola
   PUT   /frases/activa                 {activa}: el interruptor (solo admins)
-  PUT   /frases/canales                (2/11 tarde, aprobadores) {canales}: por qué canales sale cada día (el checklist de la cabecera; = config frase_canales)
+  PUT   /frases/canales                (2/11 tarde, aprobadores) {canales}: por qué canales sale cada día (la tarjeta «Mañana»; = config frase_canales)
+  POST  /frases/manana/encolar         (2/11 tarde, aprobadores) encola la frase de mañana por los canales prendidos que falten (p. ej. después de frenarla)
+  POST  /frases/manana/frenar          (2/11 tarde, aprobadores) cancela las piezas pendientes de mañana (la frase queda; se puede volver a encolar)
   GET   /frases/mail/estado            (26/10) el canal mail por Perfit: modo, qué falta, la lista, el envío de hoy/mañana y las últimas pruebas
   POST  /frases/mail/prueba            (aprobadores; 2/11 antes solo admins) {fecha?, emails?}: manda la frase de ese día a esos mails ahora
   GET   /frases/mail/previa/{fecha}    (2/11) el mail de ese día armado con la plantilla local (reproducción de la de Perfit): {html, contexto}
@@ -202,8 +204,28 @@ def resumen(request: Request):
     foto_defecto = db.obtener_config("frase_imagen") or None
     if not foto_defecto:
         avisos.append("Falta la foto de fondo por defecto (Administración → Configuración). Sin una foto elegida para el día o una por defecto, la frase de ese día no se encola.")
-    manana = {"fecha": man.isoformat(), "fecha_texto": _fecha_txt(man), "frase": _publica(prox),
-              "en_cola": bool(prox and prox.get("publicacion_id"))}
+    # (2/11 tarde, Franco) la tarjeta «Mañana»: una fila por canal con prendido, modo y la pieza de mañana si existe
+    canales_on = db.obtener_config("frase_canales") or pf.CANALES_DEFECTO
+    try:
+        cfg, _pub = _cfg()
+        modos = cfg.resumen()
+    except Exception:
+        modos = {}
+    try:
+        import perfit
+        modos["mail"] = perfit.modo()
+    except Exception:
+        modos["mail"] = "apagado"
+    piezas_man = (prox or {}).get("piezas") or {}
+    filas = []
+    for k, nombre in pf.CANALES_POSIBLES.items():
+        pid = piezas_man.get(k)
+        p = db.obtener_publicacion(pid) if pid else None
+        filas.append({"canal": k, "nombre": nombre, "prendido": k in canales_on,
+                      "modo": modos.get("instagram" if k == "historia" else k, "apagado"),
+                      "pieza": {"id": pid, "estado": p.get("estado"), "fecha_programada": p.get("fecha_programada")} if p else None})
+    manana = {"fecha": man.isoformat(), "fecha_texto": _fecha_txt(man), "dia": DIAS[man.weekday()], "frase": _publica(prox),
+              "en_cola": any(f["pieza"] and f["pieza"]["estado"] in ("pendiente", "enviando") for f in filas), "canales": filas}
     if activa and not prox:
         avisos.append(f"Mañana ({_fecha_txt(man)}) no tiene frase asignada: no va a salir nada. Repartí o asigná una.")
     if rol["aprueba"]:
@@ -449,6 +471,72 @@ def canales(datos: Canales, quien=Depends(auth.aprobador)):
     db.guardar_config("frase_canales", elegidos, quien)
     corto = {"historia": "historia de Instagram", "instagram": "posteo de Instagram", "facebook": "Facebook", "mail": "mail", "home": "sitio web", "whatsapp": "WhatsApp"}
     return {"ok": True, "canales": elegidos, "mensaje": "Sale por " + ", ".join(corto.get(c, c) for c in elegidos) + ". Vale desde la próxima frase que se encole; la de mañana, si ya está en la cola, suma los canales nuevos en la próxima pasada."}
+
+
+def _manana():
+    d = _hoy() + datetime.timedelta(days=1)
+    f = db.frase_del_dia(d.isoformat())
+    if not f:
+        raise HTTPException(404, f"Mañana ({_fecha_txt(d)}) no tiene frase asignada: asigná una en el calendario.")
+    return d, f
+
+
+def _piezas_vivas(f):
+    out = {}
+    for k, pid in (f.get("piezas") or {}).items():
+        p = db.obtener_publicacion(pid) if pid else None
+        if p and p.get("estado") in ("pendiente", "enviando"):
+            out[k] = pid
+    return out
+
+
+@router.post("/manana/encolar")
+def manana_encolar(quien=Depends(auth.aprobador)):
+    """(2/11, Franco) «Volver a encolar»: la frase de mañana entra en la cola por los canales prendidos que todavía no tienen pieza
+    viva (p. ej. después de «Frenar mañana»). Mismo camino que la cola (programar_frases.encolar_frase)."""
+    _con_db()
+    if not db.obtener_config("frase_activa", False):
+        raise HTTPException(409, "La Frase del día está apagada: prendela primero (lo hace un admin) y después encolá.")
+    d, f = _manana()
+    if f.get("estado") != "programada":
+        raise HTTPException(409, "La frase de mañana está salteada: volvé a programarla desde el día.")
+    vivas = _piezas_vivas(f)
+    canales = [c for c in (db.obtener_config("frase_canales") or pf.CANALES_DEFECTO) if c in pf.CANALES_POSIBLES]
+    faltan = [c for c in canales if c not in vivas]
+    if not faltan:
+        raise HTTPException(409, "Mañana ya está en la cola por todos los canales prendidos.")
+    # las piezas canceladas se sacan de la frase para que no cuenten como «ya encolada»
+    db.actualizar_frase(f["id"], {"piezas": vivas or None, "publicacion_id": f.get("publicacion_id") if f.get("publicacion_id") in vivas.values() else (list(vivas.values())[0] if vivas else None)})
+    f = db.obtener_frase(f["id"])
+    cfg, publicar = _cfg()
+    hora = db.obtener_config("frase_hora", pf.HORA_DEFECTO) or pf.HORA_DEFECTO
+    nuevas, aviso = pf.encolar_frase(f, d, cfg, db, publicar, hora=hora, quien=quien, canales=faltan)
+    if not nuevas:
+        raise HTTPException(409, f"No pude encolar: {aviso}")
+    return {"ok": True, "canales": list(nuevas), "mensaje": f"Mañana ({_fecha_txt(d)}) en cola por {', '.join(nuevas)}. {aviso}"}
+
+
+@router.post("/manana/frenar")
+def manana_frenar(quien=Depends(auth.aprobador)):
+    """(2/11, Franco) «Frenar mañana»: cancela las piezas pendientes de la frase de mañana. La frase queda en el día y se puede
+    volver a encolar. Un mail que ya está enviándose no se frena desde acá (Aprobación → En cola)."""
+    _con_db()
+    d, f = _manana()
+    n = 0
+    quedan = {}
+    for k, pid in (f.get("piezas") or {}).items():
+        p = db.obtener_publicacion(pid) if pid else None
+        if not p:
+            continue
+        if p.get("estado") == "pendiente":
+            db.cancelar_publicacion(pid, quien)
+            n += 1
+        elif p.get("estado") == "enviando":
+            quedan[k] = pid
+    if not n and not quedan:
+        raise HTTPException(409, "Mañana no tiene piezas en la cola.")
+    db.actualizar_frase(f["id"], {"piezas": quedan or None, "publicacion_id": list(quedan.values())[0] if quedan else None})
+    return {"ok": True, "canceladas": n, "mensaje": f"Frenada: {n} pieza{'s' if n != 1 else ''} de mañana cancelada{'s' if n != 1 else ''}." + (" El mail ya se estaba enviando y sigue." if quedan else "")}
 
 
 def _imagen_publica_para(f, fecha, cfg, publicar):
