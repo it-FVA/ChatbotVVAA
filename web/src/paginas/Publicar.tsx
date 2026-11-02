@@ -118,7 +118,8 @@ export default function Publicar() {
       </div>
     );
   }
-  return <Formulario key={form.borrador_id || origen} inicial={form} op={op} origen={origen} avisoInicial={error} avisar={avisar} />;
+  // (2/11) la key incluye el canal del menú: al pasar de Facebook a YouTube en la barra el formulario se reinicia con el canal nuevo
+  return <Formulario key={form.borrador_id || `${origen}:${params.get("canal") || ""}`} inicial={form} op={op} origen={origen} avisoInicial={error} avisar={avisar} />;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
