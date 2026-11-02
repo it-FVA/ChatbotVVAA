@@ -113,9 +113,10 @@
   margin-left: 6px;
 }
 .fd-canales-tabla td:last-child {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
+  white-space: nowrap;
+}
+.fd-canales-tabla td:last-child .boton + .boton {
+  margin-left: 4px;
 }
 .fd-canales-tabla .interruptor.chico input {
   margin: 0;
