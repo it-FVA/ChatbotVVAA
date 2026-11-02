@@ -95,6 +95,11 @@ class Config:
             self.modo_ig = "apagado"
         if self.modo_fb not in MODOS_FB:
             self.modo_fb = "apagado"
+        # (2/11) la frase en la home del sitio tiene su propio interruptor: las entradas del blog van en borrador para revisarlas,
+        # pero la frase del día tiene que publicarse sola. Sin PUBLICAR_HOME, usa el modo de WordPress.
+        self.modo_home = g("PUBLICAR_HOME").lower() or self.modo_wp
+        if self.modo_home not in MODOS_WP:
+            self.modo_home = "apagado"
         self.modo_yt = g("PUBLICAR_YOUTUBE").lower() or "apagado"
         if self.modo_yt not in MODOS_YT:
             self.modo_yt = "apagado"
@@ -117,7 +122,7 @@ class Config:
         self.fb_token = g("META_FB_PAGE_TOKEN")
 
     def resumen(self):
-        return {"wordpress": self.modo_wp, "instagram": self.modo_ig, "facebook": self.modo_fb, "youtube": self.modo_yt,
+        return {"wordpress": self.modo_wp, "instagram": self.modo_ig, "facebook": self.modo_fb, "youtube": self.modo_yt, "home": self.modo_home,
                 "yt_configurado": bool(self.yt_token_json),
                 "wp_configurado": bool(self.wp_site and self.wp_user and self.wp_pass),
                 "ig_configurado": bool(self.ig_token and self.ig_id),
@@ -349,18 +354,21 @@ def publicar_frase_home(cfg, texto, autor, fecha=None, quien=""):
     (2/11, reunión: Alberto) La Frase del día en la HOME de viviragradecidos.org. La sección «Frase del Día» de la home
     (página «home 2026», Elementor) lista la última entrada del tipo de contenido `frase`; antes la cargaba Maxi a mano.
     Crea esa entrada (solo texto + autor, sin imagen) por wp-json/wp/v2/frase, que existe cuando está activo el snippet
-    distribucion/wordpress/frase_home_rest.php. Mismos modos que publicar_wordpress (PUBLICAR_WORDPRESS):
+    distribucion/wordpress/frase_home_rest.php (registra el tipo «frase», que el sitio había perdido). El formato copia el de
+    las 699 entradas que ya hay (título «Frase del día», texto centrado en georgia, autor en negrita). Modos de PUBLICAR_HOME
+    (sin esa variable, los de PUBLICAR_WORDPRESS):
       apagado -> no hace nada · simulado -> devuelve la pieza · borrador -> status=draft (no se ve en la home) · real -> publish
       (con `fecha` futura, future: WordPress la publica sola ese día; la cola la procesa cuando vence, así que sale al momento).
     Devuelve {"ok", "modo", "estado", "id", "link", "aviso", "pieza"}.
     """
-    modo = cfg.modo_wp
+    modo = cfg.modo_home
     texto = (texto or "").strip()
-    autor = (autor or "").strip() or "Br. David Steindl-Rast"
+    autor = (autor or "").strip() or "David Steindl-Rast"
     esc = lambda s: s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    titulo = (texto[:77] + "…") if len(texto) > 80 else texto
-    pieza = {"title": titulo, "content": f"<p>{esc(texto)}</p>\n<p>—{esc(autor)}</p>", "excerpt": f"{esc(texto)} —{esc(autor)}",
-             "status": "publish" if modo == "real" else "draft"}
+    titulo = "Frase del día"
+    contenido = ('<p style="text-align: center;"><span style="font-family: georgia; font-size: large;">' + esc(texto) + "</span></p>\n"
+                 '<p style="text-align: center;"><span style="font-family: georgia; font-size: medium;"><strong>—' + esc(autor) + "</strong></span></p>")
+    pieza = {"title": titulo, "content": contenido, "excerpt": f"{esc(texto)} —{esc(autor)}", "status": "publish" if modo == "real" else "draft"}
     if fecha:
         pieza["date"] = str(fecha)[:19]
         if modo == "real" and _fecha_local(str(fecha)[:19]) > _ahora_local():
@@ -379,7 +387,7 @@ def publicar_frase_home(cfg, texto, autor, fecha=None, quien=""):
     r, err = _http(_wp_api(cfg, "frase"), "POST", _wp_headers(cfg, {"Content-Type": "application/json"}), json.dumps(pieza).encode())
     if not r:
         _registrar({**base, "resultado": "error", "error": err})
-        if (err or {}).get("code") == "rest_no_route":
+        if (err or {}).get("code") in ("rest_no_route", "rest_type_invalid"):
             aviso = "El sitio no expone el tipo «frase» en la API: falta activar el snippet «Frase del día en la API (home)» en WordPress → Snippets (distribucion/wordpress/frase_home_rest.php)."
         else:
             aviso = "WordPress no aceptó la frase para la home: " + json.dumps(err, ensure_ascii=False)[:200]

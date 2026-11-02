@@ -45,6 +45,8 @@ services:
         value: "0"
       - key: PUBLICAR_WORDPRESS
         value: "borrador"
+      - key: PUBLICAR_HOME        # (2/11) la frase del día en la home del sitio (canal «home»): borrador | real
+        value: "borrador"
       - key: PUBLICAR_INSTAGRAM
         value: "real"
       - key: PUBLICAR_FACEBOOK

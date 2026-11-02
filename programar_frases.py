@@ -40,8 +40,8 @@ CANALES_POSIBLES = {"historia": "Instagram (historia, 1080×1920, 24 h)", "insta
                     "home": "Sitio web (la frase en la home de viviragradecidos.org)"}
 # (2/11, reunión: Alberto) «home»: la sección «Frase del Día» de la home lista la última entrada del tipo de contenido `frase`
 # (la cargaba Maxi a mano). La cola crea esa entrada cada día con publicar.publicar_frase_home: solo texto y autor, sin imagen.
-# Necesita el snippet distribucion/wordpress/frase_home_rest.php activo en el sitio (expone ese tipo en la API) y sale con el
-# modo de WordPress (PUBLICAR_WORDPRESS: borrador = queda como borrador en el sitio, real = publicada).
+# Necesita el snippet distribucion/wordpress/frase_home_rest.php activo en el sitio (registra ese tipo y lo expone en la API) y
+# sale con su propio modo PUBLICAR_HOME (borrador = queda como borrador en el sitio, real = publicada; sin la variable, el de WordPress).
 MAIL_INICIO_DEFECTO = "15:00"
 PIE_DEFECTO = "#FraseDelDía #VivirAgradecidos #Gratitud"
 ESTILO_DEFECTO = {"logo": "Amarillo", "posicion_logo": "abajo derecha", "tipografia": None, "posicion": "centro",
@@ -156,7 +156,7 @@ def encolar_frase(frase, fecha, cfg, db, publicar, hora=None, quien=USUARIO, can
             # arranca el día anterior: a 200 por hora, 3.140 mails llevan ~16 h; a las 7:00 están todos
             inicio = db.obtener_config("frase_mail_inicio", MAIL_INICIO_DEFECTO) or MAIL_INICIO_DEFECTO
             cuando = f"{(fecha - datetime.timedelta(days=1)).isoformat()}T{inicio}:00-03:00"
-        modo_canal = modos.get("mail" if canal == "mail" else "wordpress" if canal == "home" else canal_cola, "")
+        modo_canal = modos.get("mail" if canal == "mail" else canal_cola, "")      # home tiene su modo (PUBLICAR_HOME) en cfg.resumen()
         pid = db.encolar_publicacion(quien, canal_cola, modo_canal,
                                      f"Frase del día {fecha.strftime('%d/%m/%Y')}" + (" (historia)" if canal == "historia" else " (mail)" if canal == "mail" else " (home del sitio)" if canal == "home" else ""),
                                      caption, imagen_pieza, cuando, extra=extra)
@@ -268,7 +268,7 @@ def main(argv=None):
         modo_mail = perfit.modo()
     except Exception:
         modo_mail = "?"
-    print(f"frase del día: activa · hora {hora} · canales {canales} · instagram={cfg.modo_ig} facebook={cfg.modo_fb} wordpress={cfg.modo_wp} mail={modo_mail}")
+    print(f"frase del día: activa · hora {hora} · canales {canales} · instagram={cfg.modo_ig} facebook={cfg.modo_fb} wordpress={cfg.modo_wp} home={cfg.modo_home} mail={modo_mail}")
     for d in (hoy, hoy + datetime.timedelta(days=1)):
         f = db.frase_del_dia(d.isoformat())
         if not f:
