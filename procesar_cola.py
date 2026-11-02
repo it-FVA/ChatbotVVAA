@@ -89,6 +89,10 @@ def main():
                 # las manda frase_mail.avanzar al final de cada pasada (200 por hora, límite de Perfit)
                 import frase_mail, perfit
                 res = frase_mail.iniciar(p, db, perfit)
+            elif canal == "home":
+                # (2/11) Frase del día en la home del sitio: una entrada del tipo «frase» (texto + autor), la lista el widget de la home
+                ex = p.get("resultado") or {}
+                res = publicar.publicar_frase_home(cfg, ex.get("texto_imagen") or texto, ex.get("autor"), fecha=p.get("fecha_programada"), quien="cola")
             elif canal == "wordpress":
                 # (13/10) piezas aprobadas: la imagen ya está en la biblioteca; va como destacada
                 # (16/10) con video_url, el recorte va al principio de la entrada

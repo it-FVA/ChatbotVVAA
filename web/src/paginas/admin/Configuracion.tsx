@@ -366,7 +366,7 @@ function FraseDelDia({ cfg, onGuardado }: { cfg: Config; onGuardado: () => void 
               <input type="checkbox" checked={canales.includes(k)} onChange={(e) => setCanales((cs) => (e.target.checked ? [...cs, k] : cs.filter((c) => c !== k)))} /> {t}
             </label>
           ))}
-          <span className="suave chico">{cfg.explicaciones.frase_canales} La historia es la de Instagram (Beto, 26/10: la frase va como historia diaria, no como posteo). El mail va por Perfit; su estado y la prueba al equipo están en la pantalla Frase del día.</span>
+          <span className="suave chico">{cfg.explicaciones.frase_canales} La historia es la de Instagram (Beto, 26/10: la frase va como historia diaria, no como posteo). El mail va por Perfit; su estado y la prueba al equipo están en la pantalla Frase del día. «Sitio web» carga la frase (texto y autor) como entrada del tipo «frase», que es lo que muestra la sección Frase del Día de la home; necesita el snippet «Frase del día en la API (home)» activo en WordPress y sale con el modo de WordPress (en borrador no se ve).</span>
         </fieldset>
         {canales.includes("mail") && (
           <label>

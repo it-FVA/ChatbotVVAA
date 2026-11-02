@@ -36,7 +36,12 @@ CANALES_DEFECTO = ["instagram"]
 # (26/10, reunión) Se suman la historia de Instagram (Beto: la frase va como historia diaria, guardada en Destacadas; el posteo
 # satura) y el mail por Perfit (frase_mail.py: custom trigger, 200 por hora, arranca el día anterior a la hora frase_mail_inicio).
 CANALES_POSIBLES = {"historia": "Instagram (historia, 1080×1920, 24 h)", "instagram": "Instagram (posteo cuadrado)",
-                    "facebook": "Facebook (foto con texto)", "mail": "Mail (Perfit, 200 por hora, arranca el día anterior)"}
+                    "facebook": "Facebook (foto con texto)", "mail": "Mail (Perfit, 200 por hora, arranca el día anterior)",
+                    "home": "Sitio web (la frase en la home de viviragradecidos.org)"}
+# (2/11, reunión: Alberto) «home»: la sección «Frase del Día» de la home lista la última entrada del tipo de contenido `frase`
+# (la cargaba Maxi a mano). La cola crea esa entrada cada día con publicar.publicar_frase_home: solo texto y autor, sin imagen.
+# Necesita el snippet distribucion/wordpress/frase_home_rest.php activo en el sitio (expone ese tipo en la API) y sale con el
+# modo de WordPress (PUBLICAR_WORDPRESS: borrador = queda como borrador en el sitio, real = publicada).
 MAIL_INICIO_DEFECTO = "15:00"
 PIE_DEFECTO = "#FraseDelDía #VivirAgradecidos #Gratitud"
 ESTILO_DEFECTO = {"logo": "Amarillo", "posicion_logo": "abajo derecha", "tipografia": None, "posicion": "centro",
@@ -151,8 +156,9 @@ def encolar_frase(frase, fecha, cfg, db, publicar, hora=None, quien=USUARIO, can
             # arranca el día anterior: a 200 por hora, 3.140 mails llevan ~16 h; a las 7:00 están todos
             inicio = db.obtener_config("frase_mail_inicio", MAIL_INICIO_DEFECTO) or MAIL_INICIO_DEFECTO
             cuando = f"{(fecha - datetime.timedelta(days=1)).isoformat()}T{inicio}:00-03:00"
-        pid = db.encolar_publicacion(quien, canal_cola, modos.get(canal_cola if canal != "mail" else "mail", ""),
-                                     f"Frase del día {fecha.strftime('%d/%m/%Y')}" + (" (historia)" if canal == "historia" else " (mail)" if canal == "mail" else ""),
+        modo_canal = modos.get("mail" if canal == "mail" else "wordpress" if canal == "home" else canal_cola, "")
+        pid = db.encolar_publicacion(quien, canal_cola, modo_canal,
+                                     f"Frase del día {fecha.strftime('%d/%m/%Y')}" + (" (historia)" if canal == "historia" else " (mail)" if canal == "mail" else " (home del sitio)" if canal == "home" else ""),
                                      caption, imagen_pieza, cuando, extra=extra)
         if pid:
             piezas[canal] = pid

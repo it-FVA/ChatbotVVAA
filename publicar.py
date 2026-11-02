@@ -344,6 +344,53 @@ def publicar_wordpress(cfg, titulo, contenido_html, imagen_id=None, categorias=N
                       "future": f"PROGRAMADA para {fecha}. WordPress la publica sola ese día."}.get(r.get("status"), "PUBLICADA.")}
 
 
+def publicar_frase_home(cfg, texto, autor, fecha=None, quien=""):
+    """
+    (2/11, reunión: Alberto) La Frase del día en la HOME de viviragradecidos.org. La sección «Frase del Día» de la home
+    (página «home 2026», Elementor) lista la última entrada del tipo de contenido `frase`; antes la cargaba Maxi a mano.
+    Crea esa entrada (solo texto + autor, sin imagen) por wp-json/wp/v2/frase, que existe cuando está activo el snippet
+    distribucion/wordpress/frase_home_rest.php. Mismos modos que publicar_wordpress (PUBLICAR_WORDPRESS):
+      apagado -> no hace nada · simulado -> devuelve la pieza · borrador -> status=draft (no se ve en la home) · real -> publish
+      (con `fecha` futura, future: WordPress la publica sola ese día; la cola la procesa cuando vence, así que sale al momento).
+    Devuelve {"ok", "modo", "estado", "id", "link", "aviso", "pieza"}.
+    """
+    modo = cfg.modo_wp
+    texto = (texto or "").strip()
+    autor = (autor or "").strip() or "Br. David Steindl-Rast"
+    esc = lambda s: s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    titulo = (texto[:77] + "…") if len(texto) > 80 else texto
+    pieza = {"title": titulo, "content": f"<p>{esc(texto)}</p>\n<p>—{esc(autor)}</p>", "excerpt": f"{esc(texto)} —{esc(autor)}",
+             "status": "publish" if modo == "real" else "draft"}
+    if fecha:
+        pieza["date"] = str(fecha)[:19]
+        if modo == "real" and _fecha_local(str(fecha)[:19]) > _ahora_local():
+            pieza["status"] = "future"
+    base = {"canal": "home", "accion": "frase", "modo": modo, "quien": quien, "titulo": titulo}
+    if modo == "apagado":
+        _registrar({**base, "resultado": "no se hizo nada (apagado)"})
+        return {"ok": False, "modo": modo, "aviso": "WordPress está apagado.", "pieza": pieza}
+    if modo == "simulado":
+        _registrar({**base, "resultado": "simulado", "pieza": pieza})
+        return {"ok": True, "modo": modo, "estado": "simulado", "pieza": pieza,
+                "aviso": "Simulado: así quedaría la frase en la home. No se mandó nada a WordPress."}
+    if not (cfg.wp_site and cfg.wp_user and cfg.wp_pass):
+        return {"ok": False, "modo": modo, "aviso": "Faltan las claves de WordPress.", "pieza": pieza}
+    assert pieza["status"] in (("publish", "future") if modo == "real" else ("draft",))
+    r, err = _http(_wp_api(cfg, "frase"), "POST", _wp_headers(cfg, {"Content-Type": "application/json"}), json.dumps(pieza).encode())
+    if not r:
+        _registrar({**base, "resultado": "error", "error": err})
+        if (err or {}).get("code") == "rest_no_route":
+            aviso = "El sitio no expone el tipo «frase» en la API: falta activar el snippet «Frase del día en la API (home)» en WordPress → Snippets (distribucion/wordpress/frase_home_rest.php)."
+        else:
+            aviso = "WordPress no aceptó la frase para la home: " + json.dumps(err, ensure_ascii=False)[:200]
+        return {"ok": False, "modo": modo, "aviso": aviso, "pieza": pieza}
+    _registrar({**base, "resultado": r.get("status"), "id": r["id"], "link": r.get("link")})
+    return {"ok": True, "modo": modo, "estado": r.get("status"), "id": r["id"], "link": r.get("link"),
+            "link_editar": f"https://{cfg.wp_site}/wp-admin/post.php?post={r['id']}&action=edit", "pieza": pieza,
+            "aviso": {"draft": "Borrador creado en el sitio: no se ve en la home hasta publicarlo desde WordPress.",
+                      "future": f"PROGRAMADA para {fecha}: WordPress la pone en la home sola ese día."}.get(r.get("status"), "PUBLICADA: ya está en la home.")}
+
+
 # ----------------------------------------------------------------------------- Instagram
 
 def publicar_instagram(cfg, imagen_url, texto, quien="", historia=False):

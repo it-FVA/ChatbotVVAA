@@ -29,6 +29,7 @@ def tabla(monkeypatch):
     monkeypatch.setattr(pf, "hoy_argentina", lambda: HOY)
     monkeypatch.setattr(db, "disponible", lambda: True)
     monkeypatch.setattr(db, "obtener_config", lambda k, d=None: config.get(k, d))
+    monkeypatch.setattr(db, "listar_solicitudes_frase", lambda estado=None, usuario=None, limite=200: [])   # (2/11) solicitudes de los creadores
     monkeypatch.setattr(db, "guardar_config", lambda k, v, u=None: config.__setitem__(k, v))
     monkeypatch.setattr(db, "obtener_frase", lambda fid: next((dict(f) for f in filas if f["id"] == fid), None))
     monkeypatch.setattr(db, "frase_del_dia", lambda fecha: next((dict(f) for f in filas if f["fecha"] == str(fecha)[:10]), None))
@@ -75,10 +76,14 @@ def tabla(monkeypatch):
 
 
 def test_solo_aprobadores(cliente, tabla):
+    """(2/11) Los creadores VEN el calendario (resumen, próximas…) y piden cambios; lo que lo modifica sigue siendo de aprobadores."""
     assert cliente.get("/frases/resumen").status_code == 401
     cliente.post("/login", json={"usuario": "lizzie", "clave": "clave-lizzie"})
-    assert cliente.get("/frases/resumen").status_code == 403
-    assert cliente.get("/frases/proximas").status_code == 403
+    r = cliente.get("/frases/resumen")
+    assert r.status_code == 200 and r.json()["aprueba"] is False
+    assert cliente.get("/frases/proximas").status_code == 200
+    assert cliente.post("/frases/f5/mover", json={"fecha": D(9)}).status_code == 403
+    assert cliente.patch("/frases/f1", json={"texto": "x"}).status_code == 403
 
 
 def test_resumen_proximas_backlog_mes(logueado, tabla):

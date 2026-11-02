@@ -11,7 +11,7 @@ SRT = "1\n00:00:00,500 --> 00:00:02,000\nLa gratitud es la llave\n\n2\n00:00:02,
 URL = "https://viviragradecidos.org/wp-content/uploads/2026/10/clip-abc-10-40-vertical.mp4"
 
 FILAS = [
-    {"id": "c1", "creado": "2026-10-20T10:00:00", "video_id": "abc123def", "inicio_ms": 10000, "fin_ms": 40000, "formato": "vertical",
+    {"id": "c1", "creado": "2026-10-20T10:00:00", "video_id": "abc123def", "inicio_ms": 10000, "fin_ms": 40000, "formato": "vertical", "compartido": True,
      "titulo": "Charla sobre la gratitud", "pedido_por": "franco", "estado": "listo", "url": URL, "error": None,
      "procesado_en": None, "srt": SRT, "edicion": None, "nota": None, "estilo": None},
     {"id": "c2", "creado": "2026-10-20T11:00:00", "video_id": "abc123def", "inicio_ms": 10000, "fin_ms": 40000, "formato": "horizontal",
