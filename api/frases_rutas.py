@@ -15,7 +15,8 @@ Rutas:
   GET   /frases/{id}/previa.jpg        la imagen compuesta (programar_frases.componer con la foto de programar_frases.foto_de_fondo);
                                        ?foto=<url> la arma con esa otra foto sin guardar nada (probar / mostrar una propuesta)
   POST  /frases                        {texto, autor}: agregar una frase (validada, sin día)
-  PATCH /frases/{id}                   {texto?, autor?, imagen_url?, estado?}: editar texto/autor, foto de fondo (null = la por defecto), saltar/reprogramar
+  PATCH /frases/{id}                   {texto?, autor?, imagen_url?, estado?, estilo?, quitar_estilo?}: editar texto/autor, foto de fondo (null = la por
+                                       defecto), saltar/reprogramar, y (2/11 noche) el diseño de la imagen propio de la frase (pisa el global)
   POST  /frases/{id}/mover             {fecha}: a otro día libre (también asigna una sin día); 409 si está ocupado
   POST  /frases/{id}/sacar             vuelve a «sin día»
   POST  /frases/intercambiar           {id_a, id_b}: se cambian la fecha (si una no tiene día, es «cambiar por otra»)
@@ -71,6 +72,8 @@ class Edicion(BaseModel):
     imagen_url: Optional[str] = None      # "" o null con `quitar_imagen` = volver a la foto por defecto
     quitar_imagen: bool = False
     estado: Optional[str] = None          # 'programada' | 'saltada'
+    estilo: Optional[dict] = None         # (2/11 noche) {logo, posicion_logo, tipografia, peso, posicion, alineacion}: se guarda tal cual (claves válidas)
+    quitar_estilo: bool = False           # volver al estilo global
 
 
 class Mover(BaseModel):
@@ -165,7 +168,7 @@ def _publica(f):
         return None
     return {"id": f["id"], "texto": f.get("texto") or "", "autor": f.get("autor"), "fecha": f.get("fecha"), "estado": f.get("estado") or "programada",
             "estado_texto": ESTADO_TXT.get(f.get("estado") or "programada", f.get("estado")), "validada": bool(f.get("validada")),
-            "imagen_url": f.get("imagen_url"), "publicacion_id": f.get("publicacion_id"), "fuente": f.get("fuente"), "tema": f.get("tema"),
+            "imagen_url": f.get("imagen_url"), "estilo": f.get("estilo") or None, "publicacion_id": f.get("publicacion_id"), "fuente": f.get("fuente"), "tema": f.get("tema"),
             "orden": f.get("orden"), "ultima_publicada": f.get("ultima_publicada"), "veces_publicada": int(f.get("veces_publicada") or 0),
             "repetida": bool(f.get("ultima_publicada")), "cerrada": _cerrada(f)}
 
@@ -174,6 +177,13 @@ def _cfg():
     import os
     import publicar
     return publicar.Config(os.environ), publicar
+
+
+def _estilo_opciones():
+    """(2/11 noche) Las listas de imagen.py para la solapa «Diseño» del día (las mismas de Diseñar)."""
+    import imagen
+    return {"logos": list(imagen.LOGOS), "posiciones_logo": list(imagen.POSICIONES_LOGO), "tipografias": list(imagen.TIPOGRAFIAS),
+            "pesos": list(imagen.PESOS), "posiciones": list(imagen.POSICIONES), "alineaciones": list(imagen.ALINEACIONES)}
 
 
 # ---------------- Lectura ----------------
@@ -236,6 +246,7 @@ def resumen(request: Request):
             "conteos": r, "activa": activa, "hoy": hoy.isoformat(),
             "hora": db.obtener_config("frase_hora", pf.HORA_DEFECTO) or pf.HORA_DEFECTO,
             "canales": db.obtener_config("frase_canales") or pf.CANALES_DEFECTO, "canales_posibles": pf.CANALES_POSIBLES, "foto_defecto": foto_defecto,
+            "estilo_opciones": _estilo_opciones(), "estilo_global": dict(pf.ESTILO_DEFECTO, **(db.obtener_config("frase_estilo") or {})),
             "frases_nuevas_hasta": hasta, "nuevas_sin_dia": nuevas_backlog, "manana": manana, "avisos": avisos}
 
 
@@ -311,7 +322,7 @@ def previa(fid: str, foto: str = "", usuario=Depends(auth.usuario_actual)):
     if not foto:
         raise HTTPException(404, "Sin foto para la vista previa: elegí una para la frase o cargá una por defecto en Configuración.")
     try:
-        jpg = pf.componer(f, foto, db.obtener_config("frase_estilo") or {})
+        jpg = pf.componer(f, foto, pf.estilo_de(f, db))
     except Exception as e:
         raise HTTPException(502, f"No pude armar la vista previa: {e}")
     return Response(jpg, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=300", "X-Foto-De": de_donde.encode("ascii", "ignore").decode()})
@@ -348,6 +359,22 @@ def editar(fid: str, datos: Edicion, usuario=Depends(auth.aprobador)):
         if u and not u.startswith(("http://", "https://")):
             raise HTTPException(400, "La foto tiene que ser una URL (http…).")
         campos["imagen_url"] = u or None
+    if datos.quitar_estilo:
+        campos["estilo"] = None
+    elif datos.estilo is not None:
+        import imagen
+        validos = {"logo": imagen.LOGOS, "posicion_logo": imagen.POSICIONES_LOGO, "tipografia": imagen.TIPOGRAFIAS,
+                   "peso": imagen.PESOS, "posicion": imagen.POSICIONES, "alineacion": imagen.ALINEACIONES}
+        limpio = {}
+        for k, v in datos.estilo.items():
+            if k not in validos:
+                raise HTTPException(400, f"Clave de estilo desconocida: {k}.")
+            if v in (None, ""):
+                continue
+            if v not in validos[k]:
+                raise HTTPException(400, f"Valor inválido para {k}: {v}.")
+            limpio[k] = v
+        campos["estilo"] = limpio or None
     if datos.estado is not None:
         if datos.estado not in ("programada", "saltada"):
             raise HTTPException(400, "El estado solo puede ser 'programada' o 'saltada'.")
@@ -553,7 +580,7 @@ def _imagen_publica_para(f, fecha, cfg, publicar):
     if not foto:
         raise HTTPException(409, "Sin foto para la frase: elegí una o cargá una por defecto en Configuración.")
     try:
-        jpg = pf.componer(f, foto, db.obtener_config("frase_estilo") or {})
+        jpg = pf.componer(f, foto, pf.estilo_de(f, db))
     except Exception as e:
         raise HTTPException(502, f"No pude componer la imagen: {e}")
     r = publicar.subir_imagen_wordpress(cfg, jpg, f"frase-del-dia-{str(fecha)[:10]}-prueba.jpg", titulo=f"Frase del día {str(fecha)[:10]} (prueba de mail)",
@@ -775,7 +802,7 @@ def whatsapp_previa(fecha: str, usuario=Depends(auth.usuario_actual)):
     try:
         foto, de_donde = pf.foto_de_fondo(f, cfg, db, publicar)
         if foto:
-            jpg = pf.componer(f, foto, db.obtener_config("frase_estilo") or {})
+            jpg = pf.componer(f, foto, pf.estilo_de(f, db))
             imagen = "data:image/jpeg;base64," + base64.b64encode(jpg).decode("ascii")
     except Exception as e:
         de_donde = f"no pude componer la imagen: {e}"
@@ -812,7 +839,7 @@ def mail_previa(fecha: str, usuario=Depends(auth.usuario_actual)):
     try:
         foto, de_donde = pf.foto_de_fondo(f, cfg, db, publicar)
         if foto:
-            jpg = pf.componer(f, foto, db.obtener_config("frase_estilo") or {})
+            jpg = pf.componer(f, foto, pf.estilo_de(f, db))
             imagen = "data:image/jpeg;base64," + base64.b64encode(jpg).decode("ascii")
     except Exception as e:
         de_donde = f"no pude componer la imagen: {e}"

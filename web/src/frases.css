@@ -544,6 +544,15 @@
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
+/* (2/11 noche) solapa Diseño del día */
+.fd-diseno {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px 12px;
+}
+.fd-diseno .campo select {
+  width: 100%;
+}
 .fd-foto-actual {
   display: flex;
   align-items: center;

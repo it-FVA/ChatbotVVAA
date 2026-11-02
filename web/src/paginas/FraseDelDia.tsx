@@ -419,6 +419,8 @@ export default function FraseDelDia() {
         <DetalleDia
           fecha={diaSel}
           solapaPedida={solapaPedida}
+          estiloOpciones={resumen?.estilo_opciones}
+          estiloGlobal={resumen?.estilo_global}
           version={version}
           aprueba={aprueba}
           onVerMail={() => setVerMail(diaSel)}
@@ -617,9 +619,9 @@ function BacklogPanel({ version, arrastrando, soloLectura, onArrastrar, onSoltar
 }
 
 // ---------------- Detalle de un día ----------------
-type Solapa = "texto" | "mover" | "cambiar" | "foto" | "saltar";
+type Solapa = "texto" | "mover" | "cambiar" | "foto" | "diseno" | "saltar";
 
-function DetalleDia({ fecha, version, aprueba, solapaPedida, onVerMail, onVerWhatsapp, onCerrar, onCambio, ofrecerDeshacer }: { fecha: string; version: number; aprueba: boolean; solapaPedida?: { s: Solapa; n: number } | null; onVerMail: () => void; onVerWhatsapp: () => void; onCerrar: () => void; onCambio: (nuevaFecha?: string | null) => void; ofrecerDeshacer: (texto: string, hacer: () => Promise<void>) => void }) {
+function DetalleDia({ fecha, version, aprueba, solapaPedida, estiloOpciones, estiloGlobal, onVerMail, onVerWhatsapp, onCerrar, onCambio, ofrecerDeshacer }: { fecha: string; version: number; aprueba: boolean; solapaPedida?: { s: Solapa; n: number } | null; estiloOpciones?: Resumen["estilo_opciones"]; estiloGlobal?: Resumen["estilo_global"]; onVerMail: () => void; onVerWhatsapp: () => void; onCerrar: () => void; onCambio: (nuevaFecha?: string | null) => void; ofrecerDeshacer: (texto: string, hacer: () => Promise<void>) => void }) {
   const { avisar } = useToast();
   const [d, setD] = useState<Dia | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -761,6 +763,7 @@ function DetalleDia({ fecha, version, aprueba, solapaPedida, onVerMail, onVerWha
                 ["mover", "Mover / intercambiar"],
                 ["cambiar", "Cambiar por otra"],
                 ["foto", "Foto de fondo"],
+                ["diseno", "Diseño"],
                 ["saltar", "Saltar / sacar"],
               ] as [Solapa, string][]
             ).map(([k, t]) => (
@@ -792,6 +795,7 @@ function DetalleDia({ fecha, version, aprueba, solapaPedida, onVerMail, onVerWha
             </>
           )}
           {solapa === "foto" && <FotoFondo f={f} ocupado={ocupado} correr={correr} />}
+          {solapa === "diseno" && <DisenoFrase f={f} opciones={estiloOpciones} global={estiloGlobal} ocupado={ocupado} correr={correr} />}
           {solapa === "saltar" && (
             <div className="fd-dos">
               <div>
@@ -963,6 +967,52 @@ function ElegirFoto({ actual, ocupado, textoQuitar, onElegir }: { actual: string
         </button>
       </div>
     </>
+  );
+}
+
+/** (2/11 noche, Franco) La solapa «Diseño» del día: las mismas herramientas de imagen de Diseñar, guardadas por frase. Cada cambio se
+ *  guarda y la vista previa se vuelve a armar. «Volver al estilo general» borra lo propio de la frase. */
+const ETIQUETA_ESTILO: Record<string, string> = { logo: "Logo", posicion_logo: "Posición del logo", tipografia: "Tipografía", peso: "Peso", posicion: "Posición del texto", alineacion: "Alineación" };
+function DisenoFrase({ f, opciones, global, ocupado, correr }: { f: Frase; opciones?: Resumen["estilo_opciones"]; global?: Resumen["estilo_global"]; ocupado: boolean; correr: (a: () => Promise<string | void>) => Promise<void> }) {
+  if (!opciones) return <p className="suave chico">Cargando las opciones de diseño…</p>;
+  const listas: Record<string, string[]> = { logo: opciones.logos, posicion_logo: opciones.posiciones_logo, tipografia: opciones.tipografias, peso: opciones.pesos, posicion: opciones.posiciones, alineacion: opciones.alineaciones };
+  const propio = f.estilo ?? {};
+  const valor = (k: string) => propio[k] ?? global?.[k] ?? listas[k][0];
+  const conLogo = valor("logo") !== "Sin logo";
+  function cambiar(k: string, v: string) {
+    correr(async () => ((await apiFrases.editar(f.id, { estilo: { ...propio, [k]: v } })), "Diseño guardado: la imagen se vuelve a armar."));
+  }
+  return (
+    <div className="fd-form">
+      <p className="suave chico">
+        Cómo se dibuja la frase sobre la foto, para esta frase. Lo que no cambies queda como el estilo general (Configuración → Estilo).
+        {Object.keys(propio).length > 0 ? " Esta frase tiene diseño propio." : " Esta frase usa el estilo general."}
+      </p>
+      <div className="fd-diseno">
+        {Object.keys(listas).map((k) => (
+          <label key={k} className="campo">
+            <span>
+              {ETIQUETA_ESTILO[k]}
+              {propio[k] && <span className="chip chico amarillo"> propio</span>}
+            </span>
+            <select value={valor(k)} onChange={(e) => cambiar(k, e.target.value)} disabled={ocupado || (k === "posicion_logo" && !conLogo)}>
+              {listas[k].map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
+          </label>
+        ))}
+      </div>
+      {Object.keys(propio).length > 0 && (
+        <div className="acciones">
+          <button type="button" className="boton chico" disabled={ocupado} onClick={() => correr(async () => ((await apiFrases.editar(f.id, { quitar_estilo: true })), "Vuelve al estilo general."))}>
+            <Icono nombre="deshacer" tam={14} /> Volver al estilo general
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 

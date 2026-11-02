@@ -90,6 +90,19 @@ def foto_de_fondo(frase, cfg, db, publicar):
     return None, "no hay foto: ni elegida para la frase, ni por defecto (Panel admin → Frase del día → Cómo sale cada día), ni en el banco etiquetada «cuadrado»"
 
 
+CLAVES_ESTILO = ("logo", "posicion_logo", "tipografia", "peso", "posicion", "alineacion")
+
+
+def estilo_de(frase, db):
+    """(2/11) El estilo con el que se compone la imagen de ESTA frase: el global (config frase_estilo, Configuración → Estilo)
+    pisado campo por campo por el propio de la frase (frases.estilo, solapa «Diseño» del día)."""
+    e = dict(db.obtener_config("frase_estilo") or {})
+    for k, v in ((frase or {}).get("estilo") or {}).items():
+        if k in CLAVES_ESTILO and v not in (None, ""):
+            e[k] = v
+    return e
+
+
 def componer(frase, foto, estilo=None, formato=None):
     import imagen
     e = dict(ESTILO_DEFECTO, **(estilo or {}))
@@ -115,7 +128,7 @@ def encolar_frase(frase, fecha, cfg, db, publicar, hora=None, quien=USUARIO, can
         foto, de_donde = foto_de_fondo(frase, cfg, db, publicar)
         if not foto:
             return {}, de_donde
-    estilo = db.obtener_config("frase_estilo") or {}
+    estilo = estilo_de(frase, db)      # (2/11) el global pisado por el de la frase
     if not solo_texto:
         try:
             jpg = componer(frase, foto, estilo)

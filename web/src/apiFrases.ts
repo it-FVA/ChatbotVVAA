@@ -10,6 +10,7 @@ export interface Frase {
   estado_texto: string;
   validada: boolean;
   imagen_url: string | null;
+  estilo?: Record<string, string> | null; // (2/11 noche) diseño propio de la frase (pisa el global)
   publicacion_id: string | null;
   fuente: string | null;
   tema: string | null;
@@ -40,6 +41,8 @@ export interface Resumen {
   hora?: string;
   canales?: string[];
   canales_posibles?: Record<string, string>; // (2/11) clave → nombre, para el checklist de la cabecera
+  estilo_opciones?: { logos: string[]; posiciones_logo: string[]; tipografias: string[]; pesos: string[]; posiciones: string[]; alineaciones: string[] };
+  estilo_global?: Record<string, string | null>; // el de Configuración → Estilo, ya con los defaults
   foto_defecto?: string | null;
   frases_nuevas_hasta?: string | null;
   nuevas_sin_dia?: number;
@@ -179,7 +182,7 @@ export const apiFrases = {
   previaUrl: (id: string, v: string | number = "", foto?: string | null) =>
     `${BASE}/frases/${encodeURIComponent(id)}/previa.jpg?v=${encodeURIComponent(String(v))}` + (foto ? `&foto=${encodeURIComponent(foto)}` : ""),
   crear: (texto: string, autor: string) => pedir<{ ok: boolean; id: string; frase: Frase }>("/frases", { method: "POST", body: JSON.stringify({ texto, autor }) }),
-  editar: (id: string, datos: { texto?: string; autor?: string; imagen_url?: string; quitar_imagen?: boolean; estado?: string }) =>
+  editar: (id: string, datos: { texto?: string; autor?: string; imagen_url?: string; quitar_imagen?: boolean; estado?: string; estilo?: Record<string, string>; quitar_estilo?: boolean }) =>
     pedir<RespuestaFrase>(`/frases/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(datos) }),
   mover: (id: string, fecha: string) => pedir<RespuestaFrase>(`/frases/${encodeURIComponent(id)}/mover`, { method: "POST", body: JSON.stringify({ fecha }) }),
   sacar: (id: string) => pedir<RespuestaFrase>(`/frases/${encodeURIComponent(id)}/sacar`, { method: "POST" }),
