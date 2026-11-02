@@ -12,7 +12,8 @@ Rutas:
   GET   /frases/backlog?q=             validadas sin día y pendientes de validación (con buscador)
   GET   /frases/mes/{aaaa}/{mm}        las frases con fecha en ese mes
   GET   /frases/dia/{fecha}            la frase de ese día con su estado en la cola, si está en la cola/salió (cerrada) y la foto que usaría
-  GET   /frases/{id}/previa.jpg        la imagen compuesta (programar_frases.componer con la foto de programar_frases.foto_de_fondo)
+  GET   /frases/{id}/previa.jpg        la imagen compuesta (programar_frases.componer con la foto de programar_frases.foto_de_fondo);
+                                       ?foto=<url> la arma con esa otra foto sin guardar nada (probar / mostrar una propuesta)
   POST  /frases                        {texto, autor}: agregar una frase (validada, sin día)
   PATCH /frases/{id}                   {texto?, autor?, imagen_url?, estado?}: editar texto/autor, foto de fondo (null = la por defecto), saltar/reprogramar
   POST  /frases/{id}/mover             {fecha}: a otro día libre (también asigna una sin día); 409 si está ocupado
@@ -28,8 +29,10 @@ Rutas:
 (2/11, reunión del 2/11) Los creadores de contenido también VEN el calendario (resumen, próximas, mes, día, backlog, vista previa:
 auth.usuario_actual) y piden cambios; lo que modifica el calendario sigue siendo de aprobadores:
   GET   /frases/solicitudes            aprobador: las pendientes + las últimas resueltas; creador: las propias
-  POST  /frases/solicitudes            {fecha, frase_id? | texto+autor?, nota?}: «me gustaría que ese día salga esta frase»
-  POST  /frases/solicitudes/{id}/aceptar   (aprobador) la aplica: crea la frase si es nueva, la mueve al día (o intercambia si está ocupado)
+  POST  /frases/solicitudes            {fecha, frase_id? | texto+autor?, imagen_url?, nota?}: «me gustaría que ese día salga esta frase»
+                                       y/o «con esta foto de fondo» (2/11 tarde; la foto sola = cambiar la de la frase que ya está ese día)
+  POST  /frases/solicitudes/{id}/aceptar   (aprobador) la aplica: crea la frase si es nueva, la mueve al día (o intercambia si está ocupado),
+                                       guarda la foto propuesta en la frase
   POST  /frases/solicitudes/{id}/rechazar  (aprobador) {respuesta?}
   POST  /frases/solicitudes/{id}/retirar   (quien la pidió) la saca antes de que la resuelvan
 """
@@ -99,6 +102,7 @@ class Solicitud(BaseModel):
     texto: Optional[str] = None
     autor: Optional[str] = None
     nota: Optional[str] = None
+    imagen_url: Optional[str] = None      # (2/11 tarde) foto de fondo propuesta; sola = cambiar la de la frase que ya está ese día
 
 
 class Resolver(BaseModel):
@@ -132,6 +136,14 @@ def _frase(fid):
     if not f:
         raise HTTPException(404, "No existe esa frase.")
     return f
+
+
+def _url_foto(u):
+    """Una foto es una URL http(s) (del banco de WordPress o de internet); la misma regla que PATCH /frases/{id}."""
+    u = (u or "").strip()
+    if u and not u.startswith(("http://", "https://")):
+        raise HTTPException(400, "La foto tiene que ser una URL (http…).")
+    return u or None
 
 
 def _cerrada(f):
@@ -259,11 +271,15 @@ def dia(fecha: str, usuario=Depends(auth.usuario_actual)):
 
 
 @router.get("/{fid}/previa.jpg")
-def previa(fid: str, usuario=Depends(auth.usuario_actual)):
-    """La imagen compuesta chica (frase + autor + logo sobre la foto), como va a salir (frases_ui._vista_previa)."""
+def previa(fid: str, foto: str = "", usuario=Depends(auth.usuario_actual)):
+    """La imagen compuesta chica (frase + autor + logo sobre la foto), como va a salir (frases_ui._vista_previa).
+    Con ?foto=<url> la compone con esa foto en vez de la guardada (2/11 tarde: ver cómo quedaría una propuesta)."""
     f = _frase(fid)
     cfg, publicar = _cfg()
-    foto, de_donde = pf.foto_de_fondo(f, cfg, db, publicar)
+    if _url_foto(foto):
+        foto, de_donde = _url_foto(foto), "propuesta (no guardada)"
+    else:
+        foto, de_donde = pf.foto_de_fondo(f, cfg, db, publicar)
     if not foto:
         raise HTTPException(404, "Sin foto para la vista previa: elegí una para la frase o cargá una por defecto en Configuración.")
     try:
@@ -505,6 +521,7 @@ def _solicitud_publica(x, frases=None):
     d = datetime.date.fromisoformat(fecha)
     return {"id": x["id"], "creado": x.get("creado"), "usuario": x.get("usuario"), "fecha": fecha, "fecha_texto": f"{DIAS[d.weekday()]} {_fecha_txt(d)}",
             "frase": _publica(frases.get(fid)) if fid else None, "texto": x.get("texto"), "autor": x.get("autor"), "nota": x.get("nota"),
+            "imagen_url": x.get("imagen_url"), "solo_foto": bool(x.get("imagen_url")) and not fid and not (x.get("texto") or "").strip(),
             "estado": x.get("estado"), "resuelta_por": x.get("resuelta_por"), "resuelta_en": x.get("resuelta_en"), "respuesta": x.get("respuesta"),
             "actual": _publica(frases.get("dia:" + fecha)), "pasado": d < _hoy()}
 
@@ -526,7 +543,8 @@ def solicitudes(request: Request):
 
 @router.post("/solicitudes", status_code=201)
 def solicitar(datos: Solicitud, usuario=Depends(auth.usuario_actual)):
-    """«Me gustaría que el <día> salga esta frase»: una validada que ya existe (del backlog o de otro día) o una nueva (texto + autor)."""
+    """«Me gustaría que el <día> salga esta frase»: una validada que ya existe (del backlog o de otro día) o una nueva (texto + autor).
+    (2/11 tarde) Y/o «con esta foto de fondo»: imagen_url sola cambia la foto de la frase que ya está ese día."""
     _con_db()
     d = _fecha(datos.fecha)
     if d <= _hoy():
@@ -536,6 +554,7 @@ def solicitar(datos: Solicitud, usuario=Depends(auth.usuario_actual)):
         raise HTTPException(409, f"La frase del {_fecha_txt(d)} ya está en la cola o ya salió: ese día no se puede cambiar.")
     texto = (datos.texto or "").strip()
     fid = (datos.frase_id or "").strip() or None
+    imagen = _url_foto(datos.imagen_url)
     if fid:
         f = _frase(fid)
         if not f.get("validada"):
@@ -545,9 +564,16 @@ def solicitar(datos: Solicitud, usuario=Depends(auth.usuario_actual)):
         if _cerrada(f):
             raise HTTPException(409, "Esa frase ya está en la cola o ya salió: no se puede mover.")
         texto = None
-    elif not texto:
-        raise HTTPException(400, "Elegí una frase de la lista o escribí una nueva.")
-    sid = db.crear_solicitud_frase(usuario, d.isoformat(), frase_id=fid, texto=texto, autor=(datos.autor or "").strip() or None, nota=(datos.nota or "").strip() or None)
+    elif texto:
+        pass
+    elif imagen and actual:
+        texto = None      # solo la foto, para la frase que ya está ese día
+    elif imagen:
+        raise HTTPException(400, "Ese día no tiene frase todavía: elegí también cuál querés que salga con esa foto.")
+    else:
+        raise HTTPException(400, "Elegí una frase de la lista, escribí una nueva o proponé una foto de fondo.")
+    sid = db.crear_solicitud_frase(usuario, d.isoformat(), frase_id=fid, texto=texto, autor=(datos.autor or "").strip() or None, nota=(datos.nota or "").strip() or None,
+                                   imagen_url=imagen)
     if not sid:
         raise HTTPException(503, "No pude guardar la solicitud.")
     return {"ok": True, "id": sid, "solicitud": _solicitud_publica(db.obtener_solicitud_frase(sid)),
@@ -575,6 +601,11 @@ def aceptar_solicitud(sid: str, datos: Resolver, quien=Depends(auth.aprobador)):
     if actual and _cerrada(actual):
         raise HTTPException(409, f"La frase del {_fecha_txt(d)} ya está en la cola o ya salió: no se puede cambiar.")
     fid = x.get("frase_id")
+    solo_foto = not fid and not (x.get("texto") or "").strip() and bool(x.get("imagen_url"))
+    if solo_foto:
+        if not actual:
+            raise HTTPException(409, "Ese día ya no tiene frase: la foto propuesta era para la que estaba. Rechazala o asigná una frase primero.")
+        fid = actual["id"]
     if not fid:
         try:
             fid = db.crear_frase((x.get("texto") or "").strip(), x.get("autor"), validada=True, origen=f"solicitud:{x.get('usuario')}")
@@ -593,9 +624,14 @@ def aceptar_solicitud(sid: str, datos: Resolver, quien=Depends(auth.aprobador)):
             db.mover_frase(fid, d.isoformat())
     if f.get("estado") == "saltada":
         db.actualizar_frase(fid, {"estado": "programada"})
+    if x.get("imagen_url"):
+        db.actualizar_frase(fid, {"imagen_url": x["imagen_url"]})
     db.actualizar_solicitud_frase(sid, {"estado": "aceptada", "resuelta_por": quien, "resuelta_en": db._ahora_iso(), "respuesta": (datos.respuesta or "").strip() or None, "frase_id": fid})
+    if solo_foto:
+        return {"ok": True, "solicitud": _solicitud_publica(db.obtener_solicitud_frase(sid)), "mensaje": f"Aceptada: la frase del {_fecha_txt(d)} sale con la foto propuesta."}
     que = "intercambiada con la que estaba" if actual and f.get("fecha") not in (None, d.isoformat()) else ("puesta en lugar de la que estaba (que volvió al backlog)" if actual else "asignada")
-    return {"ok": True, "solicitud": _solicitud_publica(db.obtener_solicitud_frase(sid)), "mensaje": f"Aceptada: la frase quedó {que} el {_fecha_txt(d)}."}
+    con_foto = " y con la foto propuesta" if x.get("imagen_url") else ""
+    return {"ok": True, "solicitud": _solicitud_publica(db.obtener_solicitud_frase(sid)), "mensaje": f"Aceptada: la frase quedó {que} el {_fecha_txt(d)}{con_foto}."}
 
 
 @router.post("/solicitudes/{sid}/rechazar")

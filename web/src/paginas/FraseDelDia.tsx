@@ -61,6 +61,7 @@ export default function FraseDelDia() {
   const [deshacer, setDeshacer] = useState<Deshacer | null>(null);
   const [modal, setModal] = useState<"repartir" | "vaciar" | "nueva" | null>(null);
   const [verMail, setVerMail] = useState<string | null>(null); // (2/11) la fecha del mail que se está mirando
+  const [solapaPedida, setSolapaPedida] = useState<{ s: Solapa; n: number } | null>(null); // (2/11 tarde) desde el mail: abrir el día en «Foto de fondo»
   const [ocupado, setOcupado] = useState(false);
   const [version, setVersion] = useState(0); // para refrescar backlog y próximas tras un cambio
   const timerDeshacer = useRef<number | null>(null);
@@ -396,6 +397,7 @@ export default function FraseDelDia() {
       {diaSel && (
         <DetalleDia
           fecha={diaSel}
+          solapaPedida={solapaPedida}
           version={version}
           aprueba={aprueba}
           onVerMail={() => setVerMail(diaSel)}
@@ -407,7 +409,18 @@ export default function FraseDelDia() {
           ofrecerDeshacer={ofrecerDeshacer}
         />
       )}
-      {verMail && <VerMail fecha={verMail} onCerrar={() => setVerMail(null)} />}
+      {verMail && (
+        <VerMail
+          fecha={verMail}
+          onCerrar={() => setVerMail(null)}
+          onCambiarFoto={() => {
+            // (2/11 tarde) el aprobador cambia la foto desde el mail; el creador va al día a pedirla
+            setDiaSel(verMail);
+            setSolapaPedida({ s: "foto", n: Date.now() });
+            setVerMail(null);
+          }}
+        />
+      )}
       {modal === "repartir" && resumen && (
         <Repartir
           hoy={resumen.hoy || iso(new Date())}
@@ -583,11 +596,14 @@ function BacklogPanel({ version, arrastrando, soloLectura, onArrastrar, onSoltar
 // ---------------- Detalle de un día ----------------
 type Solapa = "texto" | "mover" | "cambiar" | "foto" | "saltar";
 
-function DetalleDia({ fecha, version, aprueba, onVerMail, onCerrar, onCambio, ofrecerDeshacer }: { fecha: string; version: number; aprueba: boolean; onVerMail: () => void; onCerrar: () => void; onCambio: (nuevaFecha?: string | null) => void; ofrecerDeshacer: (texto: string, hacer: () => Promise<void>) => void }) {
+function DetalleDia({ fecha, version, aprueba, solapaPedida, onVerMail, onCerrar, onCambio, ofrecerDeshacer }: { fecha: string; version: number; aprueba: boolean; solapaPedida?: { s: Solapa; n: number } | null; onVerMail: () => void; onCerrar: () => void; onCambio: (nuevaFecha?: string | null) => void; ofrecerDeshacer: (texto: string, hacer: () => Promise<void>) => void }) {
   const { avisar } = useToast();
   const [d, setD] = useState<Dia | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [solapa, setSolapa] = useState<Solapa>("texto");
+  const [solapa, setSolapa] = useState<Solapa>(solapaPedida?.s ?? "texto");
+  useEffect(() => {
+    if (solapaPedida) setSolapa(solapaPedida.s);
+  }, [solapaPedida]);
   const [ocupado, setOcupado] = useState(false);
   const [previaOk, setPreviaOk] = useState<boolean | null>(null);
   const [v, setV] = useState(0);
@@ -855,6 +871,22 @@ function MoverIntercambiar({ f, fecha, ocupado, correr }: { f: Frase; fecha: str
 }
 
 function FotoFondo({ f, ocupado, correr }: { f: Frase; ocupado: boolean; correr: (a: () => Promise<string | void>) => Promise<void> }) {
+  return (
+    <div className="fd-form">
+      <p className="suave chico">Foto del banco de imágenes de WordPress (las etiquetadas «cuadrado» primero). Sin elección, va la foto por defecto. La foto elegida va a la imagen compuesta, al mail y a las redes.</p>
+      <ElegirFoto
+        actual={f.imagen_url}
+        ocupado={ocupado}
+        textoQuitar="Volver a la foto por defecto"
+        onElegir={(url) => correr(async () => (url ? ((await apiFrases.editar(f.id, { imagen_url: url })), "Foto elegida.") : ((await apiFrases.editar(f.id, { quitar_imagen: true })), "Vuelve a la foto por defecto.")))}
+      />
+    </div>
+  );
+}
+
+/** (2/11 tarde) Elegir una foto: buscar en el banco de WordPress o pegar una URL. `actual` es la elegida hoy; onElegir(null) = sacarla.
+ *  Lo usan los aprobadores (FotoFondo, guarda en la frase) y los creadores (SolicitarCambio, la proponen). */
+function ElegirFoto({ actual, ocupado, textoQuitar, onElegir }: { actual: string | null; ocupado: boolean; textoQuitar: string; onElegir: (url: string | null) => void }) {
   const [q, setQ] = useState("");
   const [fotos, setFotos] = useState<FotoBanco[] | null>(null);
   const [buscando, setBuscando] = useState(false);
@@ -870,13 +902,12 @@ function FotoFondo({ f, ocupado, correr }: { f: Frase; ocupado: boolean; correr:
     }
   }
   return (
-    <div className="fd-form">
-      <p className="suave chico">Foto del banco de imágenes de WordPress (las etiquetadas «cuadrado» primero). Sin elección, va la foto por defecto.</p>
-      {f.imagen_url && (
+    <>
+      {actual && (
         <div className="fd-foto-actual">
-          <img src={f.imagen_url} alt="Foto elegida para esta frase" />
-          <button type="button" className="boton chico" onClick={() => correr(async () => ((await apiFrases.editar(f.id, { quitar_imagen: true })), "Vuelve a la foto por defecto."))} disabled={ocupado}>
-            Volver a la foto por defecto
+          <img src={actual} alt="Foto elegida" />
+          <button type="button" className="boton chico" onClick={() => onElegir(null)} disabled={ocupado}>
+            {textoQuitar}
           </button>
         </div>
       )}
@@ -890,7 +921,7 @@ function FotoFondo({ f, ocupado, correr }: { f: Frase; ocupado: boolean; correr:
       {fotos && fotos.length > 0 && (
         <div className="pieza-fotos">
           {fotos.map((x) => (
-            <button key={x.id} type="button" className={"pieza-foto" + (f.imagen_url === x.url ? " elegida" : "")} onClick={() => correr(async () => ((await apiFrases.editar(f.id, { imagen_url: x.url })), "Foto elegida."))} disabled={ocupado} title={x.titulo || `#${x.id}`}>
+            <button key={x.id} type="button" className={"pieza-foto" + (actual === x.url ? " elegida" : "")} onClick={() => onElegir(x.url)} disabled={ocupado} title={x.titulo || `#${x.id}`}>
               <img src={x.miniatura} alt={x.titulo || ""} loading="lazy" />
               <span className="chico">{(x.titulo || `#${x.id}`).slice(0, 28)}</span>
             </button>
@@ -899,11 +930,11 @@ function FotoFondo({ f, ocupado, correr }: { f: Frase; ocupado: boolean; correr:
       )}
       <div className="campo-con-boton">
         <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="…o pegá la URL de una imagen que ya está en internet" aria-label="URL de la foto" />
-        <button type="button" className="boton" disabled={ocupado || !url.trim()} onClick={() => correr(async () => ((await apiFrases.editar(f.id, { imagen_url: url.trim() })), "Foto elegida."))}>
+        <button type="button" className="boton" disabled={ocupado || !url.trim()} onClick={() => (onElegir(url.trim()), setUrl(""))}>
           Usar esa URL
         </button>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -1177,7 +1208,7 @@ function MailPanel({ admin, aprueba, hoy, onVerMail }: { admin: boolean; aprueba
 
 
 // ---------------- (2/11) Ver el mail de un día ----------------
-function VerMail({ fecha, onCerrar }: { fecha: string; onCerrar: () => void }) {
+function VerMail({ fecha, onCerrar, onCambiarFoto }: { fecha: string; onCerrar: () => void; onCambiarFoto?: () => void }) {
   const [m, setM] = useState<MailPrevia | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -1199,6 +1230,13 @@ function VerMail({ fecha, onCerrar }: { fecha: string; onCerrar: () => void }) {
             <span className="suave"> · foto: {m.imagen_de}</span>
           </p>
           <iframe title="Vista previa del mail" srcDoc={m.html} sandbox="" />
+          {m.frase && (
+            <div className="acciones">
+              <button type="button" className="boton chico" onClick={onCambiarFoto} title={onCambiarFoto ? "Elegir otra foto de fondo para esta frase (banco de WordPress o URL)" : "Abrí el día en el calendario y pedí otra foto"}>
+                <Icono nombre="imagen" tam={15} /> {onCambiarFoto ? "Cambiar la foto de fondo" : "Pedir otra foto de fondo"}
+              </button>
+            </div>
+          )}
           <p className="suave chico">
             <Icono nombre="info" tam={14} /> {m.aviso}
           </p>
@@ -1211,17 +1249,19 @@ function VerMail({ fecha, onCerrar }: { fecha: string; onCerrar: () => void }) {
 // ---------------- (2/11) Solicitudes de cambio: los creadores piden, los aprobadores resuelven ----------------
 function SolicitarCambio({ fecha, actual, onHecho }: { fecha: string; actual: Frase | null; onHecho: () => void }) {
   const { avisar } = useToast();
-  const [modo, setModo] = useState<"existente" | "nueva">("existente");
+  const [modo, setModo] = useState<"existente" | "nueva" | "foto">("existente");
   const [texto, setTexto] = useState("");
   const [autor, setAutor] = useState("Br. David");
   const [nota, setNota] = useState("");
+  const [foto, setFoto] = useState<string | null>(null); // (2/11 tarde) foto de fondo propuesta, sola o junto con la frase
   const [ocupado, setOcupado] = useState(false);
   const [hecha, setHecha] = useState<string | null>(null);
 
   async function mandar(frase_id: string | null) {
     setOcupado(true);
     try {
-      const r = await apiFrases.solicitar({ fecha, frase_id, texto: frase_id ? null : texto, autor: frase_id ? null : autor, nota });
+      const soloFoto = modo === "foto";
+      const r = await apiFrases.solicitar({ fecha, frase_id, texto: frase_id || soloFoto ? null : texto, autor: frase_id || soloFoto ? null : autor, nota, imagen_url: foto });
       setHecha(r.mensaje);
       avisar(r.mensaje);
       onHecho();
@@ -1240,7 +1280,8 @@ function SolicitarCambio({ fecha, actual, onHecho }: { fecha: string; actual: Fr
     );
   return (
     <div className="fd-form fd-solicitar">
-      {actual && <p className="suave chico">Hoy ese día tiene «{recortar(actual.texto, 90)}». Si aceptan tu pedido, la que elijas toma su lugar (la que estaba vuelve al backlog o se intercambia).</p>}
+      {actual && modo !== "foto" && <p className="suave chico">Hoy ese día tiene «{recortar(actual.texto, 90)}». Si aceptan tu pedido, la que elijas toma su lugar (la que estaba vuelve al backlog o se intercambia).</p>}
+      {actual && modo === "foto" && <p className="suave chico">La frase queda («{recortar(actual.texto, 90)}»); lo que cambia es la foto de fondo con la que sale por mail y redes.</p>}
       <div className="solapas chico" role="tablist">
         <button role="tab" aria-selected={modo === "existente"} className={"solapa" + (modo === "existente" ? " activa" : "")} onClick={() => setModo("existente")}>
           Una frase que ya está cargada
@@ -1248,14 +1289,43 @@ function SolicitarCambio({ fecha, actual, onHecho }: { fecha: string; actual: Fr
         <button role="tab" aria-selected={modo === "nueva"} className={"solapa" + (modo === "nueva" ? " activa" : "")} onClick={() => setModo("nueva")}>
           Una frase nueva
         </button>
+        {actual && (
+          <button role="tab" aria-selected={modo === "foto"} className={"solapa" + (modo === "foto" ? " activa" : "")} onClick={() => setModo("foto")}>
+            Solo otra foto de fondo
+          </button>
+        )}
       </div>
       <label className="campo">
         <span>Comentario para quien aprueba <span className="suave">(opcional)</span></span>
         <input value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Por qué este día, por ejemplo: es el Día de la Madre" maxLength={300} />
       </label>
+      {modo !== "foto" && (
+        <details className="fd-solicitar-foto" open={!!foto}>
+          <summary className="chico">
+            <Icono nombre="chevron" tam={14} /> Foto de fondo <span className="suave">(opcional{foto ? ", elegida" : ": si no, va la de la frase o la por defecto"})</span>
+          </summary>
+          <ElegirFoto actual={foto} ocupado={ocupado} textoQuitar="Sacar: que vaya la foto que corresponda" onElegir={setFoto} />
+        </details>
+      )}
+      {modo === "foto" && actual && (
+        <>
+          <ElegirFoto actual={foto} ocupado={ocupado} textoQuitar="Sacar esta foto" onElegir={setFoto} />
+          {foto && (
+            <div className="fd-foto-previa">
+              <img src={apiFrases.previaUrl(actual.id, "", foto)} alt="Así saldría con esa foto" />
+              <span className="suave chico">Así saldría con esa foto.</span>
+            </div>
+          )}
+          <div className="acciones">
+            <button type="button" className="boton primario" disabled={ocupado || !foto} onClick={() => mandar(null)}>
+              <Icono nombre="enviar" tam={15} /> Pedir esta foto para este día
+            </button>
+          </div>
+        </>
+      )}
       {modo === "existente" ? (
         <Buscador excluir={actual?.id} textoBoton="Pedir que salga este día" ocupado={ocupado} onElegir={(fr) => mandar(fr.id)} />
-      ) : (
+      ) : modo === "nueva" ? (
         <>
           <label className="campo">
             <span>La frase</span>
@@ -1271,8 +1341,21 @@ function SolicitarCambio({ fecha, actual, onHecho }: { fecha: string; actual: Fr
             </button>
           </div>
         </>
-      )}
+      ) : null}
     </div>
+  );
+}
+
+/** (2/11 tarde) La foto propuesta en una solicitud, compuesta sobre la frase cuando hay una con id (la pedida o la del día). */
+function FotoDeSolicitud({ s }: { s: Solicitud }) {
+  if (!s.imagen_url) return null;
+  const fid = s.frase?.id ?? (s.solo_foto ? s.actual?.id : undefined);
+  const src = fid ? apiFrases.previaUrl(fid, "", s.imagen_url) : s.imagen_url;
+  return (
+    <a className="fd-solicitud-foto" href={s.imagen_url} target="_blank" rel="noreferrer" title="La foto de fondo propuesta (abre la original)">
+      <img src={src} alt="Foto de fondo propuesta" loading="lazy" />
+      <span className="suave chico">{fid ? "así saldría con la foto propuesta" : "foto de fondo propuesta"}</span>
+    </a>
   );
 }
 
@@ -1332,12 +1415,23 @@ function SolicitudesPanel({ aprueba, version, onCambio, onVerDia }: { aprueba: b
                 {s.pasado && <span className="rojo"> · ese día ya pasó</span>}
               </div>
               <div className="fd-solicitud-cambio chico">
-                <span>
-                  <span className="suave">Que salga:</span> «{recortar(s.frase?.texto || s.texto || "", 160)}» — {s.frase?.autor || s.autor || "(sin autor)"}
-                  {!s.frase && <span className="chip chico"> nueva</span>}
-                  {s.frase?.fecha && s.frase.fecha !== s.fecha && <span className="suave"> (hoy está el {fechaCorta(s.frase.fecha)})</span>}
-                </span>
-                <span className="suave">{s.actual ? `En lugar de: «${recortar(s.actual.texto, 100)}»` : "El día está libre."}</span>
+                {s.solo_foto ? (
+                  <span>
+                    <span className="suave">Otra foto de fondo para:</span> «{recortar(s.actual?.texto || "", 160)}»{s.actual?.autor ? ` — ${s.actual.autor}` : ""}
+                    {!s.actual && <span className="rojo"> (ese día ya no tiene frase)</span>}
+                  </span>
+                ) : (
+                  <>
+                    <span>
+                      <span className="suave">Que salga:</span> «{recortar(s.frase?.texto || s.texto || "", 160)}» — {s.frase?.autor || s.autor || "(sin autor)"}
+                      {!s.frase && <span className="chip chico"> nueva</span>}
+                      {s.frase?.fecha && s.frase.fecha !== s.fecha && <span className="suave"> (hoy está el {fechaCorta(s.frase.fecha)})</span>}
+                      {s.imagen_url && <span className="suave"> · con una foto de fondo propuesta</span>}
+                    </span>
+                    <span className="suave">{s.actual ? `En lugar de: «${recortar(s.actual.texto, 100)}»` : "El día está libre."}</span>
+                  </>
+                )}
+                <FotoDeSolicitud s={s} />
                 {s.nota && <span className="fd-nota">“{s.nota}”</span>}
               </div>
               {aprueba ? (
@@ -1369,7 +1463,7 @@ function SolicitudesPanel({ aprueba, version, onCambio, onVerDia }: { aprueba: b
                 <li key={s.id} className={"fd-solicitud " + s.estado}>
                   <div className="chico">
                     <strong>{s.fecha_texto}</strong>
-                    {aprueba && <span className="suave"> · pidió {s.usuario}</span>} · «{recortar(s.frase?.texto || s.texto || "", 90)}» ·{" "}
+                    {aprueba && <span className="suave"> · pidió {s.usuario}</span>} · {s.solo_foto ? "otra foto para " : ""}«{recortar(s.frase?.texto || s.texto || s.actual?.texto || "", 90)}»{s.imagen_url && !s.solo_foto ? " (con foto)" : ""} ·{" "}
                     <span className={s.estado === "aceptada" ? "verde" : s.estado === "rechazada" ? "rojo" : "suave"}>{s.estado}</span>
                     {s.resuelta_por && s.estado !== "retirada" && <span className="suave"> por {s.resuelta_por}</span>}
                     {s.respuesta && <span className="fd-nota"> “{s.respuesta}”</span>}

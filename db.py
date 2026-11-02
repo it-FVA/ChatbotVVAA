@@ -972,13 +972,13 @@ def ultimos_envios(fecha=None, limite=50, prueba=None):
 # ---------------- Frase del día: solicitudes de cambio (2/11): tabla frase_solicitudes ----------------
 # Un creador de contenido pide «que tal día salga tal frase» (una existente o una nueva); un aprobador la acepta (se aplica al
 # calendario) o la rechaza con una respuesta. Lo usa api/frases_rutas.py.
-CAMPOS_SOLICITUD = "id,creado,usuario,fecha,frase_id,texto,autor,nota,estado,resuelta_por,resuelta_en,respuesta"
+CAMPOS_SOLICITUD = "id,creado,usuario,fecha,frase_id,texto,autor,nota,imagen_url,estado,resuelta_por,resuelta_en,respuesta"
 
 
-def crear_solicitud_frase(usuario, fecha, frase_id=None, texto=None, autor=None, nota=None):
+def crear_solicitud_frase(usuario, fecha, frase_id=None, texto=None, autor=None, nota=None, imagen_url=None):
     if not disponible():
         return None
-    r = _req("POST", "", {"usuario": usuario, "fecha": str(fecha)[:10], "frase_id": frase_id, "texto": texto, "autor": autor, "nota": nota},
+    r = _req("POST", "", {"usuario": usuario, "fecha": str(fecha)[:10], "frase_id": frase_id, "texto": texto, "autor": autor, "nota": nota, "imagen_url": imagen_url},
              tabla="frase_solicitudes")
     return r[0]["id"] if r else None
 

@@ -99,6 +99,8 @@ export interface Solicitud {
   texto: string | null; // o una nueva
   autor: string | null;
   nota: string | null;
+  imagen_url: string | null; // (2/11 tarde) foto de fondo propuesta
+  solo_foto: boolean; // sin frase: cambiar solo la foto de la que ya está ese día
   estado: "pendiente" | "aceptada" | "rechazada" | "retirada" | string;
   resuelta_por: string | null;
   resuelta_en: string | null;
@@ -149,7 +151,9 @@ export const apiFrases = {
   backlog: (q = "") => pedir<Backlog>("/frases/backlog?q=" + encodeURIComponent(q)),
   mes: (anio: number, mes: number) => pedir<Mes>(`/frases/mes/${anio}/${mes}`),
   dia: (fecha: string) => pedir<Dia>(`/frases/dia/${fecha}`),
-  previaUrl: (id: string, v: string | number = "") => `${BASE}/frases/${encodeURIComponent(id)}/previa.jpg?v=${encodeURIComponent(String(v))}`,
+  /** La imagen compuesta; con `foto` la arma con esa otra foto sin guardarla (2/11 tarde). */
+  previaUrl: (id: string, v: string | number = "", foto?: string | null) =>
+    `${BASE}/frases/${encodeURIComponent(id)}/previa.jpg?v=${encodeURIComponent(String(v))}` + (foto ? `&foto=${encodeURIComponent(foto)}` : ""),
   crear: (texto: string, autor: string) => pedir<{ ok: boolean; id: string; frase: Frase }>("/frases", { method: "POST", body: JSON.stringify({ texto, autor }) }),
   editar: (id: string, datos: { texto?: string; autor?: string; imagen_url?: string; quitar_imagen?: boolean; estado?: string }) =>
     pedir<RespuestaFrase>(`/frases/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(datos) }),
@@ -163,7 +167,7 @@ export const apiFrases = {
   mailPrueba: (fecha?: string, emails?: string[]) => pedir<MailPrueba>("/frases/mail/prueba", { method: "POST", body: JSON.stringify({ fecha, emails }) }),
   mailPrevia: (fecha: string) => pedir<MailPrevia>(`/frases/mail/previa/${fecha}`),
   solicitudes: () => pedir<Solicitudes>("/frases/solicitudes"),
-  solicitar: (datos: { fecha: string; frase_id?: string | null; texto?: string | null; autor?: string | null; nota?: string | null }) =>
+  solicitar: (datos: { fecha: string; frase_id?: string | null; texto?: string | null; autor?: string | null; nota?: string | null; imagen_url?: string | null }) =>
     pedir<{ ok: boolean; id: string; solicitud: Solicitud; mensaje: string }>("/frases/solicitudes", { method: "POST", body: JSON.stringify(datos) }),
   aceptarSolicitud: (id: string, respuesta?: string) => pedir<{ ok: boolean; solicitud: Solicitud; mensaje: string }>(`/frases/solicitudes/${encodeURIComponent(id)}/aceptar`, { method: "POST", body: JSON.stringify({ respuesta }) }),
   rechazarSolicitud: (id: string, respuesta?: string) => pedir<{ ok: boolean; solicitud: Solicitud; mensaje: string }>(`/frases/solicitudes/${encodeURIComponent(id)}/rechazar`, { method: "POST", body: JSON.stringify({ respuesta }) }),

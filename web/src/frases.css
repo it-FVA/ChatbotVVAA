@@ -573,6 +573,54 @@
   cursor: pointer;
   padding: 4px 0;
 }
+/* (2/11 tarde) foto de fondo propuesta en una solicitud */
+.fd-solicitar-foto {
+  margin: 4px 0 8px;
+}
+.fd-solicitar-foto summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.fd-solicitar-foto summary::-webkit-details-marker {
+  display: none;
+}
+.fd-solicitar-foto[open] summary svg:first-child {
+  transform: rotate(90deg);
+}
+.fd-solicitar-foto[open] > :not(summary) {
+  margin-top: 8px;
+}
+.fd-foto-previa {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin: 8px 0;
+}
+.fd-foto-previa img {
+  width: 220px;
+  max-width: 100%;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+.fd-solicitud-foto {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-decoration: none;
+  margin-top: 4px;
+}
+.fd-solicitud-foto img {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
 .fd-solicitar .campo {
   display: flex;
   flex-direction: column;
