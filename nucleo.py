@@ -1,6 +1,6 @@
 """
 Cerebro compartido del asistente de contenido "Vivir Agradecidos".
-Lo usa la UI de Streamlit (app.py). (La UI HTML local servidor.py quedó en archivo/, 18/10.)
+Lo usa la API (api/). (La app de Streamlit se dio de baja el 2/11; la UI HTML local servidor.py quedó en archivo/, 18/10.)
 
 Contiene: carga del corpus, búsqueda semántica (embeddings OpenAI), copiloto con
 tool-calling, análisis/conteos, armado de borradores y los "locators" (página en

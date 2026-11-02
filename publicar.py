@@ -19,7 +19,7 @@ Cualquier otro valor (incluida una clave mal escrita, vacía o ausente) NO publi
 Arranque acordado el 23/9: WordPress en "borrador", Instagram en "simulado".
 
 De dónde lee la configuración:
-    - en la app: el dict de st.secrets (misma forma que las demás claves: sueltas, arriba de [usuarios]).
+    - en local: .streamlit/secrets.toml (nombre histórico; es el archivo local de secretos) o clave.env.
     - en los scripts: el entorno, cargado desde clave.env (mismo nombre de claves).
 Claves de acceso: WP_SITE, WP_USER, WP_APP_PASSWORD, META_IG_TOKEN, META_IG_USER_ID.
 
@@ -80,7 +80,7 @@ def _cargar_env(path):
 
 
 class Config:
-    """Lee las claves de un dict (st.secrets) o del entorno (clave.env). Nunca las imprime."""
+    """Lee las claves de un dict o del entorno (secrets.toml / clave.env cargados por api/config.py). Nunca las imprime."""
 
     def __init__(self, fuente=None):
         if fuente is None:

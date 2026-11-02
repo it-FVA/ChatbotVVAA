@@ -1,4 +1,4 @@
-"""documentos.py — una respuesta del asistente (markdown simple) como Word o Excel. Compartido por Streamlit (app.py) y la API
+"""documentos.py — una respuesta del asistente (markdown simple) como Word o Excel. Lo usa la API (antes también la app de Streamlit, dada de baja el 2/11)
 (api/chat_rutas.py: GET /conversaciones/{id}/mensajes/{n}/docx|xlsx). (22/10) Movido desde app.py sin cambiar la lógica:
 md_a_docx (20/10, Pato pidió el concepto de campaña "en un Word"), tablas_md y tablas_a_xlsx (21/10, Julián: "que también se
 pueda en Excel").

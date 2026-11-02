@@ -1,4 +1,4 @@
-streamlit
+# (2/11) sin streamlit: la app de Streamlit se dio de baja; queda la API (api/requirements.txt) y estos scripts
 numpy
 openai
 rank_bm25
