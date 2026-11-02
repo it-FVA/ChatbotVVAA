@@ -39,8 +39,16 @@ function fechaCorta(s: string) {
   const [, m, d] = s.split("-").map(Number);
   return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
 }
+/** (2/11) "2026-11-03T10:00:00+00:00" → "03/11 07:00" en hora Argentina (la cola guarda en UTC y la pantalla mostraba las 10:00). */
+function horaArgentina(iso?: string | null) {
+  if (!iso) return "";
+  const f = new Date(iso);
+  if (isNaN(f.getTime())) return String(iso).slice(0, 16).replace("T", " ");
+  return f.toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).replace(",", "");
+}
 function recortar(t: string, n: number) {
-  t = (t || "").replace(/\s+/g, " ").trim();
+  // (2/11) muchas frases del Sheet ya vienen entre «»: se sacan, porque la pantalla las vuelve a poner («« » se veía doble)
+  t = (t || "").replace(/\s+/g, " ").trim().replace(/^[«"“]+\s*/, "").replace(/\s*[»"”]+$/, "");
   return t.length <= n ? t : t.slice(0, n - 1).trimEnd() + "…";
 }
 function mensajeDe(e: unknown) {
@@ -682,7 +690,7 @@ function DetalleDia({ fecha, version, aprueba, solapaPedida, onVerMail, onVerWha
             </p>
             {d.cola && (
               <p className="suave chico">
-                En la cola: estado <strong>{d.cola.estado}</strong>, sale el {String(d.cola.fecha_programada || "").slice(0, 16).replace("T", " ")}
+                En la cola: estado <strong>{d.cola.estado}</strong>, sale el {horaArgentina(d.cola.fecha_programada)}
                 {d.cola.permalink && (
                   <>
                     {" "}
