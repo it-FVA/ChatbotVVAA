@@ -34,6 +34,34 @@
 .fd-activa.solo-lectura {
   cursor: default;
 }
+/* (2/11) checklist de canales en la cabecera y botones de «mañana» */
+.fd-canales {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 2px 0 6px;
+}
+.fd-canal {
+  cursor: pointer;
+  user-select: none;
+}
+.fd-canal input {
+  margin: 0 2px 0 0;
+  vertical-align: -1px;
+}
+.fd-canal.on {
+  background: var(--amarillo-suave);
+  color: var(--amarillo-oscuro);
+  border-color: var(--amarillo-oscuro);
+}
+.fd-manana-botones {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 6px;
+  flex-wrap: wrap;
+  vertical-align: middle;
+}
 .fd-lineas {
   display: flex;
   flex-direction: column;

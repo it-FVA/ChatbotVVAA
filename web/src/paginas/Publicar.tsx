@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { api, ErrorApi } from "../api";
+import type { Recorte } from "../tipos";
 import { apiChat } from "../apiChat";
 import { apiPublicar } from "../apiPublicar";
 import type { FotoBanco, Pieza } from "../tiposChat";
@@ -396,13 +397,13 @@ function Formulario({ inicial, op, origen, avisoInicial, avisar }: { inicial: Pi
             </label>
             <div className="acciones">
               <button type="button" className="boton primario" onClick={() => setPaso(2)} disabled={!canal}>
-                Siguiente: {conVideo ? "formato del video" : "foto y diseño"} <Icono nombre="chevron" tam={16} />
+                Siguiente: {conVideo ? "formato del video" : canal === "youtube" ? "el video" : "foto y diseño"} <Icono nombre="chevron" tam={16} />
               </button>
             </div>
           </Paso>
 
           {/* ---------- Paso 2: foto y diseño / formato del video ---------- */}
-          <Paso n={2} titulo={conVideo ? "Formato del video" : "Foto y diseño"} resumen={resumen2} abierto={paso === 2} hecho={paso > 2} onAbrir={() => canal && setPaso(2)} deshabilitado={!canal}>
+          <Paso n={2} titulo={conVideo ? "Formato del video" : canal === "youtube" ? "Video" : "Foto y diseño"} resumen={resumen2} abierto={paso === 2} hecho={paso > 2} onAbrir={() => canal && setPaso(2)} deshabilitado={!canal}>
             {conVideo ? (
               <>
                 {canal === "instagram" && (
@@ -430,12 +431,10 @@ function Formulario({ inicial, op, origen, avisoInicial, avisar }: { inicial: Pi
             ) : (
               <>
                 {canal === "youtube" ? (
-                  <div className="aviso">
-                    <Icono nombre="info" tam={16} />
-                    <span>
-                      En YouTube se publica un recorte: abrí <Link to="/recortes">Mis recortes</Link> y tocá «Publicar» en uno que esté listo. Subir un archivo de video propio todavía no se puede desde acá.
-                    </span>
-                  </div>
+                  // (2/11, Franco) el video se elige acá mismo: los recortes listos, con link al editor
+                  <ElegirRecorte
+                    onElegir={(r) => setF((x) => ({ ...x, titulo: x.titulo || (r.titulo || "").slice(0, 100), video_url: r.url, video_formato: r.formato, vfmt: "reel" }))}
+                  />
                 ) : (
                   <>
                     {esRed && (
@@ -656,6 +655,67 @@ function Paso({ n, titulo, resumen, abierto, hecho, deshabilitado = false, onAbr
       </button>
       {abierto && <div className="pub-paso-cuerpo">{children}</div>}
     </section>
+  );
+}
+
+/** (2/11, Franco) Elegir un recorte listo sin salir de Diseñar: los míos y los del equipo, con miniatura y link al editor. */
+function ElegirRecorte({ onElegir }: { onElegir: (r: Recorte) => void }) {
+  const [lista, setLista] = useState<Recorte[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    Promise.all([api.recortes("mios"), api.recortes("equipo").catch(() => [] as Recorte[])])
+      .then(([mios, equipo]) => {
+        if (!vivo) return;
+        const vistos = new Set<string>();
+        const todos = [...mios, ...equipo].filter((r) => r.estado === "listo" && r.url && !vistos.has(r.id) && vistos.add(r.id));
+        setLista(todos);
+      })
+      .catch((e) => vivo && setError(e instanceof ErrorApi ? e.message : "No pude traer los recortes."));
+    return () => {
+      vivo = false;
+    };
+  }, []);
+  return (
+    <div className="pub-recortes">
+      <p className="suave chico">
+        El video es un recorte de YouTube ya listo. Elegí uno; para ajustarlo (tramo, subtítulos, pausas) abrilo en el editor desde <Link to="/recortes">Mis recortes</Link>. Subir un archivo de video propio todavía no se puede desde acá.
+      </p>
+      {error && <div className="aviso error">{error}</div>}
+      {lista === null && !error && (
+        <div className="pieza-fotos">
+          {[1, 2, 3].map((i) => (
+            <Hueso key={i} ancho={160} alto={120} radio={10} />
+          ))}
+        </div>
+      )}
+      {lista && lista.length === 0 && (
+        <p className="suave chico">
+          No hay recortes listos. Pedí uno desde el chat (el bot propone recortes de los videos) o desde <Link to="/recortes">Mis recortes</Link>; tardan unos 15 minutos.
+        </p>
+      )}
+      {lista && lista.length > 0 && (
+        <div className="pieza-fotos pub-recortes-lista" role="list">
+          {lista.map((r) => (
+            <div key={r.id} className="pieza-foto pub-recorte" role="listitem">
+              {r.miniatura ? <img src={r.miniatura} alt="" loading="lazy" /> : <div className="pub-recorte-sin" />}
+              <span className="chico pub-recorte-titulo" title={r.titulo || ""}>{(r.titulo || "(sin título)").slice(0, 48)}</span>
+              <span className="suave chico">
+                {r.formato} · {Math.round((r.fin_ms - r.inicio_ms) / 1000)} s{r.propio ? "" : " · del equipo"}
+              </span>
+              <span className="pub-recorte-acciones">
+                <button type="button" className="boton primario chico" onClick={() => onElegir(r)}>
+                  Usar este
+                </button>
+                <Link to={`/recortes/${r.id}`} className="boton sutil chico" title="Abrir en el editor de recortes">
+                  Editar
+                </Link>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

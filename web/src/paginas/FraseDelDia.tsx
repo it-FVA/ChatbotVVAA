@@ -160,6 +160,19 @@ export default function FraseDelDia() {
     }
   }
 
+  // (2/11, Franco) el checklist de canales de la cabecera
+  async function cambiarCanales(canales: string[]) {
+    setOcupado(true);
+    try {
+      const r = await apiFrases.canales(canales);
+      avisar(r.mensaje);
+      recargar();
+    } catch (e) {
+      avisar(mensajeDe(e), "error");
+    } finally {
+      setOcupado(false);
+    }
+  }
   async function alternarActiva() {
     if (!resumen?.admin) return;
     await correr(async () => (await apiFrases.activa(!resumen.activa)).mensaje);
@@ -241,9 +254,28 @@ export default function FraseDelDia() {
             <input type="checkbox" checked={resumen.activa} onChange={alternarActiva} disabled={!resumen.admin || ocupado} />
             <span>
               Frase del día <strong>{resumen.activa ? "activa" : "apagada"}</strong>
-              {resumen.hora && <span className="suave chico"> · sale a las {resumen.hora} por {(resumen.canales ?? []).join(", ")}</span>}
+              {resumen.hora && <span className="suave chico"> · sale a las {resumen.hora}</span>}
             </span>
           </label>
+          {/* (2/11, Franco) por qué canales sale: checklist acá mismo (aprobadores), no solo en Configuración */}
+          <div className="fd-canales chico" role="group" aria-label="Canales por los que sale la frase">
+            <span className="suave">Sale por:</span>
+            {Object.entries(resumen.canales_posibles ?? {}).map(([k, nombre]) => {
+              const on = (resumen.canales ?? []).includes(k);
+              const corto = nombre.split(" (")[0];
+              return aprueba ? (
+                <label key={k} className={"chip fd-canal" + (on ? " on" : "")} title={nombre}>
+                  <input type="checkbox" checked={on} disabled={ocupado} onChange={() => cambiarCanales(on ? (resumen.canales ?? []).filter((c) => c !== k) : [...(resumen.canales ?? []), k])} /> {corto}
+                </label>
+              ) : (
+                on && (
+                  <span key={k} className="chip fd-canal on" title={nombre}>
+                    {corto}
+                  </span>
+                )
+              );
+            })}
+          </div>
           <div className="fd-lineas suave chico">
             {resumen.frases_nuevas_hasta ? (
               <span>
@@ -254,7 +286,7 @@ export default function FraseDelDia() {
               <span>Ya salieron todas las validadas al menos una vez: siguen en rotación, de la más antigua a la más reciente.</span>
             )}
             {resumen.manana && (
-              <span>
+              <span className="fd-manana">
                 Mañana ({resumen.manana.fecha_texto}):{" "}
                 {resumen.manana.frase ? (
                   resumen.manana.frase.estado === "saltada" ? (
@@ -263,6 +295,18 @@ export default function FraseDelDia() {
                     <>
                       «{recortar(resumen.manana.frase.texto, 90)}» — {resumen.manana.frase.autor}
                       {resumen.manana.en_cola ? " · ya está en la cola." : resumen.activa ? " · la cola la encola en su próxima pasada." : ""}
+                      {/* (2/11, Franco) la vista previa de lo que sale mañana, acá mismo */}
+                      <span className="fd-manana-botones">
+                        <button type="button" className="boton sutil chico" onClick={() => setDiaSel(resumen.manana!.fecha)} title="La imagen compuesta y el detalle del día">
+                          <Icono nombre="imagen" tam={14} /> Ver la imagen
+                        </button>
+                        <button type="button" className="boton sutil chico" onClick={() => setVerMail(resumen.manana!.fecha)}>
+                          <Icono nombre="sobre" tam={14} /> Ver el mail
+                        </button>
+                        <button type="button" className="boton sutil chico" onClick={() => setVerWa(resumen.manana!.fecha)}>
+                          <Icono nombre="celular" tam={14} /> Ver el WhatsApp
+                        </button>
+                      </span>
                     </>
                   )
                 ) : (

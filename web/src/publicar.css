@@ -158,6 +158,32 @@
   color: var(--suave);
   font-weight: 500;
 }
+/* (2/11) elegir un recorte en Diseñar · YouTube */
+.pub-recortes-lista .pub-recorte {
+  display: grid;
+  gap: 4px;
+  width: 190px;
+  cursor: default;
+  text-align: left;
+}
+.pub-recorte img,
+.pub-recorte-sin {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 8px;
+  background: var(--borde);
+}
+.pub-recorte-titulo {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pub-recorte-acciones {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+}
 .pub-canales {
   border: 0;
   padding: 0;

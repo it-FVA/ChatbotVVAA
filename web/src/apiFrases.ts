@@ -30,6 +30,7 @@ export interface Resumen {
   hoy?: string;
   hora?: string;
   canales?: string[];
+  canales_posibles?: Record<string, string>; // (2/11) clave → nombre, para el checklist de la cabecera
   foto_defecto?: string | null;
   frases_nuevas_hasta?: string | null;
   nuevas_sin_dia?: number;
@@ -176,6 +177,7 @@ export const apiFrases = {
   intercambiar: (id_a: string, id_b: string) => pedir<{ ok: boolean; a: Frase; b: Frase; mensaje: string }>("/frases/intercambiar", { method: "POST", body: JSON.stringify({ id_a, id_b }) }),
   repartir: (modo: "orden" | "azar", desde: string) => pedir<{ ok: boolean; cantidad: number; desde: string; hasta: string; mensaje: string }>("/frases/repartir", { method: "POST", body: JSON.stringify({ modo, desde }) }),
   vaciar: () => pedir<{ ok: boolean; cantidad: number; mensaje: string }>("/frases/vaciar", { method: "POST", body: JSON.stringify({ confirmo: true }) }),
+  canales: (canales: string[]) => pedir<{ ok: boolean; canales: string[]; mensaje: string }>("/frases/canales", { method: "PUT", body: JSON.stringify({ canales }) }),
   activa: (activa: boolean) => pedir<{ ok: boolean; activa: boolean; mensaje: string }>("/frases/activa", { method: "PUT", body: JSON.stringify({ activa }) }),
   mailEstado: () => pedir<MailEstado>("/frases/mail/estado"),
   mailPrueba: (fecha?: string, emails?: string[]) => pedir<MailPrueba>("/frases/mail/prueba", { method: "POST", body: JSON.stringify({ fecha, emails }) }),

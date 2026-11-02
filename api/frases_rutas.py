@@ -22,6 +22,7 @@ Rutas:
   POST  /frases/repartir               {modo: orden|azar, desde}: = «Repartir en el año»
   POST  /frases/vaciar                 {confirmo: true}: saca del calendario las que no salieron ni están en la cola
   PUT   /frases/activa                 {activa}: el interruptor (solo admins)
+  PUT   /frases/canales                (2/11 tarde, aprobadores) {canales}: por qué canales sale cada día (el checklist de la cabecera; = config frase_canales)
   GET   /frases/mail/estado            (26/10) el canal mail por Perfit: modo, qué falta, la lista, el envío de hoy/mañana y las últimas pruebas
   POST  /frases/mail/prueba            (aprobadores; 2/11 antes solo admins) {fecha?, emails?}: manda la frase de ese día a esos mails ahora
   GET   /frases/mail/previa/{fecha}    (2/11) el mail de ese día armado con la plantilla local (reproducción de la de Perfit): {html, contexto}
@@ -95,6 +96,10 @@ class PruebaMail(BaseModel):
 
 class Activa(BaseModel):
     activa: bool
+
+
+class Canales(BaseModel):
+    canales: list[str]
 
 
 class Solicitud(BaseModel):
@@ -208,7 +213,7 @@ def resumen(request: Request):
     return {"disponible": True, "admin": rol["admin"], "aprueba": rol["aprueba"], "solicitudes_pendientes": pendientes,
             "conteos": r, "activa": activa, "hoy": hoy.isoformat(),
             "hora": db.obtener_config("frase_hora", pf.HORA_DEFECTO) or pf.HORA_DEFECTO,
-            "canales": db.obtener_config("frase_canales") or pf.CANALES_DEFECTO, "foto_defecto": foto_defecto,
+            "canales": db.obtener_config("frase_canales") or pf.CANALES_DEFECTO, "canales_posibles": pf.CANALES_POSIBLES, "foto_defecto": foto_defecto,
             "frases_nuevas_hasta": hasta, "nuevas_sin_dia": nuevas_backlog, "manana": manana, "avisos": avisos}
 
 
@@ -433,6 +438,18 @@ def activa(datos: Activa, usuario=Depends(auth.admin)):
 
 
 # ---------------- (26/10) Frase del día por mail, con el custom trigger de Perfit ----------------
+@router.put("/canales")
+def canales(datos: Canales, quien=Depends(auth.aprobador)):
+    """(2/11, Franco) Por qué canales sale la frase cada día, desde la cabecera de Frase del día (antes solo en Configuración, admins).
+    Misma regla que admin_rutas: canales válidos, al menos uno, en el orden de CANALES_POSIBLES."""
+    _con_db()
+    elegidos = [c for c in pf.CANALES_POSIBLES if c in datos.canales]
+    if not elegidos:
+        raise HTTPException(400, "Dejá al menos un canal prendido (o apagá la Frase del día con el interruptor).")
+    db.guardar_config("frase_canales", elegidos, quien)
+    return {"ok": True, "canales": elegidos, "mensaje": "Sale por " + ", ".join(pf.CANALES_POSIBLES[c].split(" (")[0] for c in elegidos) + ". Vale desde la próxima frase que se encole; la de mañana, si ya está en la cola, suma los canales nuevos en la próxima pasada."}
+
+
 def _imagen_publica_para(f, fecha, cfg, publicar):
     """La URL pública de la imagen compuesta de esa frase: la de la pieza en cola si existe; si no, la compone y la sube a WordPress
     (en WordPress simulado/apagado, va la foto de fondo sola, igual que hace la cola)."""
