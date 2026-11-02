@@ -124,10 +124,9 @@ export default function Publicar() {
 // ---------------------------------------------------------------------------------------------------------------------
 function Formulario({ inicial, op, origen, avisoInicial, avisar }: { inicial: PiezaForm; op: OpcionesPublicar; origen: string; avisoInicial: string | null; avisar: (t: string, tipo?: "ok" | "error" | "info") => void }) {
   // (2/11, reunión: Alberto) desde «Canales · Diseñar» se entra con el canal ya elegido: la pantalla se centra en ese canal
-  // (título, texto de ayuda, selector plegado); «Cambiar de canal» vuelve a mostrar los cuatro
+  // (título, texto de ayuda, el canal fijo en una línea: para otro canal se vuelve al menú)
   const [paramsMenu] = useSearchParams();
   const desdeMenu = !!paramsMenu.get("canal") && origen === "nueva";
-  const [elegirCanal, setElegirCanal] = useState(false);
   const nav = useNavigate();
   const [f, setF] = useState<PiezaForm>(inicial);
   const [paso, setPaso] = useState<1 | 2 | 3>(inicial.canal && inicial.texto ? (inicial.video_url ? 2 : 2) : 1);
@@ -348,15 +347,12 @@ function Formulario({ inicial, op, origen, avisoInicial, avisar }: { inicial: Pi
                 <Icono nombre="pelicula" tam={16} /> Recorte exacto{f.video_formato ? ` · ${f.video_formato}` : ""}. Se publica tal cual está.
               </div>
             )}
-            {desdeMenu && canal && !elegirCanal ? (
+            {desdeMenu && canal ? (
               <div className="pub-canal-fijo">
                 <span>
                   <strong>{NOMBRE_CANAL[canal]}</strong> <span className="suave chico">{CANALES.find((c) => c.clave === canal)?.detalle}</span>
                   {op.canales[canal] && <span className={"pub-modo chico " + op.canales[canal].modo}> {op.canales[canal].modo}</span>}
                 </span>
-                <button type="button" className="enlace chico" onClick={() => setElegirCanal(true)}>
-                  Cambiar de canal
-                </button>
               </div>
             ) : (
             <fieldset className="pub-canales">
