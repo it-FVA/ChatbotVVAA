@@ -340,6 +340,8 @@ def borrar(cid: str, request: Request):
         if not ok and c.get("estado") == "listo":
             raise HTTPException(502, aviso)
     db.borrar_clip(cid)
+    from .proyectos import quitar_de_todos_los_proyectos
+    quitar_de_todos_los_proyectos("recorte", cid)   # (2/11) que no quede como «(ya no existe)» en una carpeta
     return {"ok": True, "aviso": aviso}
 
 

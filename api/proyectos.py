@@ -509,6 +509,15 @@ def _validar_item(tipo, item_id, datos, usuario):
     return item_id, (datos if tipo == "imagen" else None)
 
 
+def quitar_de_todos_los_proyectos(tipo, item_id):
+    """(2/11, bug de Franco) Cuando una pieza o un recorte se borra de verdad, se saca de todos los proyectos: si no, quedaba
+    un «(ya no existe)» en la carpeta. Lo llaman eliminar_publicacion y borrar (recortes)."""
+    try:
+        _req("DELETE", f"?tipo=eq.{_q(tipo)}&item_id=eq.{_q(str(item_id))}", tabla="proyecto_items")
+    except Exception:
+        pass
+
+
 def _sacar_de_otros(tipo, item_id, usuario, salvo_pid):
     """Un ítem vive en un solo proyecto: lo saca de los demás que la persona pueda editar."""
     for u in ubicaciones_de(tipo, item_id):

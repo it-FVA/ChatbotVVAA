@@ -607,6 +607,8 @@ def eliminar_publicacion(pid: str, usuario=Depends(auth.usuario_actual)):
         raise HTTPException(503, "Sin Supabase: no hay publicaciones.")
     if not db.eliminar_publicacion(pid, usuario):
         raise HTTPException(409, "Esa pieza no se puede eliminar (no es tuya o ya salió / está en proceso).")
+    from .proyectos import quitar_de_todos_los_proyectos
+    quitar_de_todos_los_proyectos("pieza", pid)      # (2/11) que no quede como «(ya no existe)» en una carpeta
     return {"ok": True}
 
 
