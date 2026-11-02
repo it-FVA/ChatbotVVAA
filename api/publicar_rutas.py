@@ -135,7 +135,9 @@ def _hook_registro(entrada):
         fecha_programada=_con_zona(pieza.get("date") or pieza.get("fecha_programada") or ctx.get("fecha")),
         estado="prueba" if entrada.get("modo") == "simulado" else str(entrada.get("resultado", ""))[:60],
         resultado=dict({k: v for k, v in entrada.items() if k not in ("pieza",)},
-                       texto_imagen=ctx.get("texto_imagen") or None, origen="web"))
+                       texto_imagen=ctx.get("texto_imagen") or None, origen="web",
+                       # (2/11, bug que encontró Julián) la prueba guarda el formulario completo, como un borrador, para «Retomar»
+                       pieza=ctx.get("pieza_form") or None))
 
 
 publicar.REGISTRAR_EXTRA = _hook_registro
@@ -302,6 +304,10 @@ def pieza_de_fila(p):
     d.setdefault("url", p.get("imagen_url") or "")
     d.setdefault("texto_imagen", res.get("texto_imagen") or "")
     d.setdefault("video_url", res.get("video_url"))
+    if not d.get("fmt"):   # (2/11) pruebas anteriores al 2/11 no guardaban el formulario: al menos el formato (historia) se rescata del registro
+        fmt = res.get("formato") or ("historia" if res.get("accion") == "historia" else None)
+        if fmt:
+            d["fmt"] = fmt
     if not d.get("fecha") and p.get("fecha_programada"):
         d["fecha"], d["hora"] = _fecha_hora_de_iso(p.get("fecha_programada"))
     d["imagen_busqueda"] = d.get("busq") or ""
@@ -329,7 +335,8 @@ def decorar(p):
     p["link_editar"] = ultimo.get("link_editar") or res.get("link_editar") or None
     p["error_texto"] = str(ultimo.get("aviso", ""))[:200] if est == "error" else None
     p["eliminable"] = est in db.ELIMINABLES
-    p["retomable"] = est == "borrador"
+    # (2/11) también una prueba («Ver simulado»): Julián diseñó una historia, la probó sin guardar borrador y no podía retomarla
+    p["retomable"] = est in ("borrador", "prueba")
     return p
 
 
@@ -463,7 +470,8 @@ def enviar_a_aprobacion(p: PiezaCompleta, request: Request):
     avisos = []
     imagen_url = (p.imagen_url or "").strip() or None
     compuesta, diseno = _compuesta_de(p, canal, avisos)
-    token = _contexto.set({"usuario": usuario, "titulo": p.titulo, "texto_imagen": p.texto_imagen, "fecha": fecha_iso})
+    token = _contexto.set({"usuario": usuario, "titulo": p.titulo, "texto_imagen": p.texto_imagen, "fecha": fecha_iso,
+                           "pieza_form": _datos_borrador(p, canal, fecha_iso)})
     try:
         if compuesta is not None:
             url = _subir_compuesta(_cfg_real(), compuesta, p.titulo or "", texto, usuario, avisos)
@@ -512,7 +520,8 @@ def enviar(p: Envio, request: Request):
     compuesta, diseno = _compuesta_de(p, canal, avisos)
     formato = (p.vfmt if p.video_url else (diseno or {}).get("formato")) if canal in ("instagram", "facebook") else None
     video_url = (p.video_url or "").strip() or None
-    token = _contexto.set({"usuario": usuario, "titulo": titulo, "texto_imagen": p.texto_imagen, "fecha": fecha_iso})
+    token = _contexto.set({"usuario": usuario, "titulo": titulo, "texto_imagen": p.texto_imagen, "fecha": fecha_iso,
+                           "pieza_form": _datos_borrador(p, canal, fecha_iso)})
     try:
         if compuesta is not None:
             # (publicar_ui._enviar recibe la cfg del envío) en «Ver simulado» la cfg es la simulada: no sube nada y avisa

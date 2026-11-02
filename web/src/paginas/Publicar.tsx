@@ -43,7 +43,7 @@ export default function Publicar() {
           const p = await apiPublicar.una(borrador);
           if (!vivo) return;
           if (p.estado !== "borrador" || !p.pieza) {
-            setError("Esa pieza ya no es un borrador: se abre el formulario con sus datos, pero al guardar se crea una pieza nueva.");
+            setError(p.estado === "prueba" ? "Esto fue una prueba (Ver simulado), no un borrador: se abre el formulario con sus datos; si lo guardás, queda como borrador nuevo." : "Esa pieza ya no es un borrador: se abre el formulario con sus datos, pero al guardar se crea una pieza nueva.");
             setForm({ ...desdeGuardada(p.pieza || {}, o), borrador_id: null });
           } else setForm(desdeGuardada(p.pieza, o));
           setOrigen("borrador");
