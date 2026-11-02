@@ -361,7 +361,7 @@ def listar_clips(limite=60):
     """Todos los clips, más recientes primero (solapa Clips del panel admin)."""
     if not disponible():
         return []
-    return _req("GET", f"?select=id,creado,video_id,inicio_ms,fin_ms,formato,titulo,pedido_por,estado,url,error,procesado_en,srt,edicion,nota,estilo&order=creado.desc&limit={limite}", tabla="clips") or []
+    return _req("GET", f"?select=id,creado,video_id,inicio_ms,fin_ms,formato,titulo,pedido_por,estado,url,error,procesado_en,srt,edicion,nota,estilo,compartido&order=creado.desc&limit={limite}", tabla="clips") or []
 
 
 def actualizar_clip(cid, campos):
@@ -557,7 +557,7 @@ def frases_para_marcar_publicadas():
 
 
 def obtener_publicacion(pid):
-    r = _req("GET", f"?id=eq.{pid}&select=id,estado,fecha_programada,imagen_url,procesado_en,resultado", tabla="publicaciones")
+    r = _req("GET", f"?id=eq.{pid}&select=id,usuario,estado,fecha_programada,imagen_url,procesado_en,resultado", tabla="publicaciones")
     return r[0] if r else None
 
 
@@ -629,7 +629,7 @@ def obtener_clip(cid):
     """Una fila de clips por id (las mismas columnas que listar_clips), o None."""
     if not disponible() or not cid:
         return None
-    r = _req("GET", f"?id=eq.{urllib.parse.quote(str(cid))}&select=id,creado,video_id,inicio_ms,fin_ms,formato,titulo,pedido_por,estado,url,error,procesado_en,srt,edicion,nota,estilo", tabla="clips")
+    r = _req("GET", f"?id=eq.{urllib.parse.quote(str(cid))}&select=id,creado,video_id,inicio_ms,fin_ms,formato,titulo,pedido_por,estado,url,error,procesado_en,srt,edicion,nota,estilo,compartido", tabla="clips")
     return r[0] if r else None
 
 

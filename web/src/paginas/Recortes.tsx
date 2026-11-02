@@ -77,7 +77,7 @@ export default function Recortes({ vistaFija }: { vistaFija?: Vista } = {}) {
         </div>
       </div>
 
-      {vista === "equipo" && <p className="suave chico">Recortes listos que pidieron otras personas del equipo. Se pueden abrir y publicar; para cambiarlos o borrarlos, pedíselo a quien lo pidió o a un aprobador.</p>}
+      {vista === "equipo" && <p className="suave chico">Recortes que otras personas del equipo compartieron con el botón «Compartir» de sus recortes. Se pueden abrir y publicar; para cambiarlos o borrarlos, pedíselo a quien lo pidió o a un aprobador.</p>}
       {error && (
         <div className="aviso error">
           {error}{" "}
@@ -110,7 +110,7 @@ export default function Recortes({ vistaFija }: { vistaFija?: Vista } = {}) {
               }
             />
           ) : vista === "equipo" ? (
-            <EstadoVacio titulo="Todavía no hay recortes del equipo" texto="Cuando otra persona pida un recorte y esté listo, va a aparecer acá para abrirlo o publicarlo." />
+            <EstadoVacio titulo="Todavía no hay recortes del equipo" texto="Cuando otra persona comparta uno de sus recortes listos, va a aparecer acá para abrirlo o publicarlo." />
           ) : (
             <EstadoVacio
               titulo="Todavía no pediste ningún recorte"
@@ -149,6 +149,7 @@ function Tarjeta({ c, mostrarQuien, aprueba, onBorrar, onCambio }: { c: Recorte;
   const listo = c.estado === "listo" && !!c.url;
   const { avisar } = useToast();
   const [reintentando, setReintentando] = useState(false);
+  const [compartiendo, setCompartiendo] = useState(false);
   const clase = c.regenerando ? "proceso" : c.estado;
   // (22/10, proyectos) «Guardar en un proyecto»: la carpeta donde está, y el modal para elegir otra
   const proyectos = useProyectos();
@@ -165,6 +166,20 @@ function Tarjeta({ c, mostrarQuien, aprueba, onBorrar, onCambio }: { c: Recorte;
       avisar(e instanceof ErrorApi ? e.message : "No pude reintentar.", "error");
     } finally {
       setReintentando(false);
+    }
+  }
+
+  // (2/11, Franco) «los clips se comparten cuando el usuario lo permite»: solo el dueño prende o apaga la marca
+  async function compartir() {
+    setCompartiendo(true);
+    try {
+      const r = await api.compartir(c.id, !c.compartido);
+      avisar(r.compartido ? "Compartido con el equipo: ahora lo ven en «Del equipo»." : "Ya no está compartido con el equipo.");
+      onCambio();
+    } catch (e) {
+      avisar(e instanceof ErrorApi ? e.message : "No pude cambiar si está compartido.", "error");
+    } finally {
+      setCompartiendo(false);
     }
   }
 
@@ -199,6 +214,11 @@ function Tarjeta({ c, mostrarQuien, aprueba, onBorrar, onCambio }: { c: Recorte;
               pidió <strong>{c.pedido_por || "—"}</strong>
             </span>
           )}
+          {c.compartido && (
+            <span title="Su dueño lo compartió con el equipo">
+              <Icono nombre="usuarios" tam={13} /> compartido
+            </span>
+          )}
         </div>
         {c.nota && <p className="suave chico">{c.nota.slice(0, 160)}</p>}
         {c.estado === "error" && c.error && <p className="aviso error chico">{c.error.slice(0, 200)}</p>}
@@ -226,6 +246,11 @@ function Tarjeta({ c, mostrarQuien, aprueba, onBorrar, onCambio }: { c: Recorte;
           {c.estado === "error" && aprueba && (
             <button className="boton" onClick={reintentar} disabled={reintentando}>
               <Icono nombre="regenerar" /> {reintentando ? "Reintentando…" : "Reintentar"}
+            </button>
+          )}
+          {c.puede_compartir && (
+            <button className="boton sutil" onClick={compartir} disabled={compartiendo} title={c.compartido ? "Dejar de mostrarlo en «Del equipo»" : "Mostrarlo en «Del equipo» para que otras personas lo abran o publiquen"}>
+              <Icono nombre="usuarios" /> {compartiendo ? "…" : c.compartido ? "Dejar de compartir" : "Compartir"}
             </button>
           )}
           <button className="boton sutil" onClick={() => setAProyecto(true)} title={carpeta ? `Está en «${etiqueta(carpeta)}»; mover a otra carpeta` : "Guardar este recorte en un proyecto"}>

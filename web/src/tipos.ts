@@ -113,6 +113,8 @@ export interface Recorte {
   propio: boolean;
   puede_editar: boolean;
   puede_borrar: boolean;
+  compartido: boolean; // (2/11) lo compartió su dueño con el equipo
+  puede_compartir: boolean;
   regenerando: boolean;
   estado_texto: string;
   miniatura: string | null;

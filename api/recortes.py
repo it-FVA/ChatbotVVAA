@@ -9,7 +9,8 @@ ese orden. Validaciones: sin solapamiento entre pedazos, cada uno de al menos 0,
 pedazos y había subtítulos corregidos, se descartan con aviso (misma regla que al cambiar el tramo).
 
 Rutas (todas con sesión):
-  GET    /recortes                     mis recortes · ?equipo=1 los listos de otras personas · ?todos=1 (aprobadores) todos
+  GET    /recortes                     mis recortes · ?equipo=1 los listos de otras personas QUE ELLAS COMPARTIERON · ?todos=1 (aprobadores) todos
+  POST   /recortes/{id}/compartir      {compartido: bool} el dueño lo comparte con el equipo o deja de hacerlo (2/11, Franco)
   GET    /recortes/opciones            tipografías, tamaños, colores, fondos, posiciones (recortar_clip) + estilo por defecto
   GET    /recortes/estilo-defecto      config clips_estilo (normalizado)      · PUT (solo admins) lo cambia
   GET    /recortes/{id}                un recorte con líneas de subtítulo, estilo actual y permisos
@@ -96,6 +97,8 @@ def _decorar(c, usuario, aprueba):
     c["propio"] = propio
     c["puede_editar"] = (propio or aprueba) and listo          # «✏️ Editar recorte» solo en un recorte listo y propio (o aprobador)
     c["puede_borrar"] = propio or aprueba                     # en «Del equipo» no se borra lo ajeno
+    c["compartido"] = bool(c.get("compartido"))               # (2/11) lo compartió su dueño con el equipo
+    c["puede_compartir"] = propio and listo                   # solo el dueño, y solo un recorte listo
     c["regenerando"] = c.get("estado") == "pedido" and bool(e) and bool(c.get("url"))
     c["estado_texto"] = "regenerando con los cambios" if c["regenerando"] else ESTADOS.get(c.get("estado"), c.get("estado"))
     c["miniatura"] = f"https://img.youtube.com/vi/{c['video_id']}/hqdefault.jpg" if c.get("video_id") else None
@@ -127,7 +130,8 @@ def _opciones():
 @router.get("")
 def listar(request: Request, todos: bool = False, equipo: bool = False, buscar: str = ""):
     """Como «Recortes» en Streamlit: los que pidió la persona (o el bot en su nombre). equipo=1: la biblioteca compartida (los
-    LISTOS de las demás personas, para abrir y publicar; sin editar ni borrar). todos=1 (solo aprobadores): todo el equipo, como
+    LISTOS de las demás personas QUE ELLAS COMPARTIERON (2/11, Franco: «los clips se comparten cuando el usuario lo permite»),
+    para abrir y publicar; sin editar ni borrar). todos=1 (solo aprobadores): todo el equipo, como
     Panel admin → Clips. buscar: filtra por título, video o quién lo pidió."""
     usuario, aprueba = _sesion_y_rol(request)
     if todos and not aprueba:
@@ -136,7 +140,7 @@ def listar(request: Request, todos: bool = False, equipo: bool = False, buscar: 
         return []
     filas = db.listar_clips(200)
     if equipo:
-        filas = [c for c in filas if c.get("pedido_por") not in (usuario, "bot") and c.get("estado") == "listo" and c.get("url")]
+        filas = [c for c in filas if c.get("pedido_por") not in (usuario, "bot") and c.get("estado") == "listo" and c.get("url") and c.get("compartido")]
     elif not todos:
         filas = [c for c in filas if _propio(c, usuario)]
     if buscar.strip():
@@ -337,6 +341,22 @@ def borrar(cid: str, request: Request):
             raise HTTPException(502, aviso)
     db.borrar_clip(cid)
     return {"ok": True, "aviso": aviso}
+
+
+class Compartir(BaseModel):
+    compartido: bool
+
+
+@router.post("/{cid}/compartir")
+def compartir(cid: str, datos: Compartir, request: Request):
+    """(2/11) El dueño comparte el recorte con el equipo (aparece en «Del equipo» y se puede guardar en proyectos ajenos) o deja
+    de compartirlo. Solo el dueño, no los aprobadores: la regla es que lo permita quien lo pidió."""
+    usuario, aprueba = _sesion_y_rol(request)
+    c = _cargar(cid)
+    if not _propio(c, usuario):
+        raise HTTPException(403, "Solo quien pidió el recorte puede compartirlo.")
+    db.actualizar_clip(cid, {"compartido": bool(datos.compartido)})
+    return {"ok": True, "compartido": bool(datos.compartido)}
 
 
 @router.post("/{cid}/reintentar")

@@ -470,6 +470,14 @@ def borrar(pid: str, usuario=Depends(auth.usuario_actual)):
 
 
 # ---------------- Rutas: ítems ----------------
+def _aprueba(usuario):
+    """(2/11) Si la persona es aprobadora (tabla usuarios o listas de secrets): puede guardar en proyectos recortes y piezas ajenas."""
+    try:
+        return bool(auth.rol_sesion({"usuario": usuario})["aprueba"])
+    except Exception:
+        return False
+
+
 def _validar_item(tipo, item_id, datos, usuario):
     if tipo not in TIPOS_ITEM:
         raise HTTPException(400, "El tipo tiene que ser conversacion, recorte, pieza o imagen.")
@@ -480,11 +488,18 @@ def _validar_item(tipo, item_id, datos, usuario):
         if not conversacion_accesible(item_id, usuario):
             raise HTTPException(404, "No existe esa conversación (o no tenés acceso).")
     elif tipo == "recorte":
-        if not db.obtener_clip(item_id):
+        c = db.obtener_clip(item_id)
+        if not c:
             raise HTTPException(404, "No existe ese recorte.")
+        # (2/11, Franco) un recorte ajeno solo entra a un proyecto si su dueño lo compartió con el equipo (o si sos aprobador)
+        if c.get("pedido_por") not in (usuario, "bot") and not c.get("compartido") and not _aprueba(usuario):
+            raise HTTPException(403, "Ese recorte no está compartido por quien lo pidió.")
     elif tipo == "pieza":
-        if not db.obtener_publicacion(item_id):
+        p = db.obtener_publicacion(item_id)
+        if not p:
             raise HTTPException(404, "No existe esa pieza.")
+        if p.get("usuario") != usuario and not _aprueba(usuario):
+            raise HTTPException(403, "Esa pieza es de otra persona.")
     elif tipo == "imagen":
         url = ((datos or {}).get("url") or item_id).strip()
         if not url.startswith("http"):

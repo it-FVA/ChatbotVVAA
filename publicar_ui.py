@@ -393,8 +393,8 @@ def _mis_recortes(usuario, todos=False, equipo=False, buscar=""):
     desde acá. buscar: filtra por título, video o quién lo pidió."""
     try:
         filas = db.listar_clips(200)
-        if equipo:
-            filas = [c for c in filas if c.get("pedido_por") not in (usuario, "bot") and c.get("estado") == "listo" and c.get("url")]
+        if equipo:   # (2/11) solo los que su dueño compartió (clips.compartido); se prende desde la web, Mis recortes
+            filas = [c for c in filas if c.get("pedido_por") not in (usuario, "bot") and c.get("estado") == "listo" and c.get("url") and c.get("compartido")]
         elif not todos:
             filas = [c for c in filas if c.get("pedido_por") in (usuario, "bot")]
     except Exception as e:
@@ -407,7 +407,7 @@ def _mis_recortes(usuario, todos=False, equipo=False, buscar=""):
         if buscar:
             st.caption("Ningún recorte coincide con la búsqueda.")
         elif equipo:
-            st.caption("Todavía no hay recortes listos de otras personas del equipo.")
+            st.caption("Todavía no hay recortes que otras personas del equipo hayan compartido.")
         else:
             st.caption(("Todavía no se pidió ningún recorte." if todos else "Todavía no pediste ningún recorte.")
                        + " Se piden desde los botones «✂️ Pedir el recorte» / «📱 Pedir en vertical» "
@@ -415,7 +415,7 @@ def _mis_recortes(usuario, todos=False, equipo=False, buscar=""):
         return
     propio = not equipo     # en la biblioteca del equipo no se edita ni se borra lo ajeno
     if equipo:
-        st.caption("Recortes listos que pidieron otras personas del equipo. Se pueden abrir y publicar; para cambiarlos o borrarlos, pedíselo a quien lo pidió o a un aprobador.")
+        st.caption("Recortes que otras personas del equipo compartieron (se comparten desde la web, Mis recortes). Se pueden abrir y publicar; para cambiarlos o borrarlos, pedíselo a quien lo pidió o a un aprobador.")
     else:
         st.caption("Los recortes tardan unos 15 minutos. Cuando están listos aparece el link y el botón para publicar. "
                    "Borrá los que no vayas a usar: cada uno ocupa entre 5 y 50 MB en WordPress.")
