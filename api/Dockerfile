@@ -7,7 +7,8 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 COPY api/requirements.txt api/requirements.txt
 RUN pip install --no-cache-dir -r api/requirements.txt
-COPY nucleo.py db.py documentos.py publicar.py recortar_clip.py imagen.py newsletter.py programar_frases.py perfit.py frase_mail.py avisos.py procesar_cola.py datos_fijos.md logo.png fragmentos.jsonl fragmentos_openai.npy ./
+# Los módulos de la raíz se copian por patrón: un módulo nuevo no exige tocar este archivo.
+COPY *.py datos_fijos.md logo.png fragmentos.jsonl fragmentos_openai.npy ./
 COPY fuentes ./fuentes
 COPY distribucion ./distribucion
 COPY api ./api
