@@ -6,11 +6,12 @@ Frase del día y circuito de aprobación. Desde el 2/11/2026 es **solo la web + 
 
 ## Qué hay acá
 - `api/` — la API (FastAPI). `api/main.py` arma la app; cada pantalla tiene su módulo de rutas (`chat_rutas.py`,
-  `publicar_rutas.py`, `frases_rutas.py`, `recortes.py`, `admin_rutas.py`…). Corre en **Render** (`render.yaml`, Docker:
+  `publicar_rutas.py`, el paquete `frases/`, `recortes.py`, `admin_rutas.py`…). `pieza.py` es el modelo único de una pieza. Corre en **Render** (`render.yaml`, Docker:
   `api/Dockerfile`). Pruebas: `python -m pytest api/tests -q`.
 - `web/` — la interfaz (Vite + React + TypeScript). Corre en **Vercel** (`chatbot-vvaa.vercel.app`). `npm run build` en `web/`.
+- `canales.py` — el registro único de canales de publicación (ver «Cómo agregar X»).
 - `nucleo.py` — búsqueda sobre el corpus (`fragmentos.jsonl` + `fragmentos_openai.npy`) y el asistente.
-- `db/` — Supabase (REST), un módulo por tabla (antes `db.py`). `publicar.py` — conectores (WordPress, Instagram, Facebook, YouTube, WhatsApp prototipo).
+- `db/` — Supabase (REST), un módulo por tabla; el esquema completo en `api/migraciones/000_esquema_base.sql` (`python api/migrar.py`). `publicar.py` — conectores (WordPress, Instagram, Facebook, YouTube, WhatsApp prototipo).
   `imagen.py` — la foto con la frase encima. `programar_frases.py` + `frase_mail.py` + `perfit.py` — la Frase del día.
   `newsletter.py` — las plantillas del newsletter. `recortar_clip.py` / `procesar_clips.py` — recortes de video.
 - `procesar_cola.py` — la cola de publicación: corre en **GitHub Actions** cada 15 minutos (`.github/workflows/cola.yml`).
@@ -28,6 +29,38 @@ Frase del día y circuito de aprobación. Desde el 2/11/2026 es **solo la web + 
   Render → fva-api → Environment. Los secretos se pegan desde `api.env` (`python api/armar_env.py`).
 - **Vercel** (web): despliega solo con cada push a `main`.
 - **GitHub Actions** (cola): los secretos en Settings → Secrets and variables → Actions (`PUBLICAR_*`, claves de los canales).
+
+## Cómo agregar X (después de la reestructuración del 3/11)
+
+**Un canal de publicación** (p. ej. WhatsApp real, Telegram):
+1. `canales.py`: una entrada en `CANALES` (clave, nombres, modos válidos, variable `PUBLICAR_*`, claves, si va a la cola, si pasa por
+   aprobación, icono, y las funciones `foto` / `video` que lo publican). Si la Frase del día sale por ahí, una entrada en `SALIDAS_FRASE`.
+2. El conector en `publicar.py` (o un módulo propio): recibe `(cfg, pieza, quien, fecha)` y devuelve `{"ok", "modo", "aviso", …}`.
+3. La variable en `api/variables_entorno.py` y `python api/generar_config.py` (regenera `render.yaml` y `cola.yml`); cargarla a mano en Render.
+4. Una prueba en `api/tests/test_canales.py` pasa sola por el canal nuevo (`enviar_pieza` en simulado); `--simular` también lo cubre.
+No se toca la cola, ni las rutas, ni la web: `publicar.enviar_pieza` despacha con el registro y la web recibe el canal por `GET /yo`,
+`GET /publicar/opciones` y `GET /publicaciones/modos` (nombres, formato, avisos).
+
+**Un campo nuevo en la pieza** (p. ej. hashtags):
+1. `api/pieza.py`: el campo en `Pieza` (y en `CLAVES_CORTAS` si se guarda con clave corta). `a_borrador()` y `desde_fila()` lo recorren solos.
+2. `python api/generar_openapi.py` y `npm run tipos` en `web/` (los tipos TS salen del OpenAPI; `apiPublicar.cuerpo()` deja de compilar
+   hasta que el formulario lo mande).
+3. El control en `web/src/paginas/Publicar.tsx` (y `PiezaForm` en `tiposPublicar.ts`) y, si se ve, `componentes/VistaPrevia.tsx`.
+
+**Una solapa en el detalle del día de Frase del día**:
+1. `web/src/paginas/frase/solapas/<Nombre>.tsx`: un componente con `PropsSolapa` (la frase, el día, `correr`, `ocupado`).
+2. Una línea en `SOLAPAS` de `web/src/paginas/frase/solapas/index.ts`.
+3. Si necesita API: una ruta en el router que corresponda de `api/frases/` (calendario, manana, mail, solicitudes, previas) y, si guarda
+   algo, la función en `db/frases.py` y una migración (abajo). La prueba, al lado de la ruta.
+
+**Una tabla nueva en Supabase**:
+1. `python api/migrar.py --nueva nombre` crea `api/migraciones/AAAAMMDD_HHMM_nombre.sql`; escribir el DDL (idempotente).
+2. Aplicarla: `python api/migrar.py --aplicar` (con `SUPABASE_DB_URL` y `psycopg`) o pegarla en el SQL Editor / `apply_migration` del
+   MCP y anotarla con `python api/migrar.py --registrar nombre`. `python api/migrar.py` dice qué falta.
+3. `db/<tabla>.py` con sus funciones sobre `db.consulta / insertar / actualizar / borrar` (escapan siempre) y una línea
+   `from .<tabla> import *` en `db/__init__.py`. Las rutas solo importan `db`; las pruebas reemplazan esas funciones con `monkeypatch`.
+
+**Una variable de entorno**: una entrada en `api/variables_entorno.py`, `python api/generar_config.py`, y cargarla a mano en Render.
 
 ## Actualizar el corpus
 El corpus se genera en el proyecto **fva-transcripcion** (transcripción + embeddings). Cuando cambie, copiar
