@@ -845,3 +845,35 @@
     flex-direction: column;
   }
 }
+
+/* (3/11, revisión 5.3 punto 23) Estilos de la pantalla «chat» que antes vivían en estilos.css y publicar.css y solo usa esta pantalla. */
+.pieza-resumen {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+}
+.pieza-datos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+}
+.pieza-datos div {
+  min-width: 0;
+}
+.pieza-datos dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.pieza-texto pre {
+  font: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  background: #fff;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.92rem;
+}

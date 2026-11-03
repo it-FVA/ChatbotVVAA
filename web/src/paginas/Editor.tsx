@@ -17,6 +17,7 @@ import { EditorEsqueleto, Migas, Tecla } from "../componentes/Comunes";
 import { useToast } from "../componentes/Toasts";
 import { mmss, tramoAVideo, videoATramo } from "../util/tiempo";
 import * as pz from "../util/piezas";
+import "../recortes.css";
 
 const MIN_MS = 2000;
 const MAX_MS = 180000;

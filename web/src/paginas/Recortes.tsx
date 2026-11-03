@@ -12,6 +12,7 @@ import { useToast } from "../componentes/Toasts";
 import MoverA from "../componentes/proyectos/MoverA";
 import { apiProyectos } from "../apiProyectos";
 import { etiqueta, useProyectos } from "../componentes/proyectos/ProyectosContexto";
+import "../recortes.css";
 
 type Vista = "mios" | "equipo" | "todos";
 

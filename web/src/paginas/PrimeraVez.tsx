@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate } from "react-router-dom";
 import { api, ErrorApi } from "../api";
 import { useSesion } from "../App";
 import { Icono } from "../componentes/Iconos";
+import "../login.css";
 
 // «¿Primera vez? Creá tu cuenta» (22/10). Paso 1: email → POST /cuentas/verificar dice si puede (dominio de la Fundación o
 // lista blanca) y si ya hay una cuenta «sin clave» con ese email (la creó un admin). Paso 2: usuario y contraseña →

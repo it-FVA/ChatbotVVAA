@@ -18,6 +18,7 @@ import VistaPrevia, { type DatosPrevia } from "../componentes/VistaPrevia";
 import { Icono } from "../componentes/Iconos";
 import { Hueso } from "../componentes/Comunes";
 import { useToast } from "../componentes/Toasts";
+import "../publicar.css";
 
 // (2/11) qué se diseña en cada canal, en una línea (Alberto: cada canal con su particularidad)
 const AYUDA_CANAL: Record<string, string> = {

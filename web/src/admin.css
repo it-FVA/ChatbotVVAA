@@ -950,3 +950,28 @@ h2 .estado-chip {
     grid-template-columns: 1fr;
   }
 }
+
+/* (3/11, revisión 5.3 punto 23) Estilos de la pantalla «admin» que antes vivían en estilos.css y publicar.css y solo usa esta pantalla. */
+.visualmente-oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+.clave-caja {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--crema);
+  border: 1px dashed var(--borde-fuerte);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 8px 0 4px;
+}
+.clave-caja code {
+  font-size: 1.25rem;
+  letter-spacing: 0.08em;
+  flex: 1;
+  user-select: all;
+}

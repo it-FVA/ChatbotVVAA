@@ -17,6 +17,7 @@ import { useToast } from "../componentes/Toasts";
 import MoverA from "../componentes/proyectos/MoverA";
 import { apiProyectos } from "../apiProyectos";
 import { etiqueta, useProyectos } from "../componentes/proyectos/ProyectosContexto";
+import "../publicar.css";
 
 const ORDEN = ["Todas", "Pendientes", "Aprobadas", "Publicadas", "Borradores", "Rechazadas", "Pruebas", "Del equipo"];
 // (2/11, Franco) filtro por tipo de pieza: canal + formato (historia / posteo de Instagram, Facebook, blogpost, YouTube, newsletter…).

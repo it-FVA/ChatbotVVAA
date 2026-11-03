@@ -3,6 +3,7 @@ import { api, ErrorApi } from "../api";
 import { useSesion } from "../App";
 import { Icono } from "../componentes/Iconos";
 import { useToast } from "../componentes/Toasts";
+import "../cuenta.css";
 
 // Mi cuenta (22/10): datos de la sesión y «Cambiar mi contraseña» (POST /cuentas/clave). Si la clave es temporal
 // (la puso un admin), App redirige acá hasta que se cambie.

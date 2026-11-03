@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { api, ErrorApi } from "../api";
 import { useSesion } from "../App";
 import type { Yo } from "../tipos";
+import "../login.css";
 
 // Login con Google (21/10, noche): Google Identity Services dibuja el botón; al elegir cuenta devuelve un id_token que se manda a
 // POST /login/google. La API lo verifica con GOOGLE_CLIENT_ID y admite el dominio de la Fundación (DOMINIO_FVA) o la tabla

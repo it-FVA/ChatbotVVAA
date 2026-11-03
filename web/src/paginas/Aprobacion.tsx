@@ -17,6 +17,7 @@ import { useToast } from "../componentes/Toasts";
 import VistaPrevia from "../componentes/VistaPrevia";
 import Recortes from "./Recortes";
 import { TarjetaPublicacion, descargarHtml } from "./Publicaciones";
+import "../publicar.css";
 
 const MENU: { a: string; texto: string; icono: string; fin?: boolean }[] = [
   { a: "/aprobacion", texto: "Para aprobar", icono: "reloj", fin: true },

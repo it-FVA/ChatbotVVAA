@@ -1,0 +1,65 @@
+/* (3/11, revisión 5.3 punto 23) Estilos de la pantalla «login» que antes vivían en estilos.css y publicar.css y solo usa esta pantalla. */
+/* ---------- login ---------- */
+.login-caja {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: center;
+}
+.login-logo {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto;
+  object-fit: contain;
+}
+.login-caja label {
+  text-align: left;
+}
+.login-caja input {
+  margin-top: 4px;
+}
+.separador {
+  color: var(--suave);
+  font-size: 0.8rem;
+}
+/* ---------- (22/10) cuentas y administración ---------- */
+.primera-vez {
+  margin: 4px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--borde);
+}
+.pasos {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 4px;
+  counter-reset: paso;
+  font-size: 0.82rem;
+  color: var(--suave);
+}
+.pasos li {
+  counter-increment: paso;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--borde);
+  background: #fff;
+}
+.pasos li::before {
+  content: counter(paso);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--borde);
+  color: var(--tinta);
+  font-weight: 700;
+  font-size: 0.72rem;
+  display: inline-grid;
+  place-items: center;
+}

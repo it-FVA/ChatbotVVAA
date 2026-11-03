@@ -418,3 +418,5 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* (3/11, revisión 5.3 punto 23) Estilos de la pantalla «newsletter» que antes vivían en estilos.css y publicar.css y solo usa esta pantalla. */
