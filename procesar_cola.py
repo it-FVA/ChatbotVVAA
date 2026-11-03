@@ -47,6 +47,11 @@ def main():
             print(f"papelera: {n} conversaciones borradas definitivamente (más de {db.PAPELERA_DIAS} días)")
     except Exception as e:
         print(f"papelera: no pude vaciar: {e}")
+    try:   # (3/11) una corrida que murió dejó piezas en 'procesando': vuelven a la cola
+        for pid in db.liberar_procesando_viejas():
+            print(f"- {pid} estaba 'procesando' hace más de 30 min: vuelve a pendiente")
+    except Exception as e:
+        print(f"no pude revisar las piezas en 'procesando': {e}")
     pend = db.listar_pendientes(vencidas=True)
     print(f"pendientes vencidas: {len(pend)}")
     for p in pend:
@@ -54,6 +59,13 @@ def main():
         imagen, titulo = p.get("imagen_url"), p.get("titulo") or ""
         intentos = int(p.get("intentos") or 0) + 1
         print(f"- {pid} · {canal} · {p.get('fecha_programada')} · «{(titulo or texto)[:50]}» (intento {intentos})")
+        try:   # (3/11) se marca 'procesando' ANTES de llamar al conector: si otra corrida se solapa, no la publica dos veces
+            if not db.reclamar_publicacion(pid, p.get("resultado")):
+                print("  → la tomó otra corrida; la salteo")
+                continue
+        except Exception as e:
+            print(f"  ! no pude marcarla 'procesando' ({e}); no la publico ahora, queda pendiente")
+            continue
         video_url = (p.get("resultado") or {}).get("video_url")   # (16/10) pieza de video (recorte)
         try:
             if video_url and canal == "instagram":

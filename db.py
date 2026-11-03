@@ -207,6 +207,34 @@ def actualizar_publicacion(pid, campos):
     return _req("PATCH", f"?id=eq.{pid}", campos, tabla="publicaciones")
 
 
+def reclamar_publicacion(pid, resultado=None):
+    """(3/11) La cola la toma antes de llamar al conector: pasa de 'pendiente' a 'procesando' SOLO si todavía está pendiente
+    (un PATCH condicional, atómico en Postgres). Devuelve True si la tomó; False si otra corrida se le adelantó."""
+    if not disponible():
+        return False
+    res = dict(resultado or {}, procesando_desde=datetime.now(timezone.utc).isoformat())
+    r = _req("PATCH", f"?id=eq.{pid}&estado=eq.pendiente", {"estado": "procesando", "resultado": res}, tabla="publicaciones")
+    return bool(r)
+
+
+def liberar_procesando_viejas(minutos=30):
+    """(3/11) Si una corrida murió con piezas en 'procesando' (el job tiene tope de 10 min), las vuelve a 'pendiente' pasados
+    `minutos`. Devuelve los ids liberados."""
+    if not disponible():
+        return []
+    corte = datetime.now(timezone.utc) - timedelta(minutes=minutos)
+    liberadas = []
+    for p in _req("GET", "?estado=eq.procesando&select=id,resultado", tabla="publicaciones") or []:
+        desde = (p.get("resultado") or {}).get("procesando_desde")
+        try:
+            vieja = not desde or datetime.fromisoformat(desde) < corte
+        except ValueError:
+            vieja = True
+        if vieja and _req("PATCH", f"?id=eq.{p['id']}&estado=eq.procesando", {"estado": "pendiente"}, tabla="publicaciones"):
+            liberadas.append(p["id"])
+    return liberadas
+
+
 def cancelar_publicacion(pid, usuario):
     return actualizar_publicacion(pid, {"estado": "cancelada",
                                         "procesado_en": datetime.now(timezone.utc).isoformat(),

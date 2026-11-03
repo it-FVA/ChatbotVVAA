@@ -45,7 +45,7 @@ ZONA_HORARIA = cr.ZONA_HORARIA             # "-03:00"
 CANAL_TXT = {"wordpress": "Blogpost", "instagram": "Instagram", "facebook": "Facebook", "youtube": "YouTube", "newsletter": "Newsletter",
              "mail": "Mail (frase del día)", "home": "Sitio web (home)", "whatsapp": "WhatsApp"}
 # publicar_ui.ESTADO_TXT (sin los emojis: la web pone el icono)
-ESTADO_TXT = {"a_aprobar": "pendiente de aprobación", "pendiente": "aprobada · programada", "rechazada": "rechazada",
+ESTADO_TXT = {"a_aprobar": "pendiente de aprobación", "pendiente": "aprobada · programada", "procesando": "publicándose", "rechazada": "rechazada",
               "publicada": "publicada", "simulada": "simulada", "error": "error", "cancelada": "cancelada",
               "subida": "imagen subida", "draft": "borrador en WordPress", "programada": "programada",
               "PUBLICADO": "publicada", "borrador": "borrador", "prueba": "prueba (simulado)",

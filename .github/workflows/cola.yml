@@ -9,6 +9,12 @@ on:
     - cron: "*/15 * * * *"     # cada 15 min pedido; GitHub lo corre "cuando puede" (25/9: demoras de horas vistas)
   workflow_dispatch:           # botón "Run workflow" para correrla a mano; también lo dispara un cron externo (cron-job.org)
 
+# (3/11) Una sola corrida a la vez: cron de GitHub, cron-job.org y el botón no se solapan (la que llega espera; GitHub
+# descarta las esperas viejas y deja solo la última).
+concurrency:
+  group: cola
+  cancel-in-progress: false
+
 jobs:
   procesar:
     runs-on: ubuntu-24.04     # (7/10) fijado: GitHub avisa que "ubuntu-latest" pasa a Ubuntu 26 el 19/10/2026; así no nos cambia el piso sin aviso

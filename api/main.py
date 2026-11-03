@@ -218,7 +218,7 @@ def mensaje(cid: str, datos: Mensaje, request: Request, usuario=Depends(auth.usu
 
 
 # ---------------- Mis publicaciones (los recortes están en api/recortes.py desde la fase 1) ----------------
-GRUPOS = {"Pendientes": ("a_aprobar",), "Aprobadas": ("pendiente", "programada"),
+GRUPOS = {"Pendientes": ("a_aprobar",), "Aprobadas": ("pendiente", "procesando", "programada"),
           "Publicadas": ("publicada", "PUBLICADO", "draft", "lista"), "Borradores": ("borrador",),
           "Rechazadas": ("rechazada", "cancelada"), "Pruebas": ("prueba", "simulada", "simulado")}
 

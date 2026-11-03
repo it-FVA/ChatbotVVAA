@@ -235,7 +235,7 @@ def resumen(request: Request):
                       "modo": modos.get("instagram" if k == "historia" else k, "apagado"),
                       "pieza": {"id": pid, "estado": p.get("estado"), "fecha_programada": p.get("fecha_programada")} if p else None})
     manana = {"fecha": man.isoformat(), "fecha_texto": _fecha_txt(man), "dia": DIAS[man.weekday()], "frase": _publica(prox),
-              "en_cola": any(f["pieza"] and f["pieza"]["estado"] in ("pendiente", "enviando") for f in filas), "canales": filas}
+              "en_cola": any(f["pieza"] and f["pieza"]["estado"] in ("pendiente", "procesando", "enviando") for f in filas), "canales": filas}
     if activa and not prox:
         avisos.append(f"Mañana ({_fecha_txt(man)}) no tiene frase asignada: no va a salir nada. Repartí o asigná una.")
     if rol["aprueba"]:
@@ -512,7 +512,7 @@ def _piezas_vivas(f):
     out = {}
     for k, pid in (f.get("piezas") or {}).items():
         p = db.obtener_publicacion(pid) if pid else None
-        if p and p.get("estado") in ("pendiente", "enviando"):
+        if p and p.get("estado") in ("pendiente", "procesando", "enviando"):
             out[k] = pid
     return out
 
