@@ -33,6 +33,8 @@ VARIABLES = [
     _v("OPENAI_API_KEY", secreto=True),
     _v("SUPABASE_URL", secreto=True, cola=SECRET),
     _v("SUPABASE_KEY", secreto=True, cola=SECRET),
+    _v("SUPABASE_KEY_COLA", secreto=True, api=False, cola=SECRET, requerida=False,
+       nota="(3/11) Clave acotada de la cola (rol de Postgres «cola»: api/migraciones/manual_cola_rol.sql). Si existe, db/_cliente.py la usa en vez de SUPABASE_KEY."),
     _v("ASISTENTE_MODELO", "gpt-5.6-sol", nota="(21/10) Configuración NO secreta, administrada desde acá."),
     _v("BUSQUEDA_HIBRIDA", "1"),
     _v("LIMPIEZA_EXTRA", "1"),

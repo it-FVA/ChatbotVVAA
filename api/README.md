@@ -170,6 +170,7 @@ La lista completa y vigente está en `api/variables_entorno.py` (de ahí salen `
 |---|---|---|
 | `OPENAI_API_KEY`, `ASISTENTE_MODELO` | el modelo (como hoy) | sí |
 | `SUPABASE_URL`, `SUPABASE_KEY` | conversaciones, clips, publicaciones, autorizados | sí (sin ellas anda el chat pero no guarda) |
+| `SUPABASE_KEY_COLA` | (3/11) clave acotada SOLO para la cola de GitHub Actions (rol de Postgres `cola` con permisos sobre `publicaciones`, `frases`, `frase_envios`, `config`, `clips`; `db/_cliente.py` la prefiere a `SUPABASE_KEY` si existe). La API de Render no la usa. Cómo crearla: encabezado de `api/migraciones/manual_cola_rol.sql` y `api/generar_clave_cola.py` | no (sin ella la cola sigue con `SUPABASE_KEY`) |
 | `BCRYPT_RONDAS` | costo del hash de las contraseñas (default 12; los tests usan 4) | no |
 | `IDIOMAS_JSON` | `{"gratefulness": "en"}`: reemplaza `[idiomas]` (si falta, valen los defaults) | no |
 | `SESION_SECRETO` | firma de la cookie de sesión; una cadena larga al azar | **sí en producción** (si falta se genera una al arrancar y las sesiones mueren al reiniciar) |

@@ -10,10 +10,13 @@ import db as _db
 
 
 def _cfg():
+    """(url, clave). (3/11, revisión 5.3 punto 21) Si existe SUPABASE_KEY_COLA (la clave acotada de la cola, rol de Postgres «cola»:
+    api/migraciones/manual_cola_rol.sql) se usa esa; si no, SUPABASE_KEY (service_role). Solo la cola de GitHub Actions la tiene:
+    la API de Render no, así que sigue con service_role."""
     url = os.environ.get("SUPABASE_URL", "").rstrip("/")
     if url.endswith("/rest/v1"):          # por si pegan la URL con /rest/v1
         url = url[:-len("/rest/v1")]
-    return url, os.environ.get("SUPABASE_KEY", "")
+    return url, os.environ.get("SUPABASE_KEY_COLA", "").strip() or os.environ.get("SUPABASE_KEY", "")
 
 
 def disponible():
