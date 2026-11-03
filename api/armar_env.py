@@ -8,9 +8,10 @@ import os, sys, json, secrets, tomllib
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from api.variables_entorno import faltantes
+import secretos
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ruta = os.environ.get("FVA_SECRETS") or os.path.join(RAIZ, ".streamlit", "secrets.toml")
+ruta = secretos.ruta()
 web = "https://fva-web.vercel.app"
 if "--web" in sys.argv:
     web = sys.argv[sys.argv.index("--web") + 1]

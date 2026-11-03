@@ -27,20 +27,10 @@ from datetime import datetime
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-# --- secrets.toml -> entorno (igual que servidor.py) ---
+# --- secrets.toml -> entorno (secretos.py, el cargador único) ---
 def _cargar_secrets():
-    p = os.path.join(HERE, ".streamlit", "secrets.toml")
-    if not os.path.exists(p):
-        return
-    try:
-        import tomllib
-        with open(p, "rb") as f:
-            data = tomllib.load(f)
-        for k, v in data.items():
-            if not isinstance(v, dict):
-                os.environ.setdefault(k, str(v))
-    except Exception as e:
-        print("No pude leer secrets.toml:", e)
+    import secretos
+    secretos.cargar_al_entorno()
 
 _cargar_secrets()
 

@@ -22,13 +22,8 @@ sys.path.insert(0, HERE)
 
 
 def _cargar_secrets():
-    p = os.path.join(HERE, ".streamlit", "secrets.toml")
-    if os.path.exists(p):
-        import tomllib
-        with open(p, "rb") as f:
-            for k, v in tomllib.load(f).items():
-                if not isinstance(v, dict):
-                    os.environ.setdefault(k, str(v))
+    import secretos
+    secretos.cargar_al_entorno()
 
 
 def _req(method, path, body=None, headers=None, timeout=120):

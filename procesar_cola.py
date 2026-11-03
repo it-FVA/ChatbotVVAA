@@ -23,23 +23,9 @@ sys.path.insert(0, HERE)
 
 
 def _cargar_config_local():
-    """Fuera de GitHub Actions: toma secrets.toml o clave.env si existen, sin pisar el entorno."""
-    st = os.path.join(HERE, ".streamlit", "secrets.toml")
-    if os.path.exists(st):
-        try:
-            import toml
-            for k, v in toml.load(st).items():
-                if isinstance(v, (str, int, float)) and k not in os.environ:
-                    os.environ[k] = str(v)
-        except Exception:
-            pass
-    env = os.path.join(HERE, "..", "fva-transcripcion", "clave.env")
-    if os.path.exists(env):
-        for line in open(env, encoding="utf-8"):
-            if "=" in line and not line.strip().startswith("#"):
-                k, v = line.split("=", 1)
-                if k.strip() not in os.environ:
-                    os.environ[k.strip()] = v.strip().strip('"')
+    """Fuera de GitHub Actions: toma secrets.toml o clave.env si existen, sin pisar el entorno (secretos.py; avisa si no hay archivo)."""
+    import secretos
+    secretos.cargar_al_entorno(clave_env=True)
 
 
 def main():

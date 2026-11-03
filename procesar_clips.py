@@ -31,12 +31,8 @@ sys.path.insert(0, HERE)
 def _cargar_config_local():
     if os.environ.get("SUPABASE_URL") and os.environ.get("DRIVE_TOKEN_JSON"):
         return
-    p = os.path.join(HERE, ".streamlit", "secrets.toml")
-    if os.path.exists(p):
-        import tomllib
-        for k, v in tomllib.load(open(p, "rb")).items():
-            if isinstance(v, str) and k not in os.environ:
-                os.environ[k] = v
+    import secretos
+    secretos.cargar_al_entorno()
 
 
 def main():

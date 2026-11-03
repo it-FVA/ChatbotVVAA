@@ -4,15 +4,15 @@ Regla: la API es independiente del hosting. Todo se lee de VARIABLES DE ENTORNO 
 que hoy usan los secrets de Streamlit (OPENAI_API_KEY, SUPABASE_URL, APROBADORES, …).
 
 En local, si existe `.streamlit/secrets.toml` (o el archivo que indique FVA_SECRETS), se carga al entorno
-sin pisar lo que ya esté definido, igual que hace procesar_cola._cargar_config_local. FVA_SECRETS="-"
+sin pisar lo que ya esté definido (lo hace secretos.py, el mismo cargador de la cola y los scripts). FVA_SECRETS="-"
 desactiva esa carga (lo usan los tests).
 
 Las tablas [usuarios] e [idiomas] de secrets no caben en una variable simple: en el servidor se pasan como
 JSON en USUARIOS_JSON e IDIOMAS_JSON ({"franco": "clave", …} / {"gratefulness": "en"}).
 """
-import os, json, tomllib
+import os, json
 
-from . import RAIZ
+import secretos   # noqa: E402  (api/__init__ pone la raíz del repo en sys.path): el único cargador de secretos locales
 
 # Mismos valores por defecto que app.py (interruptores del buscador; ver ARQUITECTURA-BUSCADOR.md)
 DEFECTOS = {
@@ -32,17 +32,9 @@ def cargar():
     """Carga una sola vez. Devuelve el dict de configuración (usuarios, idiomas)."""
     if _CFG["cargado"]:
         return _CFG
-    ruta = os.environ.get("FVA_SECRETS") or os.path.join(RAIZ, ".streamlit", "secrets.toml")
-    tablas = {}
-    if ruta != "-" and os.path.exists(ruta):
-        with open(ruta, "rb") as f:
-            datos = tomllib.load(f)
-        for k, v in datos.items():
-            if isinstance(v, dict):
-                tablas[k] = v
-            elif isinstance(v, (str, int, float, bool)) and k not in os.environ:
-                os.environ[k] = str(v)
-        _CFG["secrets"] = ruta
+    tablas = secretos.cargar_al_entorno()
+    if tablas or os.path.exists(secretos.ruta()):
+        _CFG["secrets"] = secretos.ruta()
     for k, d in DEFECTOS.items():
         os.environ.setdefault(k, d)
     usuarios = {str(k): str(v) for k, v in (tablas.get("usuarios") or {}).items()}
