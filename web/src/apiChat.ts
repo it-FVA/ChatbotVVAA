@@ -1,37 +1,9 @@
 // Cliente de la API para el chat: conversaciones, el mensaje en streaming (SSE por POST, leído a mano porque EventSource
 // solo hace GET), recortes desde las tarjetas, pieza propuesta y descargas. La sesión es la cookie de siempre.
-import { BASE, ErrorApi } from "./api";
+import { BASE, ErrorApi, haceRatoSinApi, marcarViva, pedir, pedirCrudo } from "./api";
 import type { Clip, Conversacion, ConversacionResumen, FinChat, FotoBanco, Modos, Pieza, PiezaEnviada, RespuestaPedido, RespuestaPieza, Tarjeta } from "./tiposChat";
 
-async function pedir<T>(ruta: string, init: RequestInit = {}): Promise<T> {
-  const r = await fetch(BASE + ruta, {
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...(init.headers || {}) },
-    ...init,
-  });
-  if (!r.ok) throw await errorDe(r);
-  marcarViva();
-  return (await r.json()) as T;
-}
-
-async function errorDe(r: Response): Promise<ErrorApi> {
-  let detalle = r.statusText || `Error ${r.status}`;
-  try {
-    const j = await r.json();
-    detalle = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail ?? j);
-  } catch {
-    /* sin cuerpo */
-  }
-  return new ErrorApi(r.status, detalle);
-}
-
 // ---------- ¿la API está despierta? (Render plan free se duerme a los 15 min; arrancar tarda ~1 min) ----------
-let ultimaVezViva = 0;
-const DORMIDA_TRAS_MS = 10 * 60 * 1000;
-function marcarViva() {
-  ultimaVezViva = Date.now();
-}
-
 async function saludRapida(ms: number): Promise<boolean> {
   const ctl = new AbortController();
   const t = window.setTimeout(() => ctl.abort(), ms);
@@ -48,7 +20,7 @@ async function saludRapida(ms: number): Promise<boolean> {
 /** Antes de mandar un mensaje: si hace rato que no hablamos con la API, le pega a /salud. Si no contesta en unos segundos,
  *  avisa (onDespertando) y reintenta cada 5 s hasta 2 minutos. Devuelve false si nunca contestó. */
 export async function esperarApi(onDespertando: () => void, signal?: AbortSignal): Promise<boolean> {
-  if (Date.now() - ultimaVezViva < DORMIDA_TRAS_MS) return true;
+  if (!haceRatoSinApi()) return true;
   if (await saludRapida(6000)) {
     marcarViva();
     return true;
@@ -86,8 +58,7 @@ export const apiChat = {
 
   /** Baja el Word o el Excel de la respuesta n (con la cookie, para que el error se pueda leer). */
   async descargar(id: string, n: number, tipo: "docx" | "xlsx"): Promise<void> {
-    const r = await fetch(BASE + `/conversaciones/${id}/mensajes/${n}/${tipo}`, { credentials: "include" });
-    if (!r.ok) throw await errorDe(r);
+    const r = await pedirCrudo(`/conversaciones/${id}/mensajes/${n}/${tipo}`);
     const nombre = /filename\*=UTF-8''([^;]+)/.exec(r.headers.get("content-disposition") || "")?.[1];
     const blob = await r.blob();
     const url = URL.createObjectURL(blob);
@@ -113,15 +84,12 @@ export type EventoChat =
 
 /** POST /conversaciones/{id|nueva}/mensajes con Accept: text/event-stream; llama a onEvento por cada evento. */
 export async function enviarMensaje(id: string | null, texto: string, onEvento: (e: EventoChat) => void, signal?: AbortSignal): Promise<void> {
-  const r = await fetch(BASE + `/conversaciones/${id || "nueva"}/mensajes`, {
+  const r = await pedirCrudo(`/conversaciones/${id || "nueva"}/mensajes`, {
     method: "POST",
-    credentials: "include",
     headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
     body: JSON.stringify({ texto, stream: true }),
     signal,
   });
-  if (!r.ok) throw await errorDe(r);
-  marcarViva();
   if (!r.body) throw new ErrorApi(0, "El navegador no pudo leer la respuesta en streaming.");
   const lector = r.body.getReader();
   const dec = new TextDecoder();

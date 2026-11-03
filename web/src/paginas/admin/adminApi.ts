@@ -1,21 +1,7 @@
 // Cliente y tipos de la Administración (22/10): api/admin_rutas.py y api/salud.py. Vive acá (y no en src/api.ts) para no
 // pisar a las otras pantallas que se construyen en paralelo; usa la misma cookie de sesión y el mismo manejo de errores.
-import { BASE, ErrorApi } from "../../api";
-
-async function pedir<T>(ruta: string, init: RequestInit = {}): Promise<T> {
-  const r = await fetch(BASE + ruta, { credentials: "include", headers: { "Content-Type": "application/json", ...(init.headers || {}) }, ...init });
-  if (!r.ok) {
-    let detalle = r.statusText;
-    try {
-      const j = await r.json();
-      detalle = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail ?? j);
-    } catch {
-      /* sin cuerpo */
-    }
-    throw new ErrorApi(r.status, detalle);
-  }
-  return (await r.json()) as T;
-}
+// (3/11, revisión 5.3 punto 17) el cliente HTTP es el de src/api.ts; acá quedan los tipos y las llamadas de una línea.
+import { pedir } from "../../api";
 
 export type Estado = "ok" | "aviso" | "error" | "sin_dato" | "arranque" | string;
 

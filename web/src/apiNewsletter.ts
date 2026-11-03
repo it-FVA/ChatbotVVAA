@@ -1,5 +1,5 @@
 // Cliente de la API para el editor de Newsletter (api/newsletter_rutas.py). La sesión es la cookie de siempre.
-import { BASE, ErrorApi } from "./api";
+import { pedir, pedirCrudo } from "./api";
 
 export type Plantilla = "mensual" | "revivi";
 
@@ -82,36 +82,11 @@ export interface Respuesta {
   mensaje: string;
 }
 
-async function pedir<T>(ruta: string, init: RequestInit = {}): Promise<T> {
-  const r = await fetch(BASE + ruta, { credentials: "include", headers: { "Content-Type": "application/json", ...(init.headers || {}) }, ...init });
-  if (!r.ok) {
-    let detalle = r.statusText || `Error ${r.status}`;
-    try {
-      const j = await r.json();
-      detalle = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail ?? j);
-    } catch {
-      /* sin cuerpo */
-    }
-    throw new ErrorApi(r.status, detalle);
-  }
-  return (await r.json()) as T;
-}
-
 export const apiNewsletter = {
   plantillas: () => pedir<{ plantillas: Record<Plantilla, string>; vacios: Record<Plantilla, Datos>; tipos_recurso: TiposRecurso }>("/newsletter/plantillas"),
   /** La cabecera armada (1600×500, título encima) como blob para la vista previa; devuelve también el color elegido. */
   cabeceraPrevia: async (foto_url: string, titulo: string, color: string | null, signal?: AbortSignal) => {
-    const r = await fetch(BASE + "/newsletter/cabecera", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ foto_url, titulo, color }), signal });
-    if (!r.ok) {
-      let detalle = r.statusText || `Error ${r.status}`;
-      try {
-        const j = await r.json();
-        detalle = typeof j.detail === "string" ? j.detail : detalle;
-      } catch {
-        /* sin cuerpo */
-      }
-      throw new ErrorApi(r.status, detalle);
-    }
+    const r = await pedirCrudo("/newsletter/cabecera", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ foto_url, titulo, color }), signal });
     return { blob: await r.blob(), color: r.headers.get("X-Color") || "" };
   },
   /** La misma cabecera subida a WordPress: la URL va a cabecera_url. */

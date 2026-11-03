@@ -1,5 +1,5 @@
 // Cliente de la API para la Frase del día (api/frases_rutas.py). La sesión es la cookie de siempre.
-import { BASE, ErrorApi } from "./api";
+import { BASE, pedir } from "./api";
 
 export interface Frase {
   id: string;
@@ -155,21 +155,6 @@ export interface RespuestaFrase {
   ok: boolean;
   frase: Frase;
   mensaje?: string;
-}
-
-async function pedir<T>(ruta: string, init: RequestInit = {}): Promise<T> {
-  const r = await fetch(BASE + ruta, { credentials: "include", headers: { "Content-Type": "application/json", ...(init.headers || {}) }, ...init });
-  if (!r.ok) {
-    let detalle = r.statusText || `Error ${r.status}`;
-    try {
-      const j = await r.json();
-      detalle = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail ?? j);
-    } catch {
-      /* sin cuerpo */
-    }
-    throw new ErrorApi(r.status, detalle);
-  }
-  return (await r.json()) as T;
 }
 
 export const apiFrases = {

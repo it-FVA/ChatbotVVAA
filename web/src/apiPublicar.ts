@@ -1,23 +1,6 @@
 // Cliente de la API para Publicar, Mis publicaciones y Aprobación (api/publicar_rutas.py). La sesión es la cookie de siempre.
-import { BASE, ErrorApi } from "./api";
+import { pedir, pedirCrudo } from "./api";
 import type { ConversacionBorrada, MisPublicaciones, OpcionesPublicar, ParaAprobar, PiezaApi, PiezaForm, Publicacion, RespuestaAprobacion, RespuestaBorrador, RespuestaEnvio, SubidaBanco } from "./tiposPublicar";
-
-async function errorDe(r: Response): Promise<ErrorApi> {
-  let detalle = r.statusText || `Error ${r.status}`;
-  try {
-    const j = await r.json();
-    detalle = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail ?? j);
-  } catch {
-    /* sin cuerpo */
-  }
-  return new ErrorApi(r.status, detalle);
-}
-
-async function pedir<T>(ruta: string, init: RequestInit = {}): Promise<T> {
-  const r = await fetch(BASE + ruta, { credentials: "include", headers: { "Content-Type": "application/json", ...(init.headers || {}) }, ...init });
-  if (!r.ok) throw await errorDe(r);
-  return (await r.json()) as T;
-}
 
 /** Lo que viaja a la API: el formulario tal cual. El tipo de retorno es el modelo Pieza de la API (generado): un campo nuevo o
  *  renombrado en api/pieza.py hace fallar la compilación acá, no en producción. */
@@ -55,15 +38,13 @@ export const apiPublicar = {
     const fd = new FormData();
     fd.append("archivo", archivo, archivo.name);
     fd.append("titulo", titulo);
-    const r = await fetch(BASE + "/banco/subir", { method: "POST", credentials: "include", body: fd });
-    if (!r.ok) throw await errorDe(r);
+    const r = await pedirCrudo("/banco/subir", { method: "POST", body: fd });
     return (await r.json()) as SubidaBanco;
   },
 
   /** La foto con la frase encima: devuelve una URL de objeto (blob) para el <img>. Quien la recibe la revoca cuando ya no la usa. */
   async componer(datos: Record<string, unknown>, signal?: AbortSignal): Promise<string> {
-    const r = await fetch(BASE + "/publicar/componer", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(datos), signal });
-    if (!r.ok) throw await errorDe(r);
+    const r = await pedirCrudo("/publicar/componer", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(datos), signal });
     return URL.createObjectURL(await r.blob());
   },
 

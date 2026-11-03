@@ -12,22 +12,41 @@ export class ErrorApi extends Error {
   }
 }
 
-async function pedir<T>(ruta: string, init: RequestInit = {}): Promise<T> {
-  const r = await fetch(BASE + ruta, {
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...(init.headers || {}) },
-    ...init,
-  });
-  if (!r.ok) {
-    let detalle = r.statusText;
-    try {
-      const j = await r.json();
-      detalle = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail ?? j);
-    } catch {
-      /* sin cuerpo */
-    }
-    throw new ErrorApi(r.status, detalle);
+/** El error que la API devolvió en el cuerpo ({detail}), o el texto del estado HTTP si no hay cuerpo. */
+export async function errorDe(r: Response): Promise<ErrorApi> {
+  let detalle = r.statusText || `Error ${r.status}`;
+  try {
+    const j = await r.json();
+    detalle = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail ?? j);
+  } catch {
+    /* sin cuerpo */
   }
+  return new ErrorApi(r.status, detalle);
+}
+
+// ---------- ¿la API está despierta? (Render plan free se duerme a los 15 min; arrancar tarda ~1 min) ----------
+let ultimaVezViva = 0;
+const DORMIDA_TRAS_MS = 10 * 60 * 1000;
+/** Cada respuesta que llega anota que la API está despierta; lo usa esperarApi (apiChat) antes de un mensaje largo. */
+export function marcarViva() {
+  ultimaVezViva = Date.now();
+}
+export function haceRatoSinApi() {
+  return Date.now() - ultimaVezViva >= DORMIDA_TRAS_MS;
+}
+
+/** El fetch con la cookie de sesión; lanza ErrorApi si la respuesta no es 2xx. Devuelve la Response cruda para los casos que
+ *  no son JSON (un blob, un multipart, un streaming). Para JSON usar pedir(). */
+export async function pedirCrudo(ruta: string, init: RequestInit = {}): Promise<Response> {
+  const r = await fetch(BASE + ruta, { credentials: "include", ...init });
+  if (!r.ok) throw await errorDe(r);
+  marcarViva();
+  return r;
+}
+
+/** (3/11) El único cliente JSON de la web: todos los api*.ts (y adminApi.ts) son llamadas de una línea sobre esta función. */
+export async function pedir<T>(ruta: string, init: RequestInit = {}): Promise<T> {
+  const r = await pedirCrudo(ruta, { ...init, headers: { "Content-Type": "application/json", ...(init.headers || {}) } });
   return (await r.json()) as T;
 }
 

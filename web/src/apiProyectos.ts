@@ -1,21 +1,6 @@
 // Cliente de la API de proyectos (api/proyectos.py). Misma cookie de sesión que el resto.
-import { BASE, ErrorApi } from "./api";
+import { pedir } from "./api";
 import type { CompartidosConmigo, ContenidoProyecto, ItemProyecto, PersonaCompartida, Proyecto, TipoItem, Ubicaciones, UsuarioBuscado } from "./tiposProyectos";
-
-async function pedir<T>(ruta: string, init: RequestInit = {}): Promise<T> {
-  const r = await fetch(BASE + ruta, { credentials: "include", headers: { "Content-Type": "application/json", ...(init.headers || {}) }, ...init });
-  if (!r.ok) {
-    let detalle = r.statusText || `Error ${r.status}`;
-    try {
-      const j = await r.json();
-      detalle = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail ?? j);
-    } catch {
-      /* sin cuerpo */
-    }
-    throw new ErrorApi(r.status, detalle);
-  }
-  return (await r.json()) as T;
-}
 
 export const apiProyectos = {
   listar: () => pedir<{ proyectos: Proyecto[]; ubicaciones: Ubicaciones }>("/proyectos"),
