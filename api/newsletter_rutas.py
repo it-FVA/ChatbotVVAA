@@ -124,14 +124,9 @@ def redactar(c: Redaccion, usuario=Depends(auth.usuario_actual)):
         raise HTTPException(400, "Falta el tema para que el bot redacte.")
     # (23/10) Firma las llamadas a OpenAI con la persona (uso_openai): sin esto quedaban como «(sistema)» en el Dashboard.
     import nucleo    # noqa: E402
-    from .chat import _CANDADO_TOOLS
     try:
-        with _CANDADO_TOOLS:
-            nucleo.USUARIO_ACTUAL = usuario
-            try:
-                nuevo, mats = newsletter.redactar(p, tema, _completar(p, c.datos))
-            finally:
-                nucleo.USUARIO_ACTUAL = ""
+        with nucleo.como(usuario):     # (3/11) ContextVar en vez de la variable global con candado
+            nuevo, mats = newsletter.redactar(p, tema, _completar(p, c.datos))
     except Exception as e:
         log.exception("newsletter.redactar")
         raise HTTPException(502, f"No pude redactar: {e}")

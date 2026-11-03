@@ -959,7 +959,7 @@ _param_no_soportado = {}           # modelo -> set de parámetros a omitir (ej. 
 
 def _registrar_uso(modelo, usage, que):
     """(21/10, monitoreo de costo) Guarda cada llamada a OpenAI en la tabla uso_openai: modelo, tokens de entrada,
-    de salida y cacheados, quién (USUARIO_ACTUAL) y para qué: 'chat' (la respuesta con herramientas), 'auxiliar'
+    de salida y cacheados, quién (nucleo.USUARIO, la ContextVar) y para qué: 'chat' (la respuesta con herramientas), 'auxiliar'
     (reranker, título, traducción, newsletter…) o 'embedding'. En un hilo aparte, nunca frena ni rompe la respuesta."""
     if usage is None:
         return
@@ -968,7 +968,7 @@ def _registrar_uso(modelo, usage, que):
         sal = int(getattr(usage, "completion_tokens", 0) or 0)
         det = getattr(usage, "prompt_tokens_details", None)
         cache = int(getattr(det, "cached_tokens", 0) or 0) if det is not None else 0
-        fila = {"usuario": USUARIO_ACTUAL or None, "modelo": modelo, "que": que,
+        fila = {"usuario": USUARIO.get() or None, "modelo": modelo, "que": que,
                 "tokens_entrada": ent, "tokens_salida": sal, "tokens_cache": cache}
         import threading
         import db as _db
@@ -1059,7 +1059,23 @@ def titular(mensajes):
     return t[:50] or "Conversación"
 
 
-USUARIO_ACTUAL = ""   # (16/10) la API lo setea antes de responder: firma los pedidos de recorte
+# (3/11, revisión 5.2 punto 15) Quién está usando el asistente. Antes era una variable global de módulo (USUARIO_ACTUAL) que la API
+# seteaba bajo un candado, así que las herramientas de todas las personas corrían de a una. Ahora es una ContextVar (cada hilo o
+# pedido ve la suya) y _ejecutar_tool recibe el usuario como parámetro; la ContextVar queda para firmar el uso de OpenAI
+# (_registrar_uso) en las llamadas que no reciben el usuario (reranker, título, newsletter…).
+import contextvars as _contextvars
+USUARIO = _contextvars.ContextVar("usuario_actual", default="")
+
+
+class como:
+    """`with nucleo.como("franco"): …` firma con esa persona el uso de OpenAI y las herramientas que se ejecuten adentro."""
+    def __init__(self, usuario):
+        self.usuario = usuario or ""
+    def __enter__(self):
+        self._token = USUARIO.set(self.usuario)
+        return self
+    def __exit__(self, *a):
+        USUARIO.reset(self._token)
 
 
 def _mmss_a_seg(v):
@@ -1179,7 +1195,10 @@ TOOLS = [
 ]
 
 
-def _ejecutar_tool(nombre, args):
+def _ejecutar_tool(nombre, args, usuario=None):
+    """Ejecuta una herramienta del asistente. `usuario`: quién la pide (firma los recortes y filtra «mis recortes»); si no viene,
+    el de la ContextVar nucleo.USUARIO (el chat de la terminal)."""
+    usuario = USUARIO.get() if usuario is None else usuario
     consulta = (args.get("consulta") or "").strip()
     if nombre == "pedir_recorte":
         import db
@@ -1192,7 +1211,7 @@ def _ejecutar_tool(nombre, args):
                     "un fragmento del material)."), None
         if fin_ms <= ini_ms or fin_ms - ini_ms > 15 * 60 * 1000:
             return "El tramo no es válido (el fin tiene que ser mayor que el inicio y el recorte, de menos de 15 minutos).", None
-        r = db.pedir_clip(vid, ini_ms, fin_ms, formato, titulo, USUARIO_ACTUAL or "bot")
+        r = db.pedir_clip(vid, ini_ms, fin_ms, formato, titulo, usuario or "bot")
         if r == "ya":
             ya = [c for c in db.clips_de([vid]) if c["inicio_ms"] == ini_ms and c["fin_ms"] == fin_ms and c["formato"] == formato]
             if ya and ya[0].get("estado") == "listo":
@@ -1205,7 +1224,7 @@ def _ejecutar_tool(nombre, args):
     if nombre == "estado_recortes":
         import db
         vid = _video_id(args.get("video")) if args.get("video") else None
-        filas = [c for c in db.listar_clips(30) if (not USUARIO_ACTUAL or c.get("pedido_por") in (USUARIO_ACTUAL, "bot"))
+        filas = [c for c in db.listar_clips(30) if (not usuario or c.get("pedido_por") in (usuario, "bot"))
                  and (not vid or c.get("video_id") == vid)][:8]
         if not filas:
             return "No hay recortes pedidos por esta persona.", None

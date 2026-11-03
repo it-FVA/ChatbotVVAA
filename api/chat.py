@@ -12,17 +12,16 @@ NOTA DE MANTENIMIENTO: los pasos 1-3 están copiados de nucleo.responder_con_pie
 en esta fase nucleo.py no se toca. Si esa función cambia, cambiar acá también; el plan (fase 2) prevé
 compararlas con el set dorado y, después, que nucleo tenga su propia versión con streaming.
 
-Variable global nucleo.USUARIO_ACTUAL (firma los recortes que pide el bot): antes había un proceso por
-persona; acá hay varias personas en el mismo proceso. Mientras siga siendo global, la ejecución de herramientas
-va bajo un candado (una a la vez) para que un recorte pedido por Julián no quede firmado por Pato.
+Quién pide (firma los recortes que pide el bot y el uso de OpenAI): el usuario viaja como parámetro a nucleo._ejecutar_tool y,
+para las llamadas al modelo, como ContextVar (`with nucleo.como(usuario)`). (3/11) Hasta el 3/11 era una variable global de
+nucleo bajo un candado, así que las herramientas de todas las personas corrían de a una.
 """
-import json, re, threading, logging
+import json, re, logging
 
 import nucleo
 import db
 
 log = logging.getLogger("api")
-_CANDADO_TOOLS = threading.Lock()
 
 
 # ---------------- Tarjetas (lo que hoy dibuja app.render_mats) ----------------
@@ -162,7 +161,8 @@ def generar(historial, idioma=None, usuario=""):
     cl = nucleo._get_client()
     yield "estado", {"texto": "pensando"}
     try:
-        resp = nucleo._chat(cl, mensajes, tools=nucleo.TOOLS, tool_choice="auto", temperature=0.5, max_tokens=2500)
+        with nucleo.como(usuario):
+            resp = nucleo._chat(cl, mensajes, tools=nucleo.TOOLS, tool_choice="auto", temperature=0.5, max_tokens=2500)
     except Exception as e:
         yield "texto", {"delta": f"Error llamando al modelo: {e}"}
         yield "fin", {"texto": f"Error llamando al modelo: {e}", "mats": [], "pieza": None, "query": query}
@@ -191,12 +191,8 @@ def generar(historial, idioma=None, usuario=""):
                 args["max_seg"] = dur_hint
         yield "estado", {"texto": "buscando" if tc.function.name in ("buscar_material", "analizar_corpus") else "trabajando",
                          "herramienta": tc.function.name}
-        with _CANDADO_TOOLS:
-            nucleo.USUARIO_ACTUAL = usuario
-            try:
-                texto_tool, res = nucleo._ejecutar_tool(tc.function.name, args)
-            finally:
-                nucleo.USUARIO_ACTUAL = ""
+        with nucleo.como(usuario):      # sin candado: cada persona ejecuta sus herramientas en su propio hilo
+            texto_tool, res = nucleo._ejecutar_tool(tc.function.name, args, usuario=usuario)
         if isinstance(res, dict) and res.get("__pieza__"):
             pieza = res["__pieza__"]
         elif res:
@@ -207,7 +203,7 @@ def generar(historial, idioma=None, usuario=""):
     if pieza:
         yield "pieza", pieza
     partes = []
-    try:
+    try:   # (sin nucleo.como: un `with` que abarca un yield se cierra en otro hilo; esta llamada en streaming no registra uso)
         for d in _deltas(_chat_stream(cl, mensajes, temperature=0.5, max_tokens=1300)):
             partes.append(d)
             yield "texto", {"delta": d}

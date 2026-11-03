@@ -129,7 +129,7 @@ def _mock_cerebro(monkeypatch, llamadas):
         tc = SimpleNamespace(id="call_1", function=SimpleNamespace(name="buscar_material", arguments=json.dumps({"consulta": "gratitud"})))
         return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="", tool_calls=[tc]))])
 
-    def _tool_falsa(nombre, args):
+    def _tool_falsa(nombre, args, usuario=None):
         llamadas.append(("tool", nombre, args))
         return nucleo.contexto(MATS), MATS
 
@@ -161,7 +161,7 @@ def test_chat_sin_streaming(logueado, monkeypatch):
     assert d["mensaje"]["role"] == "assistant" and d["mensaje"]["mats"] == MATS and d["pieza"] is None
     assert llamadas[0][0] == "chat" and llamadas[0][1]["tools"] is nucleo.TOOLS
     assert llamadas[1][:2] == ("tool", "buscar_material") and llamadas[2][0] == "stream"
-    assert nucleo.USUARIO_ACTUAL == ""             # se limpia después de la herramienta
+    assert nucleo.USUARIO.get() == ""              # la firma no queda pegada después del pedido
 
 
 def test_usuario_actual_durante_la_herramienta(logueado, monkeypatch):
@@ -169,12 +169,12 @@ def test_usuario_actual_durante_la_herramienta(logueado, monkeypatch):
     llamadas = []
     _mock_cerebro(monkeypatch, llamadas)
 
-    def _tool(nombre, args):
-        visto.append(nucleo.USUARIO_ACTUAL)
+    def _tool(nombre, args, usuario=None):
+        visto.append((usuario, nucleo.USUARIO.get()))     # (3/11) el usuario llega como parámetro y en la ContextVar
         return "nada", []
     monkeypatch.setattr(nucleo, "_ejecutar_tool", _tool)
     logueado.post("/conversaciones/nueva/mensajes", json={"texto": "pedime el recorte"})
-    assert visto == ["franco"]
+    assert visto == [("franco", "franco")]
 
 
 def _leer_sse(resp):
@@ -209,7 +209,7 @@ def test_chat_con_pieza(logueado, monkeypatch):
     _mock_cerebro(monkeypatch, [])
     pieza = {"canal": "instagram", "titulo": "Gratitud", "texto": "La gratitud es la llave.", "fecha": "", "hora": "",
              "texto_imagen": "", "firma": "", "imagen_busqueda": "amanecer"}
-    monkeypatch.setattr(nucleo, "_ejecutar_tool", lambda n, a: ("Recuadro preparado", {"__pieza__": pieza}))
+    monkeypatch.setattr(nucleo, "_ejecutar_tool", lambda n, a, usuario=None: ("Recuadro preparado", {"__pieza__": pieza}))
     r = logueado.post("/conversaciones/nueva/mensajes", json={"texto": "dale, publicalo"})
     assert r.status_code == 200 and r.json()["pieza"] == pieza and r.json()["tarjetas"] == []
 
