@@ -81,6 +81,7 @@ export default function FraseDelDia() {
           {/* (2/11, Franco) la tarjeta «Mañana» arriba de todo: qué sale mañana y por dónde, con los interruptores y la vista previa */}
           <MananaCard
             resumen={resumen}
+            version={version}
             aprueba={aprueba}
             ocupado={ocupado}
             onActiva={alternarActiva}

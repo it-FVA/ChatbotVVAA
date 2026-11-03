@@ -18,11 +18,13 @@ Rutas (todas con sesión):
   DELETE /recortes/{id}                borra el archivo de WordPress y la fila (= «🗑 Borrar»)
   GET    /recortes/{id}/usos           piezas que usan ese video (aviso antes de borrar)
   POST   /recortes/{id}/reintentar     (aprobadores) un recorte en error vuelve a 'pedido' (= «↻ Reintentar»)
+  GET    /recortes/{id}/descargar      (3/11, pedido de Julián) el mp4 del recorte como archivo para bajar (se edita afuera, p. ej. Premiere)
 """
 import os, datetime, logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from . import auth
@@ -369,3 +371,20 @@ def reintentar(cid: str, usuario=Depends(auth.aprobador)):
         raise HTTPException(409, "Solo se reintenta un recorte que falló.")
     db.actualizar_clip(cid, {"estado": "pedido", "error": None})
     return {"ok": True}
+
+
+@router.get("/{cid}/descargar")
+def descargar(cid: str, request: Request):
+    """(3/11, reunión con Julián) «Descargar»: el mp4 tal cual está en WordPress, como archivo adjunto. La web no puede bajarlo
+    directo desde WordPress (otro origen: el navegador lo abre en vez de guardarlo), así que la API lo baja y lo entrega.
+    Lo ve cualquiera que vea el recorte (propio, compartido o aprobador), igual que «Abrir»."""
+    _sesion_y_rol(request)
+    c = _cargar(cid)
+    if c.get("estado") != "listo" or not c.get("url"):
+        raise HTTPException(409, "Ese recorte todavía no está listo.")
+    datos, err = publicar.bajar_bytes(c["url"])
+    if datos is None:
+        raise HTTPException(502, f"No pude bajar el video de WordPress: {err}")
+    nombre = os.path.basename(c["url"].split("?")[0]) or f"recorte-{cid}.mp4"
+    return Response(content=datos, media_type="video/mp4",
+                    headers={"Content-Disposition": f'attachment; filename="{nombre}"', "Content-Length": str(len(datos))})

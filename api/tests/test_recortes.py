@@ -277,3 +277,18 @@ def test_sin_sesion(cliente):
         assert cliente.get(ruta).status_code == 401, ruta
     assert cliente.post("/recortes/c1/edicion", json={}).status_code == 401
     assert cliente.delete("/recortes/c1").status_code == 401
+
+
+# ---------------- (3/11) Descargar ----------------
+def test_descargar(cliente, tabla, monkeypatch):
+    _login(cliente, "lizzie", "clave-lizzie")
+    pedidas = []
+    monkeypatch.setattr(publicar, "bajar_bytes", lambda url, timeout=300: (pedidas.append(url), (b"MP4!", None))[1])
+    r = cliente.get("/recortes/c2/descargar")
+    assert r.status_code == 200, r.text
+    assert r.content == b"MP4!" and r.headers["content-type"].startswith("video/mp4")
+    assert r.headers["content-disposition"] == 'attachment; filename="clip-abc-10-40.mp4"'
+    assert pedidas == [URL.replace("-vertical", "")]
+    assert cliente.get("/recortes/c4/descargar").status_code == 409        # en proceso: no hay archivo
+    monkeypatch.setattr(publicar, "bajar_bytes", lambda url, timeout=300: (None, "timeout"))
+    assert cliente.get("/recortes/c2/descargar").status_code == 502

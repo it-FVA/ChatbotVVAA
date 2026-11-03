@@ -90,6 +90,8 @@ export const api = {
   usos: (id: string) => pedir<Uso[]>(`/recortes/${id}/usos`),
   borrar: (id: string) => pedir<{ ok: boolean; aviso: string | null }>(`/recortes/${id}`, { method: "DELETE" }),
   reintentar: (id: string) => pedir<{ ok: boolean }>(`/recortes/${id}/reintentar`, { method: "POST" }),
+  /** (3/11, Julián) el mp4 del recorte como archivo: la API lo baja de WordPress y lo entrega con nombre. */
+  descargarRecorte: (id: string) => pedirCrudo(`/recortes/${id}/descargar`),
   compartir: (id: string, compartido: boolean) => pedir<{ ok: boolean; compartido: boolean }>(`/recortes/${id}/compartir`, { method: "POST", body: JSON.stringify({ compartido }) }),
   editar: (id: string, datos: Record<string, unknown>) =>
     pedir<RespuestaEdicion>(`/recortes/${id}/edicion`, { method: "POST", body: JSON.stringify(datos) }),

@@ -152,6 +152,7 @@ function Tarjeta({ c, mostrarQuien, aprueba, onBorrar, onCambio }: { c: Recorte;
   const { avisar } = useToast();
   const [reintentando, setReintentando] = useState(false);
   const [compartiendo, setCompartiendo] = useState(false);
+  const [descargando, setDescargando] = useState(false);
   const clase = c.regenerando ? "proceso" : c.estado;
   // (22/10, proyectos) «Guardar en un proyecto»: la carpeta donde está, y el modal para elegir otra
   const proyectos = useProyectos();
@@ -168,6 +169,26 @@ function Tarjeta({ c, mostrarQuien, aprueba, onBorrar, onCambio }: { c: Recorte;
       avisar(e instanceof ErrorApi ? e.message : "No pude reintentar.", "error");
     } finally {
       setReintentando(false);
+    }
+  }
+
+  // (3/11, reunión con Julián) «Descargar»: el mp4 crudo para editarlo afuera (Premiere). Va por la API porque WordPress es otro
+  // origen y el navegador lo abriría en vez de guardarlo.
+  async function descargar() {
+    setDescargando(true);
+    try {
+      const r = await api.descargarRecorte(c.id);
+      const nombre = /filename="([^"]+)"/.exec(r.headers.get("content-disposition") || "")?.[1] || `recorte-${c.id}.mp4`;
+      const url = URL.createObjectURL(await r.blob());
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = nombre;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e) {
+      avisar(e instanceof ErrorApi ? e.message : "No pude bajar el video.", "error");
+    } finally {
+      setDescargando(false);
     }
   }
 
@@ -239,6 +260,11 @@ function Tarjeta({ c, mostrarQuien, aprueba, onBorrar, onCambio }: { c: Recorte;
             <a className="boton" href={c.url!} target="_blank" rel="noreferrer">
               <Icono nombre="externo" /> Abrir
             </a>
+          )}
+          {listo && (
+            <button type="button" className="boton" onClick={descargar} disabled={descargando} title="Bajar el mp4 tal cual está, para editarlo con otro programa">
+              <Icono nombre="descargar" /> {descargando ? "Bajando…" : "Descargar"}
+            </button>
           )}
           {listo && (
             <Link className="boton sutil" to={`/newsletter?recorte=${encodeURIComponent(c.id)}`} title="Ponerlo en el bloque «Un recorte para ver» del newsletter">

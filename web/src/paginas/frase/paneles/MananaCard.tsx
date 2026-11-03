@@ -8,8 +8,10 @@ import type { Solapa } from "../solapas";
 // ---------------- (2/11) Ver el mail de un día ----------------
 /** (2/11, Franco) La tarjeta «Mañana»: qué sale mañana y por dónde. Para aprobadores con interruptores y acciones; los creadores
  *  ven lo mismo sin poder tocarlo (piden cambios desde el día). */
-export function MananaCard({ resumen, aprueba, ocupado, onActiva, onCanales, onEncolar, onFrenar, onVerDia, onVerMail, onVerWa, onProbarMail, onDetallesMail }: {
+export function MananaCard({ resumen, version = 0, aprueba, ocupado, onActiva, onCanales, onEncolar, onFrenar, onVerDia, onVerMail, onVerWa, onProbarMail, onDetallesMail }: {
   resumen: Resumen;
+  /** (3/11, Julián) sube con cada cambio: así la miniatura se vuelve a pedir después de cambiar la foto o el diseño, sin refrescar la página. */
+  version?: number;
   aprueba: boolean;
   ocupado: boolean;
   onActiva: () => void;
@@ -72,7 +74,7 @@ export function MananaCard({ resumen, aprueba, ocupado, onActiva, onCanales, onE
       {f ? (
         <div className="fd-manana-frase">
           <button type="button" className="fd-manana-img" onClick={() => onVerDia(m.fecha)} title="Ver la imagen grande y el detalle del día">
-            <img src={apiFrases.previaUrl(f.id, `${f.imagen_url || ""}`)} alt="Así saldría la imagen de mañana" />
+            <img src={apiFrases.previaUrl(f.id, `${version}-${f.imagen_url || ""}`)} alt="Así saldría la imagen de mañana" />
           </button>
           <div className="fd-manana-texto">
             <blockquote className="fd-cita chico">{recortar(f.texto, 260)}</blockquote>

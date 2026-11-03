@@ -1862,6 +1862,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/recortes/{cid}/descargar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Descargar
+         * @description (3/11, reunión con Julián) «Descargar»: el mp4 tal cual está en WordPress, como archivo adjunto. La web no puede bajarlo
+         *     directo desde WordPress (otro origen: el navegador lo abre en vez de guardarlo), así que la API lo baja y lo entrega.
+         *     Lo ve cualquiera que vea el recorte (propio, compartido o aprobador), igual que «Abrir».
+         */
+        get: operations["descargar_recortes__cid__descargar_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/recortes/{cid}/edicion": {
         parameters: {
             query?: never;
@@ -5988,6 +6010,37 @@ export interface operations {
                 "application/json": components["schemas"]["api__recortes__Compartir"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    descargar_recortes__cid__descargar_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

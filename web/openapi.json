@@ -6045,6 +6045,47 @@
     ]
    }
   },
+  "/recortes/{cid}/descargar": {
+   "get": {
+    "description": "(3/11, reunión con Julián) «Descargar»: el mp4 tal cual está en WordPress, como archivo adjunto. La web no puede bajarlo\ndirecto desde WordPress (otro origen: el navegador lo abre en vez de guardarlo), así que la API lo baja y lo entrega.\nLo ve cualquiera que vea el recorte (propio, compartido o aprobador), igual que «Abrir».",
+    "operationId": "descargar_recortes__cid__descargar_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "title": "Cid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Descargar",
+    "tags": [
+     "recortes"
+    ]
+   }
+  },
   "/recortes/{cid}/edicion": {
    "post": {
     "description": "= «🔁 Regenerar el recorte»: arma clips.edicion con lo que cambió, valida el tramo (fin > inicio,\nentre 2 s y 3 min), avisa si los subtítulos corregidos eran del tramo anterior, pone estado 'pedido' y la nota. La cola de la\nnube lo aplica en ~15 min. Devuelve {ok, edicion, partes, avisos, mensaje}.",
