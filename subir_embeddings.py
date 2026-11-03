@@ -2,7 +2,7 @@
 subir_embeddings.py — Sube los embeddings del corpus a Supabase (pgvector), tabla fragmentos_emb (22/10/2026).
 
 Para qué: que la API pueda buscar con VECTORES=supabase (y LEXICO=supabase) sin tener fragmentos_openai.npy (52 MB)
-ni el índice BM25 (245 MB) en memoria. Ver nucleo.py (modo supabase) y api/migraciones/fragmentos_emb_pgvector.sql.
+ni el índice BM25 (245 MB) en memoria. Ver nucleo.py (modo supabase) y api/migraciones/000_esquema_base.sql (tabla fragmentos_emb).
 
 Qué sube, por cada posición idx de fragmentos.jsonl: idx, fragmento_id, documento_id, texto y el vector de 512 de
 fragmentos_openai.npy (la columna tsv para la búsqueda léxica la calcula Postgres sola).

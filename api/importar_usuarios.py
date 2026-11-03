@@ -42,7 +42,7 @@ def main():
     try:
         existentes = {f["usuario"]: f for f in db.listar_usuarios()}
     except RuntimeError as e:
-        print(f"No pude leer la tabla usuarios ({e}). ¿Se corrió la migración api/migraciones/usuarios_y_lista_blanca.sql?")
+        print(f"No pude leer la tabla usuarios ({e}). ¿Se corrió la migración api/migraciones/000_esquema_base.sql (tabla usuarios)?")
         return 1
     nuevos, saltados = 0, 0
     for usuario, clave in sorted(usuarios.items()):

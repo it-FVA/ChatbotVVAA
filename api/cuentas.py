@@ -55,7 +55,7 @@ def clave_temporal_nueva():
 def _503(e):
     txt = str(e)
     if "does not exist" in txt or "PGRST205" in txt or "Supabase 404" in txt:
-        return HTTPException(503, "Falta correr la migración api/migraciones/usuarios_y_lista_blanca.sql en Supabase.")
+        return HTTPException(503, "Falta correr la migración api/migraciones/000_esquema_base.sql (tabla usuarios) en Supabase.")
     return HTTPException(503, f"No pude hablar con Supabase: {txt[:160]}")
 
 

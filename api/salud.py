@@ -507,7 +507,7 @@ def _guardar(informe):
         db.guardar_salud(informe["estado"], resumen)
     except Exception as e:
         log.warning("salud_historial: %s", e)
-        informe["historial_aviso"] = f"No pude guardar en salud_historial: {str(e)[:150]} (¿falta la migración api/migraciones/salud_historial.sql?)"
+        informe["historial_aviso"] = f"No pude guardar en salud_historial: {str(e)[:150]} (¿falta la migración api/migraciones/000_esquema_base.sql (tabla salud_historial)?)"
     return informe
 
 

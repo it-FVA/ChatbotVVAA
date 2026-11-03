@@ -278,5 +278,5 @@ def autorizados(usuario=Depends(auth.aprobador)):
         return db.listar_autorizados()
     except RuntimeError as e:
         if "autorizados" in str(e):
-            raise HTTPException(503, "Falta crear la tabla autorizados en Supabase (api/migraciones/autorizados_login_google.sql).")
+            raise HTTPException(503, "Falta crear la tabla autorizados en Supabase (api/migraciones/000_esquema_base.sql (tabla autorizados)).")
         raise

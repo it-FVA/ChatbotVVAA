@@ -864,7 +864,7 @@ def listar_cambios_usuarios(limite=100):
     return _req("GET", f"?select=id,cuando,quien,accion,usuario,detalle&order=cuando.desc&limit={limite}", tabla="usuarios_cambios") or []
 # ---------------- Búsqueda en Postgres (22/10, pgvector + texto): nucleo.py con VECTORES=supabase / LEXICO=supabase ----------------
 # Tabla fragmentos_emb y funciones match_fragmentos, match_fragmentos_varios y match_lexico (migración
-# api/migraciones/fragmentos_emb_pgvector.sql; los datos los sube subir_embeddings.py). idx = posición en fragmentos.jsonl.
+# api/migraciones/000_esquema_base.sql (tabla fragmentos_emb); los datos los sube subir_embeddings.py). idx = posición en fragmentos.jsonl.
 def _rpc(nombre, body, timeout=30):
     url, key = _cfg()
     req = urllib.request.Request(f"{url}/rest/v1/rpc/{nombre}", data=json.dumps(body).encode("utf-8"), method="POST",
@@ -907,7 +907,7 @@ def contar_fragmentos_emb():
 
 
 # ---------------- Salud de los servicios (22/10, api/salud.py) ----------------
-# Tabla salud_historial (migración api/migraciones/salud_historial.sql): id, creado, estado (ok/aviso/error), detalle jsonb
+# Tabla salud_historial (migración api/migraciones/000_esquema_base.sql (tabla salud_historial)): id, creado, estado (ok/aviso/error), detalle jsonb
 # ({chequeos: [{nombre, estado, detalle}], ms}). Una fila por corrida de GET /salud/servicios; sirve para decir «desde cuándo».
 def guardar_salud(estado, detalle):
     return _req("POST", "", {"estado": estado, "detalle": detalle}, tabla="salud_historial")

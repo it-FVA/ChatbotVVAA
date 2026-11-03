@@ -20,16 +20,16 @@ Plan original de la interfaz propia: `fva-transcripcion/analisis/plan-interfaz-p
 | `roles.py` | roles (creador → aprobador → admin) leyendo `APROBADORES` / `ADMINS` / `PUBLICACION_DIRECTA` del entorno; `roles_de_fila` para quien está en la tabla |
 | `cuentas.py` | (22/10) cuentas: «¿Primera vez?», cambiar mi contraseña, administración de usuarios y lista blanca (solo admins), registro de cambios |
 | `importar_usuarios.py` | (22/10) pasa UNA vez los usuarios de secrets a la tabla `usuarios` (hash bcrypt, rol de las listas); idempotente, `--dry-run` |
-| `migraciones/usuarios_y_lista_blanca.sql` | (22/10) tablas `usuarios` y `usuarios_cambios`; `autorizados` pasa a lista blanca (rol admin, nota) |
+| `migraciones/historicas/usuarios_y_lista_blanca.sql` | (22/10) tablas `usuarios` y `usuarios_cambios`; `autorizados` pasa a lista blanca (rol admin, nota) |
 | `config.py` | variables de entorno; en local carga `.streamlit/secrets.toml` con `secretos.py` (el cargador único, también de la cola y los scripts) |
 | `variables_entorno.py`, `generar_config.py` | (3/11) la lista ÚNICA de variables: de ahí salen `render.yaml` y `cola.yml` (`python api/generar_config.py`) y la fila «variables» de `/salud/servicios` |
-| `migraciones/autorizados_login_google.sql` | tabla `autorizados` (email, rol, agregado_por, creado) para el login con Google |
+| `migraciones/historicas/autorizados_login_google.sql` | tabla `autorizados` (email, rol, agregado_por, creado) para el login con Google |
 | `recortes.py` | router de recortes (fase 1): validaciones del tramo y `edicion["segmentos"]` |
 | `chat_rutas.py` | router del chat (fase 2): renombrar / papelera / restaurar, `GET …/mensajes/{n}/docx\|xlsx` (usa `documentos.py`, el módulo de Word/Excel), `POST /recortes` (= botones «Pedir el recorte» con las validaciones del chat), `GET /banco`, `GET /publicaciones/modos`, `POST /publicaciones/borrador` y `/a-aprobar` |
 | `publicar_rutas.py` | (22/10, fase 3) Publicar, Mis publicaciones y Aprobación desde la web: formulario, envío, Mis publicaciones y panel de aprobación sobre `publicar.py`, `imagen.py` y `db.py`. Instala el hook de registro de `publicar.py` (`REGISTRAR_EXTRA`) UNA vez, leyendo de una contextvar quién envía |
 | `salud.py` | (22/10) `GET /salud` (health check) y la base de la pantalla «Salud» / Dashboard de Administración: `/salud/servicios` (13 chequeos con ok / aviso / error y «qué hacer» + bloque `capacidad`), `/salud/historial`, `/salud/capacidad`. Guarda cada corrida en `salud_historial` |
 | `admin_rutas.py` | (22/10, noche) lo que las pantallas Dashboard · Servicios y costos · Configuración de la web necesitan (solo admins): `GET /admin/resumen` (última corrida de Salud + costo del mes y del anterior), `GET /admin/uso?dias=7\|28\|90` o `?mes=AAAA-MM` (por persona, también quien no hizo nada; por semana; lo último; costo por persona), `GET /admin/costos` (por persona, por día, por modelo y para qué, 6 meses), `GET/PUT/DELETE /admin/servicios`, `GET/PUT /admin/config` (precios con fuente obligatoria, presupuesto, umbrales, uso manual de Vercel, Frase del día; cada cambio queda en `usuarios_cambios` con acción `config` / `servicio_*`, de → a). Pruebas en `tests/test_admin_rutas.py` (24, con `db` simulado); 132 en total |
-| `migraciones/salud_historial.sql`, `migraciones/fragmentos_emb_pgvector.sql` | (22/10) tabla del historial de salud; extensión `vector`, tabla `fragmentos_emb`, índice HNSW y funciones `match_fragmentos*`, `match_lexico`, `tamano_base` (todas aplicadas en Supabase el 22/10) |
+| `migraciones/historicas/salud_historial.sql`, `migraciones/historicas/fragmentos_emb_pgvector.sql` | (22/10) tabla del historial de salud; extensión `vector`, tabla `fragmentos_emb`, índice HNSW y funciones `match_fragmentos*`, `match_lexico`, `tamano_base` (todas aplicadas en Supabase el 22/10) |
 | `recortes.py` | router de recortes (fase 1): validaciones del tramo y `edicion["segmentos"]` (pedazos conservados, en orden de salida; 22/10: sin solaparse, ≥ 0,5 s cada uno, total 2 s–3 min) |
 | `tests/` | pytest + httpx, sin OpenAI ni Supabase (Supabase simulada con monkeypatch sobre `db`); 1 prueba real marcada `real`. `servidor_simulado.py` levanta la API con la tabla en memoria para probar la web. `python -m pytest api/tests -q` desde la raíz; CI en `.github/workflows/ci.yml` |
 | `ejemplos.http` | llamadas de ejemplo (REST Client / curl) |
@@ -122,7 +122,7 @@ Las herramientas del asistente (`nucleo.TOOLS`): `buscar_material`, `proponer_pu
 
 ## Usuarios, contraseñas y roles (22/10)
 
-- **Tabla `usuarios`** (Supabase, migración `migraciones/usuarios_y_lista_blanca.sql`): `usuario` (único, minúsculas), `email`
+- **Tabla `usuarios`** (Supabase, migración `migraciones/historicas/usuarios_y_lista_blanca.sql`): `usuario` (único, minúsculas), `email`
   (único, puede faltar), `nombre`, `rol` (creador | aprobador | admin), `clave_hash` (bcrypt; null = «sin clave»),
   `clave_temporal`, `activo`, `creado`, `actualizado`, `ultimo_login`, `creado_por`. Las contraseñas nunca se guardan en claro.
 - **Lista blanca** = tabla `autorizados` (email, rol, nota, agregado_por). Regla: un email `@DOMINIO_FVA` puede crear cuenta y entrar
@@ -357,7 +357,7 @@ futura → en cola → cancelar; entrada desde el chat y desde un recorte; nada 
 
 ## Lo que falta / decisiones pendientes
 
-- **Correr la migración** `migraciones/autorizados_login_google.sql` en Supabase (SQL Editor). Hasta entonces, el
+- **Correr la migración** `migraciones/historicas/autorizados_login_google.sql` en Supabase (SQL Editor). Hasta entonces, el
   login con Google admite solo el dominio y `/autorizados` responde 503.
 - **Proyecto de Google Cloud** (con la cuenta de la Fundación) para tener el `GOOGLE_CLIENT_ID`; y definir
   `DOMINIO_FVA` (`viviragradecidos.org` o `vivir-agradecidos.org`, pendiente en el plan). Los usuarios que entren

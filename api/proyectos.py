@@ -1,6 +1,6 @@
 """«Proyectos» de la interfaz nueva (22/10): carpetas colaborativas donde se agrupan conversaciones, recortes, piezas e
 imágenes; subcarpetas; compartir un proyecto o una conversación suelta con otra persona (ver / editar).
-Tablas: proyectos, proyecto_items, compartidos (api/migraciones/proyectos_y_compartidos.sql). NADA se mueve de su tabla
+Tablas: proyectos, proyecto_items, compartidos (api/migraciones/000_esquema_base.sql (tablas proyectos, proyecto_items, compartidos)). NADA se mueve de su tabla
 original: un ítem del proyecto es solo una referencia (tipo + id). Pedido de Franco (22/10): «carpetas donde poner
 conversaciones y agruparlas, compartir una carpeta o una conversación, verlo estilo Google Drive».
 
@@ -91,7 +91,7 @@ def _req(method, params="", body=None, tabla="proyectos"):
     except RuntimeError as e:
         txt = str(e)
         if "does not exist" in txt or "PGRST205" in txt or "Supabase 404" in txt:
-            raise HTTPException(503, "Falta correr la migración api/migraciones/proyectos_y_compartidos.sql en Supabase.")
+            raise HTTPException(503, "Falta correr la migración api/migraciones/000_esquema_base.sql (tablas proyectos, proyecto_items, compartidos) en Supabase.")
         raise HTTPException(503, f"No pude hablar con Supabase: {txt[:160]}")
 
 
