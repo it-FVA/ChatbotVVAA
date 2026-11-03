@@ -22,7 +22,6 @@ export default function Usuarios() {
   const { yo, setYo } = useSesion();
   const { avisar } = useToast();
   const [filas, setFilas] = useState<Usuario[] | null>(null);
-  const [enSecrets, setEnSecrets] = useState<string[]>([]);
   const [cambios, setCambios] = useState<Cambio[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [accion, setAccion] = useState<Accion>(null);
@@ -33,7 +32,6 @@ export default function Usuarios() {
     try {
       const d = await api.adminUsuarios();
       setFilas(d.usuarios);
-      setEnSecrets(d.en_secrets);
       setError(null);
       api.adminCambios().then(setCambios).catch(() => {});
     } catch (e) {
@@ -176,15 +174,6 @@ export default function Usuarios() {
               )}
             </tbody>
           </table>
-        </div>
-      )}
-      {enSecrets.length > 0 && (
-        <div className="aviso" role="status">
-          <Icono nombre="info" tam={18} />
-          <span>
-            Todavía entran por la lista vieja de la app (sin importar a la tabla): <strong>{enSecrets.join(", ")}</strong>. Se pasan con{" "}
-            <code>python api/importar_usuarios.py</code>.
-          </span>
         </div>
       )}
       {cambios.length > 0 && (

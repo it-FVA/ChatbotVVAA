@@ -6,8 +6,7 @@ Reglas:
 - Quién puede crear cuenta: un email del dominio DOMINIO_FVA siempre; cualquier otro, solo si está en la lista
   blanca (tabla `autorizados`, que además dice el rol). Sin servicio de mail no hay verificación del email:
   PENDIENTE (hoy la persona escribe el email y se le cree).
-- Transición: mientras alguien no esté en la tabla, `api/auth.py` cae en [usuarios]/USUARIOS_JSON (secrets) y las
-  listas APROBADORES/ADMINS. `api/importar_usuarios.py` pasa a todos a la tabla; después se saca ese fallback.
+- (3/11) La tabla es la única fuente de cuentas y de roles: no hay fallback a secrets ni listas APROBADORES/ADMINS.
 - Un admin no puede quitarse el rol admin, desactivarse ni borrarse; tampoco dejar la tabla sin ningún admin activo.
 - Todo cambio hecho por un admin queda en `usuarios_cambios` (quién, acción, a quién, detalle).
 """
@@ -18,7 +17,7 @@ import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 
-from . import config, auth, roles as _roles
+from . import config, auth
 import db
 
 log = logging.getLogger("api")
@@ -30,6 +29,7 @@ RE_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 CLAVE_MIN = 8
 CACHE_SEG = 30          # la fila del usuario se relee de la tabla como mucho cada 30 s (rol, activo, clave temporal)
 _cache = {}
+_aprobadores = {"t": 0.0, "v": []}
 
 
 # ---------------- Hash ----------------
@@ -59,9 +59,14 @@ def _503(e):
     return HTTPException(503, f"No pude hablar con Supabase: {txt[:160]}")
 
 
+def tabla_disponible():
+    """¿Hay base de usuarios? (Supabase configurada). Las pruebas la reemplazan por una tabla en memoria."""
+    return db.disponible()
+
+
 def fila_de(usuario, fresco=False):
     """La fila de `usuarios` de esa persona (o None si no está en la tabla / no hay Supabase). Con caché corta."""
-    if not usuario or not db.disponible():
+    if not usuario or not tabla_disponible():
         return None
     u = usuario.strip().lower()
     ahora = time.time()
@@ -77,10 +82,25 @@ def fila_de(usuario, fresco=False):
 
 
 def olvidar(usuario=None):
+    _aprobadores["t"] = 0.0
     if usuario:
         _cache.pop(usuario.strip().lower(), None)
     else:
         _cache.clear()
+
+
+def nombres_aprobadores():
+    """Los usuarios activos que pueden aprobar (rol aprobador o admin), para los textos «lo revisa …». Caché corta."""
+    ahora = time.time()
+    if ahora - _aprobadores["t"] < CACHE_SEG:
+        return _aprobadores["v"]
+    try:
+        filas = db.listar_usuarios() if tabla_disponible() else []
+    except Exception as e:
+        log.warning("No pude leer los aprobadores: %s", e)
+        return _aprobadores["v"]
+    _aprobadores.update(t=ahora, v=sorted(f["usuario"] for f in filas if f.get("activo", True) and f.get("rol") in ("aprobador", "admin")))
+    return _aprobadores["v"]
 
 
 def permitido(email):
@@ -100,12 +120,8 @@ def permitido(email):
 
 
 def rol_inicial(email, rol_lista):
-    """Rol con el que nace una cuenta: el de la lista blanca; si no dice nada, el que diga la lista vieja de
-    secrets para ese nombre (franco@… hereda lo de franco); si no, creador."""
-    if rol_lista in ROLES:
-        return rol_lista
-    r = _roles.roles(email, None)
-    return "admin" if r["admin"] else ("aprobador" if r["aprueba"] else "creador")
+    """Rol con el que nace una cuenta: el de la lista blanca; si no dice nada, creador (después un admin lo cambia)."""
+    return rol_lista if rol_lista in ROLES else "creador"
 
 
 # ---------------- Validaciones ----------------
@@ -135,10 +151,8 @@ def validar_email(e):
 
 
 def _existe_usuario(u):
-    """En la tabla o en la lista vieja de secrets (mientras conviven)."""
-    if fila_de(u, fresco=True):
-        return True
-    return u in {k.lower() for k in config.usuarios()}
+    """¿Ya hay una cuenta con ese nombre en la tabla?"""
+    return bool(fila_de(u, fresco=True))
 
 
 def publico(fila):
@@ -304,15 +318,12 @@ def _proteger_ultimo_admin(fila, quien, accion):
 @router.get("/admin/usuarios")
 def admin_usuarios(quien=Depends(_admin)):
     if not db.disponible():
-        return {"usuarios": [], "en_secrets": sorted(config.usuarios())}
+        return {"usuarios": []}
     try:
         filas = [publico(f) for f in db.listar_usuarios()]
     except RuntimeError as e:
         raise _503(e)
-    en_tabla = {f["usuario"] for f in filas}
-    # Los que siguen solo en secrets (todavía no importados): se muestran para que se vea quién falta.
-    pendientes = sorted(u for u in config.usuarios() if u.lower() not in en_tabla)
-    return {"usuarios": filas, "en_secrets": pendientes}
+    return {"usuarios": filas}
 
 
 @router.post("/admin/usuarios", status_code=201)

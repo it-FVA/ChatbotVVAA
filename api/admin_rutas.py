@@ -139,8 +139,7 @@ def _semana_lunes(iso):
 
 
 def _personas():
-    """Las personas conocidas: tabla usuarios (con nombre, rol, activo) y, mientras conviven, las de secrets. Sin los usuarios
-    de servicio (frase_del_dia, cola…)."""
+    """Las personas conocidas: la tabla usuarios (con nombre, rol, activo). Sin los usuarios de servicio (frase_del_dia, cola…)."""
     out = {}
     try:
         for f in (db.listar_usuarios() if db.disponible() else []):
@@ -150,9 +149,6 @@ def _personas():
                           "ultimo_login": f.get("ultimo_login"), "en_tabla": True}
     except Exception:
         pass
-    for u in config.usuarios():
-        if u not in out and u not in SERVICIO:
-            out[u] = {"usuario": u, "nombre": None, "rol": None, "activo": True, "ultimo_login": None, "en_tabla": False}
     return out
 
 

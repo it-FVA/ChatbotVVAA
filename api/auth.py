@@ -3,13 +3,9 @@
 - Sesión: cookie firmada (itsdangerous), HttpOnly, SameSite=Lax, 30 días. Secreto en SESION_SECRETO.
   Si falta, se genera uno al azar al arrancar (las sesiones se pierden al reiniciar; en producción ponerlo).
   COOKIE_SEGURA=1 marca la cookie como Secure (obligatorio detrás de HTTPS en producción).
-- Login por usuario y contraseña (22/10): PRIMERO la tabla `usuarios` de Supabase (hash bcrypt, api/cuentas.py);
-  si el usuario no está en la tabla, cae en [usuarios] (secrets.toml) / USUARIOS_JSON.
-  TRANSICIÓN: cuando todos estén en la tabla (api/importar_usuarios.py), sacar ese fallback (login_clave, roles
-  y _existe_usuario en cuentas.py) y la variable USUARIOS_JSON; esa lista sigue valiendo hasta
-  que se migre o se apague.
-- Roles: si la persona está en la tabla, el rol sale de ahí (roles.roles_de_fila); si no, de las listas
-  APROBADORES/ADMINS como hasta ahora.
+- Login por usuario y contraseña: la tabla `usuarios` de Supabase (hash bcrypt, api/cuentas.py). Desde el 3/11 es la única
+  fuente: ya no hay contraseñas en secrets ni en USUARIOS_JSON.
+- Roles: salen de la columna `rol` de esa tabla (roles.roles_de_fila). Ya no hay listas APROBADORES/ADMINS/PUBLICACION_DIRECTA.
 - Login con Google: la interfaz manda el id_token que le dio Google; acá se verifica con GOOGLE_CLIENT_ID
   y se admite si el email ya tiene cuenta en `usuarios`, si termina en DOMINIO_FVA o si está en la lista blanca
   (`autorizados`). La primera vez crea la fila en `usuarios` con el rol de la lista.
@@ -76,11 +72,12 @@ def _fila(usuario):
 
 
 def rol_sesion(s):
-    """Rol de la sesión: de la tabla `usuarios` si la persona está ahí; si no, de las listas de secrets."""
+    """Rol de la sesión: el de su fila en la tabla `usuarios`; si no tiene fila (una sesión de Google que no pudo crearla), el
+    de la lista blanca que quedó en la cookie. `aprobadores` = quienes pueden revisar hoy (para los textos «lo revisa …»)."""
+    from . import cuentas
     fila = _fila(s["usuario"])
-    if fila:
-        return _roles.roles_de_fila(fila)
-    return _roles.roles(s["usuario"], s.get("rol_tabla"))
+    r = _roles.roles_de_fila(fila) if fila else _roles.roles(s.get("rol_tabla"))
+    return dict(r, aprobadores=cuentas.nombres_aprobadores())
 
 
 def usuario_actual(request: Request):
@@ -117,8 +114,8 @@ def yo(s):
 
 # ---------------- Usuario y contraseña ----------------
 def login_clave(usuario, clave):
-    """Devuelve la fila de `usuarios` si entró por la tabla, "secrets" si entró por la lista vieja, None si no.
-    Levanta 403/409 si la cuenta de la tabla está desactivada o no tiene clave todavía."""
+    """Devuelve la fila de `usuarios` si el usuario y la clave son correctos, None si no.
+    Levanta 403/409 si la cuenta está desactivada o no tiene clave todavía."""
     from . import cuentas
     usuario = (usuario or "").strip()
     if not usuario:
@@ -130,9 +127,7 @@ def login_clave(usuario, clave):
         if not fila.get("clave_hash"):
             raise HTTPException(409, "Tu cuenta todavía no tiene contraseña: creala desde «¿Primera vez? Creá tu cuenta» con tu email (o entrá con Google).")
         return fila if cuentas.verificar_hash(clave, fila["clave_hash"]) else None
-    # Fallback (transición): la lista vieja de secrets, tal cual. Sacar cuando todos estén en la tabla.
-    us = config.usuarios()
-    return "secrets" if usuario in us and str(us[usuario]) == str(clave) else None
+    return None
 
 
 # ---------------- Google ----------------

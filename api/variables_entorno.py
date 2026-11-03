@@ -48,12 +48,8 @@ VARIABLES = [
     _v("CORS_ORIGENES", "https://chatbot-vvaa.vercel.app"),
     _v("WEB_URL", "https://chatbot-vvaa.vercel.app"),
     _v("SESION_SECRETO", generar=True),
-    _v("USUARIOS_JSON", secreto=True, requerida=False, nota="Transición: login con contraseñas de entorno, mientras haya cuentas que no estén en la tabla usuarios."),
     _v("GOOGLE_CLIENT_ID", "975482475680-o1clpt1idim34dormtuecg58knnga3ol.apps.googleusercontent.com"),
     _v("DOMINIO_FVA", "viviragradecidos.org"),
-    _v("APROBADORES", "julian,franco,beto"),
-    _v("PUBLICACION_DIRECTA", "julian,franco,beto"),
-    _v("ADMINS", "franco,beto"),
     # --- Salud ---
     _v("SALUD_TOKEN", secreto=True, requerida=False, nota="Token para consultar /salud/servicios desde un monitor externo sin sesión (?token= o X-Salud-Token)."),
     _v("MEMORIA_LIMITE_MB", "512", nota="Límite de memoria del plan (MB), para la fila «memoria» de /salud/servicios (aviso al 80 %, error al 95 %)."),

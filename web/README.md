@@ -139,8 +139,8 @@ Probado el 22/10 con la API local y datos reales: las seis pantallas; alta, edic
   los lugares de Dashboard, Salud, Servicios y costos y Configuración marcados «pronto». **Aprobación** (`/aprobacion`, aprobadores) es por
   ahora un marcador. En celular, las tablas se vuelven tarjetas.
 - **Roles** (21/10, los devuelve `GET /yo` en `rol`): «creador de contenido» (todos: chat, piezas a
-  aprobación, sus recortes), «aprobador» (`APROBADORES`: además la solapa «Todos» de recortes, editar y borrar los ajenos, cola,
-  registro, papelera) y «admin» (`ADMINS`, default `franco,beto`; un admin también aprueba: además Frase del día, Dashboard y la
+  aprobación, sus recortes), «aprobador» (rol `aprobador` de la tabla `usuarios`: además la solapa «Todos» de recortes, editar y borrar los ajenos, cola,
+  registro, papelera) y «admin» (rol `admin` de la tabla; un admin también aprueba: además Frase del día, Dashboard y la
   configuración, p. ej. `PUT /recortes/estilo-defecto`). En la web hoy se usa `rol.aprueba` (solapa «Todos», permisos de las
   tarjetas) y el nombre del rol en la barra; `rol.admin` queda para la pantalla de configuración cuando exista.
 - **Barra lateral**: «Chat» (fase 2), «Publicar», «Mis publicaciones» (fase 3), «Mis recortes» y «Newsletter». En celular se vuelve una barra arriba. La página de inicio es el chat.

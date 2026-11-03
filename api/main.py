@@ -101,17 +101,15 @@ class Mensaje(BaseModel):
 # ---------------- Login y sesión ----------------
 @app.post("/login")
 def login(datos: Login, resp: Response):
-    """(22/10) Primero la tabla `usuarios` (hash); si no está ahí, la lista de secrets (transición)."""
-    if not config.usuarios() and not db.disponible():
-        raise HTTPException(503, "Falta configurar la lista de usuarios ([usuarios] en secrets o USUARIOS_JSON).")
+    """Usuario y contraseña contra la tabla `usuarios` (hash bcrypt). Es la única fuente de cuentas (3/11)."""
+    if not _cuentas.tabla_disponible():
+        raise HTTPException(503, "No puedo verificar la contraseña: falta la conexión con la base de usuarios (Supabase).")
     r = auth.login_clave(datos.usuario, datos.clave)
     if not r:
         raise HTTPException(401, "Usuario o contraseña incorrectos.")
-    usuario = r["usuario"] if isinstance(r, dict) else datos.usuario.strip()
-    if isinstance(r, dict):
-        db.marcar_login(r["id"])
-    auth.emitir(resp, usuario, "clave")
-    return auth.yo({"usuario": usuario, "origen": "clave"})
+    db.marcar_login(r["id"])
+    auth.emitir(resp, r["usuario"], "clave")
+    return auth.yo({"usuario": r["usuario"], "origen": "clave"})
 
 
 @app.post("/login/google")

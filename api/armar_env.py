@@ -1,7 +1,7 @@
 """(21/10) Arma `api.env` (en la raíz del repo, ignorado por git) con las variables que la API necesita en el hosting,
 a partir de `.streamlit/secrets.toml` (o del archivo que indique FVA_SECRETS). Después se pega en Render:
 Environment → «Add from .env». Uso:  python api/armar_env.py  [--web https://fva-web.vercel.app]
-Agrega: USUARIOS_JSON / IDIOMAS_JSON (de las tablas [usuarios] / [idiomas]), SESION_SECRETO nuevo, COOKIE_SEGURA=1,
+Agrega: IDIOMAS_JSON (de la tabla [idiomas]), SESION_SECRETO nuevo, COOKIE_SEGURA=1,
 COOKIE_SAMESITE=none y CORS_ORIGENES con el dominio de la web. NUNCA subir api.env al repo (es público).
 (3/11) La lista de variables que necesita la API está en api/variables_entorno.py; al final avisa cuáles de las requeridas no quedaron en api.env."""
 import os, sys, json, secrets, tomllib
@@ -20,7 +20,7 @@ lineas = []
 for k, v in d.items():
     if isinstance(v, (str, int, float, bool)):
         lineas.append(f"{k}={json.dumps(v) if isinstance(v, str) and any(c in v for c in ' #\"') else v}")
-for tabla, clave in (("usuarios", "USUARIOS_JSON"), ("idiomas", "IDIOMAS_JSON")):
+for tabla, clave in (("idiomas", "IDIOMAS_JSON"),):
     if isinstance(d.get(tabla), dict):
         lineas.append(f"{clave}={json.dumps({str(a): str(b) for a, b in d[tabla].items()}, ensure_ascii=False)}")
 lineas += [f"SESION_SECRETO={secrets.token_urlsafe(48)}", "COOKIE_SEGURA=1", "COOKIE_SAMESITE=none", f"CORS_ORIGENES={web}"]

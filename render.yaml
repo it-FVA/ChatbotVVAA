@@ -54,19 +54,10 @@ services:
         value: "https://chatbot-vvaa.vercel.app"
       - key: SESION_SECRETO
         generateValue: true
-      # Transición: login con contraseñas de entorno, mientras haya cuentas que no estén en la tabla usuarios.
-      - key: USUARIOS_JSON
-        sync: false
       - key: GOOGLE_CLIENT_ID
         value: "975482475680-o1clpt1idim34dormtuecg58knnga3ol.apps.googleusercontent.com"
       - key: DOMINIO_FVA
         value: "viviragradecidos.org"
-      - key: APROBADORES
-        value: "julian,franco,beto"
-      - key: PUBLICACION_DIRECTA
-        value: "julian,franco,beto"
-      - key: ADMINS
-        value: "franco,beto"
       # Token para consultar /salud/servicios desde un monitor externo sin sesión (?token= o X-Salud-Token).
       - key: SALUD_TOKEN
         sync: false

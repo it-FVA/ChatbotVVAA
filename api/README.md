@@ -17,9 +17,8 @@ Plan original de la interfaz propia: `fva-transcripcion/analisis/plan-interfaz-p
 | `main.py` | la app FastAPI: carga el corpus una vez al arrancar y define los endpoints |
 | `chat.py` | el chat con streaming (SSE): réplica paso a paso de `nucleo.responder_con_pieza` con la segunda llamada al modelo en streaming; arma las tarjetas de fuentes (traducción en/de, estado de los recortes, «citada») |
 | `auth.py` | cookie de sesión firmada (HttpOnly, SameSite, 30 días), login por usuario/contraseña (22/10: primero la tabla `usuarios`, después secrets), login con Google |
-| `roles.py` | roles (creador → aprobador → admin) leyendo `APROBADORES` / `ADMINS` / `PUBLICACION_DIRECTA` del entorno; `roles_de_fila` para quien está en la tabla |
+| `roles.py` | roles (creador → aprobador → admin) a partir de la columna `rol` de la tabla `usuarios` (3/11: ya no hay listas en el entorno); quien aprueba también publica sin aprobación |
 | `cuentas.py` | (22/10) cuentas: «¿Primera vez?», cambiar mi contraseña, administración de usuarios y lista blanca (solo admins), registro de cambios |
-| `importar_usuarios.py` | (22/10) pasa UNA vez los usuarios de secrets a la tabla `usuarios` (hash bcrypt, rol de las listas); idempotente, `--dry-run` |
 | `migraciones/historicas/usuarios_y_lista_blanca.sql` | (22/10) tablas `usuarios` y `usuarios_cambios`; `autorizados` pasa a lista blanca (rol admin, nota) |
 | `config.py` | variables de entorno; en local carga `.streamlit/secrets.toml` con `secretos.py` (el cargador único, también de la cola y los scripts) |
 | `variables_entorno.py`, `generar_config.py` | (3/11) la lista ÚNICA de variables: de ahí salen `render.yaml` y `cola.yml` (`python api/generar_config.py`) y la fila «variables» de `/salud/servicios` |
@@ -74,7 +73,7 @@ tiene `md_a_docx`, `tablas_md` y `tablas_a_xlsx`, que antes vivían en la app vi
 | `POST /cuentas/verificar` `{email}` | — | «¿Primera vez?» paso 1: si ese email puede crear cuenta (dominio o lista blanca), o si ya tiene una cuenta sin clave (`usuario` fijado) |
 | `POST /cuentas/primera-vez` `{email, usuario, clave}` | — | paso 2: crea la fila en `usuarios` con el rol de la lista blanca (o creador) y pone la cookie |
 | `POST /cuentas/clave` `{actual, nueva}` | con sesión | cambia mi contraseña (si estoy en la tabla y tengo clave) |
-| `GET /admin/usuarios` | admins | `{usuarios: [...sin hash, con tiene_clave y clave_temporal], en_secrets: [los que todavía no se importaron]}` |
+| `GET /admin/usuarios` | admins | `{usuarios: [...sin hash, con tiene_clave y clave_temporal]}` |
 | `POST /admin/usuarios` `{usuario, email?, nombre?, rol, clave: sin|temporal}` | admins | crea; con `temporal` devuelve `clave_temporal` UNA vez |
 | `PATCH /admin/usuarios/{id}` `{nombre?, email?, rol?, activo?}` | admins | cambia rol, nombre, email, activa/desactiva (no a uno mismo ni al último admin activo) |
 | `POST /admin/usuarios/{id}/renombrar` `{usuario}` | admins | cambia el nombre de usuario y lo actualiza en conversaciones, publicaciones, clips y uso_openai |
@@ -132,13 +131,8 @@ Las herramientas del asistente (`nucleo.TOOLS`): `buscar_material`, `proponer_pu
   primera vez crea la fila sola (usuario = el email, salvo que exista un usuario viejo del dominio con ese nombre y sin email: se le
   asigna el email); (c) un admin la crea desde Administración, sin clave (la persona la crea desde «Primera vez» con su email) o con
   clave temporal. **Sin verificación por mail** (no hay servicio de mail): pendiente.
-- **Transición (fallback a secrets)**: `auth.login_clave` busca primero en la tabla; si el usuario no está, compara contra
-  `[usuarios]`/`USUARIOS_JSON` como siempre, y el rol sale de `APROBADORES`/`ADMINS`. Así conviven las cuentas viejas (secrets) y las de la tabla. `python api/importar_usuarios.py --dry-run` muestra quién falta importar; sin `--dry-run` los pasa (hash de la clave
-  actual, rol de las listas; a los que ya están no los toca). **Cuando todos estén en la tabla**, sacar el fallback (está marcado en
-  `auth.py` y `cuentas._existe_usuario`) y la variable `USUARIOS_JSON` del hosting. `GET /admin/usuarios` devuelve en `en_secrets` los
-  que todavía faltan.
-- **Rol**: si la persona está en la tabla, manda la tabla (`roles.roles_de_fila`), aunque las listas de secrets digan otra cosa.
-  `PUBLICACION_DIRECTA` sigue siendo una lista (vacía = publican los aprobadores). La fila se relee cada 30 s (`cuentas.CACHE_SEG`):
+- **Una sola fuente (3/11)**: `auth.login_clave` mira solo la tabla `usuarios`. Se sacó el fallback a `[usuarios]` de secrets y a `USUARIOS_JSON`, y con él `importar_usuarios.py`: las 8 cuentas que había ya estaban en la tabla. Si la base no responde, el login da 503.
+- **Rol**: sale de la columna `rol` de la tabla (`roles.roles_de_fila`); aprobador y admin publican sin aprobación. Para cambiar el permiso de alguien: Administración → Usuarios. La fila se relee cada 30 s (`cuentas.CACHE_SEG`):
   un cambio de rol o una desactivación tardan como mucho eso en aplicarse a una sesión abierta.
 - **Protecciones**: un admin no puede quitarse el rol admin, desactivarse ni borrarse; tampoco dejar la tabla sin ningún admin activo.
   Todo cambio de un admin queda en `usuarios_cambios` (nunca con claves).
@@ -176,10 +170,8 @@ La lista completa y vigente está en `api/variables_entorno.py` (de ahí salen `
 |---|---|---|
 | `OPENAI_API_KEY`, `ASISTENTE_MODELO` | el modelo (como hoy) | sí |
 | `SUPABASE_URL`, `SUPABASE_KEY` | conversaciones, clips, publicaciones, autorizados | sí (sin ellas anda el chat pero no guarda) |
-| `USUARIOS_JSON` | `{"franco": "clave", …}`: reemplaza la tabla `[usuarios]` de secrets en el servidor. (22/10) Solo para los usuarios que todavía no están en la tabla `usuarios`; se saca cuando se importen todos | no (sí mientras haya usuarios sin importar) |
 | `BCRYPT_RONDAS` | costo del hash de las contraseñas (default 12; los tests usan 4) | no |
 | `IDIOMAS_JSON` | `{"gratefulness": "en"}`: reemplaza `[idiomas]` (si falta, valen los defaults) | no |
-| `APROBADORES`, `ADMINS`, `PUBLICACION_DIRECTA` | roles (21/10: creador → aprobador → admin; un admin también aprueba) | no (defaults `julian,franco,beto` / `franco,beto`) |
 | `SESION_SECRETO` | firma de la cookie de sesión; una cadena larga al azar | **sí en producción** (si falta se genera una al arrancar y las sesiones mueren al reiniciar) |
 | `COOKIE_SEGURA` | `1` detrás de HTTPS (cookie `Secure`) | sí en producción |
 | `COOKIE_SAMESITE` | `lax` (default) si interfaz y API comparten dominio; `none` + `COOKIE_SEGURA=1` si están en dominios distintos | no |
@@ -362,7 +354,7 @@ futura → en cola → cancelar; entrada desde el chat y desde un recorte; nada 
 - **Proyecto de Google Cloud** (con la cuenta de la Fundación) para tener el `GOOGLE_CLIENT_ID`; y definir
   `DOMINIO_FVA` (`viviragradecidos.org` o `vivir-agradecidos.org`, pendiente en el plan). Los usuarios que entren
   con Google quedan identificados por su email: el historial de «franco» no se une al de «franco@…» (mapeo pendiente,
-  está en el plan). Los roles sí: `franco@dominio` hereda lo de `franco` en `APROBADORES`.
+  está en el plan). Una cuenta nueva del dominio nace con rol «creador» (o el de la lista blanca) y un admin la cambia; `franco@dominio` se vincula a la cuenta `franco` de la tabla si todavía no tiene email.
 - **Hosting**: Railway o Render (Franco prefiere Render + Vercel; el plan recomendaba el VPS). La API no depende de eso.
 - **CORS y dominio** de la interfaz web (fase 2), alta/baja de autorizados desde el panel, logout de Google.
 - **Variable global `nucleo.USUARIO_ACTUAL`**: sigue siendo global; la API ejecuta las herramientas de a una (candado)

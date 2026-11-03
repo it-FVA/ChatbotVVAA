@@ -82,6 +82,9 @@ class FakePostgrest:
         raise AssertionError(method)
 
 
+TABLA_PROPIA = True   # los usuarios viven en su FakePostgrest (fixture `base`), no en la tabla simulada del conftest
+
+
 @pytest.fixture
 def base(monkeypatch):
     fake = FakePostgrest()
@@ -98,6 +101,14 @@ def base(monkeypatch):
     fake.agregar("clips", id="k1", video_id="abc123def", titulo="Clip", formato="vertical", estado="listo", url="https://x/clip.mp4", pedido_por="franco")
     fake.agregar("publicaciones", id="p1", usuario="franco", canal="instagram", estado="borrador", titulo="", texto="Un texto " * 20, imagen_url="https://x/foto.jpg")
     return fake
+
+
+@pytest.fixture
+def logueado(base, cliente):
+    """Como el del conftest, pero después de armar `base`: los usuarios están en su base simulada."""
+    r = cliente.post("/login", json={"usuario": "franco", "clave": "clave-franco"})
+    assert r.status_code == 200, r.text
+    return cliente
 
 
 def _como(cliente, usuario):
@@ -275,7 +286,13 @@ def test_buscar_usuarios(logueado, base):
     assert logueado.get("/usuarios/buscar?q=zzz").json() == []
 
 
-def test_sin_supabase_y_sin_sesion(logueado, cliente):
+def test_sin_supabase_y_sin_sesion(cliente, monkeypatch):
+    """Sin Supabase para lo demás: solo la tabla de usuarios simulada (para poder iniciar sesión)."""
+    from api import cuentas
+    from tabla_usuarios import instalar_base
+    instalar_base(monkeypatch, db, cuentas)
+    logueado = cliente
+    assert logueado.post("/login", json={"usuario": "franco", "clave": "clave-franco"}).status_code == 200
     assert logueado.get("/proyectos").json() == {"proyectos": [], "ubicaciones": {}}
     assert logueado.post("/proyectos", json={"nombre": "x"}).status_code == 503
     assert logueado.get("/compartidos-conmigo").json() == {"proyectos": [], "conversaciones": []}

@@ -1,14 +1,14 @@
 """Configuración de la API.
 
 Regla: la API es independiente del hosting. Todo se lee de VARIABLES DE ENTORNO con los mismos nombres
-que ya usaban los secrets (histórico: Streamlit, dado de baja el 2/11) (OPENAI_API_KEY, SUPABASE_URL, APROBADORES, …).
+que ya usaban los secrets (histórico: Streamlit, dado de baja el 2/11) (OPENAI_API_KEY, SUPABASE_URL, …).
 
 En local, si existe `.streamlit/secrets.toml` (o el archivo que indique FVA_SECRETS), se carga al entorno
 sin pisar lo que ya esté definido (lo hace secretos.py, el mismo cargador de la cola y los scripts). FVA_SECRETS="-"
 desactiva esa carga (lo usan los tests).
 
-Las tablas [usuarios] e [idiomas] de secrets no caben en una variable simple: en el servidor se pasan como
-JSON en USUARIOS_JSON e IDIOMAS_JSON ({"franco": "clave", …} / {"gratefulness": "en"}).
+La tabla [idiomas] de secrets no cabe en una variable simple: en el servidor se pasa como JSON en IDIOMAS_JSON
+({"gratefulness": "en"}). Los usuarios y sus roles viven SOLO en la tabla `usuarios` de Supabase (3/11).
 """
 import os, json
 
@@ -25,11 +25,11 @@ DEFECTOS = {
 # (7/10) Idioma por usuario: comunidades inglesa y alemana de Br. David (_IDIOMAS_DEFAULT)
 _IDIOMAS_DEFAULT = {"gratefulness": "en", "dankbarleben": "de"}
 
-_CFG = {"usuarios": {}, "idiomas": {}, "cargado": False, "secrets": None}
+_CFG = {"idiomas": {}, "cargado": False, "secrets": None}
 
 
 def cargar():
-    """Carga una sola vez. Devuelve el dict de configuración (usuarios, idiomas)."""
+    """Carga una sola vez. Devuelve el dict de configuración (idiomas)."""
     if _CFG["cargado"]:
         return _CFG
     tablas = secretos.cargar_al_entorno()
@@ -37,16 +37,10 @@ def cargar():
         _CFG["secrets"] = secretos.ruta()
     for k, d in DEFECTOS.items():
         os.environ.setdefault(k, d)
-    usuarios = {str(k): str(v) for k, v in (tablas.get("usuarios") or {}).items()}
-    usuarios.update({str(k): str(v) for k, v in json.loads(os.environ.get("USUARIOS_JSON") or "{}").items()})
     idiomas = {str(k): str(v).lower() for k, v in (tablas.get("idiomas") or {}).items()}
     idiomas.update({str(k): str(v).lower() for k, v in json.loads(os.environ.get("IDIOMAS_JSON") or "{}").items()})
-    _CFG.update(usuarios=usuarios, idiomas=idiomas, cargado=True)
+    _CFG.update(idiomas=idiomas, cargado=True)
     return _CFG
-
-
-def usuarios():
-    return cargar()["usuarios"]
 
 
 def idioma(usuario):

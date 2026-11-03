@@ -45,15 +45,20 @@ def test_cookie_trucha(cliente):
     assert cliente.get("/yo").status_code == 401
 
 
-def test_aprobador_no_admin(cliente, monkeypatch):
-    """(21/10) Julián: aprobador pero no admin. ADMINS (default franco,beto) implica aprobador."""
-    monkeypatch.setenv("APROBADORES", "franco,lizzie")
+def test_aprobador_no_admin(cliente, tabla_usuarios):
+    """(21/10) Julián: aprobador pero no admin; un admin es también aprobador. El rol sale de la tabla `usuarios` (3/11)."""
+    tabla_usuarios.poner_rol("lizzie", "aprobador")
     r = cliente.post("/login", json={"usuario": "lizzie", "clave": "clave-lizzie"}).json()["rol"]
-    assert r["aprueba"] is True and r["admin"] is False and r["nombre"] == "aprobador"
+    assert r["aprueba"] is True and r["admin"] is False and r["nombre"] == "aprobador" and r["publica"] is True
     assert cliente.put("/recortes/estilo-defecto", json={"estilo": {"color": "crema"}}).status_code == 403
-    monkeypatch.setenv("ADMINS", "lizzie")
+    tabla_usuarios.poner_rol("lizzie", "admin")
     r = cliente.post("/login", json={"usuario": "lizzie", "clave": "clave-lizzie"}).json()["rol"]
     assert r["admin"] is True and r["aprueba"] is True and r["nombre"] == "admin"
+
+
+def test_creador_no_aprueba_ni_publica(cliente):
+    r = cliente.post("/login", json={"usuario": "lizzie", "clave": "clave-lizzie"}).json()["rol"]
+    assert r == {"nombre": "creador de contenido", "crea": True, "aprueba": False, "admin": False, "publica": False}
 
 
 def test_roles_e_idioma(cliente):
@@ -106,11 +111,13 @@ def test_google_lista_y_rechazo(cliente, monkeypatch):
     assert r.status_code == 200 and r.json()["admitido_por"] == "lista" and r.json()["rol"]["aprueba"] is True
 
 
-def test_google_email_de_la_lista_de_aprobadores(cliente, monkeypatch):
-    """franco@dominio hereda el rol de 'franco' en APROBADORES (parte antes de la arroba)."""
+def test_google_del_dominio_se_vincula_con_la_cuenta_de_la_tabla(cliente, tabla_usuarios, monkeypatch):
+    """franco@dominio entra con Google y se vincula a la cuenta 'franco' de la tabla (sin email todavía): hereda su rol de ahí."""
+    monkeypatch.setattr(db, "disponible", lambda: True)
     monkeypatch.setattr(auth, "verificar_google", lambda t: "franco@viviragradecidos.org")
     r = cliente.post("/login/google", json={"id_token": "x"})
-    assert r.status_code == 200 and r.json()["rol"]["aprueba"] is True
+    assert r.status_code == 200 and r.json()["usuario"] == "franco" and r.json()["rol"]["admin"] is True
+    assert next(f for f in tabla_usuarios.filas.values() if f["usuario"] == "franco")["email"] == "franco@viviragradecidos.org"
 
 
 # ---------------- Chat mockeado ----------------

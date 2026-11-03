@@ -85,7 +85,6 @@ def mundo(monkeypatch):
     monkeypatch.setattr(db, "registrar_cambio_usuario", lambda quien, accion, usuario=None, detalle=None: estado["cambios"].append((quien, accion, usuario, detalle)))
     # la tabla config con quién y cuándo (admin_rutas._filas_config usa db._req); cualquier otra tabla, vacía
     monkeypatch.setattr(db, "_req", lambda metodo, q, cuerpo=None, tabla=None, **kw: [{"clave": k, "valor": v, "actualizado": "2026-10-21T20:00:00+00:00", "por": "franco"} for k, v in config.items()] if tabla == "config" else [])
-    monkeypatch.setattr(db, "usuario_por_nombre", lambda u: None)      # el login sigue por secrets (conftest)
     cuentas.olvidar()
     return estado
 
@@ -152,13 +151,13 @@ def test_uso(logueado, mundo):
     # frase_del_dia no cuenta; julián aparece aunque no esté en la tabla; amalia aparece aunque no hizo nada
     assert r["conversaciones"] == 2 and r["piezas"] == 1 and r["recortes"] == 1 and r["personas_activas"] == 3
     personas = {p["usuario"]: p for p in d["personas"]}
-    # gratefulness viene de la lista de secrets (conftest), mientras conviven las dos listas
-    assert set(personas) == {"franco", "lizzie", "beto", "amalia", "julian", "gratefulness"} and r["personas_total"] == 6
+    # solo la tabla `usuarios` (desde el 3/11 no hay lista de secrets): julián sale de su actividad
+    assert set(personas) == {"franco", "lizzie", "beto", "amalia", "julian"} and r["personas_total"] == 5
     assert personas["franco"]["conversaciones"] == 1 and personas["franco"]["mensajes"] == 3 and personas["franco"]["piezas"] == 1
     assert personas["franco"]["costo_usd"] == pytest.approx(6.2) and personas["franco"]["lo_ultimo"]["texto"] == "Sobre la gratitud"
     assert personas["julian"]["recortes"] == 1 and personas["julian"]["en_tabla"] is False and personas["julian"]["lo_ultimo"]["tipo"] == "recorte"
     assert personas["amalia"]["conversaciones"] == 0 and personas["amalia"]["activo"] is False
-    assert set(d["sin_actividad"]) == {"beto", "amalia", "gratefulness"}
+    assert set(d["sin_actividad"]) == {"beto", "amalia"}
     assert d["personas"][0]["usuario"] == "franco"              # ordenado por última vez
     assert sum(s["total"] for s in d["por_semana"]) == 2 and d["ultimas"]["conversaciones"][0]["titulo"] == "Sobre la gratitud"
 

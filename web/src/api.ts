@@ -62,7 +62,7 @@ export const api = {
     pedir<{ permitido: boolean; motivo: string; usuario: string | null; sin_clave: boolean; mensaje: string | null }>("/cuentas/verificar", { method: "POST", body: JSON.stringify({ email }) }),
   primeraVez: (email: string, usuario: string, clave: string) => pedir<Yo>("/cuentas/primera-vez", { method: "POST", body: JSON.stringify({ email, usuario, clave }) }),
   cambiarClave: (actual: string, nueva: string) => pedir<{ ok: boolean }>("/cuentas/clave", { method: "POST", body: JSON.stringify({ actual, nueva }) }),
-  adminUsuarios: () => pedir<{ usuarios: Usuario[]; en_secrets: string[] }>("/admin/usuarios"),
+  adminUsuarios: () => pedir<{ usuarios: Usuario[] }>("/admin/usuarios"),
   adminCrear: (datos: { usuario: string; email: string | null; nombre: string | null; rol: string; clave: "sin" | "temporal" }) =>
     pedir<{ usuario: Usuario; clave_temporal: string | null }>("/admin/usuarios", { method: "POST", body: JSON.stringify(datos) }),
   adminEditar: (id: string, datos: { nombre?: string; email?: string; rol?: string; activo?: boolean }) =>

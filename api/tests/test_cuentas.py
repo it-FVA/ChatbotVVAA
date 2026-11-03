@@ -1,92 +1,21 @@
 """Pruebas de la gestión de usuarios (22/10) con una tabla `usuarios` y una lista blanca SIMULADAS en memoria
-(monkeypatch sobre db): login por tabla y fallback a secrets, «primera vez», cambio y reset de clave,
+(monkeypatch sobre db): login por tabla (sin fallback a secrets desde el 3/11), «primera vez», cambio y reset de clave,
 roles, protección del último admin, lista blanca, renombrar, Google que crea la fila."""
 import pytest
 
 import db
+from tabla_usuarios import NOMBRES_DB, Tabla
 import api.auth as auth
 import api.cuentas as cuentas
 
-
-class Tabla:
-    """Imita las funciones de db que usa api/cuentas.py y api/auth.py."""
-
-    def __init__(self):
-        self.filas = {}
-        self.lista = {}
-        self.cambios = []
-        self.renombres = []
-        self.n = 0
-
-    def _nuevo_id(self):
-        self.n += 1
-        return f"id-{self.n}"
-
-    # usuarios
-    def usuario_por_nombre(self, u):
-        return next((dict(f) for f in self.filas.values() if f["usuario"] == u.strip().lower()), None)
-
-    def usuario_por_email(self, e):
-        return next((dict(f) for f in self.filas.values() if (f.get("email") or "").lower() == e.strip().lower()), None)
-
-    def usuario_por_id(self, i):
-        return dict(self.filas[i]) if i in self.filas else None
-
-    def listar_usuarios(self, limite=500):
-        return [dict(f) for f in sorted(self.filas.values(), key=lambda f: f["usuario"])]
-
-    def crear_usuario(self, usuario, email=None, nombre=None, rol="creador", clave_hash=None, clave_temporal=False, creado_por=None):
-        i = self._nuevo_id()
-        self.filas[i] = {"id": i, "usuario": usuario.lower(), "email": (email or "").lower() or None, "nombre": nombre, "rol": rol,
-                         "clave_hash": clave_hash, "clave_temporal": clave_temporal, "activo": True, "creado": "2026-10-22T00:00:00Z",
-                         "actualizado": None, "ultimo_login": None, "creado_por": creado_por}
-        return dict(self.filas[i])
-
-    def actualizar_usuario(self, i, campos):
-        self.filas[i].update(campos)
-        return dict(self.filas[i])
-
-    def borrar_usuario(self, i):
-        self.filas.pop(i, None)
-        return []
-
-    def marcar_login(self, i):
-        self.filas[i]["ultimo_login"] = "2026-10-22T11:30:00Z"
-
-    def renombrar_usuario_en_tablas(self, viejo, nuevo):
-        self.renombres.append((viejo, nuevo))
-        return {"conversaciones": 2, "publicaciones": 1, "clips": 0, "uso_openai": 0}
-
-    def registrar_cambio_usuario(self, quien, accion, usuario=None, detalle=None):
-        self.cambios.append((quien, accion, usuario, detalle))
-
-    def listar_cambios_usuarios(self, limite=100):
-        return [{"id": i, "cuando": "2026-10-22T10:00:00Z", "quien": q, "accion": a, "usuario": u, "detalle": d}
-                for i, (q, a, u, d) in reversed(list(enumerate(self.cambios)))]
-
-    # lista blanca
-    def autorizado(self, email):
-        return self.lista.get(email.strip().lower())
-
-    def listar_autorizados(self, limite=200):
-        return list(self.lista.values())
-
-    def agregar_autorizado(self, email, rol, agregado_por, nota=None):
-        self.lista[email.lower()] = {"email": email.lower(), "rol": rol, "agregado_por": agregado_por, "nota": nota}
-        return [self.lista[email.lower()]]
-
-    def quitar_autorizado(self, email):
-        self.lista.pop(email.lower(), None)
-        return []
+TABLA_PROPIA = True   # el conftest no siembra su tabla de franco/lizzie: este módulo arma la suya (fixture `tabla`)
 
 
 @pytest.fixture
 def tabla(monkeypatch):
     t = Tabla()
     monkeypatch.setattr(db, "disponible", lambda: True)
-    for nombre in ("usuario_por_nombre", "usuario_por_email", "usuario_por_id", "listar_usuarios", "crear_usuario", "actualizar_usuario",
-                   "borrar_usuario", "marcar_login", "renombrar_usuario_en_tablas", "registrar_cambio_usuario", "listar_cambios_usuarios",
-                   "autorizado", "listar_autorizados", "agregar_autorizado", "quitar_autorizado"):
+    for nombre in NOMBRES_DB:
         monkeypatch.setattr(db, nombre, getattr(t, nombre))
     cuentas.olvidar()
     # dos cuentas en la tabla: beto (admin, clave 'Clave-beto1') y pato (creador, clave temporal 'Temp-1234')
@@ -104,7 +33,7 @@ def _entrar(cliente, usuario, clave):
 
 # ---------------- Login ----------------
 def test_login_por_tabla_y_rol_de_la_tabla(cliente, tabla):
-    """beto NO está en USUARIOS_JSON ni en APROBADORES del test: entra por la tabla y es admin porque la tabla lo dice."""
+    """beto es admin porque la tabla lo dice."""
     d = _entrar(cliente, "beto", "Clave-beto1")
     assert d["rol"]["nombre"] == "admin" and d["rol"]["aprueba"] and d["en_tabla"] and d["email"] == "beto@viviragradecidos.org"
     assert d["debe_cambiar_clave"] is False and d["tiene_clave"] is True
@@ -113,18 +42,19 @@ def test_login_por_tabla_y_rol_de_la_tabla(cliente, tabla):
     assert cliente.post("/login", json={"usuario": "BETO ", "clave": "Clave-beto1"}).status_code == 200   # sin distinguir mayúsculas
 
 
-def test_fallback_a_secrets(cliente, tabla):
-    """franco sigue solo en USUARIOS_JSON: entra como hasta ahora, con el rol de las listas (APROBADORES=franco, ADMINS default)."""
-    d = _entrar(cliente, "franco", "clave-franco")
-    assert d["rol"]["admin"] is True and d["en_tabla"] is False
+def test_sin_fila_en_la_tabla_no_se_entra(cliente, tabla, monkeypatch):
+    """Ya no hay fallback: ni USUARIOS_JSON ni el [usuarios] de secrets abren una cuenta que no está en la tabla."""
+    monkeypatch.setenv("USUARIOS_JSON", '{"franco": "clave-franco"}')
+    assert cliente.post("/login", json={"usuario": "franco", "clave": "clave-franco"}).status_code == 401
 
 
-def test_rol_de_la_tabla_manda_sobre_las_listas(cliente, tabla, monkeypatch):
-    """Si 'lizzie' está en la tabla como creadora, aunque ADMINS la nombre, vale la tabla."""
+def test_el_rol_sale_solo_de_la_tabla(cliente, tabla, monkeypatch):
+    """Las listas ADMINS / APROBADORES del entorno ya no cuentan: lizzie es creadora porque la tabla lo dice."""
     monkeypatch.setenv("ADMINS", "lizzie")
+    monkeypatch.setenv("APROBADORES", "lizzie")
     tabla.crear_usuario("lizzie", rol="creador", clave_hash=cuentas.hashear("Clave-lizzie1"))
     d = _entrar(cliente, "lizzie", "Clave-lizzie1")
-    assert d["rol"]["nombre"] == "creador de contenido" and d["rol"]["admin"] is False
+    assert d["rol"]["nombre"] == "creador de contenido" and d["rol"]["admin"] is False and d["rol"]["publica"] is False
     assert cliente.get("/admin/usuarios").status_code == 403
 
 
@@ -141,10 +71,6 @@ def test_clave_temporal_obliga_a_cambiarla(cliente, tabla):
     assert cliente.post("/login", json={"usuario": "pato", "clave": "Temp-1234"}).status_code == 401
     assert _entrar(cliente, "pato", "Nueva-clave1")["debe_cambiar_clave"] is False
     assert ("pato", "clave_propia", "pato", {}) in tabla.cambios
-
-
-def test_cambiar_clave_usuario_de_secrets(logueado, tabla):
-    assert logueado.post("/cuentas/clave", json={"actual": "clave-franco", "nueva": "Nueva-clave1"}).status_code == 409
 
 
 def test_cuenta_desactivada(cliente, tabla):
@@ -170,7 +96,7 @@ def test_primera_vez_dominio(cliente, tabla):
     assert cliente.post("/cuentas/primera-vez", json={"email": "ana@viviragradecidos.org", "usuario": "ana2", "clave": "Clave-ana1"}).status_code == 409
     assert cliente.post("/cuentas/primera-vez", json={"email": "otra@viviragradecidos.org", "usuario": "ana", "clave": "Clave-ana1"}).status_code == 409
     # tampoco un usuario que sigue en secrets
-    assert cliente.post("/cuentas/primera-vez", json={"email": "otra@viviragradecidos.org", "usuario": "franco", "clave": "Clave-ana1"}).status_code == 409
+    assert cliente.post("/cuentas/primera-vez", json={"email": "otra@viviragradecidos.org", "usuario": "beto", "clave": "Clave-ana1"}).status_code == 409
 
 
 def test_primera_vez_lista_blanca_con_rol(cliente, tabla):
@@ -260,7 +186,6 @@ def test_admin_lista_usuarios(admin, tabla):
     d = admin.get("/admin/usuarios").json()
     assert [u["usuario"] for u in d["usuarios"]] == ["beto", "pato"]
     assert all("clave_hash" not in u for u in d["usuarios"]) and d["usuarios"][0]["tiene_clave"] is True
-    assert d["en_secrets"] == ["franco", "gratefulness", "lizzie"]   # todavía no importados
 
 
 def test_admin_crear_y_borrar(admin, tabla):
@@ -272,7 +197,7 @@ def test_admin_crear_y_borrar(admin, tabla):
     assert d["debe_cambiar_clave"] is True                                            # ...pero obliga a cambiarla
     _entrar(admin, "beto", "Clave-beto1")
     assert admin.post("/admin/usuarios", json={"usuario": "nueva", "rol": "creador"}).status_code == 409
-    assert admin.post("/admin/usuarios", json={"usuario": "franco", "rol": "creador"}).status_code == 409   # existe en secrets
+    assert admin.post("/admin/usuarios", json={"usuario": "pato", "rol": "creador"}).status_code == 409   # ya existe en la tabla
     assert admin.post("/admin/usuarios", json={"usuario": "otra", "email": "nueva@gmail.com"}).status_code == 409
     r = admin.post("/admin/usuarios", json={"usuario": "sinclave", "email": "s@viviragradecidos.org", "rol": "creador"})
     assert r.status_code == 201 and r.json()["clave_temporal"] is None and r.json()["usuario"]["tiene_clave"] is False
@@ -335,7 +260,7 @@ def test_admin_renombrar(admin, tabla):
     assert r.status_code == 200 and r.json()["usuario"]["usuario"] == "patricio" and r.json()["tablas"]["conversaciones"] == 2
     assert tabla.renombres == [("pato", "patricio")]
     assert admin.post("/admin/usuarios/id-2/renombrar", json={"usuario": "beto"}).status_code == 409
-    assert admin.post("/admin/usuarios/id-2/renombrar", json={"usuario": "franco"}).status_code == 409
+    assert admin.post("/admin/usuarios/id-2/renombrar", json={"usuario": "beto"}).status_code == 409
     assert admin.post("/admin/usuarios/id-2/renombrar", json={"usuario": "a b"}).status_code == 400
     _entrar(admin, "patricio", "Temp-1234")
 

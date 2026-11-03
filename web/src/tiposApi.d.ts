@@ -1227,7 +1227,7 @@ export interface paths {
         put?: never;
         /**
          * Login
-         * @description (22/10) Primero la tabla `usuarios` (hash); si no está ahí, la lista de secrets (transición).
+         * @description Usuario y contraseña contra la tabla `usuarios` (hash bcrypt). Es la única fuente de cuentas (3/11).
          */
         post: operations["login_login_post"];
         delete?: never;
