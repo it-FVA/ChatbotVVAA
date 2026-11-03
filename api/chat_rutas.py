@@ -26,12 +26,13 @@ from . import auth, roles as _roles
 import db            # noqa: E402  (api/__init__ pone la raíz del repo en sys.path)
 import publicar      # noqa: E402
 import documentos    # noqa: E402
+import canales       # noqa: E402
 
 log = logging.getLogger("api")
 router = APIRouter(tags=["chat"])
 
-# Constantes de publicación.
-CANALES = {"wordpress": "WordPress", "instagram": "Instagram", "facebook": "Facebook", "youtube": "YouTube"}
+# Constantes de publicación. (3/11) Los canales salen del registro único canales.py.
+CANALES = canales.nombres()        # {"wordpress": "WordPress", ...}: los de Diseñar
 ZONA_HORARIA = "-03:00"            # las fechas del recuadro son hora de Argentina
 MODO_TXT = {"apagado": "apagado: este canal no está disponible",
             "simulado": "simulado: arma la pieza y la muestra, NO la manda",
@@ -114,7 +115,7 @@ def _validar_pieza(p: Pieza):
         raise HTTPException(400, "Elegí el canal (WordPress, Instagram, Facebook o YouTube). El newsletter se arma en su editor: Campañas → Newsletter.")
     if not (p.texto or "").strip():
         raise HTTPException(400, "Falta el texto de la pieza.")
-    if canal in ("wordpress", "youtube") and not (p.titulo or "").strip():
+    if canales.CANALES[canal].requiere_titulo and not (p.titulo or "").strip():
         raise HTTPException(400, f"En {CANALES[canal]} hace falta un título.")
     return canal
 
@@ -142,13 +143,30 @@ def modos():
         return publicar.Config(os.environ).resumen()
     except Exception as e:
         log.warning("No pude leer la configuración de publicar: %s", e)
-        return {"wordpress": "apagado", "instagram": "apagado", "facebook": "apagado", "youtube": "apagado"}
+        return {c: "apagado" for c in canales.CANALES}
 
 
 def _puede_proponer(canal, r):
-    """«Enviar a aprobación» existe para WordPress, Instagram y Facebook cuando el canal real está
-    en 'real' o 'borrador' (si no, no hay a dónde mandarla cuando la aprueben)."""
-    return canal in ("wordpress", "instagram", "facebook") and r.get(canal) in ("real", "borrador")
+    """«Enviar a aprobación» existe cuando el canal lo admite (canales.py) y el canal real está en 'real' o 'borrador'."""
+    c = canales.canal(canal)
+    return bool(c and c.puede_proponer(r.get(canal)))
+
+
+def info_canales(r, rol):
+    """(3/11) Lo que la web necesita de cada canal de Diseñar, armado acá y no en listas propias de la web: nombres, el modo real y
+    el que ve esta persona (quien no publica en real ve todo simulado), si va a la cola con fecha, si pasa por aprobación y el
+    aviso de qué va a pasar al enviar (con y sin fecha; «{cuando}» lo reemplaza la web por la fecha legible)."""
+    out = {}
+    for c in canales.de_disenar():
+        modo_real = r.get(c.clave, "apagado")
+        modo = modo_real if rol.get("publica") or modo_real == "apagado" else "simulado"
+        out[c.clave] = {"nombre": c.nombre, "texto_canal": c.texto, "detalle": c.detalle, "modo_real": modo_real, "modo": modo,
+                        "texto": MODO_TXT.get(modo, modo), "a_aprobar": c.puede_proponer(modo_real), "acepta_aprobacion": c.acepta_aprobacion,
+                        "requiere_titulo": c.requiere_titulo, "formato": c.formato, "va_a_la_cola": c.va_a_la_cola(modo),
+                        "configurado": bool((r.get("configurado") or {}).get(c.clave, r.get({"wordpress": "wp_configurado", "instagram": "ig_configurado",
+                                                                                               "facebook": "fb_configurado", "youtube": "yt_configurado"}.get(c.clave), False))),
+                        "aviso_sin_fecha": canales.aviso(c.clave, modo, False), "aviso_con_fecha": canales.aviso(c.clave, modo, True)}
+    return out
 
 
 # ---------------- Conversaciones: renombrar, papelera, descargas ----------------
@@ -283,9 +301,10 @@ def publicaciones_modos(s=Depends(auth.sesion)):
     publica en real y a qué canales puede mandar a aprobación."""
     r = modos()
     rol = auth.rol_sesion(s)      # (22/10) tabla usuarios primero, como /yo
-    return {"canales": {c: {"nombre": nombre, "modo": r.get(c, "apagado"), "texto": MODO_TXT.get(r.get(c, "apagado"), r.get(c, "")),
-                            "a_aprobar": _puede_proponer(c, r)} for c, nombre in CANALES.items()},
-            "publica": bool(rol.get("publica")), "aprobadores": rol.get("aprobadores") or []}
+    # el modo que se informa acá es el REAL del canal (la línea «Instagram en modo real»); el que ve la persona va en `modo_visto`
+    canales_ = {c: dict(x, modo=x["modo_real"], modo_visto=x["modo"], texto=MODO_TXT.get(x["modo_real"], x["modo_real"])) for c, x in info_canales(r, rol).items()}
+    return {"canales": canales_, "publica": bool(rol.get("publica")), "aprobadores": rol.get("aprobadores") or [],
+            "todos": canales.para_web()}
 
 
 @router.post("/publicaciones/borrador")

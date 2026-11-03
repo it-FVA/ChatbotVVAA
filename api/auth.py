@@ -19,6 +19,7 @@ from fastapi import HTTPException, Request, Response
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 from . import config, roles as _roles
+import canales       # noqa: E402  (api/__init__ pone la raíz del repo en sys.path)
 
 log = logging.getLogger("api")
 COOKIE = os.environ.get("COOKIE_NOMBRE", "fva_sesion")   # (22/10) configurable: varias APIs locales en localhost no se pisan la sesión
@@ -109,7 +110,9 @@ def yo(s):
             "nombre": fila.get("nombre"), "email": fila.get("email"), "en_tabla": bool(fila),
             "tiene_clave": bool(fila.get("clave_hash")) if fila else True,
             "debe_cambiar_clave": bool(fila.get("clave_temporal")),
-            "rol": {"nombre": r["nombre"], "crea": r["crea"], "aprueba": r["aprueba"], "admin": r["admin"], "publica": r["publica"]}}
+            "rol": {"nombre": r["nombre"], "crea": r["crea"], "aprueba": r["aprueba"], "admin": r["admin"], "publica": r["publica"]},
+            # (3/11) el registro de canales (canales.py): la web no tiene listas propias (menú, nombres visibles, filtro de Mis publicaciones)
+            "canales": canales.para_web()}
 
 
 # ---------------- Usuario y contraseña ----------------

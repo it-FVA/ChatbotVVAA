@@ -100,15 +100,19 @@ export interface FotoBanco {
 
 export interface ModoCanal {
   nombre: string;
-  modo: string;
+  texto_canal: string;
+  modo: string; // el modo REAL del canal
+  modo_visto: string; // el que ve esta persona
   texto: string;
   a_aprobar: boolean;
+  acepta_aprobacion: boolean;
 }
 
 export interface Modos {
   canales: Record<string, ModoCanal>;
   publica: boolean;
   aprobadores: string[];
+  todos: import("./tipos").CanalInfo[]; // (3/11) el registro completo (canales.py)
 }
 
 export interface PiezaEnviada {

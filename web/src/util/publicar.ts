@@ -1,50 +1,19 @@
-// Reglas y textos que la pantalla necesita ANTES de llamar a la API (la API los vuelve a aplicar):
-// el aviso de qué va a pasar al enviar, el texto plano para redes (vista previa) y el armado del formulario desde una pieza guardada.
-import type { Canal, OpcionesPublicar, PiezaForm, PiezaGuardada } from "../tiposPublicar";
+// Textos y helpers de la pantalla de Diseñar: el texto plano para redes (vista previa) y el armado del formulario desde una pieza guardada.
+// (3/11) Las listas de canales, los nombres y el aviso de qué va a pasar al enviar ya NO viven acá: vienen de la API (registro canales.py):
+// GET /yo → `canales`, GET /publicar/opciones → `canales[clave]` con `aviso_sin_fecha` / `aviso_con_fecha`.
+import type { CanalInfo } from "../tipos";
+import type { CanalOpcion, OpcionesPublicar, PiezaForm, PiezaGuardada } from "../tiposPublicar";
 import type { Pieza } from "../tiposChat";
 
-export const CANALES: { clave: Canal; nombre: string; detalle: string }[] = [
-  { clave: "instagram", nombre: "Instagram", detalle: "foto con la frase, reel o historia" },
-  { clave: "facebook", nombre: "Facebook", detalle: "posteo en la página" },
-  { clave: "wordpress", nombre: "Blogpost", detalle: "entrada en viviragradecidos.org" },
-  { clave: "youtube", nombre: "YouTube", detalle: "un recorte como video" },
-];
-export const NOMBRE_CANAL: Record<string, string> = { wordpress: "Blogpost", instagram: "Instagram", facebook: "Facebook", youtube: "YouTube", newsletter: "Newsletter", mail: "Mail (frase del día)", home: "Sitio web (home)", whatsapp: "WhatsApp" };
-const NOMBRE_API: Record<string, string> = { wordpress: "WordPress", instagram: "Instagram", facebook: "Facebook", youtube: "YouTube" };
-
-/** ¿Va a la cola? (la API lo vuelve a decidir) */
-export function vaALaCola(canal: string, modo: string): boolean {
-  if (modo === "apagado") return false;
-  if (canal === "instagram") return true;
-  if (canal === "facebook") return modo !== "real";
-  return false;
+/** El nombre visible de un canal según el registro de la API (o la clave, si no está). */
+export function nombreCanal(canales: CanalInfo[] | undefined | null, clave: string | null | undefined): string {
+  return canales?.find((c) => c.clave === clave)?.texto || clave || "";
 }
 
-/** Aviso: qué va a pasar al enviar, en una o dos frases (sin markdown). */
-export function aviso(canal: string, modo: string, fechaIso: string | null): string {
-  const nombre = NOMBRE_API[canal] || canal;
+/** Aviso: qué va a pasar al enviar, armado por la API para el modo que ve esta persona; acá solo se pone la fecha. */
+export function aviso(info: CanalOpcion, fechaIso: string | null): string {
   const cuando = fechaIso ? fechaIso.slice(0, 16).replace("T", " ") : "";
-  if (modo === "apagado") return `${nombre} está apagado. No se puede hacer nada por este canal.`;
-  let a: string;
-  if (modo === "simulado") {
-    a = `Se arma la pieza tal cual saldría en ${nombre} y se muestra acá. No se manda.`;
-    if (fechaIso && canal === "facebook") a += " (En modo real, Facebook sí acepta programación.)";
-  } else if (modo === "privado") {
-    a = "Se sube el video a YouTube como privado. No lo ve nadie hasta que lo publiques desde YouTube Studio.";
-  } else if (modo === "borrador") {
-    a = "Se crea la entrada en borrador en viviragradecidos.org. No se publica ni sale por newsletter hasta que la publiques desde WordPress.";
-    if (fechaIso) a += ` La fecha ${cuando} queda guardada en el borrador.`;
-  } else {
-    a = `Modo REAL: se publica en ${nombre} de verdad.`;
-    if (fechaIso && canal === "wordpress") a = `Modo REAL: se programa en WordPress para el ${cuando} y sale sola ese día (y por newsletter).`;
-    if (fechaIso && canal === "facebook") a = `Modo REAL: se programa en Facebook para el ${cuando} (mínimo 10 minutos de anticipación).`;
-    if (fechaIso && canal === "youtube") a = `Modo REAL: se sube ahora y YouTube lo publica solo el ${cuando}.`;
-  }
-  if (canal === "youtube" && (modo === "privado" || modo === "real")) a += " (Hasta que Google audite el proyecto, YouTube deja los videos subidos por API en privado: se publican desde YouTube Studio.)";
-  if (fechaIso && vaALaCola(canal, modo)) {
-    a = `Queda en la cola para el ${cuando}: no se manda ahora. Ese día sale sola por ${nombre} con el modo que tenga el canal en ese momento (hoy ${modo}${modo === "simulado" ? ": se arma y se muestra, no se publica" : ""}).`;
-  }
-  return a;
+  return (fechaIso ? info.aviso_con_fecha : info.aviso_sin_fecha).replace("{cuando}", cuando);
 }
 
 /** Texto plano: para redes, saca markdown y links (la API lo vuelve a aplicar al enviar). */
@@ -127,14 +96,15 @@ export function formularioVacio(op?: OpcionesPublicar | null): PiezaForm {
   };
 }
 
-function canalValido(c: string | null | undefined): Canal | "" {
-  return c === "wordpress" || c === "instagram" || c === "facebook" || c === "youtube" ? c : "";
+/** La clave si es un canal de Diseñar (los que manda la API en opciones), si no ''. */
+function canalValido(c: string | null | undefined, op: OpcionesPublicar | null): string {
+  return c && op?.canales[c] ? c : "";
 }
 
 /** De una pieza guardada (borrador, claves cortas) al formulario. */
 export function desdeGuardada(g: PiezaGuardada, op: OpcionesPublicar | null): PiezaForm {
   const base = formularioVacio(op);
-  const canal = canalValido(g.canal);
+  const canal = canalValido(g.canal, op);
   return {
     ...base,
     canal,
@@ -164,7 +134,7 @@ export function desdeGuardada(g: PiezaGuardada, op: OpcionesPublicar | null): Pi
 /** De la pieza que propone el bot en el chat (proponer_publicacion) al formulario. */
 export function desdePropuesta(p: Pieza, op: OpcionesPublicar | null): PiezaForm {
   const base = formularioVacio(op);
-  const canal = canalValido(p.canal);
+  const canal = canalValido(p.canal, op);
   return {
     ...base,
     canal,

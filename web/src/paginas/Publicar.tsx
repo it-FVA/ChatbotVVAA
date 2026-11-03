@@ -11,8 +11,8 @@ import type { Recorte } from "../tipos";
 import { apiChat } from "../apiChat";
 import { apiPublicar } from "../apiPublicar";
 import type { FotoBanco, Pieza } from "../tiposChat";
-import type { Canal, OpcionesPublicar, PiezaForm, RespuestaAprobacion, RespuestaEnvio } from "../tiposPublicar";
-import { CANALES, NOMBRE_CANAL, aviso as textoAviso, desdeGuardada, desdePropuesta, desdeRecorte, fechaIsoDe, fechaLegible, formularioVacio, manana } from "../util/publicar";
+import type { OpcionesPublicar, PiezaForm, RespuestaAprobacion, RespuestaEnvio } from "../tiposPublicar";
+import { aviso as textoAviso, desdeGuardada, desdePropuesta, desdeRecorte, fechaIsoDe, fechaLegible, formularioVacio, manana } from "../util/publicar";
 import VistaPrevia, { type DatosPrevia } from "../componentes/VistaPrevia";
 import { Icono } from "../componentes/Iconos";
 import { Hueso } from "../componentes/Comunes";
@@ -68,7 +68,7 @@ export default function Publicar() {
         } else {
           // (2/11) desde el menú «Canales · Diseñar» se entra con el canal ya elegido
           const canalMenu = params.get("canal");
-          setForm({ ...formularioVacio(o), canal: canalMenu && o.canales[canalMenu] ? (canalMenu as Canal) : "" });
+          setForm({ ...formularioVacio(o), canal: canalMenu && o.canales[canalMenu] ? canalMenu : "" });
           setOrigen("nueva");
         }
       } catch (e) {
@@ -150,7 +150,7 @@ function Formulario({ inicial, op, origen, avisoInicial, avisar }: { inicial: Pi
   // (2/11, Franco) pasar de Facebook a YouTube en el menú cambia el canal de la pieza y conserva título, texto e imagen
   const canalMenu = paramsMenu.get("canal");
   useEffect(() => {
-    if (canalMenu && op.canales[canalMenu]) setF((x) => (x.canal === canalMenu ? x : { ...x, canal: canalMenu as Canal }));
+    if (canalMenu && op.canales[canalMenu]) setF((x) => (x.canal === canalMenu ? x : { ...x, canal: canalMenu }));
   }, [canalMenu, op.canales]);
   const canal = f.canal;
   const info = canal ? op.canales[canal] : null;
@@ -267,7 +267,7 @@ function Formulario({ inicial, op, origen, avisoInicial, avisar }: { inicial: Pi
 
   // ---- botones
   const puedeProponer = !!info?.a_aprobar && !op.publica;
-  const motivoNoProponer = !canal ? "Elegí el canal." : canal === "youtube" ? "YouTube no pasa por aprobación." : info && !info.a_aprobar ? `${info.texto_canal} está en modo ${info.modo_real}: no hay a dónde mandarla cuando la aprueben. Guardala como borrador.` : null;
+  const motivoNoProponer = !canal ? "Elegí el canal." : info && !info.acepta_aprobacion ? `${info.texto_canal} no pasa por aprobación.` : info && !info.a_aprobar ? `${info.texto_canal} está en modo ${info.modo_real}: no hay a dónde mandarla cuando la aprueben. Guardala como borrador.` : null;
   const faltas = [faltaTexto && "falta el texto", faltaTitulo && "falta el título", faltaVideoYT && "falta el video (un recorte)"].filter(Boolean) as string[];
   const etiquetaPrincipal = !canal
     ? "Elegí el canal"
@@ -325,7 +325,7 @@ function Formulario({ inicial, op, origen, avisoInicial, avisar }: { inicial: Pi
       <header className="pagina-cabecera">
         <div>
           <h1>
-            Diseñar{desdeMenu && canal ? <span className="pub-titulo-canal"> · {NOMBRE_CANAL[canal]}</span> : null}
+            Diseñar{desdeMenu && canal ? <span className="pub-titulo-canal"> · {info?.texto_canal || canal}</span> : null}
           </h1>
           <p className="suave">
             {desdeMenu && canal && (AYUDA_CANAL[canal] ?? "Acá se diseña la pieza: foto, frase, texto y fecha. Publicarla es el paso siguiente, desde Aprobación.")}
@@ -357,24 +357,21 @@ function Formulario({ inicial, op, origen, avisoInicial, avisar }: { inicial: Pi
             {desdeMenu && canal ? (
               <div className="pub-canal-fijo">
                 <span>
-                  <strong>{NOMBRE_CANAL[canal]}</strong> <span className="suave chico">{CANALES.find((c) => c.clave === canal)?.detalle}</span>
+                  <strong>{info?.texto_canal || canal}</strong> <span className="suave chico">{info?.detalle}</span>
                   {op.canales[canal] && <span className={"pub-modo chico " + op.canales[canal].modo}> {op.canales[canal].modo}</span>}
                 </span>
               </div>
             ) : (
             <fieldset className="pub-canales">
               <legend>Canal</legend>
-              {CANALES.map((c) => {
-                const i = op.canales[c.clave];
-                return (
-                  <label key={c.clave} className={"pub-canal" + (canal === c.clave ? " activo" : "") + (i?.modo === "apagado" ? " apagado" : "")}>
-                    <input type="radio" name="canal" value={c.clave} checked={canal === c.clave} onChange={() => set("canal", c.clave as Canal)} />
-                    <span className="pub-canal-nombre">{c.nombre}</span>
-                    <span className="pub-canal-detalle chico">{c.detalle}</span>
-                    {i && <span className={"pub-modo chico " + i.modo}>{i.modo}</span>}
-                  </label>
-                );
-              })}
+              {Object.entries(op.canales).map(([clave, i]) => (
+                <label key={clave} className={"pub-canal" + (canal === clave ? " activo" : "") + (i.modo === "apagado" ? " apagado" : "")}>
+                  <input type="radio" name="canal" value={clave} checked={canal === clave} onChange={() => set("canal", clave)} />
+                  <span className="pub-canal-nombre">{i.texto_canal}</span>
+                  <span className="pub-canal-detalle chico">{i.detalle}</span>
+                  <span className={"pub-modo chico " + i.modo}>{i.modo}</span>
+                </label>
+              ))}
             </fieldset>
             )}
             {info && (
@@ -582,10 +579,10 @@ function Formulario({ inicial, op, origen, avisoInicial, avisar }: { inicial: Pi
           {/* ---------- Paso 3: cuándo y enviar ---------- */}
           <Paso n={3} titulo="Cuándo y enviar" resumen={resumen3} abierto={paso === 3} hecho={false} onAbrir={() => canal && setPaso(3)} deshabilitado={!canal}>
             <Programar f={f} set={set} />
-            {canal && (
+            {canal && info && (
               <div className={"pub-aviso " + modo}>
                 <Icono nombre={modo === "real" ? "alerta" : "info"} tam={16} />
-                <span>{textoAviso(canal, modo, fechaIso)}</span>
+                <span>{textoAviso(info, fechaIso)}</span>
               </div>
             )}
             {op.publica && modo === "real" && (
@@ -769,7 +766,7 @@ function Programar({ f, set }: { f: PiezaForm; set: <K extends keyof PiezaForm>(
 
 // ---------------------------------------------------------------------------------------------------------------------
 function ResultadoPanel({ resultado, previa, canal, info, onVolver, onNueva }: { resultado: Resultado; previa: DatosPrevia; canal: string; info: { texto_canal: string } | null; onVolver: () => void; onNueva: () => void }) {
-  const nombre = info?.texto_canal || NOMBRE_CANAL[canal] || canal;
+  const nombre = info?.texto_canal || canal;
   let ok = true;
   let titulo = "";
   let detalle: string | undefined;

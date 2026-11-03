@@ -31,15 +31,14 @@ eso es el banco de imágenes.
 Registro: cada llamada (simulada o real) deja una línea en conectores/registro_publicaciones.jsonl,
 con fecha, canal, modo, quién, y qué se mandó. No va al repo.
 """
-import os, json, base64, time, datetime, mimetypes, urllib.request, urllib.parse, urllib.error
+import os, copy, json, base64, time, datetime, mimetypes, urllib.request, urllib.parse, urllib.error
+
+import canales
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REGISTRO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "registro_publicaciones.jsonl")
-MODOS_WP = ("apagado", "simulado", "borrador", "real")
-MODOS_IG = ("apagado", "simulado", "real")
-MODOS_FB = ("apagado", "simulado", "real")    # real requiere META_FB_PAGE_ID y META_FB_PAGE_TOKEN (24/9)
-MODOS_WA = ("apagado", "simulado")             # (2/11) WhatsApp: prototipo; «real» todavía no existe (ver publicar_whatsapp)
-MODOS_YT = ("apagado", "simulado", "privado", "real")   # (25/9) privado = sube el video como PRIVADO (se revisa en YouTube Studio)
+# (3/11) los modos válidos de cada canal viven en canales.py (registro único); estos nombres quedan como alias
+MODOS_WP, MODOS_IG, MODOS_FB, MODOS_YT, MODOS_WA = canales.MODOS_WP, canales.MODOS_RED, canales.MODOS_RED, canales.MODOS_YT, canales.MODOS_WA
 YT_TOKEN_URL = "https://oauth2.googleapis.com/token"
 YT_UPLOAD_URL = "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status"
 IG_HOST = "https://graph.instagram.com/v21.0"
@@ -80,33 +79,20 @@ def _cargar_env(path):
 
 
 class Config:
-    """Lee las claves de un dict o del entorno (secrets.toml / clave.env cargados por api/config.py). Nunca las imprime."""
+    """Lee las claves de un dict o del entorno (secrets.toml / clave.env cargados por api/config.py). Nunca las imprime.
+    (3/11) El modo de cada canal sale del registro canales.py: `self.modos` = {clave: modo}; `modo_wp`, `modo_ig`… son alias."""
 
     def __init__(self, fuente=None):
         if fuente is None:
             _cargar_env(os.path.join(BASE, "clave.env"))
             fuente = os.environ
         g = lambda k: str(fuente.get(k, "") or "").strip()
-        self.modo_wp = g("PUBLICAR_WORDPRESS").lower() or "apagado"
-        self.modo_ig = g("PUBLICAR_INSTAGRAM").lower() or "apagado"
-        self.modo_fb = g("PUBLICAR_FACEBOOK").lower() or "apagado"
-        if self.modo_wp not in MODOS_WP:
-            self.modo_wp = "apagado"       # valor desconocido = no publicar
-        if self.modo_ig not in MODOS_IG:
-            self.modo_ig = "apagado"
-        if self.modo_fb not in MODOS_FB:
-            self.modo_fb = "apagado"
-        # (2/11) la frase en la home del sitio tiene su propio interruptor: las entradas del blog van en borrador para revisarlas,
-        # pero la frase del día tiene que publicarse sola. Sin PUBLICAR_HOME, usa el modo de WordPress.
-        self.modo_home = g("PUBLICAR_HOME").lower() or self.modo_wp
-        if self.modo_home not in MODOS_WP:
-            self.modo_home = "apagado"
-        self.modo_yt = g("PUBLICAR_YOUTUBE").lower() or "apagado"
-        if self.modo_yt not in MODOS_YT:
-            self.modo_yt = "apagado"
-        self.modo_wa = g("PUBLICAR_WHATSAPP").lower() or "apagado"
-        if self.modo_wa not in MODOS_WA:
-            self.modo_wa = "apagado"   # «real» u otro valor: no hay endpoint, no se manda
+        self.modos = {}
+        for c in canales.CANALES.values():
+            m = g(c.variable).lower()
+            if not m and c.hereda:
+                m = self.modos.get(c.hereda, "")        # (2/11) home: sin PUBLICAR_HOME usa el modo de WordPress
+            self.modos[c.clave] = m if m in c.modos else "apagado"    # valor desconocido, vacío o ausente = no publicar
         # YouTube: el permiso otorgado (youtube_token.json) puede venir pegado en un secret
         # (YOUTUBE_TOKEN_JSON) o como archivo al lado de clave.env. Nunca se imprime.
         self.yt_token_json = g("YOUTUBE_TOKEN_JSON")
@@ -124,13 +110,62 @@ class Config:
         self.ig_id = g("META_IG_USER_ID")
         self.fb_page_id = g("META_FB_PAGE_ID")
         self.fb_token = g("META_FB_PAGE_TOKEN")
+        # ¿están cargadas las claves que el canal necesita? (YouTube: el token puede venir de archivo)
+        self.configurado = {c.clave: all(g(k) for k in c.claves) for c in canales.CANALES.values()}
+        self.configurado["youtube"] = bool(self.yt_token_json)
+
+    def modo(self, clave):
+        return self.modos.get(clave, "apagado")
+
+    def simulada(self):
+        """Una copia con todos los canales en simulado (los apagados siguen apagados): lo que ve quien no publica en real."""
+        c = copy.copy(self)
+        c.modos = {k: ("apagado" if m == "apagado" else "simulado") for k, m in self.modos.items()}
+        return c
 
     def resumen(self):
-        return {"wordpress": self.modo_wp, "instagram": self.modo_ig, "facebook": self.modo_fb, "youtube": self.modo_yt, "home": self.modo_home, "whatsapp": self.modo_wa,
-                "yt_configurado": bool(self.yt_token_json),
-                "wp_configurado": bool(self.wp_site and self.wp_user and self.wp_pass),
-                "ig_configurado": bool(self.ig_token and self.ig_id),
-                "fb_configurado": bool(self.fb_page_id and self.fb_token)}
+        r = dict(self.modos)
+        r.update({"yt_configurado": self.configurado["youtube"], "wp_configurado": self.configurado["wordpress"],
+                  "ig_configurado": self.configurado["instagram"], "fb_configurado": self.configurado["facebook"],
+                  "configurado": dict(self.configurado)})
+        return r
+
+
+def _alias_modo(clave):
+    return property(lambda self: self.modos.get(clave, "apagado"), lambda self, v: self.modos.__setitem__(clave, v))
+
+
+for _clave, _attr in (("wordpress", "modo_wp"), ("instagram", "modo_ig"), ("facebook", "modo_fb"), ("youtube", "modo_yt"),
+                      ("whatsapp", "modo_wa"), ("home", "modo_home"), ("mail", "modo_mail")):
+    setattr(Config, _attr, _alias_modo(_clave))
+
+
+def _fecha_futura(fecha):
+    """fecha_programada (con zona, como la devuelve Supabase, o sin zona = hora Argentina) → 'AAAA-MM-DDTHH:MM:SS' en hora
+    Argentina si todavía no llegó; None si ya venció o no hay fecha. Los conectores solo reciben fechas futuras (el proveedor
+    programa); una pieza vencida se publica ahora (es lo que hace la cola)."""
+    if not fecha:
+        return None
+    try:
+        dt = _fecha_local(str(fecha).replace("Z", "+00:00")[:25])
+    except ValueError:
+        return None
+    if dt <= _ahora_local():
+        return None
+    return dt.astimezone(ZONA_ARGENTINA).strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def enviar_pieza(cfg, pieza, quien="cola"):
+    """(3/11) EL despacho por canal, único: recibe la fila de `publicaciones` (o un dict con las mismas claves) y llama al conector
+    que dice el registro (canales.CANALES[canal].foto o .video, según resultado.video_url). Lo usan la cola (procesar_cola.py),
+    el envío directo y la aprobación (api/publicar_rutas.py). Devuelve el dict del conector: {"ok", "modo", "aviso", …}."""
+    c = canales.canal(pieza.get("canal"))
+    if not c:
+        return {"ok": False, "modo": "", "aviso": f"canal desconocido: {pieza.get('canal')}"}
+    fn = c.video if (pieza.get("resultado") or {}).get("video_url") and c.video else c.foto
+    if not fn:
+        return {"ok": False, "modo": cfg.modo(c.clave), "aviso": f"{c.texto} no se publica desde la plataforma."}
+    return fn(cfg, pieza, quien, _fecha_futura(pieza.get("fecha_programada")))
 
 
 # ----------------------------------------------------------------------------- utilidades

@@ -12,6 +12,10 @@ import os, json, re, urllib.parse
 import numpy as np
 from openai import OpenAI
 
+import canales as _canales
+# (3/11) los canales que el asistente puede proponer en una pieza: los de Diseñar (registro canales.py) más el newsletter
+CANALES_CHAT = list(_canales.nombres()) + ["newsletter"]
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 EMB_MODEL = "text-embedding-3-small"
 DIM = 512
@@ -1151,7 +1155,7 @@ TOOLS = [
             "texto_imagen": {"type": "string", "description": "Si la pieza tiene un texto que va SOBRE la imagen (una frase corta, la cita para el diseño), ponelo acá, solo eso, sin comillas de markdown y SIN la firma (la firma va aparte). Vacío si no aplica."},
             "firma": {"type": "string", "description": "Quién dice la frase de la imagen, como se firma en la pieza: '— Br. David' por defecto; si es de un facilitador, su nombre ('— Andy Saporiti'). Vacío si no hay texto sobre la imagen."},
             "titulo": {"type": "string", "description": "Título corto de la pieza (obligatorio si es blogpost en WordPress; en redes es solo para el registro). No repetir el texto."},
-            "canal": {"type": "string", "enum": ["wordpress", "instagram", "facebook", "youtube", "newsletter", ""],
+            "canal": {"type": "string", "enum": CANALES_CHAT + [""],
                       "description": "Canal SOLO si la persona lo dijo (blogpost/entrada/blog/artículo en la web → wordpress; newsletter/mail a la comunidad → newsletter, y entonces texto = la reflexión principal; video/clip para YouTube → youtube, y entonces texto = la descripción del video). Si no lo dijo, dejalo vacío: el recuadro se lo pide."},
             "fecha": {"type": "string", "description": "YYYY-MM-DD si la persona pidió un día ('el sábado', 'mañana', '15/11'); vacío si no."},
             "hora": {"type": "string", "description": "HH:MM si la persona pidió una hora; vacío si no."},
@@ -1226,7 +1230,7 @@ def _ejecutar_tool(nombre, args):
         canal = (args.get("canal") or "").strip().lower()
         fecha = (args.get("fecha") or "").strip()
         hora = (args.get("hora") or "").strip()
-        pieza = {"canal": canal if canal in ("wordpress", "instagram", "facebook", "youtube", "newsletter") else "",
+        pieza = {"canal": canal if canal in CANALES_CHAT else "",
                  "fecha": fecha if re.fullmatch(r"\d{4}-\d{2}-\d{2}", fecha) else "",
                  "hora": hora if re.fullmatch(r"\d{1,2}:\d{2}", hora) else "",
                  "titulo": (args.get("titulo") or "").strip()[:150],

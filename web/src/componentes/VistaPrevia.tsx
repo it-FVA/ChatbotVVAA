@@ -3,7 +3,8 @@
 // Es una maqueta aproximada hecha con CSS: la imagen que se ve es la que viaja (la compuesta con la frase, o la foto sola).
 import { useState } from "react";
 import { aHtml } from "../util/markdown";
-import { NOMBRE_CANAL, fechaLegible, textoPlano } from "../util/publicar";
+import { useSesion } from "../App";
+import { fechaLegible, nombreCanal, textoPlano } from "../util/publicar";
 import { Icono } from "./Iconos";
 
 export interface DatosPrevia {
@@ -23,6 +24,7 @@ const CUENTA = "vivir.agradecidos";
 const PAGINA = "Vivir Agradecidos";
 
 export default function VistaPrevia({ d, compacta = false }: { d: DatosPrevia; compacta?: boolean }) {
+  const { yo } = useSesion();
   if (!d.canal) {
     return (
       <div className="previa previa-vacia suave">
@@ -33,7 +35,7 @@ export default function VistaPrevia({ d, compacta = false }: { d: DatosPrevia; c
   }
   const historia = d.formato === "historia";
   return (
-    <div className={"previa previa-" + d.canal + (compacta ? " compacta" : "")} aria-label={"Vista previa en " + (NOMBRE_CANAL[d.canal] || d.canal)}>
+    <div className={"previa previa-" + d.canal + (compacta ? " compacta" : "")} aria-label={"Vista previa en " + nombreCanal(yo?.canales, d.canal)}>
       {d.canal === "instagram" && (historia ? <Historia d={d} /> : <Instagram d={d} />)}
       {d.canal === "facebook" && <Facebook d={d} />}
       {d.canal === "wordpress" && <Blogpost d={d} />}

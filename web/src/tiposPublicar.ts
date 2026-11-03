@@ -1,15 +1,21 @@
 // Lo que devuelve la API para Publicar, Mis publicaciones y Aprobación (api/publicar_rutas.py y GET /publicaciones de api/main.py).
 
-export type Canal = "wordpress" | "instagram" | "facebook" | "youtube";
-
+/** (3/11) Un canal de Diseñar tal como lo arma la API (chat_rutas.info_canales, del registro canales.py). */
 export interface CanalOpcion {
   nombre: string; // WordPress, Instagram…
   texto_canal: string; // Blogpost, Instagram… (nombre visible)
+  detalle: string; // la línea de la tarjeta
   modo_real: string; // apagado | simulado | borrador | privado | real
   modo: string; // el que ve esta persona (quien no publica en real ve todo simulado)
   texto: string;
-  a_aprobar: boolean;
+  a_aprobar: boolean; // hoy se puede mandar a aprobación (el canal lo admite y está en real/borrador)
+  acepta_aprobacion: boolean; // el canal pasa por aprobación (YouTube no)
+  requiere_titulo: boolean;
+  formato: string | null; // formato de foto sugerido
+  va_a_la_cola: boolean; // con fecha, la pieza va a la cola (con el modo que ve esta persona)
   configurado: boolean;
+  aviso_sin_fecha: string; // qué pasa al enviar (la API lo arma; «{cuando}» = la fecha legible)
+  aviso_con_fecha: string;
 }
 
 export interface OpcionesPublicar {
@@ -35,7 +41,7 @@ export interface OpcionesPublicar {
 
 /** El estado del formulario de Publicar (= los campos). Es también lo que se manda a la API. */
 export interface PiezaForm {
-  canal: Canal | "";
+  canal: string; // clave del canal ('' = sin elegir); los válidos son los de OpcionesPublicar.canales
   titulo: string;
   texto: string;
   imagen_url: string | null;

@@ -6,7 +6,9 @@ import { Link } from "react-router-dom";
 import { ErrorApi } from "../api";
 import { apiPublicar } from "../apiPublicar";
 import type { MisPublicaciones, Publicacion } from "../tiposPublicar";
-import { fechaCorta, fechaLegible } from "../util/publicar";
+import type { CanalInfo } from "../tipos";
+import { useSesion } from "../App";
+import { fechaCorta, fechaLegible, nombreCanal } from "../util/publicar";
 import { Icono, type NombreIcono } from "../componentes/Iconos";
 import Modal from "../componentes/Modal";
 import { EstadoVacio, Hueso } from "../componentes/Comunes";
@@ -16,15 +18,22 @@ import { apiProyectos } from "../apiProyectos";
 import { etiqueta, useProyectos } from "../componentes/proyectos/ProyectosContexto";
 
 const ORDEN = ["Todas", "Pendientes", "Aprobadas", "Publicadas", "Borradores", "Rechazadas", "Pruebas", "Del equipo"];
-// (2/11, Franco) filtro por tipo de pieza: canal + formato (historia / posteo de Instagram, Facebook, blogpost, YouTube, newsletter…)
-const NOMBRE_TIPO: Record<string, string> = { "instagram:historia": "Instagram · historia", "instagram:reel": "Instagram · reel", "instagram": "Instagram · posteo", facebook: "Facebook", wordpress: "Blogpost", youtube: "YouTube", newsletter: "Newsletter", mail: "Mail (frase del día)", home: "Sitio web (home)", whatsapp: "WhatsApp" };
+// (2/11, Franco) filtro por tipo de pieza: canal + formato (historia / posteo de Instagram, Facebook, blogpost, YouTube, newsletter…).
+// (3/11) Los nombres salen del registro de la API (yo.canales); el formato de Instagram se agrega acá.
 function tipoDe(p: Publicacion): string {
   if (p.canal === "instagram" && (p.formato === "historia" || p.formato === "reel")) return `instagram:${p.formato}`;
   return p.canal;
 }
+function nombreTipo(canales: CanalInfo[], t: string): string {
+  const [canal, formato] = t.split(":");
+  const nombre = nombreCanal(canales, canal);
+  if (canal === "instagram") return `${nombre} · ${formato || "posteo"}`;
+  return nombre;
+}
 
 export default function Publicaciones() {
   const { avisar } = useToast();
+  const canales = useSesion().yo?.canales || [];
   const [datos, setDatos] = useState<MisPublicaciones | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [solapa, setSolapa] = useState("Todas");
@@ -92,7 +101,7 @@ export default function Publicaciones() {
             <option value="">todos</option>
             {tipos.map((t) => (
               <option key={t} value={t}>
-                {NOMBRE_TIPO[t] ?? t}
+                {nombreTipo(canales, t)}
               </option>
             ))}
           </select>
@@ -161,7 +170,6 @@ export default function Publicaciones() {
 
 const ICONO_ESTADO: Record<string, NombreIcono> = { a_aprobar: "reloj", pendiente: "calendario", programada: "calendario", publicada: "check", PUBLICADO: "check", draft: "lapiz", lista: "check", borrador: "lapiz", rechazada: "cruz", cancelada: "cruz", error: "alerta", prueba: "ojo", simulada: "ojo", simulado: "ojo" };
 const CLASE_ESTADO: Record<string, string> = { a_aprobar: "proceso", pendiente: "ok", programada: "ok", publicada: "listo", PUBLICADO: "listo", draft: "ok", lista: "listo", borrador: "neutro", rechazada: "error", cancelada: "neutro", error: "error", prueba: "neutro", simulada: "neutro", simulado: "neutro" };
-const ICONO_CANAL: Record<string, NombreIcono> = { instagram: "celular", facebook: "usuarios", wordpress: "externo", youtube: "pelicula", newsletter: "enviar" };
 
 export function descargarHtml(p: Publicacion) {
   const blob = new Blob([p.texto || ""], { type: "text/html;charset=utf-8" });
@@ -195,6 +203,7 @@ export function TarjetaPublicacion({ p, mostrarUsuario = false, onEliminar, onCa
   // (22/10, Franco: "la misma lógica para todo") «Guardar en un proyecto», igual que en Mis recortes: la carpeta donde está y el modal para elegir otra.
   const { avisar } = useToast();
   const proyectos = useProyectos();
+  const canales = useSesion().yo?.canales || [];
   const carpeta = proyectos.carpetaDe("pieza", p.id);
   const [aProyecto, setAProyecto] = useState(false);
   return (
@@ -208,7 +217,7 @@ export function TarjetaPublicacion({ p, mostrarUsuario = false, onEliminar, onCa
             <Icono nombre={ICONO_ESTADO[p.estado] || "info"} tam={14} /> {p.estado_texto}
           </span>
           <span>
-            <Icono nombre={ICONO_CANAL[p.canal] || "megafono"} tam={14} /> {p.canal_texto}
+            <Icono nombre={(canales.find((c) => c.clave === p.canal)?.icono as NombreIcono) || "megafono"} tam={14} /> {p.canal_texto}
             {p.formato && p.formato !== "cuadrado" ? ` · ${p.formato}` : ""}
           </span>
           <span className="suave">creada {fechaCorta(p.creado)}</span>

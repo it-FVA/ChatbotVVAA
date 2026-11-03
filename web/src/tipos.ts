@@ -19,6 +19,22 @@ export interface Yo {
   en_tabla: boolean;
   tiene_clave: boolean;
   debe_cambiar_clave: boolean; // clave temporal puesta por un admin: hay que cambiarla antes de seguir
+  /** (3/11) El registro de canales de la API (canales.py): la web no tiene listas propias. */
+  canales: CanalInfo[];
+}
+
+/** Un canal del registro único (canales.py → GET /yo, GET /publicaciones/modos `todos`). */
+export interface CanalInfo {
+  clave: string; // wordpress | instagram | facebook | youtube | mail | home | whatsapp | newsletter
+  nombre: string; // como lo nombra la API («WordPress»)
+  texto: string; // nombre visible («Blogpost»)
+  detalle: string; // la línea de la tarjeta de Diseñar
+  icono: string; // nombre de icono (componentes/Iconos.tsx)
+  en_disenar: boolean; // aparece en Diseñar y en el menú
+  formato: string | null; // formato de foto sugerido
+  requiere_titulo: boolean;
+  acepta_aprobacion: boolean;
+  frase: string | null; // nombre en la Frase del día (null = la frase no sale por acá)
 }
 
 // (22/10) Administración → Usuarios (api/cuentas.py; nunca viene el hash)

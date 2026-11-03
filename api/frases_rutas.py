@@ -49,7 +49,8 @@ from pydantic import BaseModel
 
 from . import auth
 import db                       # noqa: E402  (api/__init__ pone la raíz del repo en sys.path)
-import programar_frases as pf   # noqa: E402
+import programar_frases as pf
+import canales as _canales   # noqa: E402  (hay una ruta llamada `canales` en este archivo)
 
 log = logging.getLogger("api")
 router = APIRouter(prefix="/frases", tags=["frases"])
@@ -218,21 +219,16 @@ def resumen(request: Request):
     canales_on = db.obtener_config("frase_canales") or pf.CANALES_DEFECTO
     try:
         cfg, _pub = _cfg()
-        modos = cfg.resumen()
+        modos = cfg.resumen()          # (3/11) todos los canales del registro, mail incluido
     except Exception:
         modos = {}
-    try:
-        import perfit
-        modos["mail"] = perfit.modo()
-    except Exception:
-        modos["mail"] = "apagado"
     piezas_man = (prox or {}).get("piezas") or {}
     filas = []
     for k, nombre in pf.CANALES_POSIBLES.items():
         pid = piezas_man.get(k)
         p = db.obtener_publicacion(pid) if pid else None
         filas.append({"canal": k, "nombre": nombre, "prendido": k in canales_on,
-                      "modo": modos.get("instagram" if k == "historia" else k, "apagado"),
+                      "modo": modos.get(_canales.canal_de_salida(k)[0], "apagado"),
                       "pieza": {"id": pid, "estado": p.get("estado"), "fecha_programada": p.get("fecha_programada")} if p else None})
     manana = {"fecha": man.isoformat(), "fecha_texto": _fecha_txt(man), "dia": DIAS[man.weekday()], "frase": _publica(prox),
               "en_cola": any(f["pieza"] and f["pieza"]["estado"] in ("pendiente", "procesando", "enviando") for f in filas), "canales": filas}

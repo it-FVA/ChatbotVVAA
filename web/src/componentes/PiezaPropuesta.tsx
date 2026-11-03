@@ -6,12 +6,14 @@ import { Link, useNavigate } from "react-router-dom";
 import { ErrorApi } from "../api";
 import { apiChat } from "../apiChat";
 import type { Pieza, RespuestaPieza } from "../tiposChat";
-import { NOMBRE_CANAL, fechaLegible } from "../util/publicar";
+import { useSesion } from "../App";
+import { fechaLegible, nombreCanal } from "../util/publicar";
 import { Icono } from "./Iconos";
 import { useToast } from "./Toasts";
 
 export default function PiezaPropuesta({ pieza, abierto }: { pieza: Pieza; abierto: boolean }) {
   const { avisar } = useToast();
+  const { yo } = useSesion();
   const nav = useNavigate();
   const [guardando, setGuardando] = useState(false);
   const [hecho, setHecho] = useState<RespuestaPieza | null>(null);
@@ -71,7 +73,7 @@ export default function PiezaPropuesta({ pieza, abierto }: { pieza: Pieza; abier
         <Icono nombre="megafono" tam={18} />
         <span>
           Diseñar esta pieza
-          {canal && <span className="suave"> · {NOMBRE_CANAL[canal] || canal}</span>}
+          {canal && <span className="suave"> · {nombreCanal(yo?.canales, canal)}</span>}
           {fechaIso && <span className="suave"> · {fechaLegible(fechaIso)}</span>}
         </span>
       </summary>
@@ -94,7 +96,7 @@ export default function PiezaPropuesta({ pieza, abierto }: { pieza: Pieza; abier
           <dl className="pieza-datos">
             <div>
               <dt>Canal</dt>
-              <dd>{canal ? NOMBRE_CANAL[canal] || canal : <span className="suave">a elegir</span>}</dd>
+              <dd>{canal ? nombreCanal(yo?.canales, canal) : <span className="suave">a elegir</span>}</dd>
             </div>
             {pieza.titulo && (
               <div>

@@ -1,22 +1,18 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { useSesion } from "../App";
-import { Icono } from "./Iconos";
+import { Icono, type NombreIcono } from "./Iconos";
 
 // Barra lateral. Rediseñada el 2/11 a pedido de Alberto (reunión del 2/11): de lo general a lo particular.
 //   Chat · Canales (Diseñar: Instagram, Facebook, Blogpost, YouTube, Email; WhatsApp pronto) · Campañas (Frase del día,
 //   Newsletter) · Proyectos (míos, compartidos conmigo) · Herramientas (Mis publicaciones, Mis recortes) · Gestión (Aprobación,
 //   Administración; se llamó «Equipo» hasta el 3/11). «Publicar» pasó a llamarse «Diseñar»: una cosa es diseñar la pieza y otra publicarla (eso lo hace el aprobador).
 // Abajo, el usuario lleva a «Mi cuenta» (cambiar la contraseña).
-const CANALES = [
-  { clave: "instagram", texto: "Instagram", icono: "imagen" },
-  { clave: "facebook", texto: "Facebook", icono: "megafono" },
-  { clave: "wordpress", texto: "Blogpost", icono: "casa" },
-  { clave: "youtube", texto: "YouTube", icono: "pelicula" },
-] as const;
+// (3/11) Los canales del menú salen del registro de la API (canales.py, GET /yo → canales con en_disenar): no hay lista propia.
 
 export default function Barra() {
   const { yo, setYo } = useSesion();
+  const canalesMenu = (yo?.canales || []).filter((c) => c.en_disenar);
   const nav = useNavigate();
   const loc = useLocation();
 
@@ -51,9 +47,9 @@ export default function Barra() {
         <div className="barra-grupo" title="Diseñar una pieza para cada canal. Publicarla es otro paso: lo hace quien aprueba.">
           Canales · Diseñar
         </div>
-        {CANALES.map((c) => (
+        {canalesMenu.map((c) => (
           <NavLink key={c.clave} to={`/publicar?canal=${c.clave}`} className={"barra-link sub" + (canalActivo === c.clave ? " activo" : "")} title={`Diseñar una pieza para ${c.texto}`}>
-            <Icono nombre={c.icono} /> {c.texto}
+            <Icono nombre={c.icono as NombreIcono} /> {c.texto}
           </NavLink>
         ))}
         <NavLink to="/newsletter" className={sub} title="Diseñar un email (el editor del newsletter)">

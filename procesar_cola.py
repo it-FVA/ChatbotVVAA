@@ -2,8 +2,8 @@
 procesar_cola.py — Saca de la cola las piezas que ya tienen que salir (25/9).
 
 Lee de Supabase las publicaciones con estado 'pendiente' y fecha_programada <= ahora, y las
-publica con publicar.py usando el switch por canal que haya EN ESE MOMENTO en el entorno:
-    PUBLICAR_INSTAGRAM / PUBLICAR_FACEBOOK / PUBLICAR_WORDPRESS = apagado | simulado | borrador | real
+publica con publicar.enviar_pieza (el despacho único, registro canales.py) usando el switch por canal que haya EN ESE MOMENTO
+en el entorno: PUBLICAR_<CANAL> = apagado | simulado | borrador | real
 Regla dura heredada de publicar.py: sin `real` exacto no se llama a ningún endpoint de publicar.
 Resultado por pieza: estado 'publicada' (real), 'simulada' (simulado/borrador) o 'error'; queda
 `procesado_en` y `resultado` (respuesta de la API o el aviso). Una pieza con error se reintenta
@@ -30,17 +30,17 @@ def _cargar_config_local():
 
 def main():
     _cargar_config_local()
-    if "--simular" in sys.argv:
-        for k in ("PUBLICAR_INSTAGRAM", "PUBLICAR_FACEBOOK", "PUBLICAR_WORDPRESS"):
+    import canales, db, publicar
+    if "--simular" in sys.argv:          # (3/11) TODOS los canales con conector (antes solo WordPress, Instagram y Facebook)
+        for k in canales.variables():
             os.environ[k] = "simulado"
-    import db, publicar
     if not db.disponible():
         print("Sin Supabase (SUPABASE_URL / SUPABASE_KEY). Nada que hacer.")
         return 1
     cfg = publicar.Config(os.environ)
     r = cfg.resumen()
     ahora = datetime.datetime.now(datetime.timezone.utc)
-    print(f"[{ahora.isoformat(timespec='minutes')}] modos: wordpress={r['wordpress']} instagram={r['instagram']} facebook={r['facebook']}")
+    print(f"[{ahora.isoformat(timespec='minutes')}] modos: " + " ".join(f"{k}={v}" for k, v in cfg.modos.items() if k != "newsletter"))
     try:   # (15/10) papelera de conversaciones: borrado definitivo pasados los 30 días
         n = db.vaciar_papelera_vencida()
         if n:
@@ -66,41 +66,8 @@ def main():
         except Exception as e:
             print(f"  ! no pude marcarla 'procesando' ({e}); no la publico ahora, queda pendiente")
             continue
-        video_url = (p.get("resultado") or {}).get("video_url")   # (16/10) pieza de video (recorte)
-        try:
-            if video_url and canal == "instagram":
-                historia = ((p.get("resultado") or {}).get("formato") == "historia")
-                res = publicar.publicar_instagram_video(cfg, video_url, texto, quien="cola", historia=historia)
-            elif video_url and canal == "facebook":
-                res = publicar.publicar_facebook_video(cfg, video_url, texto, quien="cola", titulo=titulo)
-            elif video_url and canal == "youtube":
-                datos, err = publicar.bajar_bytes(video_url)
-                res = ({"ok": False, "aviso": f"no pude bajar el recorte: {err}"} if err else
-                       publicar.publicar_youtube(cfg, datos, titulo, texto, quien="cola", nombre_archivo=video_url.rsplit("/", 1)[-1]))
-            elif canal == "instagram":
-                historia = ((p.get("resultado") or {}).get("formato") == "historia")
-                res = publicar.publicar_instagram(cfg, imagen or "", texto, quien="cola", historia=historia)
-            elif canal == "facebook":
-                res = publicar.publicar_facebook(cfg, imagen, texto, quien="cola")
-            elif canal == "mail":
-                # (26/10) Frase del día por mail: arma la lista de destinatarios y la pieza queda 'enviando'; las tandas
-                # las manda frase_mail.avanzar al final de cada pasada (200 por hora, límite de Perfit)
-                import frase_mail, perfit
-                res = frase_mail.iniciar(p, db, perfit)
-            elif canal == "whatsapp":
-                # (2/11) prototipo: solo simula (no hay endpoint para la cuenta común); ver publicar.publicar_whatsapp
-                res = publicar.publicar_whatsapp(cfg, imagen, texto, quien="cola")
-            elif canal == "home":
-                # (2/11) Frase del día en la home del sitio: una entrada del tipo «frase» (texto + autor), la lista el widget de la home
-                ex = p.get("resultado") or {}
-                res = publicar.publicar_frase_home(cfg, ex.get("texto_imagen") or texto, ex.get("autor"), fecha=p.get("fecha_programada"), quien="cola")
-            elif canal == "wordpress":
-                # (13/10) piezas aprobadas: la imagen ya está en la biblioteca; va como destacada
-                # (16/10) con video_url, el recorte va al principio de la entrada
-                res = publicar.publicar_wordpress(cfg, titulo, publicar.html_video(video_url, texto) if video_url else texto, quien="cola",
-                                                  imagen_id=publicar.media_id_por_url(cfg, imagen) if imagen else None)
-            else:
-                res = {"ok": False, "aviso": f"canal desconocido: {canal}"}
+        try:   # (3/11) un solo despacho por canal para la cola, el envío directo y la aprobación: publicar.enviar_pieza (registro canales.py)
+            res = publicar.enviar_pieza(cfg, p, quien="cola")
         except Exception as e:
             res = {"ok": False, "aviso": f"excepción: {e}"}
         modo = res.get("modo") or r.get(canal, "")

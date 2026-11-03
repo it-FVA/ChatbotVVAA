@@ -35,15 +35,15 @@ from . import chat_rutas as cr
 import db            # noqa: E402  (api/__init__ pone la raíz del repo en sys.path)
 import publicar      # noqa: E402
 import imagen        # noqa: E402
+import canales       # noqa: E402
 
 log = logging.getLogger("api")
 router = APIRouter(tags=["publicar"])
 
 CANALES = cr.CANALES                       # {"wordpress": "WordPress", ...}
 ZONA_HORARIA = cr.ZONA_HORARIA             # "-03:00"
-# Nombre visible de cada canal (16/10, Franco): la entrada en WordPress se llama «Blogpost»; el «Newsletter» es el mail a la comunidad.
-CANAL_TXT = {"wordpress": "Blogpost", "instagram": "Instagram", "facebook": "Facebook", "youtube": "YouTube", "newsletter": "Newsletter",
-             "mail": "Mail (frase del día)", "home": "Sitio web (home)", "whatsapp": "WhatsApp"}
+# Nombre visible de cada canal (16/10, Franco: la entrada en WordPress se llama «Blogpost»). (3/11) Sale del registro canales.py.
+CANAL_TXT = canales.textos()
 # Texto de cada estado (sin los emojis: la web pone el icono)
 ESTADO_TXT = {"a_aprobar": "pendiente de aprobación", "pendiente": "aprobada · programada", "procesando": "publicándose", "rechazada": "rechazada",
               "publicada": "publicada", "simulada": "simulada", "error": "error", "cancelada": "cancelada",
@@ -51,7 +51,7 @@ ESTADO_TXT = {"a_aprobar": "pendiente de aprobación", "pendiente": "aprobada ·
               "PUBLICADO": "publicada", "borrador": "borrador", "prueba": "prueba (simulado)",
               "lista": "lista para enviar (pegar en Perfit)"}
 NO_SON_PIEZAS = ("subida", "prueba", "borrador", "simulada", "simulado")   # fuera del registro del panel
-FORMATO_POR_CANAL = {"facebook": "cuadrado", "instagram": "vertical"}       # formato de foto por canal
+FORMATO_POR_CANAL = canales.formato_por_canal()                            # formato de foto por canal (registro canales.py)
 FIRMA_DEFECTO = "— Br. David"
 MAX_IMAGEN_BYTES = 12 * 1024 * 1024
 _CACHE_COMPUESTAS: "OrderedDict[str, bytes]" = OrderedDict()                 # cache por contenido
@@ -163,22 +163,13 @@ def _cfg_real():
 
 def _cfg_simulada(cfg):
     """Quien no publica en real tiene todos los canales en simulado (los apagados siguen apagados)."""
-    c = copy.copy(cfg)
-    for a in ("modo_wp", "modo_ig", "modo_fb", "modo_yt"):
-        if getattr(c, a) != "apagado":
-            setattr(c, a, "simulado")
-    return c
+    return cfg.simulada()
 
 
 def _va_a_la_cola(canal, modo):
-    """¿Va a la cola? canal: nombre visible (Instagram...)."""
-    if modo in ("apagado",):
-        return False
-    if canal == "Instagram":
-        return True
-    if canal == "Facebook":
-        return modo != "real"
-    return False
+    """¿Una pieza con fecha va a la cola? (regla de cada canal en canales.py)"""
+    c = canales.canal(canal)
+    return bool(c and c.va_a_la_cola(modo))
 
 
 def _sin_firma_repetida(texto_imagen, firma):
@@ -281,7 +272,7 @@ def _validar(p: PiezaCompleta, simulado=False):
         raise HTTPException(400, "Elegí el canal (Blogpost, Instagram, Facebook o YouTube). El newsletter se arma en su editor.")
     if not (p.texto or "").strip():
         raise HTTPException(400, "Falta el texto de la pieza.")
-    if canal in ("wordpress", "youtube") and not (p.titulo or "").strip():
+    if canales.CANALES[canal].requiere_titulo and not (p.titulo or "").strip():
         raise HTTPException(400, f"En {CANAL_TXT[canal]} hace falta un título.")
     if canal == "youtube" and not (p.video_url or "").strip() and not simulado:
         raise HTTPException(400, "En YouTube hace falta el video: publicá un recorte (desde «Mis recortes» → Publicar). Subir un archivo de video propio todavía no se puede desde la web.")
@@ -365,15 +356,7 @@ def opciones(request: Request):
     aprobación por canal, y su rol."""
     usuario, rol = _rol(request)
     r = cr.modos()
-    canales = {}
-    for c, nombre in CANALES.items():
-        modo_real = r.get(c, "apagado")
-        modo = modo_real if rol.get("publica") or modo_real == "apagado" else "simulado"
-        canales[c] = {"nombre": nombre, "texto_canal": CANAL_TXT[c], "modo_real": modo_real, "modo": modo,
-                      "texto": cr.MODO_TXT.get(modo, modo), "a_aprobar": cr._puede_proponer(c, r),
-                      "configurado": bool(r.get({"wordpress": "wp_configurado", "instagram": "ig_configurado",
-                                                 "facebook": "fb_configurado", "youtube": "yt_configurado"}[c]))}
-    return {"canales": canales, "publica": bool(rol.get("publica")), "aprueba": bool(rol.get("aprueba")), "rol": rol.get("nombre"),
+    return {"canales": cr.info_canales(r, rol), "publica": bool(rol.get("publica")), "aprueba": bool(rol.get("aprueba")), "rol": rol.get("nombre"),
             "aprobadores": rol.get("aprobadores") or [], "usuario": usuario,
             "logos": list(imagen.LOGOS), "logos_url": {k: v for k, v in imagen.LOGOS.items() if v},
             "posiciones_logo": list(imagen.POSICIONES_LOGO), "tipografias": list(imagen.TIPOGRAFIAS), "tipografia_defecto": imagen.TIPOGRAFIA_DEFAULT,
@@ -537,7 +520,7 @@ def enviar(p: Envio, request: Request):
             url = _subir_compuesta(cfg, compuesta, titulo, texto, usuario, avisos)
             if url:
                 imagen_url = url
-        if fecha_iso and _va_a_la_cola(nombre, modo):
+        if fecha_iso and _va_a_la_cola(canal, modo):
             try:
                 pid = db.encolar_publicacion(usuario, canal, modo, titulo, texto, imagen_url, fecha_iso + ZONA_HORARIA,
                                              extra={"texto_imagen": p.texto_imagen or None, "formato": formato or None, "video_url": video_url, "origen": "web"})
@@ -551,30 +534,10 @@ def enviar(p: Envio, request: Request):
                     "aviso": f"Quedó en la cola para el {cuando}. Ese día sale sola por {nombre}, con el modo que tenga el canal en ese momento (hoy: {modo}). "
                              "Se puede cancelar desde Aprobación → En cola.",
                     "pieza": {"image_url": imagen_url, ("caption" if canal == "instagram" else "message"): texto, "fecha_programada": fecha_iso}}
-        try:
-            if video_url and canal == "instagram":
-                res = publicar.publicar_instagram_video(cfg, video_url, texto, quien=usuario, historia=(formato == "historia"))
-            elif video_url and canal == "facebook":
-                res = publicar.publicar_facebook_video(cfg, video_url, texto, quien=usuario, fecha=fecha_iso, titulo=titulo)
-            elif video_url and canal == "youtube":
-                datos, err = (None, None)
-                if cfg.modo_yt in ("privado", "real"):
-                    datos, err = publicar.bajar_bytes(video_url)
-                if err:
-                    res = {"ok": False, "modo": cfg.modo_yt, "aviso": f"No pude bajar el recorte de WordPress: {err}"}
-                else:
-                    res = publicar.publicar_youtube(cfg, datos or b"", titulo, texto, quien=usuario, fecha=fecha_iso,
-                                                    nombre_archivo=video_url.rsplit("/", 1)[-1] or "clip.mp4")
-            elif canal == "wordpress":
-                imagen_id = publicar.media_id_por_url(cfg, imagen_url) if (imagen_url and not simulado) else None
-                res = publicar.publicar_wordpress(cfg, titulo, publicar.html_video(video_url, texto) if video_url else texto,
-                                                  imagen_id=imagen_id, quien=usuario, fecha=fecha_iso)
-            elif canal == "instagram":
-                res = publicar.publicar_instagram(cfg, imagen_url or "", texto, quien=usuario, historia=(formato == "historia"))
-            elif canal == "youtube":
-                res = publicar.publicar_youtube(cfg, b"", titulo, texto, quien=usuario, fecha=fecha_iso)
-            else:
-                res = publicar.publicar_facebook(cfg, imagen_url, texto, quien=usuario, fecha=fecha_iso)
+        try:   # (3/11) el mismo despacho que la cola: publicar.enviar_pieza con la pieza armada como una fila de `publicaciones`
+            res = publicar.enviar_pieza(cfg, {"canal": canal, "titulo": titulo, "texto": texto, "imagen_url": imagen_url, "fecha_programada": fecha_iso,
+                                              "resultado": {"video_url": video_url, "formato": formato, "texto_imagen": p.texto_imagen or None}},
+                                        quien=usuario)
         except HTTPException:
             raise
         except Exception as e:
