@@ -22,6 +22,8 @@ Frase del día y circuito de aprobación. Desde el 2/11/2026 es **solo la web + 
 2. Las claves van en `.streamlit/secrets.toml` (nombre histórico; es solo el archivo local de secretos, no se sube) o en
    `../fva-transcripcion/clave.env`. `api/config.py` y `procesar_cola.py` las cargan al entorno.
 3. API: `uvicorn api.main:app --reload --port 8000`. Web: `npm run dev` en `web/` (apunta a la API local).
+4. Pruebas (las mismas que corre el CI en cada push): `python -m pytest api/tests -q` desde la raíz; en `web/`: `npx tsc --noEmit -p .`,
+   `npm test` (Vitest + Testing Library, la API simulada está en `web/src/pruebas/apiSimulada.ts`) y `npm run build`.
 
 ## Deploy
 - **Render** (API): despliega solo con cada push a `main`. Las variables no secretas están en `render.yaml` como
@@ -29,6 +31,8 @@ Frase del día y circuito de aprobación. Desde el 2/11/2026 es **solo la web + 
   Render → fva-api → Environment. Los secretos se pegan desde `api.env` (`python api/armar_env.py`).
 - **Vercel** (web): despliega solo con cada push a `main`.
 - **GitHub Actions** (cola): los secretos en Settings → Secrets and variables → Actions (`PUBLICAR_*`, claves de los canales).
+  La cola puede correr con una clave de Supabase acotada (`SUPABASE_KEY_COLA`, sin acceso a usuarios ni conversaciones): los pasos para
+  crearla están en el encabezado de `api/migraciones/manual_cola_rol.sql`; mientras no exista el secret usa `SUPABASE_KEY`.
 
 ## Cómo agregar X (después de la reestructuración del 3/11)
 
@@ -61,6 +65,17 @@ No se toca la cola, ni las rutas, ni la web: `publicar.enviar_pieza` despacha co
    `from .<tabla> import *` en `db/__init__.py`. Las rutas solo importan `db`; las pruebas reemplazan esas funciones con `monkeypatch`.
 
 **Una variable de entorno**: una entrada en `api/variables_entorno.py`, `python api/generar_config.py`, y cargarla a mano en Render.
+
+**Una pantalla nueva en la web** (3/11, después del nivel 3):
+1. `web/src/paginas/<Pantalla>.tsx` y su ruta en `App.tsx`. Sus estilos, en `web/src/<pantalla>.css` importado SOLO desde esa pantalla
+   (`estilos.css` queda para lo que usan todas: variables, layout, botones, modal; `compartido.css` para lo que comparten Publicar y el chat).
+2. Las llamadas a la API, de una línea cada una sobre el cliente único: `pedir<Tipo>("/ruta")` de `web/src/api.ts` en un `api<Nombre>.ts`
+   (`pedirCrudo` para blobs, multipart o streaming). No hay otro `fetch`.
+3. Fechas y horas: solo `web/src/util/fechas.ts` (`fechaHora`, `fechaLegible`, `horaArgentina`, `hace`…); no se formatean fechas a mano.
+4. Una prueba al lado (`<Pantalla>.test.tsx`) con `instalarApi({ "GET /ruta": respuesta })` de `web/src/pruebas/apiSimulada.ts`.
+
+**Una persona con cualquier permiso**: Administración → Usuarios (rol creador / aprobador / admin en la tabla `usuarios`). Ya no hay contraseñas
+ni listas de roles en secrets ni en el entorno.
 
 ## Actualizar el corpus
 El corpus se genera en el proyecto **fva-transcripcion** (transcripción + embeddings). Cuando cambie, copiar
