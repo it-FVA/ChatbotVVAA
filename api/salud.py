@@ -126,7 +126,7 @@ def _chequear_supabase():
         return _res("supabase", "error", "Faltan SUPABASE_URL o SUPABASE_KEY.", "Cargarlas en el panel de Render (Environment).")
     t = time.time()
     try:
-        db._req("GET", "?select=clave&limit=1", tabla="config")
+        db.ping()
         ms = int((time.time() - t) * 1000)
         estado = "ok" if ms < 2000 else "aviso"
         return _res("supabase", estado, f"Responde en {ms} ms.",

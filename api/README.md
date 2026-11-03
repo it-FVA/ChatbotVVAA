@@ -1,6 +1,6 @@
 # API HTTP del asistente
 
-API en FastAPI (`api/`) sobre los módulos de negocio de la raíz del repo (`nucleo.py`, `db.py`, `publicar.py`,
+API en FastAPI (`api/`) sobre los módulos de negocio de la raíz del repo (`nucleo.py`, el paquete `db/`, `publicar.py`,
 `programar_frases.py`…). La usa la web (`web/`, React en Vercel) y corre en Render con Docker (`api/Dockerfile`, `render.yaml`).
 Hace login y sesión, el chat con streaming, conversaciones (papelera, Word/Excel), «Mis recortes» con el editor visual,
 Publicar / Mis publicaciones / Aprobación, la Frase del día, el Newsletter, proyectos y compartidos, cuentas y lista blanca,
@@ -26,7 +26,7 @@ Plan original de la interfaz propia: `fva-transcripcion/analisis/plan-interfaz-p
 | `migraciones/historicas/autorizados_login_google.sql` | tabla `autorizados` (email, rol, agregado_por, creado) para el login con Google |
 | `recortes.py` | router de recortes (fase 1): validaciones del tramo y `edicion["segmentos"]` |
 | `chat_rutas.py` | router del chat (fase 2): renombrar / papelera / restaurar, `GET …/mensajes/{n}/docx\|xlsx` (usa `documentos.py`, el módulo de Word/Excel), `POST /recortes` (= botones «Pedir el recorte» con las validaciones del chat), `GET /banco`, `GET /publicaciones/modos`, `POST /publicaciones/borrador` y `/a-aprobar` |
-| `publicar_rutas.py` | (22/10, fase 3) Publicar, Mis publicaciones y Aprobación desde la web: formulario, envío, Mis publicaciones y panel de aprobación sobre `publicar.py`, `imagen.py` y `db.py`. Instala el hook de registro de `publicar.py` (`REGISTRAR_EXTRA`) UNA vez, leyendo de una contextvar quién envía |
+| `publicar_rutas.py` | (22/10, fase 3) Publicar, Mis publicaciones y Aprobación desde la web: formulario, envío, Mis publicaciones y panel de aprobación sobre `publicar.py`, `imagen.py` y `db/`. Instala el hook de registro de `publicar.py` (`REGISTRAR_EXTRA`) UNA vez, leyendo de una contextvar quién envía |
 | `salud.py` | (22/10) `GET /salud` (health check) y la base de la pantalla «Salud» / Dashboard de Administración: `/salud/servicios` (13 chequeos con ok / aviso / error y «qué hacer» + bloque `capacidad`), `/salud/historial`, `/salud/capacidad`. Guarda cada corrida en `salud_historial` |
 | `admin_rutas.py` | (22/10, noche) lo que las pantallas Dashboard · Servicios y costos · Configuración de la web necesitan (solo admins): `GET /admin/resumen` (última corrida de Salud + costo del mes y del anterior), `GET /admin/uso?dias=7\|28\|90` o `?mes=AAAA-MM` (por persona, también quien no hizo nada; por semana; lo último; costo por persona), `GET /admin/costos` (por persona, por día, por modelo y para qué, 6 meses), `GET/PUT/DELETE /admin/servicios`, `GET/PUT /admin/config` (precios con fuente obligatoria, presupuesto, umbrales, uso manual de Vercel, Frase del día; cada cambio queda en `usuarios_cambios` con acción `config` / `servicio_*`, de → a). Pruebas en `tests/test_admin_rutas.py` (24, con `db` simulado); 132 en total |
 | `migraciones/historicas/salud_historial.sql`, `migraciones/historicas/fragmentos_emb_pgvector.sql` | (22/10) tabla del historial de salud; extensión `vector`, tabla `fragmentos_emb`, índice HNSW y funciones `match_fragmentos*`, `match_lexico`, `tamano_base` (todas aplicadas en Supabase el 22/10) |
@@ -35,7 +35,7 @@ Plan original de la interfaz propia: `fva-transcripcion/analisis/plan-interfaz-p
 | `ejemplos.http` | llamadas de ejemplo (REST Client / curl) |
 | `Dockerfile`, `requirements.txt` | para desplegar en cualquier hosting que acepte un contenedor |
 
-En `db.py` se agregaron al final (sin cambiar las existentes): `cargar_conversacion_de`, `autorizado`,
+En `db/` (antes `db.py`) se agregaron (sin cambiar las existentes): `cargar_conversacion_de`, `autorizado`,
 `listar_autorizados`, `agregar_autorizado`, `quitar_autorizado`, `restaurar_conversacion_de`. En la raíz, `documentos.py` (22/10)
 tiene `md_a_docx`, `tablas_md` y `tablas_a_xlsx`, que antes vivían en la app vieja.
 
@@ -223,7 +223,7 @@ Cuentas: Render (workspace «Vivir Agradecidos») y Vercel (equipo «Vivir Agrad
 
 ## Desplegar (notas generales: Railway o Render)
 
-La API es un contenedor: `api/Dockerfile`, construido desde la raíz del repo (necesita `nucleo.py`, `db.py`, el
+La API es un contenedor: `api/Dockerfile`, construido desde la raíz del repo (necesita `nucleo.py`, el paquete `db/`, el
 corpus `fragmentos.jsonl` + `fragmentos_openai.npy` y `datos_fijos.md`). Memoria medida el 19/10: ~200 MB con el
 corpus, ~400 MB con la búsqueda híbrida; el plan gratuito de Render (512 MB, se duerme) no alcanza.
 

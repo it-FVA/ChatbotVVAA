@@ -10,7 +10,7 @@ Frase del día y circuito de aprobación. Desde el 2/11/2026 es **solo la web + 
   `api/Dockerfile`). Pruebas: `python -m pytest api/tests -q`.
 - `web/` — la interfaz (Vite + React + TypeScript). Corre en **Vercel** (`chatbot-vvaa.vercel.app`). `npm run build` en `web/`.
 - `nucleo.py` — búsqueda sobre el corpus (`fragmentos.jsonl` + `fragmentos_openai.npy`) y el asistente.
-- `db.py` — Supabase (REST). `publicar.py` — conectores (WordPress, Instagram, Facebook, YouTube, WhatsApp prototipo).
+- `db/` — Supabase (REST), un módulo por tabla (antes `db.py`). `publicar.py` — conectores (WordPress, Instagram, Facebook, YouTube, WhatsApp prototipo).
   `imagen.py` — la foto con la frase encima. `programar_frases.py` + `frase_mail.py` + `perfit.py` — la Frase del día.
   `newsletter.py` — las plantillas del newsletter. `recortar_clip.py` / `procesar_clips.py` — recortes de video.
 - `procesar_cola.py` — la cola de publicación: corre en **GitHub Actions** cada 15 minutos (`.github/workflows/cola.yml`).

@@ -297,11 +297,10 @@ def decorar(p):
 def _fila(pid):
     if not db.disponible():
         raise HTTPException(503, "Sin Supabase: no hay publicaciones.")
-    r = db._req("GET", f"?id=eq.{quote(str(pid))}&select=id,creado,usuario,canal,modo,titulo,texto,imagen_url,estado,fecha_programada,procesado_en,resultado",
-                tabla="publicaciones")
-    if not r:
+    p = db.obtener_publicacion(pid)
+    if not p:
         raise HTTPException(404, "No existe esa pieza.")
-    return r[0]
+    return p
 
 
 # ---------------- Opciones y banco ----------------
@@ -389,10 +388,8 @@ def guardar_borrador(p: PiezaCompleta, usuario=Depends(auth.usuario_actual)):
 
 def _borrar_borrador(borrador_id, usuario):
     """Al enviar o mandar a aprobación, el borrador que se estaba retomando se elimina."""
-    if not borrador_id:
-        return
     try:
-        db._req("DELETE", f"?id=eq.{quote(str(borrador_id))}&estado=eq.borrador&usuario=eq.{quote(usuario)}", tabla="publicaciones")
+        db.borrar_borrador(borrador_id, usuario)
     except Exception as e:
         log.warning("No pude borrar el borrador %s: %s", borrador_id, e)
 
@@ -544,10 +541,10 @@ def compartir_publicacion(pid: str, datos: CompartirPieza, usuario=Depends(auth.
     o deja de mostrarla. Solo la dueña."""
     if not db.disponible():
         raise HTTPException(503, "Sin Supabase: no hay publicaciones.")
-    r = db._req("GET", f"?id=eq.{pid}&select=id,usuario", tabla="publicaciones")
+    r = db.obtener_publicacion(pid)
     if not r:
         raise HTTPException(404, "No existe esa pieza.")
-    if r[0].get("usuario") != usuario:
+    if r.get("usuario") != usuario:
         raise HTTPException(403, "Solo quien hizo la pieza puede compartirla.")
     db.actualizar_publicacion(pid, {"compartido": bool(datos.compartido)})
     return {"ok": True, "compartido": bool(datos.compartido)}

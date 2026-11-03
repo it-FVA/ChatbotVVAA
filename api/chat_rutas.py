@@ -315,11 +315,10 @@ def enviar_a_aprobacion(p: Pieza, s=Depends(auth.sesion)):
         raise HTTPException(503, f"No pude guardar la pieza para aprobación: {e}")
     if not pid:
         raise HTTPException(503, "No pude guardar la pieza para aprobación.")
-    if p.borrador_id:        # al mandarla, el borrador que se estaba retomando se elimina
-        try:
-            db._req("DELETE", f"?id=eq.{quote(str(p.borrador_id))}&estado=eq.borrador&usuario=eq.{quote(usuario)}", tabla="publicaciones")
-        except Exception:
-            pass
+    try:                     # al mandarla, el borrador que se estaba retomando se elimina
+        db.borrar_borrador(p.borrador_id, usuario)
+    except Exception as e:
+        log.warning("No pude borrar el borrador %s: %s", p.borrador_id, e)
     import avisos as _avisos
     _avisos.pieza_a_aprobar(db, pid, usuario, canal, p.titulo, texto)   # (2/11) Slack / mail a los aprobadores
     rol = auth.rol_sesion(s)

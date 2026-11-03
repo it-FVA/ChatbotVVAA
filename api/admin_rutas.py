@@ -485,7 +485,7 @@ class CambiosConfig(BaseModel):
 
 def _filas_config():
     """Las filas de la tabla config con quién y cuándo las cambió (db.obtener_config solo trae el valor)."""
-    return db._req("GET", "?select=clave,valor,actualizado,por&order=clave", tabla="config") or []
+    return db.listar_config()
 
 
 @router.get("/config")

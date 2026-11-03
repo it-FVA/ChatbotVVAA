@@ -73,9 +73,7 @@ def _titulo(d):
 
 
 def _borrador_propio(pid, usuario):
-    r = db._req("GET", f"?id=eq.{quote(str(pid))}&usuario=eq.{quote(usuario)}&canal=eq.newsletter&estado=eq.borrador"
-                       f"&select=id,creado,titulo,texto,resultado", tabla="publicaciones")
-    return r[0] if r else None
+    return db.obtener_borrador(pid, usuario, canal="newsletter")
 
 
 # ---------------- Rutas ----------------
@@ -200,11 +198,10 @@ def enviar_a_aprobacion(g: Guardar, s=Depends(auth.sesion)):
     pid = db.proponer_publicacion(usuario, "newsletter", "borrador", _titulo(d), html_, None, None, extra={"plantilla": p, "datos": d, "origen": "web"})
     if not pid:
         raise HTTPException(503, "No pude guardar la pieza para aprobación.")
-    if g.borrador_id:
-        try:
-            db._req("DELETE", f"?id=eq.{quote(str(g.borrador_id))}&estado=eq.borrador&usuario=eq.{quote(usuario)}", tabla="publicaciones")
-        except Exception:
-            pass
+    try:
+        db.borrar_borrador(g.borrador_id, usuario)
+    except Exception as e:
+        log.warning("No pude borrar el borrador %s: %s", g.borrador_id, e)
     import avisos as _avisos
     _avisos.pieza_a_aprobar(db, pid, usuario, "newsletter", _titulo(d), None)   # (2/11) Slack / mail a los aprobadores
     rol = auth.rol_sesion(s)

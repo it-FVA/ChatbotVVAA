@@ -78,16 +78,15 @@ class Compartir(BaseModel):
     permiso: str = "ver"
 
 
-# ---------------- Acceso a las tablas (todo pasa por db._req; los tests lo reemplazan) ----------------
-def _q(v):
-    return urllib.parse.quote(str(v))
+# ---------------- Acceso a las tablas: db/proyectos.py (3/11); acá solo se convierte el error de la base en HTTP 503 ----------------
+from db import proyectos as dbp   # noqa: E402
 
 
-def _req(method, params="", body=None, tabla="proyectos"):
+def _con(fn, *a, **k):
     if not db.disponible():
         raise HTTPException(503, "Sin Supabase: los proyectos no están disponibles.")
     try:
-        return db._req(method, params, body, tabla=tabla)
+        return fn(*a, **k)
     except RuntimeError as e:
         txt = str(e)
         if "does not exist" in txt or "PGRST205" in txt or "Supabase 404" in txt:
@@ -95,69 +94,52 @@ def _req(method, params="", body=None, tabla="proyectos"):
         raise HTTPException(503, f"No pude hablar con Supabase: {txt[:160]}")
 
 
-COLS = "id,nombre,descripcion,dueno,padre_id,color,emoji,creado,actualizado"
-COLS_ITEM = "id,proyecto_id,tipo,item_id,datos,agregado_por,agregado"
-COLS_COMP = "id,tipo,item_id,con_usuario,permiso,compartido_por,creado"
-
-
 def _ahora():
     return datetime.now(timezone.utc).isoformat()
 
 
 def proyecto_por_id(pid):
-    r = _req("GET", f"?id=eq.{_q(pid)}&select={COLS}")
-    return r[0] if r else None
+    return _con(dbp.proyecto_por_id, pid)
 
 
 def proyectos_de(usuario):
-    return _req("GET", f"?dueno=eq.{_q(usuario)}&select={COLS}&order=nombre.asc") or []
+    return _con(dbp.proyectos_de, usuario)
 
 
 def proyectos_por_ids(ids):
-    ids = sorted({str(i) for i in ids if i})
-    if not ids:
-        return []
-    return _req("GET", f"?id=in.({','.join(_q(i) for i in ids)})&select={COLS}&order=nombre.asc") or []
+    return _con(dbp.proyectos_por_ids, ids)
 
 
 def subcarpetas_de(pid):
-    return _req("GET", f"?padre_id=eq.{_q(pid)}&select={COLS}&order=nombre.asc") or []
+    return _con(dbp.subcarpetas_de, pid)
 
 
 def items_de(pid):
-    return _req("GET", f"?proyecto_id=eq.{_q(pid)}&select={COLS_ITEM}&order=agregado.desc", tabla="proyecto_items") or []
+    return _con(dbp.items_de, pid)
 
 
 def items_de_varios(pids):
-    pids = sorted({str(p) for p in pids if p})
-    if not pids:
-        return []
-    return _req("GET", f"?proyecto_id=in.({','.join(_q(p) for p in pids)})&select=id,proyecto_id,tipo,item_id", tabla="proyecto_items") or []
+    return _con(dbp.items_de_varios, pids)
 
 
 def item_por_id(iid):
-    r = _req("GET", f"?id=eq.{_q(iid)}&select={COLS_ITEM}", tabla="proyecto_items")
-    return r[0] if r else None
+    return _con(dbp.item_por_id, iid)
 
 
 def ubicaciones_de(tipo, item_id):
-    return _req("GET", f"?tipo=eq.{_q(tipo)}&item_id=eq.{_q(item_id)}&select={COLS_ITEM}", tabla="proyecto_items") or []
+    return _con(dbp.ubicaciones_de, tipo, item_id)
 
 
 def compartidos_de(tipo, item_id):
-    return _req("GET", f"?tipo=eq.{_q(tipo)}&item_id=eq.{_q(item_id)}&select={COLS_COMP}&order=creado.asc", tabla="compartidos") or []
+    return _con(dbp.compartidos_de, tipo, item_id)
 
 
 def compartidos_con(usuario, tipo=None):
-    extra = f"&tipo=eq.{_q(tipo)}" if tipo else ""
-    return _req("GET", f"?con_usuario=eq.{_q(usuario)}{extra}&select={COLS_COMP}&order=creado.desc", tabla="compartidos") or []
+    return _con(dbp.compartidos_con, usuario, tipo)
 
 
 def compartidos_de_varios(tipo, ids):
-    ids = sorted({str(i) for i in ids if i})
-    if not ids:
-        return []
-    return _req("GET", f"?tipo=eq.{_q(tipo)}&item_id=in.({','.join(_q(i) for i in ids)})&select={COLS_COMP}", tabla="compartidos") or []
+    return _con(dbp.compartidos_de_varios, tipo, ids)
 
 
 # ---------------- Permisos ----------------
@@ -212,13 +194,12 @@ def conversacion_accesible(cid, usuario, editar=False):
     if not db.disponible():
         return None
     try:
-        filas = db._req("GET", f"?id=eq.{_q(cid)}&borrada=is.null&select=id,usuario,titulo,mensajes,creado,actualizado")
+        c = dbp.conversacion_por_id(cid)
     except Exception as e:          # la base no contesta: para el chat es «no existe», no un 500
         log.warning("conversacion_accesible: %s", e)
         return None
-    if not filas:
+    if not c:
         return None
-    c = filas[0]
     permisos = set()
     try:
         for comp in compartidos_de("conversacion", c["id"]):
@@ -255,21 +236,18 @@ def resumir_items(items, usuario):
         por_tipo.setdefault(it["tipo"], set()).add(str(it["item_id"]))
     datos = {}
     if por_tipo.get("conversacion"):
-        ids = ",".join(_q(i) for i in sorted(por_tipo["conversacion"]))
-        for c in (_req("GET", f"?id=in.({ids})&select=id,usuario,titulo,actualizado,borrada", tabla="conversaciones") or []):
+        for c in _con(dbp.conversaciones_por_ids, por_tipo["conversacion"]):
             datos[("conversacion", str(c["id"]))] = {"titulo": c.get("titulo") or "Conversación", "fecha": c.get("actualizado"),
                                                      "miniatura": None, "estado": "borrada" if c.get("borrada") else None,
                                                      "url": None, "dueno": c.get("usuario")}
     if por_tipo.get("recorte"):
-        ids = ",".join(_q(i) for i in sorted(por_tipo["recorte"]))
-        for c in (_req("GET", f"?id=in.({ids})&select=id,titulo,video_id,formato,estado,url,creado,pedido_por", tabla="clips") or []):
+        for c in _con(dbp.clips_por_ids, por_tipo["recorte"]):
             datos[("recorte", str(c["id"]))] = {"titulo": c.get("titulo") or f"Recorte ({c.get('formato') or 'horizontal'})", "fecha": c.get("creado"),
                                                 "miniatura": f"https://img.youtube.com/vi/{c['video_id']}/hqdefault.jpg" if c.get("video_id") else None,
                                                 "estado": c.get("estado"), "url": c.get("url"), "dueno": c.get("pedido_por"),
                                                 "formato": c.get("formato")}
     if por_tipo.get("pieza"):
-        ids = ",".join(_q(i) for i in sorted(por_tipo["pieza"]))
-        for p in (_req("GET", f"?id=in.({ids})&select=id,usuario,canal,estado,titulo,texto,imagen_url,creado", tabla="publicaciones") or []):
+        for p in _con(dbp.publicaciones_por_ids, por_tipo["pieza"]):
             datos[("pieza", str(p["id"]))] = {"titulo": _titulo_pieza(p), "fecha": p.get("creado"), "miniatura": p.get("imagen_url"),
                                               "estado": p.get("estado"), "url": None, "dueno": p.get("usuario"), "canal": p.get("canal")}
     out = []
@@ -306,7 +284,7 @@ def _publico(p, perm=None, extra=None):
 
 def _tocar(pid):
     try:
-        _req("PATCH", f"?id=eq.{_q(pid)}", {"actualizado": _ahora()})
+        _con(dbp.tocar_proyecto, pid)
     except HTTPException:
         pass
 
@@ -400,10 +378,9 @@ def crear(datos: ProyectoNuevo, usuario=Depends(auth.usuario_actual)):
             raise HTTPException(400, f"Demasiados niveles de carpetas (máximo {PROFUNDIDAD_MAX}).")
     fila = {"nombre": nombre, "descripcion": (datos.descripcion or "").strip() or None, "dueno": usuario, "padre_id": padre_id,
             "color": (datos.color or "").strip() or None, "emoji": (datos.emoji or "").strip()[:4] or None}
-    r = _req("POST", "", fila)
-    if not r:
+    p = _con(dbp.crear_proyecto, fila)
+    if not p:
         raise HTTPException(503, "No pude crear el proyecto.")
-    p = r[0]
     return _publico(p, permiso_proyecto(p, usuario), {"n_items": 0, "compartido_con_n": 0})
 
 
@@ -456,16 +433,15 @@ def editar(pid: str, datos: ProyectoCambios, usuario=Depends(auth.usuario_actual
     if not cambios:
         return _publico(p, perm)
     cambios["actualizado"] = _ahora()
-    r = _req("PATCH", f"?id=eq.{_q(p['id'])}", cambios)
-    return _publico(r[0] if r else dict(p, **cambios), perm)
+    r = _con(dbp.actualizar_proyecto, p["id"], cambios)
+    return _publico(r or dict(p, **cambios), perm)
 
 
 @router.delete("/proyectos/{pid}")
 def borrar(pid: str, usuario=Depends(auth.usuario_actual)):
     """Borra la carpeta, sus subcarpetas y las referencias. Las conversaciones, recortes y piezas quedan donde estaban."""
     p, _ = _proyecto_con(pid, usuario, "dueño")
-    _req("DELETE", f"?id=eq.{_q(p['id'])}")
-    _req("DELETE", f"?tipo=eq.proyecto&item_id=eq.{_q(p['id'])}", tabla="compartidos")
+    _con(dbp.borrar_proyecto, p["id"])
     return {"ok": True, "id": p["id"]}
 
 
@@ -513,7 +489,7 @@ def quitar_de_todos_los_proyectos(tipo, item_id):
     """(2/11, bug de Franco) Cuando una pieza o un recorte se borra de verdad, se saca de todos los proyectos: si no, quedaba
     un «(ya no existe)» en la carpeta. Lo llaman eliminar_publicacion y borrar (recortes)."""
     try:
-        _req("DELETE", f"?tipo=eq.{_q(tipo)}&item_id=eq.{_q(str(item_id))}", tabla="proyecto_items")
+        _con(dbp.quitar_item_de_todos, tipo, item_id)
     except Exception:
         pass
 
@@ -525,7 +501,7 @@ def _sacar_de_otros(tipo, item_id, usuario, salvo_pid):
             continue
         otro = proyecto_por_id(u["proyecto_id"])
         if otro and permiso_proyecto(otro, usuario) in ("dueño", "editar"):
-            _req("DELETE", f"?id=eq.{_q(u['id'])}", tabla="proyecto_items")
+            _con(dbp.borrar_item, u["id"])
             _tocar(otro["id"])
 
 
@@ -538,10 +514,9 @@ def agregar_item(pid: str, datos: ItemNuevo, usuario=Depends(auth.usuario_actual
     if ya:
         fila = ya[0]
     else:
-        r = _req("POST", "", {"proyecto_id": p["id"], "tipo": datos.tipo, "item_id": item_id, "datos": dd, "agregado_por": usuario}, tabla="proyecto_items")
-        if not r:
+        fila = _con(dbp.agregar_item, {"proyecto_id": p["id"], "tipo": datos.tipo, "item_id": item_id, "datos": dd, "agregado_por": usuario})
+        if not fila:
             raise HTTPException(503, "No pude agregar el ítem.")
-        fila = r[0]
         _tocar(p["id"])
     return {"ok": True, "ya": bool(ya), "item": resumir_items([fila], usuario)[0]}
 
@@ -552,7 +527,7 @@ def quitar_item(pid: str, iid: str, usuario=Depends(auth.usuario_actual)):
     it = item_por_id(iid)
     if not it or it["proyecto_id"] != p["id"]:
         raise HTTPException(404, "Ese ítem no está en este proyecto.")
-    _req("DELETE", f"?id=eq.{_q(it['id'])}", tabla="proyecto_items")
+    _con(dbp.borrar_item, it["id"])
     _tocar(p["id"])
     return {"ok": True, "id": it["id"], "tipo": it["tipo"], "item_id": it["item_id"]}
 
@@ -567,11 +542,10 @@ def mover_item(pid: str, iid: str, datos: MoverItem, usuario=Depends(auth.usuari
     if destino["id"] == p["id"]:
         return {"ok": True, "item": resumir_items([it], usuario)[0]}
     if any(u["proyecto_id"] == destino["id"] for u in ubicaciones_de(it["tipo"], it["item_id"])):
-        _req("DELETE", f"?id=eq.{_q(it['id'])}", tabla="proyecto_items")       # ya estaba en el destino: solo lo sacamos de acá
+        _con(dbp.borrar_item, it["id"])       # ya estaba en el destino: solo lo sacamos de acá
         fila = [u for u in ubicaciones_de(it["tipo"], it["item_id"]) if u["proyecto_id"] == destino["id"]][0]
     else:
-        r = _req("PATCH", f"?id=eq.{_q(it['id'])}", {"proyecto_id": destino["id"]}, tabla="proyecto_items")
-        fila = r[0] if r else dict(it, proyecto_id=destino["id"])
+        fila = _con(dbp.mover_item, it["id"], destino["id"]) or dict(it, proyecto_id=destino["id"])
     _tocar(p["id"])
     _tocar(destino["id"])
     return {"ok": True, "item": resumir_items([fila], usuario)[0]}
@@ -623,9 +597,9 @@ def compartir(tipo: str, item_id: str, datos: Compartir, usuario=Depends(auth.us
         raise HTTPException(404, f"No encontré el usuario «{con}» en la tabla de usuarios.")
     ya = [c for c in compartidos_de(tipo, item_id) if c["con_usuario"] == con]
     if ya:
-        _req("PATCH", f"?id=eq.{_q(ya[0]['id'])}", {"permiso": permiso}, tabla="compartidos")
+        _con(dbp.cambiar_permiso, ya[0]["id"], permiso)
     else:
-        _req("POST", "", {"tipo": tipo, "item_id": item_id, "con_usuario": con, "permiso": permiso, "compartido_por": usuario}, tabla="compartidos")
+        _con(dbp.compartir, {"tipo": tipo, "item_id": item_id, "con_usuario": con, "permiso": permiso, "compartido_por": usuario})
     return {"ok": True, "usuario": con, "permiso": permiso, "nuevo": not ya}
 
 
@@ -636,7 +610,7 @@ def descompartir(tipo: str, item_id: str, con: str, usuario=Depends(auth.usuario
     obj, dueno = _objeto_compartible(tipo, item_id, usuario)
     if not dueno and con != usuario:
         raise HTTPException(403, "Solo quien lo creó puede dejar de compartirlo.")
-    _req("DELETE", f"?tipo=eq.{_q(tipo)}&item_id=eq.{_q(item_id)}&con_usuario=eq.{_q(con)}", tabla="compartidos")
+    _con(dbp.descompartir, tipo, item_id, con)
     return {"ok": True, "usuario": con}
 
 
@@ -656,8 +630,7 @@ def conmigo(usuario=Depends(auth.usuario_actual)):
                                                    "n_items": len(items_de(p["id"]))}))
     conversaciones = []
     if cids:
-        ids = ",".join(_q(i) for i in sorted(set(cids)))
-        for c in (_req("GET", f"?id=in.({ids})&borrada=is.null&select=id,usuario,titulo,actualizado&order=actualizado.desc", tabla="conversaciones") or []):
+        for c in _con(dbp.conversaciones_por_ids, cids, True, "actualizado.desc"):
             comp_c = por[("conversacion", c["id"])]
             conversaciones.append({"id": c["id"], "titulo": c.get("titulo") or "Conversación", "actualizado": c.get("actualizado"),
                                    "dueno": c.get("usuario"), "permiso": comp_c["permiso"], "compartido_por": comp_c["compartido_por"],
