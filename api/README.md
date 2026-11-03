@@ -33,7 +33,7 @@ Plan original de la interfaz propia: `fva-transcripcion/analisis/plan-interfaz-p
 | `recortes.py` | router de recortes (fase 1): validaciones del tramo y `edicion["segmentos"]` (pedazos conservados, en orden de salida; 22/10: sin solaparse, ≥ 0,5 s cada uno, total 2 s–3 min) |
 | `tests/` | pytest + httpx, sin OpenAI ni Supabase (Supabase simulada con monkeypatch sobre `db`); 1 prueba real marcada `real`. `servidor_simulado.py` levanta la API con la tabla en memoria para probar la web. `python -m pytest api/tests -q` desde la raíz; CI en `.github/workflows/ci.yml` |
 | `ejemplos.http` | llamadas de ejemplo (REST Client / curl) |
-| `Dockerfile`, `requirements.txt` | para desplegar en cualquier hosting que acepte un contenedor |
+| `Dockerfile` | (la lista de dependencias es `requirements.txt` de la raíz) para desplegar en cualquier hosting que acepte un contenedor |
 
 En `db/` (antes `db.py`) se agregaron (sin cambiar las existentes): `cargar_conversacion_de`, `autorizado`,
 `listar_autorizados`, `agregar_autorizado`, `quitar_autorizado`, `restaurar_conversacion_de`. En la raíz, `documentos.py` (22/10)
@@ -150,7 +150,7 @@ Las herramientas del asistente (`nucleo.TOOLS`): `buscar_material`, `proponer_pu
 Desde la **raíz del repo** (no desde `api/`):
 
 ```bash
-pip install -r api/requirements.txt
+pip install -r requirements.txt
 uvicorn api.main:app --reload
 ```
 

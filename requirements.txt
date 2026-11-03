@@ -1,7 +1,22 @@
-# (2/11) sin streamlit: la app de Streamlit se dio de baja; queda la API (api/requirements.txt) y estos scripts
+# Única lista de dependencias del repo (3/11, revisión 5.3 punto 24). La usan el Dockerfile de la API, el CI y los scripts de la raíz.
+# El cerebro (nucleo.py, búsqueda)
 numpy
 openai
 rank_bm25
-pillow>=10
+# La API
+fastapi
+uvicorn[standard]
+python-multipart
+google-auth
+requests
+psutil
+itsdangerous
+bcrypt
+# Descargas «Word» / «Excel» del chat (documentos.py)
 python-docx>=1.1
 openpyxl>=3.1
+# La foto con la frase encima (imagen.py, lo usan Publicar y la Frase del día)
+pillow>=10
+# Pruebas (api/tests)
+pytest
+httpx

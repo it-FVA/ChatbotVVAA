@@ -435,7 +435,7 @@ def _chequear_memoria():
     rss = _rss_mb()
     limite = nucleo._env_int("MEMORIA_LIMITE_MB", 512)
     if rss is None:
-        return _res("memoria", "aviso", "No pude medir la memoria del proceso (falta psutil).", "Agregar psutil a api/requirements.txt.")
+        return _res("memoria", "aviso", "No pude medir la memoria del proceso (falta psutil).", "Agregar psutil a requirements.txt.")
     pct = rss / limite * 100
     estado = "error" if pct >= 95 else "aviso" if pct >= 80 else "ok"
     hacer = None if estado == "ok" else "Cerca del límite del plan: Render reinicia el servicio al pasarse (Out of memory). Opciones: VECTORES=supabase (embeddings y BM25 fuera del proceso) o plan Standard."

@@ -5,8 +5,8 @@
 FROM python:3.12-slim
 WORKDIR /app
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
-COPY api/requirements.txt api/requirements.txt
-RUN pip install --no-cache-dir -r api/requirements.txt
+COPY requirements.txt requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 # Los módulos de la raíz se copian por patrón: un módulo nuevo no exige tocar este archivo.
 COPY *.py datos_fijos.md logo.png fragmentos.jsonl fragmentos_openai.npy ./
 COPY fuentes ./fuentes
