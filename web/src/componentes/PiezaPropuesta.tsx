@@ -1,13 +1,14 @@
 // El recuadro «Publicar esta pieza» debajo de la respuesta cuando el bot propone una pieza. Desde la fase 3
 // (22/10) el formulario completo vive en la pantalla Publicar (/publicar): acá se muestra la pieza propuesta (canal, título, texto,
 // frase para la imagen, fecha) con un botón principal que la abre precargada, y «Guardar borrador» como atajo (POST /publicaciones/borrador).
+import { fechaLegible } from "../util/fechas";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ErrorApi } from "../api";
 import { apiChat } from "../apiChat";
 import type { Pieza, RespuestaPieza } from "../tiposChat";
 import { useSesion } from "../App";
-import { fechaLegible, nombreCanal } from "../util/publicar";
+import { nombreCanal } from "../util/publicar";
 import { Icono } from "./Iconos";
 import { useToast } from "./Toasts";
 

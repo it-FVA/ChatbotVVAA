@@ -1,13 +1,14 @@
 // Solapa «Mover / intercambiar» del detalle del día.
+import { diaIso, diaMes } from "../../../util/fechas";
 import { useEffect, useState } from "react";
 import { type Dia, type Frase, apiFrases } from "../../../apiFrases";
 import { Icono } from "../../../componentes/Iconos";
-import { fechaCorta, iso, recortar } from "../comun";
+import { recortar } from "../comun";
 import type { PropsSolapa } from "./index";
 
 export function MoverIntercambiar({ f, fecha, ocupado, correr }: { f: Frase; fecha: string; hoy?: string; ocupado: boolean; correr: (a: () => Promise<string | void>, despues?: string | null, deshacer?: { texto: string; hacer: () => Promise<void> }) => Promise<void> }) {
   const [nueva, setNueva] = useState(fecha);
-  const [otra, setOtra] = useState(() => iso(new Date(new Date(fecha + "T12:00:00").getTime() + 86400000)));
+  const [otra, setOtra] = useState(() => diaIso(new Date(new Date(fecha + "T12:00:00").getTime() + 86400000)));
   const [otraFrase, setOtraFrase] = useState<Dia | null>(null);
   useEffect(() => {
     if (!otra || otra === fecha) {
@@ -23,7 +24,7 @@ export function MoverIntercambiar({ f, fecha, ocupado, correr }: { f: Frase; fec
         <strong className="chico">Mover a otra fecha</strong>
         <p className="suave chico">La fecha destino tiene que estar libre. (También podés arrastrar la frase en el calendario.)</p>
         <input type="date" value={nueva} onChange={(e) => setNueva(e.target.value)} aria-label="Nueva fecha" />
-        <button type="button" className="boton" disabled={ocupado || !nueva || nueva === fecha} onClick={() => correr(async () => (await apiFrases.mover(f.id, nueva)).mensaje, nueva, { texto: `Movida del ${fechaCorta(fecha)} al ${fechaCorta(nueva)}.`, hacer: async () => void (await apiFrases.mover(f.id, fecha)) })}>
+        <button type="button" className="boton" disabled={ocupado || !nueva || nueva === fecha} onClick={() => correr(async () => (await apiFrases.mover(f.id, nueva)).mensaje, nueva, { texto: `Movida del ${diaMes(fecha)} al ${diaMes(nueva)}.`, hacer: async () => void (await apiFrases.mover(f.id, fecha)) })}>
           <Icono nombre="calendario" tam={15} /> Mover
         </button>
       </div>
@@ -38,7 +39,7 @@ export function MoverIntercambiar({ f, fecha, ocupado, correr }: { f: Frase; fec
         ) : otra && otra !== fecha ? (
           <p className="suave chico">Ese día no tiene frase: usá «Mover».</p>
         ) : null}
-        <button type="button" className="boton" disabled={ocupado || !puedeInter} onClick={() => correr(async () => (await apiFrases.intercambiar(f.id, otraFrase!.frase!.id)).mensaje, otra, { texto: `Intercambiadas ${fechaCorta(fecha)} y ${fechaCorta(otra)}.`, hacer: async () => void (await apiFrases.intercambiar(f.id, otraFrase!.frase!.id)) })}>
+        <button type="button" className="boton" disabled={ocupado || !puedeInter} onClick={() => correr(async () => (await apiFrases.intercambiar(f.id, otraFrase!.frase!.id)).mensaje, otra, { texto: `Intercambiadas ${diaMes(fecha)} y ${diaMes(otra)}.`, hacer: async () => void (await apiFrases.intercambiar(f.id, otraFrase!.frase!.id)) })}>
           <Icono nombre="regenerar" tam={15} /> Intercambiar
         </button>
       </div>

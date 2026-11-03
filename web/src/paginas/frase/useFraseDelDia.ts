@@ -1,10 +1,11 @@
 // (3/11) El estado compartido de la Frase del día: lo que antes vivía en el componente raíz de FraseDelDia.tsx (16 useState, los
 // cargadores, `correr`, deshacer, arrastrar y soltar). La página y los paneles lo reciben de acá.
+import { diaMes } from "../../util/fechas";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSesion } from "../../App";
 import { type Mes, type Proxima, type Resumen, apiFrases } from "../../apiFrases";
 import { useToast } from "../../componentes/Toasts";
-import { type Arrastre, type Deshacer, fechaCorta, mensajeDe } from "./comun";
+import { type Arrastre, type Deshacer, mensajeDe } from "./comun";
 import type { Solapa } from "./solapas";
 
 export function useFraseDelDia() {
@@ -103,12 +104,12 @@ export function useFraseDelDia() {
     if (!destino) {
       await correr(
         async () => (await apiFrases.mover(a.id, fecha)).mensaje,
-        a.desde ? { texto: `Movida del ${fechaCorta(a.desde)} al ${fechaCorta(fecha)}.`, hacer: async () => void (await apiFrases.mover(a.id, a.desde!)) } : { texto: `Asignada al ${fechaCorta(fecha)}.`, hacer: async () => void (await apiFrases.sacar(a.id)) },
+        a.desde ? { texto: `Movida del ${diaMes(a.desde)} al ${diaMes(fecha)}.`, hacer: async () => void (await apiFrases.mover(a.id, a.desde!)) } : { texto: `Asignada al ${diaMes(fecha)}.`, hacer: async () => void (await apiFrases.sacar(a.id)) },
       );
     } else {
       await correr(
-        async () => (a.desde ? `Intercambiadas: ${fechaCorta(a.desde)} ↔ ${fechaCorta(fecha)}.` : `Cambiada: la del ${fechaCorta(fecha)} volvió al backlog.`) && (await apiFrases.intercambiar(a.id, destino.id)).mensaje,
-        { texto: a.desde ? `Intercambiadas ${fechaCorta(a.desde)} y ${fechaCorta(fecha)}.` : `Cambiada la frase del ${fechaCorta(fecha)}.`, hacer: async () => void (await apiFrases.intercambiar(a.id, destino.id)) },
+        async () => (a.desde ? `Intercambiadas: ${diaMes(a.desde)} ↔ ${diaMes(fecha)}.` : `Cambiada: la del ${diaMes(fecha)} volvió al backlog.`) && (await apiFrases.intercambiar(a.id, destino.id)).mensaje,
+        { texto: a.desde ? `Intercambiadas ${diaMes(a.desde)} y ${diaMes(fecha)}.` : `Cambiada la frase del ${diaMes(fecha)}.`, hacer: async () => void (await apiFrases.intercambiar(a.id, destino.id)) },
       );
     }
   }

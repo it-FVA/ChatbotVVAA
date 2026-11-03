@@ -4,6 +4,7 @@
 // (GET /banco) y el bloque «Un recorte para ver» se carga desde un recorte (?recorte=<id> o el selector). «Descargar HTML» para pegar
 // en Perfit, «Guardar borrador» (se retoma desde acá o desde Mis publicaciones: ?borrador=<id>) y «Enviar a aprobación» (tabla
 // publicaciones, canal newsletter, mismos estados que las demás piezas). El email NO sale de acá.
+import { fechaHora } from "../util/fechas";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { api, ErrorApi } from "../api";
@@ -839,7 +840,7 @@ function Borradores({ onCerrar, onElegir }: { onCerrar: () => void; onElegir: (b
             <button type="button" className="nl-borrador" onClick={() => onElegir(b)}>
               <strong>{b.titulo}</strong>
               <span className="suave chico">
-                {NOMBRE[b.plantilla] ?? b.plantilla} · guardado {fecha(b.guardado_en || b.creado)}
+                {NOMBRE[b.plantilla] ?? b.plantilla} · guardado {fechaHora(b.guardado_en || b.creado)}
               </span>
             </button>
           </li>
@@ -916,9 +917,3 @@ function destinosDe(plantilla: Plantilla, d: Datos): Destino[] {
   ];
 }
 
-function fecha(iso: string | null) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" }) + " " + d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
-}

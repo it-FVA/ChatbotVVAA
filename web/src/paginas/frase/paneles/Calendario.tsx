@@ -1,8 +1,9 @@
 // El calendario por mes con arrastrar y soltar (3/11: antes dentro de FraseDelDia.tsx).
 
+import { MESES } from "../../../util/fechas";
 import { Hueso } from "../../../componentes/Comunes";
 import { Icono } from "../../../componentes/Iconos";
-import { DIAS, ICONO_ESTADO, MESES, empezarArrastre, mesVecino, recortar } from "../comun";
+import { DIAS, ICONO_ESTADO, empezarArrastre, mesVecino, recortar } from "../comun";
 import type { EstadoFrase } from "../useFraseDelDia";
 
 export function Calendario({ s }: { s: EstadoFrase }) {

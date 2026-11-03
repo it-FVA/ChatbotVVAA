@@ -1,9 +1,10 @@
+import { MESES, fechaCompleta, hace } from "../../util/fechas";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ErrorApi } from "../../api";
 import { useAdmin } from "./Administracion";
 import { adminApi, type Costos, type Uso } from "./adminApi";
-import { AvisoError, Cargando, EstadoChip, IconoAdmin, Metrica, Plegable, diaCorto, fecha, hace, miles, nombreChequeo, pct, usd } from "./comun";
+import { AvisoError, Cargando, EstadoChip, IconoAdmin, Metrica, Plegable, diaCorto, miles, nombreChequeo, pct, usd } from "./comun";
 import { BarrasApiladas } from "./Graficos";
 
 // Administración → Dashboard (22/10, portada). Responde en orden: ¿funciona la app? (última corrida de Salud), ¿cuánto cuesta?
@@ -13,7 +14,6 @@ import { BarrasApiladas } from "./Graficos";
 
 type Periodo = { dias?: number; mes?: string };
 
-const MESES_TXT = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 
 function mesesRecientes(n = 6) {
   const out: { mes: string; texto: string }[] = [];
@@ -21,7 +21,7 @@ function mesesRecientes(n = 6) {
   for (let i = 0; i < n; i++) {
     const a = d.getFullYear();
     const m = d.getMonth();
-    out.push({ mes: `${a}-${String(m + 1).padStart(2, "0")}`, texto: `${MESES_TXT[m]} ${a}` });
+    out.push({ mes: `${a}-${String(m + 1).padStart(2, "0")}`, texto: `${MESES[m]} ${a}` });
     d.setMonth(m - 1, 1);
   }
   return out;
@@ -171,7 +171,7 @@ function CostoDelMes() {
         <div className="suave chico">
           OpenAI {usd(c.anterior.openai_usd)} ({miles(c.anterior.openai_llamadas)} llamadas) + fijos {usd(c.fijo_usd)}
         </div>
-        {c.anterior.openai_llamadas === 0 && <div className="suave chico">Sin llamadas registradas: el registro empezó el {fecha(resumen.registro_desde + "T12:00:00Z", false)}.</div>}
+        {c.anterior.openai_llamadas === 0 && <div className="suave chico">Sin llamadas registradas: el registro empezó el {fechaCompleta(resumen.registro_desde + "T12:00:00Z", false)}.</div>}
         <Link to="/administracion/servicios" className="boton chico" style={{ marginTop: 10 }}>
           Servicios y costos <IconoAdmin nombre="chevron" tam={14} />
         </Link>
@@ -242,7 +242,7 @@ function UsoDetalle({ uso, costos }: { uso: Uso; costos: Costos }) {
                       </span>
                     )}
                   </td>
-                  <td data-col="Última vez" title={p.ultima_vez ? fecha(p.ultima_vez) : undefined}>
+                  <td data-col="Última vez" title={p.ultima_vez ? fechaCompleta(p.ultima_vez) : undefined}>
                     {hace(p.ultima_vez)}
                   </td>
                   <td data-col="Conversaciones" className="num">
@@ -342,7 +342,7 @@ function UsoDetalle({ uso, costos }: { uso: Uso; costos: Costos }) {
               {costos.meses.every((m) => !m.llamadas) && (
                 <tr>
                   <td colSpan={5} className="suave">
-                    Todavía no hay meses con registro (empezó el {fecha(costos.registro_desde + "T12:00:00Z", false)}).
+                    Todavía no hay meses con registro (empezó el {fechaCompleta(costos.registro_desde + "T12:00:00Z", false)}).
                   </td>
                 </tr>
               )}

@@ -30,46 +30,6 @@ export function textoPlano(t: string): string {
     .trim();
 }
 
-export function manana(): string {
-  const d = new Date(Date.now() + 86400000);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-export function fechaIsoDe(p: { fecha: string | null; hora: string | null }): string | null {
-  if (!p.fecha) return null;
-  const [hh, mm] = (p.hora || "09:00").split(":");
-  return `${p.fecha}T${hh.padStart(2, "0")}:${(mm || "00").padStart(2, "0")}:00`;
-}
-
-const ZONA_AR = "America/Argentina/Buenos_Aires";
-const DIAS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
-
-/** Fecha y hora legibles («mié 5/11 10:30») en hora de Argentina. Un ISO sin zona (el del formulario) se toma como hora Argentina;
- *  uno con zona (Supabase devuelve las fechas programadas en UTC) se convierte. */
-export function fechaLegible(iso: string | null | undefined, conHora = true): string {
-  if (!iso) return "";
-  let s = String(iso);
-  if (!/(Z|[+-]\d{2}:?\d{2})$/.test(s) && /^\d{4}-\d{2}-\d{2}T/.test(s)) s += "-03:00";
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) s += "T00:00:00-03:00";
-  const d = new Date(s);
-  if (Number.isNaN(d.getTime())) return String(iso);
-  const partes = Object.fromEntries(
-    new Intl.DateTimeFormat("es-AR", { timeZone: ZONA_AR, weekday: "short", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })
-      .formatToParts(d)
-      .map((p) => [p.type, p.value]),
-  );
-  const dia = `${(partes.weekday || "").replace(".", "").slice(0, 3) || DIAS[d.getDay()]} ${partes.day}/${partes.month}`;
-  return conHora && !/T00:00:00-03:00$/.test(s) ? `${dia} ${partes.hour}:${partes.minute}` : dia;
-}
-
-/** Fecha de creación (UTC en la base) en hora local, corta. */
-export function fechaCorta(iso: string | null | undefined): string {
-  if (!iso) return "";
-  const d = new Date(iso.endsWith("Z") || /[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + "Z");
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" }) + " " + d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
-}
-
 export function formularioVacio(op?: OpcionesPublicar | null): PiezaForm {
   return {
     canal: "",

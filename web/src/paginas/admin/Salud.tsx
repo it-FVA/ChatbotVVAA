@@ -1,10 +1,11 @@
+import { fechaCompleta, hace } from "../../util/fechas";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ErrorApi } from "../../api";
 import { useToast } from "../../componentes/Toasts";
 import { useAdmin } from "./Administracion";
 import { adminApi, type Chequeo, type FilaHistorial, type InformeSalud } from "./adminApi";
-import { AvisoError, EstadoChip, IconoAdmin, Plegable, diasHasta, fecha, hace, nombreChequeo } from "./comun";
+import { AvisoError, EstadoChip, IconoAdmin, Plegable, diasHasta, nombreChequeo } from "./comun";
 
 // Administración → Salud (22/10): los chequeos de GET /salud/servicios como tarjetas agrupadas por estado (errores, avisos, ok),
 // cada una con el detalle, «qué hacer» y «desde cuándo»; arriba los vencimientos y avisos próximos (tokens que vencen en menos
@@ -84,7 +85,7 @@ export default function Salud() {
           <ul>
             {proximos.map(({ c, dias }) => (
               <li key={"v" + c.nombre} className={dias < AVISO_DIAS ? "e-error" : "e-aviso"}>
-                <strong>{nombreChequeo(c.nombre)}</strong>: el token {dias < 0 ? `venció hace ${-dias} días` : dias === 0 ? "vence hoy" : `vence en ${dias} días`} ({fecha(c.vence, false)}).
+                <strong>{nombreChequeo(c.nombre)}</strong>: el token {dias < 0 ? `venció hace ${-dias} días` : dias === 0 ? "vence hoy" : `vence en ${dias} días`} ({fechaCompleta(c.vence, false)}).
                 {c.que_hacer && <span className="suave"> {c.que_hacer}</span>}
               </li>
             ))}
@@ -103,13 +104,13 @@ export default function Salud() {
           </ul>
           {vencimientos.filter((v) => v.dias >= PRONTO_DIAS).length > 0 && (
             <p className="suave chico">
-              Otros vencimientos conocidos: {vencimientos.filter((v) => v.dias >= PRONTO_DIAS).map(({ c, dias }) => `${nombreChequeo(c.nombre)} el ${fecha(c.vence, false)} (${dias} días)`).join(" · ")}.
+              Otros vencimientos conocidos: {vencimientos.filter((v) => v.dias >= PRONTO_DIAS).map(({ c, dias }) => `${nombreChequeo(c.nombre)} el ${fechaCompleta(c.vence, false)} (${dias} días)`).join(" · ")}.
             </p>
           )}
         </section>
       )}
       {informe && proximos.length === 0 && vencimientos.length > 0 && grupos.error.length === 0 && grupos.aviso.length === 0 && (
-        <p className="suave chico">Vencimientos conocidos: {vencimientos.map(({ c, dias }) => `${nombreChequeo(c.nombre)} el ${fecha(c.vence, false)} (en ${dias} días)`).join(" · ")}.</p>
+        <p className="suave chico">Vencimientos conocidos: {vencimientos.map(({ c, dias }) => `${nombreChequeo(c.nombre)} el ${fechaCompleta(c.vence, false)} (en ${dias} días)`).join(" · ")}.</p>
       )}
 
       {!informe ? (
@@ -168,8 +169,8 @@ function TarjetaChequeo({ c }: { c: Chequeo }) {
         </p>
       )}
       <footer className="suave chico">
-        {c.estado !== "ok" && c.desde && <span title={fecha(c.desde)}>así desde {hace(c.desde)}</span>}
-        {c.vence && dias !== null && <span>vence el {fecha(c.vence, false)} ({dias} días)</span>}
+        {c.estado !== "ok" && c.desde && <span title={fechaCompleta(c.desde)}>así desde {hace(c.desde)}</span>}
+        {c.vence && dias !== null && <span>vence el {fechaCompleta(c.vence, false)} ({dias} días)</span>}
         {typeof c.ms === "number" && <span>{c.ms} ms</span>}
         {c.cacheado && <span title="Resultado guardado hace menos de 10 minutos (los chequeos a OpenAI, Meta y Google se repiten como mucho cada 10 min)">en caché</span>}
         {c.corrida?.url && (
@@ -209,19 +210,19 @@ function Historial({ filas }: { filas: FilaHistorial[] | null }) {
   }
   cambios.reverse();
   return (
-    <Plegable titulo="Historial de los chequeos" abierto resumen={`${corridas.length} corridas · ${arranques.length} arranques de la API desde ${fecha(todas[0].creado)}`}>
+    <Plegable titulo="Historial de los chequeos" abierto resumen={`${corridas.length} corridas · ${arranques.length} arranques de la API desde ${fechaCompleta(todas[0].creado)}`}>
       <div className="linea-tiempo" role="img" aria-label="Línea de tiempo de las corridas">
         <div className="linea-tiempo-pista">
           {arranques.map((f) => (
-            <span key={"a" + f.id} className="lt-arranque" style={{ left: `${x(f.creado)}%` }} title={`La API arrancó ${fecha(f.creado)} (${hace(f.creado)})`} />
+            <span key={"a" + f.id} className="lt-arranque" style={{ left: `${x(f.creado)}%` }} title={`La API arrancó ${fechaCompleta(f.creado)} (${hace(f.creado)})`} />
           ))}
           {corridas.map((f) => (
-            <span key={f.id} className={"lt-punto e-" + f.estado} style={{ left: `${x(f.creado)}%` }} title={`${fecha(f.creado)}: ${f.estado}${(f.detalle?.chequeos ?? []).filter((c) => c.estado !== "ok").map((c) => `\n${nombreChequeo(c.nombre)}: ${c.estado}`).join("")}`} />
+            <span key={f.id} className={"lt-punto e-" + f.estado} style={{ left: `${x(f.creado)}%` }} title={`${fechaCompleta(f.creado)}: ${f.estado}${(f.detalle?.chequeos ?? []).filter((c) => c.estado !== "ok").map((c) => `\n${nombreChequeo(c.nombre)}: ${c.estado}`).join("")}`} />
           ))}
         </div>
         <div className="linea-tiempo-fechas suave chico">
-          <span>{fecha(todas[0].creado)}</span>
-          <span>{fecha(todas[todas.length - 1].creado)}</span>
+          <span>{fechaCompleta(todas[0].creado)}</span>
+          <span>{fechaCompleta(todas[todas.length - 1].creado)}</span>
         </div>
         <div className="linea-tiempo-leyenda suave chico">
           <span>
@@ -244,7 +245,7 @@ function Historial({ filas }: { filas: FilaHistorial[] | null }) {
           <ul className="cambios-salud">
             {cambios.slice(0, 20).map((c, i) => (
               <li key={i}>
-                <span className="suave chico">{fecha(c.cuando)}</span> <EstadoChip estado={c.estado} texto={c.texto} />
+                <span className="suave chico">{fechaCompleta(c.cuando)}</span> <EstadoChip estado={c.estado} texto={c.texto} />
               </li>
             ))}
           </ul>
@@ -254,7 +255,7 @@ function Historial({ filas }: { filas: FilaHistorial[] | null }) {
       <ul className="cambios-salud">
         {corridas.slice(0, 12).map((f) => (
           <li key={f.id}>
-            <span className="suave chico">{fecha(f.creado)}</span> <EstadoChip estado={f.estado} />{" "}
+            <span className="suave chico">{fechaCompleta(f.creado)}</span> <EstadoChip estado={f.estado} />{" "}
             <span className="chico">{(f.detalle?.chequeos ?? []).filter((c) => c.estado !== "ok").map((c) => `${nombreChequeo(c.nombre)} (${c.estado})`).join(", ") || "todo en orden"}</span>
           </li>
         ))}

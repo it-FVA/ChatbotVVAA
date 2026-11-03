@@ -1,3 +1,4 @@
+import { fechaHora } from "../../util/fechas";
 import { useCallback, useEffect, useState } from "react";
 import { api, ErrorApi } from "../../api";
 import { useSesion } from "../../App";
@@ -15,12 +16,7 @@ const ROL_TEXTO: Record<string, string> = { creador: "creador de contenido", apr
 
 type Accion = { tipo: "renombrar" | "clave" | "borrar"; u: Usuario } | { tipo: "nuevo" } | null;
 
-function fecha(iso: string | null) {
-  if (!iso) return "nunca";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit" }) + " " + d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
-}
+const fecha = (iso: string | null) => fechaHora(iso, { anio: true, vacio: "nunca" });
 
 export default function Usuarios() {
   const { yo, setYo } = useSesion();

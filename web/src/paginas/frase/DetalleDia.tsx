@@ -1,10 +1,11 @@
 // El detalle de un día (ventana): la frase, la vista previa y, para aprobadores, las solapas registradas en solapas/index.ts.
+import { diaMes, fechaLarga, horaArgentina } from "../../util/fechas";
 import { useCallback, useEffect, useState } from "react";
 import { type Dia, type Resumen, apiFrases } from "../../apiFrases";
 import { Icono } from "../../componentes/Iconos";
 import Modal from "../../componentes/Modal";
 import { useToast } from "../../componentes/Toasts";
-import { fechaCorta, fechaLarga, horaArgentina, mensajeDe } from "./comun";
+import { mensajeDe } from "./comun";
 import { Buscador } from "./paneles/Buscador";
 import { SolicitarCambio } from "./paneles/Solicitudes";
 import { SOLAPAS, type Solapa } from "./solapas";
@@ -71,7 +72,7 @@ export function DetalleDia({ fecha, version, aprueba, solapaPedida, estiloOpcion
                 correr(
                   async () => (await apiFrases.mover(fr.id, fecha)).mensaje,
                   undefined,
-                  { texto: `Asignada al ${fechaCorta(fecha)}.`, hacer: async () => void (await apiFrases.sacar(fr.id)) },
+                  { texto: `Asignada al ${diaMes(fecha)}.`, hacer: async () => void (await apiFrases.sacar(fr.id)) },
                 )
               }
               textoBoton="Asignar a este día"

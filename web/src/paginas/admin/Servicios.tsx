@@ -1,10 +1,11 @@
+import { fechaCompleta, hace } from "../../util/fechas";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ErrorApi } from "../../api";
 import Modal from "../../componentes/Modal";
 import { useToast } from "../../componentes/Toasts";
 import { adminApi, type Capacidad, type Servicio, type Servicios as Datos } from "./adminApi";
-import { AvisoError, Cargando, EstadoChip, IconoAdmin, Metrica, fecha, hace, usd } from "./comun";
+import { AvisoError, Cargando, EstadoChip, IconoAdmin, Metrica, usd } from "./comun";
 import { Medidor } from "./Graficos";
 
 // Administración → Servicios y costos (22/10): el inventario de todo lo que usa la app (tabla servicios: nombre, proveedor,
@@ -101,7 +102,7 @@ export default function Servicios() {
                     </td>
                     <td data-col="Monto">{s.confirmado ? <span className="chip chico" style={{ marginLeft: 0 }}>confirmado</span> : <span className="chip chico amarillo" style={{ marginLeft: 0 }} title="Sin factura o plan verificado que lo confirme">referencia</span>}</td>
                     <td data-col="Desde" className="suave chico">
-                      {s.desde ? fecha(s.desde + "T12:00:00Z", false) : "—"}
+                      {s.desde ? fechaCompleta(s.desde + "T12:00:00Z", false) : "—"}
                     </td>
                     <td data-col="" className="celda-acciones">
                       <button className="boton sutil chico" onClick={() => setEditando(s)} aria-label={`Editar ${s.nombre}`} title="Editar">
@@ -402,7 +403,7 @@ function CapacidadSeccion({ servicios }: { servicios: Servicio[] }) {
                     {c.modelos_sin_precio && c.modelos_sin_precio.length > 0 && <li>Modelos sin precio cargado: {c.modelos_sin_precio.join(", ")}.</li>}
                     {!c.medido && c.uso_manual && (
                       <li>
-                        Dato cargado a mano el {fecha(c.uso_manual.fecha, false)} por {c.uso_manual.por ?? "?"}.
+                        Dato cargado a mano el {fechaCompleta(c.uso_manual.fecha, false)} por {c.uso_manual.por ?? "?"}.
                       </li>
                     )}
                   </ul>

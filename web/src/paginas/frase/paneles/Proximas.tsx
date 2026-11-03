@@ -1,7 +1,8 @@
 // Panel «Próximas 14 días».
+import { diaMes } from "../../../util/fechas";
 import type { Proxima } from "../../../apiFrases";
 import { Icono } from "../../../componentes/Iconos";
-import { fechaCorta, recortar } from "../comun";
+import { recortar } from "../comun";
 
 // ---------------- Próximas 14 días ----------------
 export function Proximas({ lista, onElegir }: { lista: Proxima[] | null; onElegir: (f: string) => void }) {
@@ -16,7 +17,7 @@ export function Proximas({ lista, onElegir }: { lista: Proxima[] | null; onElegi
           <li key={p.fecha} className={p.frase ? p.frase.estado : "libre"}>
             <button type="button" onClick={() => onElegir(p.fecha)} title="Ver el día">
               <span className="fd-prox-fecha">
-                {p.dia.slice(0, 2)} {fechaCorta(p.fecha)}
+                {p.dia.slice(0, 2)} {diaMes(p.fecha)}
               </span>
               {p.frase ? (
                 <span className="fd-prox-texto">

@@ -1,16 +1,17 @@
 // Ventana «Repartir en el año».
+import { diaIso } from "../../../util/fechas";
 import { useState } from "react";
 import { apiFrases } from "../../../apiFrases";
 import { Icono } from "../../../componentes/Iconos";
 import Modal from "../../../componentes/Modal";
 import { useToast } from "../../../componentes/Toasts";
-import { iso, mensajeDe } from "../comun";
+import { mensajeDe } from "../comun";
 
 // ---------------- Repartir y agregar ----------------
 export function Repartir({ hoy, sinDia, onCerrar, onHecho }: { hoy: string; sinDia: number; onCerrar: () => void; onHecho: (msg: string) => void }) {
   const { avisar } = useToast();
   const [modo, setModo] = useState<"orden" | "azar">("orden");
-  const [desde, setDesde] = useState(() => iso(new Date(new Date(hoy + "T12:00:00").getTime() + 86400000)));
+  const [desde, setDesde] = useState(() => diaIso(new Date(new Date(hoy + "T12:00:00").getTime() + 86400000)));
   const [ocupado, setOcupado] = useState(false);
   async function ir() {
     setOcupado(true);

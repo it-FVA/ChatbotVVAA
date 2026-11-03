@@ -1,10 +1,11 @@
 // Vista previa «como se ve de verdad» de una pieza en cada canal (22/10, fase 3): Instagram (feed cuadrado/vertical, reel o historia),
 // Facebook (texto arriba, foto abajo), Blogpost (entrada con foto destacada, título y cuerpo) y YouTube (reproductor, título, descripción).
 // Es una maqueta aproximada hecha con CSS: la imagen que se ve es la que viaja (la compuesta con la frase, o la foto sola).
+import { fechaLegible } from "../util/fechas";
 import { useState } from "react";
 import { aHtml } from "../util/markdown";
 import { useSesion } from "../App";
-import { fechaLegible, nombreCanal, textoPlano } from "../util/publicar";
+import { nombreCanal, textoPlano } from "../util/publicar";
 import { Icono } from "./Iconos";
 
 export interface DatosPrevia {

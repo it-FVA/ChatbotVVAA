@@ -1,9 +1,10 @@
 // Solicitudes de cambio (2/11): los creadores piden («Pedir un cambio» en el día), los aprobadores resuelven en el panel.
+import { diaMes } from "../../../util/fechas";
 import { useCallback, useEffect, useState } from "react";
 import { type Frase, type Solicitud, type Solicitudes, apiFrases } from "../../../apiFrases";
 import { Icono } from "../../../componentes/Iconos";
 import { useToast } from "../../../componentes/Toasts";
-import { fechaCorta, mensajeDe, recortar } from "../comun";
+import { mensajeDe, recortar } from "../comun";
 import { Buscador } from "./Buscador";
 import { ElegirFoto } from "./ElegirFoto";
 
@@ -172,7 +173,7 @@ export function SolicitudesPanel({ aprueba, version, onCambio, onVerDia }: { apr
                   <strong>{s.fecha_texto}</strong>
                 </button>
                 {aprueba && <span className="suave"> · pide {s.usuario}</span>}
-                <span className="suave"> · {fechaCorta(s.creado.slice(0, 10))}</span>
+                <span className="suave"> · {diaMes(s.creado.slice(0, 10))}</span>
                 {s.pasado && <span className="rojo"> · ese día ya pasó</span>}
               </div>
               <div className="fd-solicitud-cambio chico">
@@ -186,7 +187,7 @@ export function SolicitudesPanel({ aprueba, version, onCambio, onVerDia }: { apr
                     <span>
                       <span className="suave">Que salga:</span> «{recortar(s.frase?.texto || s.texto || "", 160)}» — {s.frase?.autor || s.autor || "(sin autor)"}
                       {!s.frase && <span className="chip chico"> nueva</span>}
-                      {s.frase?.fecha && s.frase.fecha !== s.fecha && <span className="suave"> (hoy está el {fechaCorta(s.frase.fecha)})</span>}
+                      {s.frase?.fecha && s.frase.fecha !== s.fecha && <span className="suave"> (hoy está el {diaMes(s.frase.fecha)})</span>}
                       {s.imagen_url && <span className="suave"> · con una foto de fondo propuesta</span>}
                     </span>
                     <span className="suave">{s.actual ? `En lugar de: «${recortar(s.actual.texto, 100)}»` : "El día está libre."}</span>

@@ -3,6 +3,7 @@
 // /proyectos = la raíz (mis carpetas + las compartidas conmigo); /proyectos/:id = adentro de una carpeta.
 // Migas de pan, grilla o lista, buscador, ordenar, selección múltiple (clic, Ctrl/Shift+clic, casillas), arrastrar carpetas e
 // ítems a otra carpeta o a una miga, menú contextual (clic derecho o ⋮), panel de detalles, vacíos con llamada a la acción.
+import { fechaHora } from "../util/fechas";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, ErrorApi } from "../api";
@@ -26,12 +27,7 @@ type Orden = "nombre" | "fecha";
 type Sel = { clase: "carpeta"; id: string } | { clase: "item"; id: string };
 const COLORES = ["#d99a1f", "#3a6b35", "#2f6fb3", "#b43c3c", "#8a4fb0", "#1f8a8a", "#666"];
 
-function fechaCorta(iso: string | null | undefined) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit" }) + " " + d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
-}
+const fechaCorta = (iso: string | null | undefined) => fechaHora(iso, { anio: true, invalido: "vacio" });
 
 function claveSel(s: Sel) {
   return s.clase + ":" + s.id;

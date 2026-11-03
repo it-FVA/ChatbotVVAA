@@ -1,3 +1,4 @@
+import { fechaHora } from "../util/fechas";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, ErrorApi } from "../api";
@@ -189,7 +190,7 @@ function Tarjeta({ c, mostrarQuien, aprueba, onBorrar, onCambio }: { c: Recorte;
       <div className="recorte-cuerpo">
         <h3>{(c.titulo || c.video_id).slice(0, 90)}</h3>
         <div className="recorte-meta">
-          <span>{fecha(c.creado)}</span>
+          <span>{fechaHora(c.creado)}</span>
           <span>
             <Icono nombre={c.formato === "vertical" ? "celular" : "pelicula"} tam={14} /> {c.formato}
           </span>
@@ -342,11 +343,3 @@ function ConfirmarBorrado({ c, onCerrar, onBorrado }: { c: Recorte; onCerrar: ()
   );
 }
 
-function fecha(iso: string) {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" }) + " " + d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return iso;
-  }
-}

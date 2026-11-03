@@ -1,6 +1,7 @@
 // Mis publicaciones (22/10, fase 3) : solapas por estado con conteos, tarjetas con canal, estado,
 // fechas, miniatura, quién aprobó/rechazó y la nota, y las acciones Retomar (borradores), Eliminar (lo eliminable), Ver resultado
 // (el posteo, la entrada o el borrador de WordPress) y Descargar HTML (newsletter).
+import { fechaCreacion, fechaLegible } from "../util/fechas";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ErrorApi } from "../api";
@@ -8,7 +9,7 @@ import { apiPublicar } from "../apiPublicar";
 import type { MisPublicaciones, Publicacion } from "../tiposPublicar";
 import type { CanalInfo } from "../tipos";
 import { useSesion } from "../App";
-import { fechaCorta, fechaLegible, nombreCanal } from "../util/publicar";
+import { nombreCanal } from "../util/publicar";
 import { Icono, type NombreIcono } from "../componentes/Iconos";
 import Modal from "../componentes/Modal";
 import { EstadoVacio, Hueso } from "../componentes/Comunes";
@@ -220,7 +221,7 @@ export function TarjetaPublicacion({ p, mostrarUsuario = false, onEliminar, onCa
             <Icono nombre={(canales.find((c) => c.clave === p.canal)?.icono as NombreIcono) || "megafono"} tam={14} /> {p.canal_texto}
             {p.formato && p.formato !== "cuadrado" ? ` · ${p.formato}` : ""}
           </span>
-          <span className="suave">creada {fechaCorta(p.creado)}</span>
+          <span className="suave">creada {fechaCreacion(p.creado)}</span>
           {mostrarUsuario && (
             <span>
               por <strong>{p.propuesta_por || p.usuario}</strong>
@@ -238,12 +239,12 @@ export function TarjetaPublicacion({ p, mostrarUsuario = false, onEliminar, onCa
           )}
           {p.aprobada_por && (
             <span>
-              aprobó <strong>{p.aprobada_por}</strong> ({fechaCorta(p.aprobada_en)})
+              aprobó <strong>{p.aprobada_por}</strong> ({fechaCreacion(p.aprobada_en)})
             </span>
           )}
           {p.rechazada_por && (
             <span>
-              rechazó <strong>{p.rechazada_por}</strong> ({fechaCorta(p.rechazada_en)})
+              rechazó <strong>{p.rechazada_por}</strong> ({fechaCreacion(p.rechazada_en)})
             </span>
           )}
           {p.nota && <span>nota: «{p.nota}»</span>}

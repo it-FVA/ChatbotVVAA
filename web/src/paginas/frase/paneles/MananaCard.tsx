@@ -1,7 +1,8 @@
 // La tarjeta «Mañana»: qué sale mañana y por dónde, con los interruptores y la vista previa por canal.
+import { horaArgentina } from "../../../util/fechas";
 import { type CanalManana, type Resumen, apiFrases } from "../../../apiFrases";
 import { Icono } from "../../../componentes/Iconos";
-import { CANAL_CORTO, horaArgentina, recortar } from "../comun";
+import { CANAL_CORTO, recortar } from "../comun";
 import type { Solapa } from "../solapas";
 
 // ---------------- (2/11) Ver el mail de un día ----------------

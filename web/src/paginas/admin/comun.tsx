@@ -35,29 +35,6 @@ export const miles = (n: number | null | undefined) => (n === null || n === unde
 
 export const pct = (x: number | null | undefined, dec = 0) => (x === null || x === undefined ? "—" : (x * 100).toFixed(dec).replace(".", ",") + " %");
 
-export function fecha(iso: string | null | undefined, conHora = true): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const f = d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit" });
-  return conHora ? f + " " + d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) : f;
-}
-
-/** «hace 5 min», «hace 3 h», «ayer», «hace 12 días». */
-export function hace(iso: string | null | undefined): string {
-  if (!iso) return "nunca";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const seg = (Date.now() - d.getTime()) / 1000;
-  if (seg < 60) return "recién";
-  if (seg < 3600) return `hace ${Math.floor(seg / 60)} min`;
-  if (seg < 86400) return `hace ${Math.floor(seg / 3600)} h`;
-  const dias = Math.floor(seg / 86400);
-  if (dias === 1) return "ayer";
-  if (dias < 60) return `hace ${dias} días`;
-  return fecha(iso, false);
-}
-
 /** Días que faltan hasta una fecha ISO (negativo si ya pasó). */
 export function diasHasta(iso: string | null | undefined): number | null {
   if (!iso) return null;

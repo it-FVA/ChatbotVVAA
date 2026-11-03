@@ -1,10 +1,11 @@
+import { fechaCompleta, hace } from "../../util/fechas";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { api, ErrorApi } from "../../api";
 import type { Estilo, Opciones } from "../../tipos";
 import { ControlesEstilo, cssSubtitulo } from "../../componentes/Estilo";
 import { useToast } from "../../componentes/Toasts";
 import { adminApi, type CambioRegistro, type Config, type Precio } from "./adminApi";
-import { AvisoError, Cargando, IconoAdmin, Plegable, fecha, hace } from "./comun";
+import { AvisoError, Cargando, IconoAdmin, Plegable } from "./comun";
 
 // Administración → Configuración (22/10): precios de OpenAI por modelo (con fuente y fecha; aviso del precio promocional de
 // gpt-5.6-sol hasta el 21/11/2026), presupuesto mensual, umbrales de capacidad, estilo por defecto de los subtítulos (mismos
@@ -52,7 +53,7 @@ export default function Configuracion() {
               <ul className="cambios-lista">
                 {cambios.slice(0, 40).map((c) => (
                   <li key={c.id}>
-                    <span className="suave chico">{fecha(c.cuando)}</span> <strong>{c.quien}</strong> · {c.accion === "config" ? "cambió" : c.accion.replace("servicio_", "servicio: ")} <code>{c.usuario}</code>
+                    <span className="suave chico">{fechaCompleta(c.cuando)}</span> <strong>{c.quien}</strong> · {c.accion === "config" ? "cambió" : c.accion.replace("servicio_", "servicio: ")} <code>{c.usuario}</code>
                     {c.detalle && <span className="suave chico"> {resumirDetalle(c.detalle)}</span>}
                   </li>
                 ))}
@@ -79,7 +80,7 @@ function Bloque({ titulo, icono, explicacion, meta, children, acciones }: { titu
           <IconoAdmin nombre={icono} tam={18} /> {titulo}
         </h3>
         {meta?.actualizado && (
-          <span className="suave chico" title={fecha(meta.actualizado)}>
+          <span className="suave chico" title={fechaCompleta(meta.actualizado)}>
             cambiado {hace(meta.actualizado)}
             {meta.por ? ` por ${meta.por}` : ""}
           </span>

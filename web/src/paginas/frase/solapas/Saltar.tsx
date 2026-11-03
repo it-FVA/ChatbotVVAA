@@ -1,7 +1,8 @@
 // Solapa «Saltar / sacar» del detalle del día.
+import { diaMes } from "../../../util/fechas";
 import { apiFrases } from "../../../apiFrases";
 import { Icono } from "../../../componentes/Iconos";
-import { fechaCorta } from "../comun";
+
 import type { PropsSolapa } from "./index";
 
 export default function Saltar({ f, fecha, ocupado, correr }: PropsSolapa) {
@@ -29,7 +30,7 @@ export default function Saltar({ f, fecha, ocupado, correr }: PropsSolapa) {
         <button
           type="button"
           className="boton peligro sutil"
-          onClick={() => correr(async () => (await apiFrases.sacar(f.id)).mensaje, null, { texto: `Sacada del ${fechaCorta(fecha)}.`, hacer: async () => void (await apiFrases.mover(f.id, fecha)) })}
+          onClick={() => correr(async () => (await apiFrases.sacar(f.id)).mensaje, null, { texto: `Sacada del ${diaMes(fecha)}.`, hacer: async () => void (await apiFrases.mover(f.id, fecha)) })}
           disabled={ocupado}
         >
           <Icono nombre="tacho" tam={15} /> Sacar del calendario

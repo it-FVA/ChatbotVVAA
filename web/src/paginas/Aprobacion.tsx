@@ -1,6 +1,7 @@
 // Aprobación (22/10, fase 3) sección aparte para aprobadores: Para aprobar (vista previa completa,
 // aprobar con fecha y hora editables, rechazar con nota), En cola (cancelar), Registro, Papelera de conversaciones (restaurar) y
 // Clips de todo el equipo (la pantalla de recortes con la solapa «Todos» fija; los admins además fijan el estilo por defecto).
+import { fechaCreacion, fechaLegible } from "../util/fechas";
 import { useCallback, useEffect, useState } from "react";
 import { NavLink, Navigate, Outlet, useOutletContext } from "react-router-dom";
 import { api, ErrorApi } from "../api";
@@ -8,7 +9,7 @@ import { apiPublicar } from "../apiPublicar";
 import { useSesion } from "../App";
 import type { Estilo, Opciones } from "../tipos";
 import type { ConversacionBorrada, Publicacion } from "../tiposPublicar";
-import { fechaCorta, fechaLegible } from "../util/publicar";
+
 import { ControlesEstilo } from "../componentes/Estilo";
 import { Icono } from "../componentes/Iconos";
 import { EstadoVacio, Hueso } from "../componentes/Comunes";
@@ -141,7 +142,7 @@ function PiezaParaAprobar({ p, modo, onHecho }: { p: Publicacion; modo: string; 
       <div className="aprobar-cabecera">
         <strong>{p.canal_texto}</strong>
         <span className="suave">
-          · propuso <strong>{p.propuesta_por || p.usuario}</strong> · {fechaCorta(p.creado)}
+          · propuso <strong>{p.propuesta_por || p.usuario}</strong> · {fechaCreacion(p.creado)}
           {p.formato ? ` · formato ${p.formato}` : ""}
         </span>
       </div>
@@ -351,8 +352,8 @@ export function Papelera() {
                     <strong>{c.titulo || "(sin título)"}</strong>
                   </td>
                   <td data-col="De">{c.usuario}</td>
-                  <td data-col="Borrada">{fechaCorta(c.borrada)}</td>
-                  <td data-col="Última actividad">{fechaCorta(c.actualizado)}</td>
+                  <td data-col="Borrada">{fechaCreacion(c.borrada)}</td>
+                  <td data-col="Última actividad">{fechaCreacion(c.actualizado)}</td>
                   <td className="celda-acciones">
                     <button type="button" className="boton chico" onClick={() => restaurar(c)} disabled={ocupado === c.id}>
                       <Icono nombre="deshacer" tam={14} /> {ocupado === c.id ? "Restaurando…" : "Restaurar"}

@@ -1,10 +1,11 @@
 // Panel «Envío por mail (Perfit) · detalles» (se abre en una ventana desde la fila Mail de la tarjeta «Mañana»).
+import { diaMes } from "../../../util/fechas";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ErrorApi } from "../../../api";
 import { type MailEstado, apiFrases } from "../../../apiFrases";
 import { Icono } from "../../../componentes/Iconos";
-import { fechaCorta, recortar } from "../comun";
+import { recortar } from "../comun";
 
 /** (26/10, reunión: la Frase del día vuelve por mail con el disparador de Perfit) Estado del canal mail y la prueba al equipo.
  * Lo ven aprobadores y admins; el botón de prueba es de admins. La hora de inicio y la lista de prueba se cargan en Configuración. */
@@ -85,7 +86,7 @@ export function MailPanel({ admin }: { admin: boolean }) {
                     <span>
                       «{recortar(d.frase.texto, 60)}» · {d.estado}
                       {d.conteo && d.conteo.total ? ` · ${d.conteo.enviado ?? 0} enviados, ${d.conteo.pendiente ?? 0} pendientes, ${d.conteo.error ?? 0} con error` : ""}
-                      {d.arranca && d.estado === "pendiente" ? ` · arranca ${fechaCorta(d.arranca.slice(0, 10))} ${d.arranca.slice(11, 16)}` : ""}
+                      {d.arranca && d.estado === "pendiente" ? ` · arranca ${diaMes(d.arranca.slice(0, 10))} ${d.arranca.slice(11, 16)}` : ""}
                     </span>
                   )}
                 </li>
@@ -105,7 +106,7 @@ export function MailPanel({ admin }: { admin: boolean }) {
             </div>
             {est.pruebas.length > 0 && (
               <p className="suave chico">
-                Últimas pruebas: {est.pruebas.slice(0, 5).map((p) => `${p.email} (${p.estado}${p.enviado_en ? ", " + fechaCorta(p.enviado_en.slice(0, 10)) : ""})`).join(" · ")}
+                Últimas pruebas: {est.pruebas.slice(0, 5).map((p) => `${p.email} (${p.estado}${p.enviado_en ? ", " + diaMes(p.enviado_en.slice(0, 10)) : ""})`).join(" · ")}
               </p>
             )}
           </>

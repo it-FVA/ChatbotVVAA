@@ -10,12 +10,13 @@
 // ver el mail de un día como lo arma la plantilla (reproducción de la de Perfit) con «Ver el mail».
 // (3/11, revisión 5.2 punto 13) Partida en paginas/frase/: el estado en useFraseDelDia.ts, un archivo por panel en paneles/ y una
 // solapa del detalle del día por archivo en solapas/ (la lista de solapas se registra en solapas/index.ts). Acá queda solo el armado.
+import { diaIso, fechaLarga } from "../../util/fechas";
 import { Link } from "react-router-dom";
 import { apiFrases } from "../../apiFrases";
 import { Hueso } from "../../componentes/Comunes";
 import { Icono } from "../../componentes/Iconos";
 import Modal from "../../componentes/Modal";
-import { fechaLarga, iso } from "./comun";
+
 import { BacklogPanel } from "./paneles/Backlog";
 import { Calendario } from "./paneles/Calendario";
 import { Conteo } from "./paneles/Conteo";
@@ -190,7 +191,7 @@ export default function FraseDelDia() {
       )}
       {modal === "repartir" && resumen && (
         <Repartir
-          hoy={resumen.hoy || iso(new Date())}
+          hoy={resumen.hoy || diaIso(new Date())}
           sinDia={c.sin_fecha_validadas ?? 0}
           onCerrar={() => setModal(null)}
           onHecho={(msg) => {

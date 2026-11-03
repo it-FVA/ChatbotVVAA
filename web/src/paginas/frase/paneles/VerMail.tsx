@@ -1,9 +1,10 @@
 // Ventana «Ver el mail» de un día (reproducción de la plantilla de Perfit).
+import { fechaLarga } from "../../../util/fechas";
 import { useEffect, useState } from "react";
 import { type MailPrevia, apiFrases } from "../../../apiFrases";
 import { Icono } from "../../../componentes/Iconos";
 import Modal from "../../../componentes/Modal";
-import { fechaLarga, mensajeDe } from "../comun";
+import { mensajeDe } from "../comun";
 
 export function VerMail({ fecha, onCerrar, onCambiarFoto }: { fecha: string; onCerrar: () => void; onCambiarFoto?: () => void }) {
   const [m, setM] = useState<MailPrevia | null>(null);

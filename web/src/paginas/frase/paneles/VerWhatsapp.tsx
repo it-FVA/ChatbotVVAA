@@ -1,9 +1,10 @@
 // Ventana «Ver el WhatsApp» de un día (prototipo: todavía no se manda).
+import { fechaLarga } from "../../../util/fechas";
 import { useEffect, useState } from "react";
 import { type WhatsappPrevia, apiFrases } from "../../../apiFrases";
 import { Icono } from "../../../componentes/Iconos";
 import Modal from "../../../componentes/Modal";
-import { fechaLarga, mensajeDe } from "../comun";
+import { mensajeDe } from "../comun";
 
 /** (2/11 tarde) Prototipo de la reunión: la frase en el grupo de WhatsApp, dibujada como un chat. Todavía no se manda (sin endpoint). */
 export function VerWhatsapp({ fecha, onCerrar }: { fecha: string; onCerrar: () => void }) {

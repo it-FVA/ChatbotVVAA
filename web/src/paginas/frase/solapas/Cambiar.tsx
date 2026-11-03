@@ -1,6 +1,7 @@
 // Solapa «Cambiar por otra» del detalle del día: la frase vuelve a «sin día» y entra la elegida.
+import { diaMes } from "../../../util/fechas";
 import { apiFrases } from "../../../apiFrases";
-import { fechaCorta } from "../comun";
+
 import { Buscador } from "../paneles/Buscador";
 import type { PropsSolapa } from "./index";
 
@@ -19,7 +20,7 @@ export default function Cambiar({ f, fecha, ocupado, correr }: PropsSolapa) {
               return "Cambiada.";
             },
             undefined,
-            { texto: `Cambiada la frase del ${fechaCorta(fecha)}.`, hacer: async () => void (await apiFrases.intercambiar(f.id, otra.id)) },
+            { texto: `Cambiada la frase del ${diaMes(fecha)}.`, hacer: async () => void (await apiFrases.intercambiar(f.id, otra.id)) },
           )
         }
       />
