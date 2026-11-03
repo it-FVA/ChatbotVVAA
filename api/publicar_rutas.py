@@ -341,6 +341,7 @@ def decorar(p):
     p["link_editar"] = ultimo.get("link_editar") or res.get("link_editar") or None
     p["error_texto"] = str(ultimo.get("aviso", ""))[:200] if est == "error" else None
     p["eliminable"] = est in db.ELIMINABLES
+    p["compartido"] = bool(p.get("compartido"))      # (2/11) compartida con el equipo (publicaciones.compartido)
     # (2/11) también una prueba («Ver simulado»): Julián diseñó una historia, la probó sin guardar borrador y no podía retomarla
     p["retomable"] = est in ("borrador", "prueba")
     return p
@@ -610,6 +611,25 @@ def eliminar_publicacion(pid: str, usuario=Depends(auth.usuario_actual)):
     from .proyectos import quitar_de_todos_los_proyectos
     quitar_de_todos_los_proyectos("pieza", pid)      # (2/11) que no quede como «(ya no existe)» en una carpeta
     return {"ok": True}
+
+
+class CompartirPieza(BaseModel):
+    compartido: bool
+
+
+@router.post("/publicaciones/{pid}/compartir")
+def compartir_publicacion(pid: str, datos: CompartirPieza, usuario=Depends(auth.usuario_actual)):
+    """(2/11, Franco) Como «Compartir» en Mis recortes: la persona dueña muestra la pieza en «Del equipo» de las demás (solo lectura)
+    o deja de mostrarla. Solo la dueña."""
+    if not db.disponible():
+        raise HTTPException(503, "Sin Supabase: no hay publicaciones.")
+    r = db._req("GET", f"?id=eq.{pid}&select=id,usuario", tabla="publicaciones")
+    if not r:
+        raise HTTPException(404, "No existe esa pieza.")
+    if r[0].get("usuario") != usuario:
+        raise HTTPException(403, "Solo quien hizo la pieza puede compartirla.")
+    db.actualizar_publicacion(pid, {"compartido": bool(datos.compartido)})
+    return {"ok": True, "compartido": bool(datos.compartido)}
 
 
 # ---------------- Aprobación (publicar_ui.panel_aprobacion) ----------------

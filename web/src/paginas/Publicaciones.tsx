@@ -15,13 +15,21 @@ import MoverA from "../componentes/proyectos/MoverA";
 import { apiProyectos } from "../apiProyectos";
 import { etiqueta, useProyectos } from "../componentes/proyectos/ProyectosContexto";
 
-const ORDEN = ["Todas", "Pendientes", "Aprobadas", "Publicadas", "Borradores", "Rechazadas", "Pruebas"];
+const ORDEN = ["Todas", "Pendientes", "Aprobadas", "Publicadas", "Borradores", "Rechazadas", "Pruebas", "Del equipo"];
+// (2/11, Franco) filtro por tipo de pieza: canal + formato (historia / posteo de Instagram, Facebook, blogpost, YouTube, newsletter…)
+const NOMBRE_TIPO: Record<string, string> = { "instagram:historia": "Instagram · historia", "instagram:reel": "Instagram · reel", "instagram": "Instagram · posteo", facebook: "Facebook", wordpress: "Blogpost", youtube: "YouTube", newsletter: "Newsletter", mail: "Mail (frase del día)", home: "Sitio web (home)", whatsapp: "WhatsApp" };
+function tipoDe(p: Publicacion): string {
+  if (p.canal === "instagram" && (p.formato === "historia" || p.formato === "reel")) return `instagram:${p.formato}`;
+  return p.canal;
+}
 
 export default function Publicaciones() {
   const { avisar } = useToast();
   const [datos, setDatos] = useState<MisPublicaciones | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [solapa, setSolapa] = useState("Todas");
+  const [tipo, setTipo] = useState("");
+  const [equipo, setEquipo] = useState<MisPublicaciones | null>(null);
   const [aEliminar, setAEliminar] = useState<Publicacion | null>(null);
 
   const cargar = useCallback(async () => {
@@ -37,8 +45,13 @@ export default function Publicaciones() {
     cargar();
   }, [cargar]);
 
+  useEffect(() => {
+    if (solapa === "Del equipo" && equipo === null) apiPublicar.delEquipo().then(setEquipo).catch(() => setEquipo({ piezas: [], grupos: {}, solapas: {}, eliminables: [] }));
+  }, [solapa, equipo]);
   const ids = datos?.solapas[solapa] ?? [];
-  const piezas = datos ? datos.piezas.filter((p) => solapa === "Todas" || ids.includes(p.id)) : null;
+  const base = solapa === "Del equipo" ? equipo?.piezas ?? null : datos ? datos.piezas.filter((p) => solapa === "Todas" || ids.includes(p.id)) : null;
+  const piezas = base ? base.filter((p) => !tipo || tipoDe(p) === tipo) : null;
+  const tipos = Array.from(new Set((solapa === "Del equipo" ? equipo?.piezas ?? [] : datos?.piezas ?? []).map(tipoDe)));
 
   async function eliminar(p: Publicacion) {
     try {
@@ -64,13 +77,27 @@ export default function Publicaciones() {
       </header>
       <div className="solapas pub-solapas" role="tablist" aria-label="Estado de las piezas">
         {ORDEN.map((n) => {
-          const cant = datos ? (n === "Todas" ? datos.piezas.length : (datos.solapas[n] || []).length) : null;
+          const cant = n === "Del equipo" ? (equipo ? equipo.piezas.length : null) : datos ? (n === "Todas" ? datos.piezas.length : (datos.solapas[n] || []).length) : null;
           return (
             <button key={n} role="tab" aria-selected={solapa === n} className={"solapa" + (solapa === n ? " activa" : "")} onClick={() => setSolapa(n)}>
               {n} {cant !== null && <span className="solapa-conteo">{cant}</span>}
             </button>
           );
         })}
+      </div>
+      <div className="pub-filtro-tipo chico">
+        <label>
+          Tipo{" "}
+          <select value={tipo} onChange={(e) => setTipo(e.target.value)} aria-label="Filtrar por tipo de pieza">
+            <option value="">todos</option>
+            {tipos.map((t) => (
+              <option key={t} value={t}>
+                {NOMBRE_TIPO[t] ?? t}
+              </option>
+            ))}
+          </select>
+        </label>
+        {solapa === "Del equipo" && <span className="suave">Piezas que otras personas compartieron con el botón «Compartir». Se ven y se guardan en un proyecto; no se retoman ni se borran.</span>}
       </div>
       {error && (
         <div className="aviso error">
@@ -107,7 +134,7 @@ export default function Publicaciones() {
           }
         />
       )}
-      <div className="lista">{piezas?.map((p) => <TarjetaPublicacion key={p.id} p={p} onEliminar={() => setAEliminar(p)} />)}</div>
+      <div className="lista">{piezas?.map((p) => <TarjetaPublicacion key={p.id} p={p} mostrarUsuario={solapa === "Del equipo"} onEliminar={() => setAEliminar(p)} onCambio={cargar} />)}</div>
       {aEliminar && (
         <Modal titulo="¿Eliminar esta pieza?" onCerrar={() => setAEliminar(null)} peligro>
           <p>
@@ -149,8 +176,22 @@ export function descargarHtml(p: Publicacion) {
 }
 
 /** Una pieza del registro (publicar_ui._fila_publicacion), con o sin quién la hizo y con las acciones que se le pasen. */
-export function TarjetaPublicacion({ p, mostrarUsuario = false, onEliminar, acciones }: { p: Publicacion; mostrarUsuario?: boolean; onEliminar?: () => void; acciones?: React.ReactNode }) {
+export function TarjetaPublicacion({ p, mostrarUsuario = false, onEliminar, onCambio, acciones }: { p: Publicacion; mostrarUsuario?: boolean; onEliminar?: () => void; onCambio?: () => void; acciones?: React.ReactNode }) {
   const esNewsletter = p.canal === "newsletter";
+  // (2/11, Franco) «Compartir» como en Mis recortes: la dueña la muestra en «Del equipo» de las demás
+  const [compartiendo, setCompartiendo] = useState(false);
+  async function compartir() {
+    setCompartiendo(true);
+    try {
+      const r = await apiPublicar.compartir(p.id, !p.compartido);
+      avisar(r.compartido ? "Compartida con el equipo: aparece en «Del equipo» de las demás personas." : "Ya no está compartida.");
+      onCambio?.();
+    } catch (e) {
+      avisar(e instanceof ErrorApi ? e.message : "No pude cambiar el compartido.", "error");
+    } finally {
+      setCompartiendo(false);
+    }
+  }
   // (22/10, Franco: "la misma lógica para todo") «Guardar en un proyecto», igual que en Mis recortes: la carpeta donde está y el modal para elegir otra.
   const { avisar } = useToast();
   const proyectos = useProyectos();
@@ -231,6 +272,11 @@ export function TarjetaPublicacion({ p, mostrarUsuario = false, onEliminar, acci
             </button>
           )}
           {acciones}
+          {p.puede_compartir && (
+            <button type="button" className="boton sutil" onClick={compartir} disabled={compartiendo} title={p.compartido ? "Dejar de mostrarla en «Del equipo»" : "Mostrarla en «Del equipo» para que otras personas la vean"}>
+              <Icono nombre="usuarios" /> {compartiendo ? "…" : p.compartido ? "Dejar de compartir" : "Compartir"}
+            </button>
+          )}
           <button type="button" className="boton sutil" onClick={() => setAProyecto(true)} title={carpeta ? `Está en «${etiqueta(carpeta)}»; mover a otra carpeta` : "Guardar esta pieza en un proyecto"}>
             <Icono nombre="carpeta" /> {carpeta ? etiqueta(carpeta) : "Proyecto"}
           </button>

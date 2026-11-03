@@ -263,8 +263,17 @@ def listar_mias(usuario, limite=50):
     """(13/10) Todo lo que esta persona creó: propuestas, piezas aprobadas, publicadas, simuladas."""
     if not disponible():
         return []
-    q = (f"?select=id,creado,canal,modo,titulo,texto,imagen_url,estado,fecha_programada,procesado_en,resultado"
+    q = (f"?select=id,creado,usuario,canal,modo,titulo,texto,imagen_url,estado,fecha_programada,procesado_en,resultado,compartido"
          f"&usuario=eq.{urllib.parse.quote(usuario)}&order=creado.desc&limit={limite}")
+    return _req("GET", q, tabla="publicaciones")
+
+
+def listar_compartidas(usuario, limite=50):
+    """(2/11) Las piezas que otras personas compartieron con el equipo (publicaciones.compartido), como clips «Del equipo»."""
+    if not disponible():
+        return []
+    q = (f"?select=id,creado,usuario,canal,modo,titulo,texto,imagen_url,estado,fecha_programada,procesado_en,resultado,compartido"
+         f"&compartido=is.true&usuario=neq.{urllib.parse.quote(usuario)}&order=creado.desc&limit={limite}")
     return _req("GET", q, tabla="publicaciones")
 
 

@@ -184,6 +184,18 @@
   gap: 6px;
   margin-top: 2px;
 }
+/* (2/11) filtro por tipo en Mis publicaciones */
+.pub-filtro-tipo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: -4px 0 10px;
+}
+.pub-filtro-tipo select {
+  min-height: 30px;
+  padding: 2px 8px;
+}
 .pub-canales {
   border: 0;
   padding: 0;

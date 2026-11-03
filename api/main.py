@@ -224,7 +224,7 @@ GRUPOS = {"Pendientes": ("a_aprobar",), "Aprobadas": ("pendiente", "programada")
 
 
 @app.get("/publicaciones")
-def publicaciones(request: Request, todos: bool = False, usuario=Depends(auth.usuario_actual)):
+def publicaciones(request: Request, todos: bool = False, equipo: bool = False, usuario=Depends(auth.usuario_actual)):
     """Como «Mis publicaciones» (publicar_ui.mis_publicaciones): las piezas de la persona con las solapas
     por estado. todos=1 (solo aprobadores): el registro completo (Panel admin → Registro)."""
     if todos:
@@ -232,7 +232,17 @@ def publicaciones(request: Request, todos: bool = False, usuario=Depends(auth.us
         return {"piezas": [_pub.decorar(p) for p in db.listar_registro()] if db.disponible() else [], "grupos": GRUPOS}
     if not db.disponible():
         return {"piezas": [], "grupos": GRUPOS, "solapas": {}}
+    if equipo:
+        # (2/11) «Del equipo»: lo que otras personas compartieron; solo lectura (sin retomar ni eliminar)
+        otras = []
+        for p in db.listar_compartidas(usuario):
+            p = _pub.decorar(p)
+            p["propio"], p["retomable"], p["eliminable"], p["puede_compartir"] = False, False, False, False
+            otras.append(p)
+        return {"piezas": otras, "grupos": GRUPOS, "solapas": {"Todas": [p["id"] for p in otras]}, "eliminables": []}
     mias = [_pub.decorar(p) for p in db.listar_mias(usuario) if p.get("estado") != "subida"]   # (22/10) con estado_texto, ver_url, eliminable…
+    for p in mias:
+        p["propio"], p["puede_compartir"] = True, True
     solapas = {"Todas": [p["id"] for p in mias]}
     for n, estados in GRUPOS.items():
         solapas[n] = [p["id"] for p in mias if p.get("estado") in estados]

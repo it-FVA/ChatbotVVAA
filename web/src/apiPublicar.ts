@@ -71,6 +71,8 @@ export const apiPublicar = {
   enviar: (p: PiezaForm, modo: "real" | "simulado") => pedir<RespuestaEnvio>("/publicar/enviar", { method: "POST", body: JSON.stringify({ ...cuerpo(p), modo }) }),
 
   mias: () => pedir<MisPublicaciones>("/publicaciones"),
+  delEquipo: () => pedir<MisPublicaciones>("/publicaciones?equipo=1"),
+  compartir: (id: string, compartido: boolean) => pedir<{ ok: boolean; compartido: boolean }>(`/publicaciones/${encodeURIComponent(id)}/compartir`, { method: "POST", body: JSON.stringify({ compartido }) }),
   una: (id: string) => pedir<Publicacion>(`/publicaciones/${encodeURIComponent(id)}`),
   eliminar: (id: string) => pedir<{ ok: boolean }>(`/publicaciones/${encodeURIComponent(id)}`, { method: "DELETE" }),
 

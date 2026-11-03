@@ -162,6 +162,9 @@ export interface Publicacion {
   link_editar: string | null;
   error_texto: string | null;
   eliminable: boolean;
+  compartido?: boolean; // (2/11) compartida con el equipo
+  propio?: boolean; // false en «Del equipo»
+  puede_compartir?: boolean;
   retomable: boolean;
   // solo en /aprobacion/para-aprobar
   fecha_sugerida?: string;
