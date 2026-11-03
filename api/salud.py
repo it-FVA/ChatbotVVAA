@@ -23,6 +23,7 @@ Qué se chequea (cada uno es una función _chequear_* que devuelve un dict; corr
   frase_del_dia     interruptor, foto por defecto, frase de hoy y de mañana
   api               la propia API: versión, desde cuándo corre, modo de vectores
   web               GET a la web (VITE_WEB_URL o el primer origen de CORS_ORIGENES)
+  variables         qué variables de entorno de api/variables_entorno.py faltan en la API (Render no las sincroniza solo)
   memoria           RSS del proceso (aviso al 80 % de MEMORIA_LIMITE_MB, error al 95 %; el free de Render tiene 512)
 
 Regla de la casa: nada se inventa. Si un chequeo no se puede hacer (sin credenciales, sin red), lo dice tal cual.
@@ -35,7 +36,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from . import config, auth
+from . import config, auth, variables_entorno
 import nucleo    # noqa: E402  (api/__init__ pone la raíz del repo en sys.path)
 import db        # noqa: E402
 
@@ -441,9 +442,18 @@ def _chequear_memoria():
     return _res("memoria", estado, f"RSS {rss:.0f} MB de {limite} MB ({pct:.0f} %).", hacer, rss_mb=round(rss), limite_mb=limite, porcentaje=round(pct))
 
 
+def _chequear_variables():
+    faltan = variables_entorno.faltantes(os.environ)
+    if not faltan:
+        return _res("variables", "ok", f"Están las {len(variables_entorno.requeridas())} variables de entorno requeridas.", None)
+    return _res("variables", "aviso", "Faltan en el entorno de la API: " + ", ".join(faltan) + ".",
+                "Cargarlas a mano en Render → Environment (el Blueprint no sincroniza las variables); la lista está en api/variables_entorno.py.",
+                faltan=faltan)
+
+
 CHEQUEOS = [_chequear_supabase, _chequear_openai, _chequear_wordpress, _chequear_instagram, _chequear_facebook,
             _chequear_drive, _chequear_youtube, _chequear_cola, _chequear_recortes, _chequear_frase,
-            _chequear_api, _chequear_web, _chequear_memoria]
+            _chequear_api, _chequear_web, _chequear_memoria, _chequear_variables]
 
 
 def correr():

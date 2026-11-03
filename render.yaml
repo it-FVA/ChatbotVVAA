@@ -3,6 +3,9 @@
 # si el free no alcanza, pasar a Standard o mover los embeddings a Supabase (plan de la interfaz propia, §3).
 # Las variables con sync: false se cargan a mano en el panel de Render (Environment → Add from .env, pegando api.env,
 # que se genera en local con `python api/armar_env.py` y NO va al repo).
+# (3/11) El bloque envVars se GENERA desde api/variables_entorno.py (python api/generar_config.py); no editarlo a mano.
+# /salud/servicios (fila «variables») avisa cuáles faltan en Render. Opcional, no incluida: VECTORES=supabase (vectores en
+# pgvector en vez del .npy: -52 MB de RAM, misma calidad medida; lo decide Franco, informes/medicion-vectores-supabase-validado.md).
 services:
   - type: web
     name: fva-api
@@ -15,24 +18,18 @@ services:
     healthCheckPath: /salud
     autoDeploy: true
     envVars:
-      - key: COOKIE_SEGURA
-        value: "1"
-      - key: COOKIE_SAMESITE
-        value: none
-      # (21/10) Configuración NO secreta, administrada desde acá (el Blueprint la sincroniza en cada push). Lo secreto
-      # (OPENAI_API_KEY, SUPABASE_KEY, USUARIOS_JSON, tokens de WP/Meta/Drive/YouTube) se carga a mano en el panel.
-      - key: CORS_ORIGENES
-        value: "https://chatbot-vvaa.vercel.app"
+      # >>> generado (api/variables_entorno.py: no editar a mano; correr python api/generar_config.py)
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      # (21/10) Configuración NO secreta, administrada desde acá.
       - key: ASISTENTE_MODELO
         value: "gpt-5.6-sol"
       - key: BUSQUEDA_HIBRIDA
         value: "1"
-      # (22/10) Vectores en Supabase (pgvector, tabla fragmentos_emb) en vez del .npy en memoria: misma calidad medida
-      # (39/51 y 41/51, idéntico consulta por consulta), +0,4 s por búsqueda, -52 MB de RAM (400 -> 347 MB). Apagado por
-      # defecto: lo decide Franco (informes/medicion-vectores-supabase-validado.md). Para prenderlo, descomentar:
-      # - key: VECTORES
-      #   value: "supabase"
-      # LEXICO=supabase (texto de Postgres en vez de BM25, -252 MB) NO se recomienda: la recuperación empeora (33/51 sin reranker).
       - key: LIMPIEZA_EXTRA
         value: "1"
       - key: RERANK_CANDIDATOS
@@ -43,11 +40,50 @@ services:
         value: "fusion"
       - key: EXPANSION_CONSULTA
         value: "0"
-      - key: PUBLICAR_WORDPRESS   # (2/11, Franco) real: el aprobador publica la entrada de verdad desde la plataforma (o la programa); hasta hoy borrador
+      - key: CONCEPTOS_URL
+        value: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSxLDWgltMTAH6-Nu8rVB0e0QM6PgwvemkKEN78rOq7Bk0qyL-895nQ9zjzrPhvF9JNHy082O4DtN8X/pub?gid=528104219&single=true&output=csv"
+      - key: DISTINCIONES_URL
+        value: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSxLDWgltMTAH6-Nu8rVB0e0QM6PgwvemkKEN78rOq7Bk0qyL-895nQ9zjzrPhvF9JNHy082O4DtN8X/pub?gid=222457179&single=true&output=csv"
+      - key: COOKIE_SEGURA
+        value: "1"
+      - key: COOKIE_SAMESITE
+        value: "none"
+      - key: CORS_ORIGENES
+        value: "https://chatbot-vvaa.vercel.app"
+      - key: WEB_URL
+        value: "https://chatbot-vvaa.vercel.app"
+      - key: SESION_SECRETO
+        generateValue: true
+      # Transición: login con contraseñas de entorno, mientras haya cuentas que no estén en la tabla usuarios.
+      - key: USUARIOS_JSON
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        value: "975482475680-o1clpt1idim34dormtuecg58knnga3ol.apps.googleusercontent.com"
+      - key: DOMINIO_FVA
+        value: "viviragradecidos.org"
+      - key: APROBADORES
+        value: "julian,franco,beto"
+      - key: PUBLICACION_DIRECTA
+        value: "julian,franco,beto"
+      - key: ADMINS
+        value: "franco,beto"
+      # Token para consultar /salud/servicios desde un monitor externo sin sesión (?token= o X-Salud-Token).
+      - key: SALUD_TOKEN
+        sync: false
+      # Límite de memoria del plan (MB), para la fila «memoria» de /salud/servicios (aviso al 80 %, error al 95 %).
+      - key: MEMORIA_LIMITE_MB
+        value: "512"
+      # (22/10, salud) Vencimiento del token de Instagram Login (dura 60 días); corregirlo al renovar el token.
+      - key: META_IG_TOKEN_VENCE
+        value: "2026-11-22"
+      # (2/11, Franco) real: el aprobador publica la entrada de verdad desde la plataforma (o la programa).
+      - key: PUBLICAR_WORDPRESS
         value: "real"
-      - key: PUBLICAR_WHATSAPP    # (2/11) prototipo: apagado | simulado (no hay modo real todavía)
+      # (2/11) prototipo: apagado | simulado (no hay modo real todavía).
+      - key: PUBLICAR_WHATSAPP
         value: "simulado"
-      - key: PUBLICAR_HOME        # (2/11) la frase del día en la home del sitio (canal «home»): borrador | real (Franco, 2/11: real)
+      # (2/11) la frase del día en la home del sitio (canal «home»): borrador | real.
+      - key: PUBLICAR_HOME
         value: "real"
       - key: PUBLICAR_INSTAGRAM
         value: "real"
@@ -55,61 +91,47 @@ services:
         value: "real"
       - key: PUBLICAR_YOUTUBE
         value: "privado"
-      - key: APROBADORES
-        value: "julian,franco,beto"
-      - key: PUBLICACION_DIRECTA
-        value: "julian,franco,beto"
-      - key: ADMINS
-        value: "franco,beto"
+      # (26/10) Frase del día por mail con Perfit (perfit.py): apagado | simulado | real.
+      - key: PUBLICAR_MAIL
+        value: "simulado"
       - key: WP_SITE
         value: "viviragradecidos.org"
       - key: WP_USER
         value: "adminviviragradecidos"
+      - key: WP_APP_PASSWORD
+        sync: false
       - key: META_IG_USER_ID
         value: "17841406237571284"
       - key: META_FB_PAGE_ID
         value: "267335090073960"
-      # (22/10, salud) Vencimiento del token de Instagram Login que está en META_IG_TOKEN: Meta no lo informa por API para este tipo
-      # de token, así que lo anota quien lo genera (dura 60 días). «~22/11/2026» según el HANDOFF; corregirlo al renovar el token.
-      - key: META_IG_TOKEN_VENCE
-        value: "2026-11-22"
-      # Límite de memoria del plan (MB), para la fila «memoria» de /salud/servicios (aviso al 80 %, error al 95 %).
-      - key: MEMORIA_LIMITE_MB
-        value: "512"
-      # Token para consultar /salud/servicios desde un monitor externo sin sesión (?token= o X-Salud-Token). Se carga a mano.
-      # (2/11) avisos al equipo (avisos.py): Slack y/o mail cuando llega una pieza a aprobación y cuando se aprueba o rechaza.
-      # Cargar a mano en el panel (el Blueprint no sincroniza): SLACK_WEBHOOK_URL (Incoming Webhook del canal del equipo) y/o
-      # SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, AVISOS_DESDE (Google Workspace: smtp.gmail.com + contraseña de aplicación).
-      - key: WEB_URL
-        value: "https://chatbot-vvaa.vercel.app"
-      - key: SALUD_TOKEN
+      - key: META_IG_TOKEN
         sync: false
-      - key: GOOGLE_CLIENT_ID
-        value: "975482475680-o1clpt1idim34dormtuecg58knnga3ol.apps.googleusercontent.com"
-      - key: DOMINIO_FVA
-        value: "viviragradecidos.org"
-      - key: CONCEPTOS_URL
-        value: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSxLDWgltMTAH6-Nu8rVB0e0QM6PgwvemkKEN78rOq7Bk0qyL-895nQ9zjzrPhvF9JNHy082O4DtN8X/pub?gid=528104219&single=true&output=csv"
-      - key: DISTINCIONES_URL
-        value: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSxLDWgltMTAH6-Nu8rVB0e0QM6PgwvemkKEN78rOq7Bk0qyL-895nQ9zjzrPhvF9JNHy082O4DtN8X/pub?gid=222457179&single=true&output=csv"
-      - key: SESION_SECRETO
-        generateValue: true
-      - key: OPENAI_API_KEY
+      - key: META_FB_PAGE_TOKEN
         sync: false
-      - key: SUPABASE_URL
+      - key: YOUTUBE_TOKEN_JSON
         sync: false
-      - key: SUPABASE_KEY
+      - key: DRIVE_TOKEN_JSON
         sync: false
-      - key: USUARIOS_JSON
-        sync: false
-      # (26/10) Frase del día por mail con Perfit (perfit.py): los secretos los pega Franco; el modo arranca en simulado
-      - key: PUBLICAR_MAIL
-        value: simulado
       - key: PERFIT_API_KEY
         sync: false
+      # Nombre de la cuenta en Perfit (no es secreto; verificado el 26/10).
       - key: PERFIT_CUENTA
-        value: viviragradecido        # nombre de la cuenta en Perfit (no es secreto; verificado el 26/10)
+        value: "viviragradecido"
       - key: PERFIT_TRIGGER_URL
         sync: false
       - key: PERFIT_LISTA_FRASE
         sync: false
+      # (2/11) Avisos al equipo: Incoming Webhook del canal, y/o las SMTP_* (Google Workspace: smtp.gmail.com + contraseña de aplicación).
+      - key: SLACK_WEBHOOK_URL
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: AVISOS_DESDE
+        sync: false
+      # <<< generado

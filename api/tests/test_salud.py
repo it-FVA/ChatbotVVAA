@@ -1,10 +1,11 @@
 """Pruebas de api/salud.py sin red: _get (HTTP), la llamada a OpenAI y db.* se reemplazan con mocks."""
-import json, time, datetime as dt
+import os, json, time, datetime as dt
 
 import pytest
 
 import db
 import api.salud as salud
+from api import variables_entorno, generar_config
 
 AHORA = dt.datetime.now(dt.timezone.utc)
 
@@ -49,6 +50,7 @@ def mundo(monkeypatch):
     monkeypatch.setenv("YOUTUBE_TOKEN_JSON", json.dumps({"client_id": "c", "client_secret": "s", "refresh_token": "r2"}))
     monkeypatch.setenv("CORS_ORIGENES", "https://chatbot-vvaa.vercel.app")
     monkeypatch.delenv("SALUD_TOKEN", raising=False)
+    monkeypatch.setattr(variables_entorno, "faltantes", lambda entorno: [])      # el chequeo de variables tiene sus pruebas aparte
     vence_ig = int((AHORA + dt.timedelta(days=30)).timestamp())
     mapa = {
         "viviragradecidos.org/wp-json/wp/v2/users/me": (200, {"slug": "admin", "roles": ["administrator"]}),
@@ -305,3 +307,19 @@ def test_historial_endpoint(logueado, mundo):
     r = logueado.get("/salud/servicios").json()
     api = next(c for c in r["chequeos"] if c["nombre"] == "api")
     assert api["estado"] == "aviso" and api["desde"] == r["creado"]       # la fila previa (detalle {}) no tenía 'api' en aviso: la racha empieza ahora
+
+
+def test_variables_avisa_cuales_faltan(monkeypatch):
+    for n in variables_entorno.requeridas():
+        monkeypatch.setenv(n, "x")
+    assert salud._chequear_variables()["estado"] == "ok"
+    monkeypatch.delenv("OPENAI_API_KEY")
+    monkeypatch.setenv("WP_USER", "")
+    r = salud._chequear_variables()
+    assert r["estado"] == "aviso" and r["faltan"] == ["OPENAI_API_KEY", "WP_USER"] and "OPENAI_API_KEY" in r["detalle"]
+
+
+def test_render_y_cola_salen_de_la_lista_unica():
+    """render.yaml y cola.yml se generan de api/variables_entorno.py: si alguien editó uno a mano o cambió la lista sin regenerar, falla."""
+    desactualizados = [r for r, (a, n) in generar_config.generar().items() if a != n]
+    assert not desactualizados, "Correr python api/generar_config.py (desactualizados: %s)" % desactualizados

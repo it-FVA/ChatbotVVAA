@@ -17,6 +17,7 @@ export const NOMBRES_CHEQUEO: Record<string, string> = {
   api: "API (Render)",
   web: "Web (Vercel)",
   memoria: "Memoria de la API",
+  variables: "Variables de entorno",
 };
 
 export const nombreChequeo = (n: string) => NOMBRES_CHEQUEO[n] || n;

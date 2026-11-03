@@ -2,8 +2,12 @@
 a partir de `.streamlit/secrets.toml` (o del archivo que indique FVA_SECRETS). Después se pega en Render:
 Environment → «Add from .env». Uso:  python api/armar_env.py  [--web https://fva-web.vercel.app]
 Agrega: USUARIOS_JSON / IDIOMAS_JSON (de las tablas [usuarios] / [idiomas]), SESION_SECRETO nuevo, COOKIE_SEGURA=1,
-COOKIE_SAMESITE=none y CORS_ORIGENES con el dominio de la web. NUNCA subir api.env al repo (es público)."""
+COOKIE_SAMESITE=none y CORS_ORIGENES con el dominio de la web. NUNCA subir api.env al repo (es público).
+(3/11) La lista de variables que necesita la API está en api/variables_entorno.py; al final avisa cuáles de las requeridas no quedaron en api.env."""
 import os, sys, json, secrets, tomllib
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from api.variables_entorno import faltantes
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ruta = os.environ.get("FVA_SECRETS") or os.path.join(RAIZ, ".streamlit", "secrets.toml")
@@ -22,3 +26,6 @@ lineas += [f"SESION_SECRETO={secrets.token_urlsafe(48)}", "COOKIE_SEGURA=1", "CO
 salida = os.path.join(RAIZ, "api.env")
 open(salida, "w", encoding="utf-8").write("\n".join(lineas) + "\n")
 print(f"{salida}: {len(lineas)} variables. Pegalo en Render > Environment > Add from .env. No lo subas al repo.")
+falta = faltantes({l.split("=", 1)[0]: l.split("=", 1)[1] for l in lineas})
+if falta:
+    print("Ojo: no están en api.env (ya estarán en Render, o hay que cargarlas a mano):", ", ".join(falta))

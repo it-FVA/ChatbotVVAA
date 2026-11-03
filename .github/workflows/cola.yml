@@ -22,26 +22,32 @@ jobs:
         run: pip install -q "pillow>=10"
       - name: Procesar la cola
         env:
+          # >>> generado (api/variables_entorno.py: no editar a mano; correr python api/generar_config.py)
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          # (2/11, Franco) real: el aprobador publica la entrada de verdad desde la plataforma (o la programa).
           PUBLICAR_WORDPRESS: ${{ secrets.PUBLICAR_WORDPRESS }}
-          PUBLICAR_WHATSAPP: "simulado"   # (2/11) prototipo: solo simula, no hay endpoint para la cuenta común
-          PUBLICAR_HOME: "real"   # (2/11) la frase del día en la home del sitio: borrador | real (Franco, 2/11: real)
+          # (2/11) prototipo: apagado | simulado (no hay modo real todavía).
+          PUBLICAR_WHATSAPP: "simulado"
+          # (2/11) la frase del día en la home del sitio (canal «home»): borrador | real.
+          PUBLICAR_HOME: "real"
           PUBLICAR_INSTAGRAM: ${{ secrets.PUBLICAR_INSTAGRAM }}
           PUBLICAR_FACEBOOK: ${{ secrets.PUBLICAR_FACEBOOK }}
+          PUBLICAR_YOUTUBE: ${{ secrets.PUBLICAR_YOUTUBE }}
+          # (26/10) Frase del día por mail con Perfit (perfit.py): apagado | simulado | real.
+          PUBLICAR_MAIL: ${{ secrets.PUBLICAR_MAIL }}
           WP_SITE: ${{ secrets.WP_SITE }}
           WP_USER: ${{ secrets.WP_USER }}
           WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
-          META_IG_TOKEN: ${{ secrets.META_IG_TOKEN }}
           META_IG_USER_ID: ${{ secrets.META_IG_USER_ID }}
           META_FB_PAGE_ID: ${{ secrets.META_FB_PAGE_ID }}
+          META_IG_TOKEN: ${{ secrets.META_IG_TOKEN }}
           META_FB_PAGE_TOKEN: ${{ secrets.META_FB_PAGE_TOKEN }}
-          PUBLICAR_YOUTUBE: ${{ secrets.PUBLICAR_YOUTUBE }}
           YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
-          # (26/10) Frase del día por mail (perfit.py / frase_mail.py): secretos de Perfit; PUBLICAR_MAIL = apagado | simulado | real
-          PUBLICAR_MAIL: ${{ secrets.PUBLICAR_MAIL }}
           PERFIT_API_KEY: ${{ secrets.PERFIT_API_KEY }}
-          PERFIT_CUENTA: viviragradecido
+          # Nombre de la cuenta en Perfit (no es secreto; verificado el 26/10).
+          PERFIT_CUENTA: "viviragradecido"
           PERFIT_TRIGGER_URL: ${{ secrets.PERFIT_TRIGGER_URL }}
           PERFIT_LISTA_FRASE: ${{ secrets.PERFIT_LISTA_FRASE }}
+          # <<< generado
         run: python procesar_cola.py
