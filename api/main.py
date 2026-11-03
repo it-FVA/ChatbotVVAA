@@ -76,7 +76,7 @@ from . import proyectos as _proyectos   # noqa: E402  (22/10: carpetas colaborat
 app.include_router(_proyectos.router)
 from . import newsletter_rutas as _newsletter   # noqa: E402  (22/10: el editor de Newsletter en la web)
 app.include_router(_newsletter.router)
-from . import frases_rutas as _frases           # noqa: E402  (22/10: el calendario de la Frase del día en la web)
+from . import frases as _frases                 # noqa: E402  (22/10: el calendario de la Frase del día en la web; 3/11: paquete api/frases/)
 app.include_router(_frases.router)
 
 

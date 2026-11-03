@@ -1,10 +1,10 @@
-"""Pruebas de api/frases_rutas.py sin Supabase: la tabla frases es una lista en memoria (monkeypatch de db.*)."""
+"""Pruebas de api/frases/ (antes api/frases_rutas.py) sin Supabase: la tabla frases es una lista en memoria (monkeypatch de db.*)."""
 import copy, datetime
 import pytest
 
 import db
 import programar_frases as pf
-import api.frases_rutas as fr
+import api.frases._comun as fr    # (3/11) los helpers que las pruebas reemplazan viven en api/frases/_comun.py
 
 HOY = datetime.date(2026, 10, 22)
 D = lambda n: (HOY + datetime.timedelta(days=n)).isoformat()

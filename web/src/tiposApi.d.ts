@@ -2646,7 +2646,7 @@ export interface components {
             usuario: string;
         };
         /** Edicion */
-        api__frases_rutas__Edicion: {
+        api__frases___comun__Edicion: {
             /** Autor */
             autor?: string | null;
             /** Estado */
@@ -4706,7 +4706,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["api__frases_rutas__Edicion"];
+                "application/json": components["schemas"]["api__frases___comun__Edicion"];
             };
         };
         responses: {

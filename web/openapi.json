@@ -1635,7 +1635,7 @@
     "title": "Renombrar",
     "type": "object"
    },
-   "api__frases_rutas__Edicion": {
+   "api__frases___comun__Edicion": {
     "properties": {
      "autor": {
       "anyOf": [
@@ -4385,7 +4385,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/api__frases_rutas__Edicion"
+        "$ref": "#/components/schemas/api__frases___comun__Edicion"
        }
       }
      },

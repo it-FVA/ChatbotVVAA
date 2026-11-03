@@ -12,7 +12,7 @@ import Aprobacion, { Clips, Cola, Papelera, ParaAprobar, Registro } from "./pagi
 import Publicar from "./paginas/Publicar";
 import Publicaciones from "./paginas/Publicaciones";
 import Newsletter from "./paginas/Newsletter";
-import FraseDelDia from "./paginas/FraseDelDia";
+import FraseDelDia from "./paginas/frase/FraseDelDia";
 import Administracion from "./paginas/admin/Administracion";
 import Usuarios from "./paginas/admin/Usuarios";
 import ListaBlanca from "./paginas/admin/ListaBlanca";
