@@ -11,7 +11,7 @@ import os, json, logging
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from . import config, auth, roles as _roles, chat as _chat
@@ -40,6 +40,25 @@ if _ORIGENES:
     from fastapi.middleware.cors import CORSMiddleware
     app.add_middleware(CORSMiddleware, allow_origins=_ORIGENES, allow_credentials=True,
                        allow_methods=["*"], allow_headers=["*"])
+
+
+@app.exception_handler(Exception)
+async def _error_inesperado(request: Request, exc: Exception):
+    """(3/11) Toda excepción no prevista: se registra con el traceback y la web recibe un JSON con `detail` legible en vez
+    del «Internal Server Error» pelado. Responde con los encabezados de CORS a mano: este handler corre por fuera del middleware."""
+    log.exception("Error no controlado en %s %s", request.method, request.url.path)
+    if isinstance(exc, RuntimeError) and str(exc).startswith("Supabase"):
+        detalle = "No pude hablar con la base de datos (Supabase). Probá de nuevo en un momento; si sigue, avisá a Administración."
+    else:
+        detalle = f"Error inesperado en el servidor ({type(exc).__name__}). Probá de nuevo; si sigue, avisá a Administración con la hora."
+    resp = JSONResponse({"detail": detalle}, status_code=500)
+    origen = request.headers.get("origin")
+    if origen and origen in _ORIGENES:
+        resp.headers["Access-Control-Allow-Origin"] = origen
+        resp.headers["Access-Control-Allow-Credentials"] = "true"
+        resp.headers["Vary"] = "Origin"
+    return resp
+
 
 from . import recortes as _recortes   # noqa: E402  (importa db: va después de config.cargar())
 from . import cuentas as _cuentas     # noqa: E402  (22/10: usuarios, lista blanca, administración)

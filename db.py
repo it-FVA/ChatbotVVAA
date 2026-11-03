@@ -69,6 +69,9 @@ def _req(method, params="", body=None, tabla="conversaciones"):
             return json.loads(txt) if txt.strip() else []
     except urllib.error.HTTPError as e:
         raise RuntimeError(f"Supabase {e.code}: {e.read().decode('utf-8','ignore')[:200]}")
+    except (urllib.error.URLError, TimeoutError, OSError) as e:      # (3/11) corte de red o timeout: mismo tipo de error que el HTTP
+        motivo = getattr(e, "reason", None) or e
+        raise RuntimeError(f"Supabase sin conexión ({type(motivo).__name__}: {str(motivo)[:150]})")
 
 
 def listar_conversaciones(usuario):
