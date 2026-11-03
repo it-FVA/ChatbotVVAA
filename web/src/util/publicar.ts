@@ -101,7 +101,7 @@ function canalValido(c: string | null | undefined, op: OpcionesPublicar | null):
   return c && op?.canales[c] ? c : "";
 }
 
-/** De una pieza guardada (borrador, claves cortas) al formulario. */
+/** De una pieza guardada (GET /publicaciones/{id} → `pieza`, los campos del modelo Pieza de la API) al formulario. */
 export function desdeGuardada(g: PiezaGuardada, op: OpcionesPublicar | null): PiezaForm {
   const base = formularioVacio(op);
   const canal = canalValido(g.canal, op);
@@ -110,24 +110,24 @@ export function desdeGuardada(g: PiezaGuardada, op: OpcionesPublicar | null): Pi
     canal,
     titulo: g.titulo || "",
     texto: g.texto || "",
-    imagen_url: g.url || null,
-    imagen_busqueda: g.busq || g.imagen_busqueda || "",
+    imagen_url: g.imagen_url || null,
+    imagen_busqueda: g.imagen_busqueda || "",
     fecha: g.fecha || null,
     hora: g.hora || base.hora,
     texto_imagen: g.texto_imagen || "",
     firma: g.firma ?? base.firma,
-    formato: g.fmt || op?.formato_por_canal[canal] || base.formato,
-    tipografia: g.tipo || base.tipografia,
+    formato: g.formato || op?.formato_por_canal[canal] || base.formato,
+    tipografia: g.tipografia || base.tipografia,
     peso: g.peso || base.peso,
-    posicion: g.pos || base.posicion,
-    alineacion: g.ali || base.alineacion,
+    posicion: g.posicion || base.posicion,
+    alineacion: g.alineacion || base.alineacion,
     logo: g.logo || base.logo,
-    posicion_logo: g.plogo || base.posicion_logo,
-    usar_compuesta: g.usar_comp ?? true,
+    posicion_logo: g.posicion_logo || base.posicion_logo,
+    usar_compuesta: g.usar_compuesta ?? true,
     video_url: g.video_url || null,
     video_formato: g.video_formato || null,
     vfmt: g.vfmt || base.vfmt,
-    borrador_id: g._pid || null,
+    borrador_id: g.borrador_id || null,
   };
 }
 

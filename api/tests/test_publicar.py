@@ -283,11 +283,12 @@ def test_una_publicacion_y_retomar(logueado, lizzie, base):
     r = logueado.get("/publicaciones/b")
     assert r.status_code == 200
     pz = r.json()["pieza"]
-    assert pz["_pid"] == "b" and pz["canal"] == "wordpress" and pz["fmt"] == "cuadrado" and pz["logo"] == "Blanco" and pz["imagen_busqueda"] == "mar" and pz["fecha"] == "2026-11-01"
+    # (3/11) `pieza` son los campos del modelo Pieza (api/pieza.py): las claves cortas guardadas (fmt, busq…) vuelven como campos
+    assert pz["borrador_id"] == "b" and pz["canal"] == "wordpress" and pz["formato"] == "cuadrado" and pz["logo"] == "Blanco" and pz["imagen_busqueda"] == "mar" and pz["fecha"] == "2026-11-01"
     # una pieza sin dict pieza (p. ej. rechazada): se arma con los campos de la fila y la fecha programada
     base["filas"]["a"]["estado"] = "rechazada"
     pz = logueado.get("/publicaciones/a").json()["pieza"]
-    assert pz["titulo"] == "A" and pz["url"] == "https://wp/a.jpg" and pz["fecha"] == "2026-10-21" and pz["hora"] == "09:00"
+    assert pz["titulo"] == "A" and pz["imagen_url"] == "https://wp/a.jpg" and pz["fecha"] == "2026-10-21" and pz["hora"] == "09:00"
     assert logueado.get("/publicaciones/zzz").status_code == 404
     # lizzie no es aprobadora: no ve las piezas de franco (franco sí vería las de ella)
     assert lizzie.get("/publicaciones/a").status_code == 403

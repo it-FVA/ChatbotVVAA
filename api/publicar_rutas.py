@@ -32,6 +32,7 @@ from pydantic import BaseModel
 
 from . import auth
 from . import chat_rutas as cr
+from .pieza import Pieza
 import db            # noqa: E402  (api/__init__ pone la raíz del repo en sys.path)
 import publicar      # noqa: E402
 import imagen        # noqa: E402
@@ -60,31 +61,7 @@ _candado = threading.Lock()
 
 
 # ---------------- Modelos de entrada ----------------
-class PiezaCompleta(BaseModel):
-    """Todo lo que deja el formulario de Publicar de la web (= los campos)."""
-    canal: str                                  # wordpress | instagram | facebook | youtube
-    titulo: str = ""
-    texto: str = ""
-    imagen_url: Optional[str] = None            # foto del banco, URL pegada o la subida con POST /banco/subir
-    imagen_busqueda: Optional[str] = None
-    fecha: Optional[str] = None                 # 'YYYY-MM-DD'
-    hora: Optional[str] = None                  # 'HH:MM'
-    # Diseño de la foto (Instagram / Facebook)
-    texto_imagen: Optional[str] = None
-    firma: Optional[str] = None
-    formato: Optional[str] = None               # cuadrado | vertical | historia
-    tipografia: Optional[str] = None
-    peso: Optional[str] = None                  # normal | fina | negrita
-    posicion: Optional[str] = None              # centro | arriba | abajo
-    alineacion: Optional[str] = None            # centro | izquierda
-    logo: Optional[str] = None                  # nombre de imagen.LOGOS ('Sin logo' = ninguno)
-    posicion_logo: Optional[str] = None
-    usar_compuesta: bool = True                 # «Publicar así»: destildado = va la foto sola
-    # Pieza de video (un recorte que ya está en WordPress)
-    video_url: Optional[str] = None
-    video_formato: Optional[str] = None         # horizontal | vertical (el del recorte)
-    vfmt: Optional[str] = None                  # reel | historia (formato en Instagram)
-    borrador_id: Optional[str] = None           # si se está retomando un borrador
+PiezaCompleta = Pieza        # (3/11) el modelo único está en api/pieza.py (lo comparte con chat_rutas); el nombre queda como alias
 
 
 class Envio(PiezaCompleta):
@@ -181,7 +158,7 @@ def _sin_firma_repetida(texto_imagen, firma):
 
 
 def _fecha_iso(fecha, hora):
-    return cr._fecha_iso(cr.Pieza(canal="instagram", fecha=fecha, hora=hora))
+    return Pieza(canal="instagram", fecha=fecha, hora=hora).fecha_iso()
 
 
 def _fecha_hora_de_iso(fp):
@@ -279,36 +256,15 @@ def _validar(p: PiezaCompleta, simulado=False):
     return canal
 
 
-def _datos_borrador(p: PiezaCompleta, canal, fecha_iso):
-    """El dict `pieza` que guarda «💾 Guardar borrador» y que el formulario sabe retomar, con el diseño completo."""
-    return {"canal": canal, "titulo": p.titulo or "", "texto": p.texto or "", "texto_imagen": p.texto_imagen or "",
-            "video_url": p.video_url or None, "video_formato": p.video_formato or None, "vfmt": p.vfmt if p.video_url else None,
-            "url": (p.imagen_url or "").strip(), "busq": p.imagen_busqueda or "", "firma": p.firma,
-            "fmt": p.formato, "logo": p.logo, "plogo": p.posicion_logo, "tipo": p.tipografia, "peso": p.peso,
-            "pos": p.posicion, "ali": p.alineacion, "usar_comp": bool(p.usar_compuesta),
-            "fecha": fecha_iso[:10] if fecha_iso else None, "hora": fecha_iso[11:16] if fecha_iso else None,
-            "origen": "web"}
+def _datos_borrador(p: Pieza, canal, fecha_iso):
+    """El dict `pieza` que guarda «💾 Guardar borrador» y que el formulario sabe retomar (= Pieza.a_borrador)."""
+    return p.a_borrador(canal, fecha_iso)
 
 
 def pieza_de_fila(p):
-    """La pieza del borrador + lo que la web necesita para precargar el formulario desde cualquier fila."""
-    res = p.get("resultado") or {}
-    d = dict(res.get("pieza") or {})
-    d["_pid"] = p["id"]
-    d.setdefault("canal", p.get("canal"))
-    d.setdefault("titulo", p.get("titulo") or "")
-    d.setdefault("texto", p.get("texto") or "")
-    d.setdefault("url", p.get("imagen_url") or "")
-    d.setdefault("texto_imagen", res.get("texto_imagen") or "")
-    d.setdefault("video_url", res.get("video_url"))
-    if not d.get("fmt"):   # (2/11) pruebas anteriores al 2/11 no guardaban el formulario: al menos el formato (historia) se rescata del registro
-        fmt = res.get("formato") or ("historia" if res.get("accion") == "historia" else None)
-        if fmt:
-            d["fmt"] = fmt
-    if not d.get("fecha") and p.get("fecha_programada"):
-        d["fecha"], d["hora"] = _fecha_hora_de_iso(p.get("fecha_programada"))
-    d["imagen_busqueda"] = d.get("busq") or ""
-    return d
+    """La pieza para precargar el formulario desde cualquier fila (= Pieza.desde_fila), como dict con los campos del modelo.
+    `borrador_id` es el id de la fila: la web lo anula si la fila no es un borrador."""
+    return Pieza.desde_fila(p, _fecha_hora_de_iso).model_dump()
 
 
 def decorar(p):

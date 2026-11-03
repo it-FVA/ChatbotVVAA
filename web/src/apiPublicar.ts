@@ -1,6 +1,6 @@
 // Cliente de la API para Publicar, Mis publicaciones y Aprobación (api/publicar_rutas.py). La sesión es la cookie de siempre.
 import { BASE, ErrorApi } from "./api";
-import type { ConversacionBorrada, MisPublicaciones, OpcionesPublicar, ParaAprobar, PiezaForm, Publicacion, RespuestaAprobacion, RespuestaBorrador, RespuestaEnvio, SubidaBanco } from "./tiposPublicar";
+import type { ConversacionBorrada, MisPublicaciones, OpcionesPublicar, ParaAprobar, PiezaApi, PiezaForm, Publicacion, RespuestaAprobacion, RespuestaBorrador, RespuestaEnvio, SubidaBanco } from "./tiposPublicar";
 
 async function errorDe(r: Response): Promise<ErrorApi> {
   let detalle = r.statusText || `Error ${r.status}`;
@@ -19,8 +19,9 @@ async function pedir<T>(ruta: string, init: RequestInit = {}): Promise<T> {
   return (await r.json()) as T;
 }
 
-/** Lo que viaja a la API: el formulario tal cual (las claves coinciden con PiezaCompleta). */
-export function cuerpo(p: PiezaForm) {
+/** Lo que viaja a la API: el formulario tal cual. El tipo de retorno es el modelo Pieza de la API (generado): un campo nuevo o
+ *  renombrado en api/pieza.py hace fallar la compilación acá, no en producción. */
+export function cuerpo(p: PiezaForm): PiezaApi {
   return {
     canal: p.canal,
     titulo: p.titulo.trim(),

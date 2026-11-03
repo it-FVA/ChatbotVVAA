@@ -9,7 +9,7 @@ import db
 from api.main import app
 
 
-@app.get("/_prueba_error")
+@app.get("/_prueba_error", include_in_schema=False)   # fuera del OpenAPI: web/openapi.json se genera sin las pruebas
 def _prueba_error(tipo: str = "x"):
     if tipo == "db":
         raise RuntimeError("Supabase 503: caído")

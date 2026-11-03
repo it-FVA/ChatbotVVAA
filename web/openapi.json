@@ -1,0 +1,6442 @@
+{
+ "components": {
+  "schemas": {
+   "Activa": {
+    "properties": {
+     "activa": {
+      "title": "Activa",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "activa"
+    ],
+    "title": "Activa",
+    "type": "object"
+   },
+   "Aprobar": {
+    "properties": {
+     "fecha": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Fecha"
+     },
+     "hora": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Hora"
+     }
+    },
+    "title": "Aprobar",
+    "type": "object"
+   },
+   "Body_subir_al_banco_banco_subir_post": {
+    "properties": {
+     "archivo": {
+      "contentMediaType": "application/octet-stream",
+      "title": "Archivo",
+      "type": "string"
+     },
+     "pieza": {
+      "default": "",
+      "title": "Pieza",
+      "type": "string"
+     },
+     "titulo": {
+      "default": "",
+      "title": "Titulo",
+      "type": "string"
+     }
+    },
+    "required": [
+     "archivo"
+    ],
+    "title": "Body_subir_al_banco_banco_subir_post",
+    "type": "object"
+   },
+   "Cabecera": {
+    "properties": {
+     "color": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Color"
+     },
+     "foto_url": {
+      "title": "Foto Url",
+      "type": "string"
+     },
+     "titulo": {
+      "default": "",
+      "title": "Titulo",
+      "type": "string"
+     }
+    },
+    "required": [
+     "foto_url"
+    ],
+    "title": "Cabecera",
+    "type": "object"
+   },
+   "CambioClave": {
+    "properties": {
+     "actual": {
+      "title": "Actual",
+      "type": "string"
+     },
+     "nueva": {
+      "title": "Nueva",
+      "type": "string"
+     }
+    },
+    "required": [
+     "actual",
+     "nueva"
+    ],
+    "title": "CambioClave",
+    "type": "object"
+   },
+   "CambiosConfig": {
+    "properties": {
+     "cambios": {
+      "additionalProperties": true,
+      "title": "Cambios",
+      "type": "object"
+     }
+    },
+    "required": [
+     "cambios"
+    ],
+    "title": "CambiosConfig",
+    "type": "object"
+   },
+   "Canales": {
+    "properties": {
+     "canales": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Canales",
+      "type": "array"
+     }
+    },
+    "required": [
+     "canales"
+    ],
+    "title": "Canales",
+    "type": "object"
+   },
+   "CompartirPieza": {
+    "properties": {
+     "compartido": {
+      "title": "Compartido",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "compartido"
+    ],
+    "title": "CompartirPieza",
+    "type": "object"
+   },
+   "Componer": {
+    "properties": {
+     "alineacion": {
+      "default": "centro",
+      "title": "Alineacion",
+      "type": "string"
+     },
+     "firma": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": "— Br. David",
+      "title": "Firma"
+     },
+     "formato": {
+      "default": "cuadrado",
+      "title": "Formato",
+      "type": "string"
+     },
+     "imagen_url": {
+      "title": "Imagen Url",
+      "type": "string"
+     },
+     "logo": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Logo"
+     },
+     "peso": {
+      "default": "normal",
+      "title": "Peso",
+      "type": "string"
+     },
+     "posicion": {
+      "default": "centro",
+      "title": "Posicion",
+      "type": "string"
+     },
+     "posicion_logo": {
+      "default": "abajo derecha",
+      "title": "Posicion Logo",
+      "type": "string"
+     },
+     "texto_imagen": {
+      "default": "",
+      "title": "Texto Imagen",
+      "type": "string"
+     },
+     "tipografia": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Tipografia"
+     }
+    },
+    "required": [
+     "imagen_url"
+    ],
+    "title": "Componer",
+    "type": "object"
+   },
+   "ConfigCapacidad": {
+    "description": "Lo que un admin ajusta desde el Dashboard. Las claves que no vienen no se tocan.",
+    "properties": {
+     "presupuesto_openai_usd": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Presupuesto Openai Usd"
+     },
+     "umbrales_planes": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Umbrales Planes"
+     },
+     "vercel_uso_manual_gb": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Vercel Uso Manual Gb"
+     }
+    },
+    "title": "ConfigCapacidad",
+    "type": "object"
+   },
+   "Contenido": {
+    "properties": {
+     "datos": {
+      "additionalProperties": true,
+      "default": {},
+      "title": "Datos",
+      "type": "object"
+     },
+     "plantilla": {
+      "default": "mensual",
+      "title": "Plantilla",
+      "type": "string"
+     }
+    },
+    "title": "Contenido",
+    "type": "object"
+   },
+   "EdicionUsuario": {
+    "properties": {
+     "activo": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Activo"
+     },
+     "email": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Email"
+     },
+     "nombre": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Nombre"
+     },
+     "rol": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Rol"
+     }
+    },
+    "title": "EdicionUsuario",
+    "type": "object"
+   },
+   "Envio": {
+    "properties": {
+     "alineacion": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Alineacion"
+     },
+     "borrador_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Borrador Id"
+     },
+     "canal": {
+      "title": "Canal",
+      "type": "string"
+     },
+     "fecha": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Fecha"
+     },
+     "firma": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Firma"
+     },
+     "formato": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Formato"
+     },
+     "hora": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Hora"
+     },
+     "imagen_busqueda": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Imagen Busqueda"
+     },
+     "imagen_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Imagen Url"
+     },
+     "logo": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Logo"
+     },
+     "modo": {
+      "default": "simulado",
+      "title": "Modo",
+      "type": "string"
+     },
+     "peso": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Peso"
+     },
+     "posicion": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Posicion"
+     },
+     "posicion_logo": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Posicion Logo"
+     },
+     "texto": {
+      "default": "",
+      "title": "Texto",
+      "type": "string"
+     },
+     "texto_imagen": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Texto Imagen"
+     },
+     "tipografia": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Tipografia"
+     },
+     "titulo": {
+      "default": "",
+      "title": "Titulo",
+      "type": "string"
+     },
+     "usar_compuesta": {
+      "default": true,
+      "title": "Usar Compuesta",
+      "type": "boolean"
+     },
+     "vfmt": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Vfmt"
+     },
+     "video_formato": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Video Formato"
+     },
+     "video_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Video Url"
+     }
+    },
+    "required": [
+     "canal"
+    ],
+    "title": "Envio",
+    "type": "object"
+   },
+   "EstiloDefecto": {
+    "properties": {
+     "estilo": {
+      "additionalProperties": true,
+      "title": "Estilo",
+      "type": "object"
+     }
+    },
+    "required": [
+     "estilo"
+    ],
+    "title": "EstiloDefecto",
+    "type": "object"
+   },
+   "Guardar": {
+    "properties": {
+     "borrador_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Borrador Id"
+     },
+     "datos": {
+      "additionalProperties": true,
+      "default": {},
+      "title": "Datos",
+      "type": "object"
+     },
+     "plantilla": {
+      "default": "mensual",
+      "title": "Plantilla",
+      "type": "string"
+     }
+    },
+    "title": "Guardar",
+    "type": "object"
+   },
+   "HTTPValidationError": {
+    "properties": {
+     "detail": {
+      "items": {
+       "$ref": "#/components/schemas/ValidationError"
+      },
+      "title": "Detail",
+      "type": "array"
+     }
+    },
+    "title": "HTTPValidationError",
+    "type": "object"
+   },
+   "Intercambio": {
+    "properties": {
+     "id_a": {
+      "title": "Id A",
+      "type": "string"
+     },
+     "id_b": {
+      "title": "Id B",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id_a",
+     "id_b"
+    ],
+    "title": "Intercambio",
+    "type": "object"
+   },
+   "ItemNuevo": {
+    "properties": {
+     "datos": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Datos"
+     },
+     "item_id": {
+      "title": "Item Id",
+      "type": "string"
+     },
+     "tipo": {
+      "title": "Tipo",
+      "type": "string"
+     }
+    },
+    "required": [
+     "tipo",
+     "item_id"
+    ],
+    "title": "ItemNuevo",
+    "type": "object"
+   },
+   "Linea": {
+    "properties": {
+     "fin": {
+      "title": "Fin",
+      "type": "string"
+     },
+     "inicio": {
+      "title": "Inicio",
+      "type": "string"
+     },
+     "texto": {
+      "default": "",
+      "title": "Texto",
+      "type": "string"
+     }
+    },
+    "required": [
+     "inicio",
+     "fin"
+    ],
+    "title": "Linea",
+    "type": "object"
+   },
+   "ListaBlanca": {
+    "properties": {
+     "email": {
+      "title": "Email",
+      "type": "string"
+     },
+     "nota": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Nota"
+     },
+     "rol": {
+      "default": "creador",
+      "title": "Rol",
+      "type": "string"
+     }
+    },
+    "required": [
+     "email"
+    ],
+    "title": "ListaBlanca",
+    "type": "object"
+   },
+   "Login": {
+    "properties": {
+     "clave": {
+      "title": "Clave",
+      "type": "string"
+     },
+     "usuario": {
+      "title": "Usuario",
+      "type": "string"
+     }
+    },
+    "required": [
+     "usuario",
+     "clave"
+    ],
+    "title": "Login",
+    "type": "object"
+   },
+   "LoginGoogle": {
+    "properties": {
+     "id_token": {
+      "title": "Id Token",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id_token"
+    ],
+    "title": "LoginGoogle",
+    "type": "object"
+   },
+   "Mensaje": {
+    "properties": {
+     "stream": {
+      "default": false,
+      "title": "Stream",
+      "type": "boolean"
+     },
+     "texto": {
+      "title": "Texto",
+      "type": "string"
+     }
+    },
+    "required": [
+     "texto"
+    ],
+    "title": "Mensaje",
+    "type": "object"
+   },
+   "Mover": {
+    "properties": {
+     "fecha": {
+      "title": "Fecha",
+      "type": "string"
+     }
+    },
+    "required": [
+     "fecha"
+    ],
+    "title": "Mover",
+    "type": "object"
+   },
+   "MoverItem": {
+    "properties": {
+     "proyecto_id": {
+      "title": "Proyecto Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "proyecto_id"
+    ],
+    "title": "MoverItem",
+    "type": "object"
+   },
+   "Nueva": {
+    "properties": {
+     "autor": {
+      "default": "",
+      "title": "Autor",
+      "type": "string"
+     },
+     "texto": {
+      "title": "Texto",
+      "type": "string"
+     }
+    },
+    "required": [
+     "texto"
+    ],
+    "title": "Nueva",
+    "type": "object"
+   },
+   "NuevoUsuario": {
+    "properties": {
+     "clave": {
+      "default": "sin",
+      "title": "Clave",
+      "type": "string"
+     },
+     "email": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Email"
+     },
+     "nombre": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Nombre"
+     },
+     "rol": {
+      "default": "creador",
+      "title": "Rol",
+      "type": "string"
+     },
+     "usuario": {
+      "title": "Usuario",
+      "type": "string"
+     }
+    },
+    "required": [
+     "usuario"
+    ],
+    "title": "NuevoUsuario",
+    "type": "object"
+   },
+   "PedidoRecorte": {
+    "properties": {
+     "fin_ms": {
+      "title": "Fin Ms",
+      "type": "integer"
+     },
+     "formato": {
+      "default": "horizontal",
+      "title": "Formato",
+      "type": "string"
+     },
+     "inicio_ms": {
+      "title": "Inicio Ms",
+      "type": "integer"
+     },
+     "titulo": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Titulo"
+     },
+     "video_id": {
+      "title": "Video Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "video_id",
+     "inicio_ms",
+     "fin_ms"
+    ],
+    "title": "PedidoRecorte",
+    "type": "object"
+   },
+   "Pieza": {
+    "description": "Todo lo que deja el formulario de Diseñar (= los campos) o el recuadro «Publicar esta pieza» del chat (que manda menos).",
+    "properties": {
+     "alineacion": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Alineacion"
+     },
+     "borrador_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Borrador Id"
+     },
+     "canal": {
+      "title": "Canal",
+      "type": "string"
+     },
+     "fecha": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Fecha"
+     },
+     "firma": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Firma"
+     },
+     "formato": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Formato"
+     },
+     "hora": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Hora"
+     },
+     "imagen_busqueda": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Imagen Busqueda"
+     },
+     "imagen_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Imagen Url"
+     },
+     "logo": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Logo"
+     },
+     "peso": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Peso"
+     },
+     "posicion": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Posicion"
+     },
+     "posicion_logo": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Posicion Logo"
+     },
+     "texto": {
+      "default": "",
+      "title": "Texto",
+      "type": "string"
+     },
+     "texto_imagen": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Texto Imagen"
+     },
+     "tipografia": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Tipografia"
+     },
+     "titulo": {
+      "default": "",
+      "title": "Titulo",
+      "type": "string"
+     },
+     "usar_compuesta": {
+      "default": true,
+      "title": "Usar Compuesta",
+      "type": "boolean"
+     },
+     "vfmt": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Vfmt"
+     },
+     "video_formato": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Video Formato"
+     },
+     "video_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Video Url"
+     }
+    },
+    "required": [
+     "canal"
+    ],
+    "title": "Pieza",
+    "type": "object"
+   },
+   "PrimeraVez": {
+    "properties": {
+     "clave": {
+      "title": "Clave",
+      "type": "string"
+     },
+     "email": {
+      "title": "Email",
+      "type": "string"
+     },
+     "usuario": {
+      "title": "Usuario",
+      "type": "string"
+     }
+    },
+    "required": [
+     "email",
+     "usuario",
+     "clave"
+    ],
+    "title": "PrimeraVez",
+    "type": "object"
+   },
+   "ProyectoCambios": {
+    "properties": {
+     "color": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Color"
+     },
+     "descripcion": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Descripcion"
+     },
+     "emoji": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Emoji"
+     },
+     "nombre": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Nombre"
+     },
+     "padre_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Padre Id"
+     }
+    },
+    "title": "ProyectoCambios",
+    "type": "object"
+   },
+   "ProyectoNuevo": {
+    "properties": {
+     "color": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Color"
+     },
+     "descripcion": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Descripcion"
+     },
+     "emoji": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Emoji"
+     },
+     "nombre": {
+      "title": "Nombre",
+      "type": "string"
+     },
+     "padre_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Padre Id"
+     }
+    },
+    "required": [
+     "nombre"
+    ],
+    "title": "ProyectoNuevo",
+    "type": "object"
+   },
+   "PruebaMail": {
+    "properties": {
+     "emails": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Emails"
+     },
+     "fecha": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Fecha"
+     }
+    },
+    "title": "PruebaMail",
+    "type": "object"
+   },
+   "Rechazar": {
+    "properties": {
+     "nota": {
+      "default": "",
+      "title": "Nota",
+      "type": "string"
+     }
+    },
+    "title": "Rechazar",
+    "type": "object"
+   },
+   "Redaccion": {
+    "properties": {
+     "datos": {
+      "additionalProperties": true,
+      "default": {},
+      "title": "Datos",
+      "type": "object"
+     },
+     "plantilla": {
+      "default": "mensual",
+      "title": "Plantilla",
+      "type": "string"
+     },
+     "tema": {
+      "title": "Tema",
+      "type": "string"
+     }
+    },
+    "required": [
+     "tema"
+    ],
+    "title": "Redaccion",
+    "type": "object"
+   },
+   "Reparto": {
+    "properties": {
+     "desde": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Desde"
+     },
+     "modo": {
+      "default": "orden",
+      "title": "Modo",
+      "type": "string"
+     }
+    },
+    "title": "Reparto",
+    "type": "object"
+   },
+   "ResetClave": {
+    "properties": {
+     "modo": {
+      "default": "temporal",
+      "title": "Modo",
+      "type": "string"
+     }
+    },
+    "title": "ResetClave",
+    "type": "object"
+   },
+   "Resolver": {
+    "properties": {
+     "respuesta": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Respuesta"
+     }
+    },
+    "title": "Resolver",
+    "type": "object"
+   },
+   "Servicio": {
+    "properties": {
+     "activo": {
+      "default": true,
+      "title": "Activo",
+      "type": "boolean"
+     },
+     "confirmado": {
+      "default": false,
+      "title": "Confirmado",
+      "type": "boolean"
+     },
+     "costo_mensual_usd": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Costo Mensual Usd"
+     },
+     "desde": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Desde"
+     },
+     "id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Id"
+     },
+     "nombre": {
+      "title": "Nombre",
+      "type": "string"
+     },
+     "notas": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Notas"
+     },
+     "para_que": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Para Que"
+     },
+     "plan": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Plan"
+     },
+     "proveedor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Proveedor"
+     },
+     "url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Url"
+     }
+    },
+    "required": [
+     "nombre"
+    ],
+    "title": "Servicio",
+    "type": "object"
+   },
+   "Solicitud": {
+    "properties": {
+     "autor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Autor"
+     },
+     "fecha": {
+      "title": "Fecha",
+      "type": "string"
+     },
+     "frase_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Frase Id"
+     },
+     "imagen_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Imagen Url"
+     },
+     "nota": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Nota"
+     },
+     "texto": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Texto"
+     }
+    },
+    "required": [
+     "fecha"
+    ],
+    "title": "Solicitud",
+    "type": "object"
+   },
+   "Vaciar": {
+    "properties": {
+     "confirmo": {
+      "default": false,
+      "title": "Confirmo",
+      "type": "boolean"
+     }
+    },
+    "title": "Vaciar",
+    "type": "object"
+   },
+   "ValidationError": {
+    "properties": {
+     "ctx": {
+      "title": "Context",
+      "type": "object"
+     },
+     "input": {
+      "title": "Input"
+     },
+     "loc": {
+      "items": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "integer"
+        }
+       ]
+      },
+      "title": "Location",
+      "type": "array"
+     },
+     "msg": {
+      "title": "Message",
+      "type": "string"
+     },
+     "type": {
+      "title": "Error Type",
+      "type": "string"
+     }
+    },
+    "required": [
+     "loc",
+     "msg",
+     "type"
+    ],
+    "title": "ValidationError",
+    "type": "object"
+   },
+   "Verificar": {
+    "properties": {
+     "email": {
+      "title": "Email",
+      "type": "string"
+     }
+    },
+    "required": [
+     "email"
+    ],
+    "title": "Verificar",
+    "type": "object"
+   },
+   "api__chat_rutas__Renombrar": {
+    "properties": {
+     "titulo": {
+      "title": "Titulo",
+      "type": "string"
+     }
+    },
+    "required": [
+     "titulo"
+    ],
+    "title": "Renombrar",
+    "type": "object"
+   },
+   "api__cuentas__Renombrar": {
+    "properties": {
+     "usuario": {
+      "title": "Usuario",
+      "type": "string"
+     }
+    },
+    "required": [
+     "usuario"
+    ],
+    "title": "Renombrar",
+    "type": "object"
+   },
+   "api__frases_rutas__Edicion": {
+    "properties": {
+     "autor": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Autor"
+     },
+     "estado": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Estado"
+     },
+     "estilo": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Estilo"
+     },
+     "imagen_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Imagen Url"
+     },
+     "quitar_estilo": {
+      "default": false,
+      "title": "Quitar Estilo",
+      "type": "boolean"
+     },
+     "quitar_imagen": {
+      "default": false,
+      "title": "Quitar Imagen",
+      "type": "boolean"
+     },
+     "texto": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Texto"
+     }
+    },
+    "title": "Edicion",
+    "type": "object"
+   },
+   "api__proyectos__Compartir": {
+    "properties": {
+     "permiso": {
+      "default": "ver",
+      "title": "Permiso",
+      "type": "string"
+     },
+     "usuario": {
+      "title": "Usuario",
+      "type": "string"
+     }
+    },
+    "required": [
+     "usuario"
+    ],
+    "title": "Compartir",
+    "type": "object"
+   },
+   "api__recortes__Compartir": {
+    "properties": {
+     "compartido": {
+      "title": "Compartido",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "compartido"
+    ],
+    "title": "Compartir",
+    "type": "object"
+   },
+   "api__recortes__Edicion": {
+    "description": "Lo que la persona cambió en el editor. Las claves que no vienen no se tocan.",
+    "properties": {
+     "descartar_srt": {
+      "default": true,
+      "title": "Descartar Srt",
+      "type": "boolean"
+     },
+     "estilo": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Estilo"
+     },
+     "fin_ms": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Fin Ms"
+     },
+     "inicio_ms": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Inicio Ms"
+     },
+     "lineas": {
+      "anyOf": [
+       {
+        "items": {
+         "$ref": "#/components/schemas/Linea"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Lineas"
+     },
+     "quitar_pausas": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Quitar Pausas"
+     },
+     "segmentos": {
+      "anyOf": [
+       {
+        "items": {
+         "items": {
+          "type": "integer"
+         },
+         "type": "array"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Segmentos"
+     },
+     "srt": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Srt"
+     }
+    },
+    "title": "Edicion",
+    "type": "object"
+   }
+  }
+ },
+ "info": {
+  "title": "Asistente · Vivir Agradecidos",
+  "version": "0.2 (fase 1)"
+ },
+ "openapi": "3.1.0",
+ "paths": {
+  "/admin/cambios": {
+   "get": {
+    "operationId": "cambios_admin_cambios_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "limite",
+      "required": false,
+      "schema": {
+       "default": 100,
+       "title": "Limite",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Cambios"
+   }
+  },
+  "/admin/config": {
+   "get": {
+    "description": "Todo lo que se edita en Configuración, con quién y cuándo lo cambió, los defaults y las explicaciones.",
+    "operationId": "leer_config_admin_config_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Leer Config",
+    "tags": [
+     "administracion"
+    ]
+   },
+   "put": {
+    "description": "Guarda cada clave de `cambios` (validada) con db.guardar_config y registra quién cambió qué (usuarios_cambios,\nacción «config», de → a). clips_estilo se guarda con PUT /recortes/estilo-defecto.",
+    "operationId": "guardar_config_admin_config_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CambiosConfig"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Guardar Config",
+    "tags": [
+     "administracion"
+    ]
+   }
+  },
+  "/admin/costos": {
+   "get": {
+    "description": "Consumo de OpenAI del período (?dias=7|28|90 o ?mes=AAAA-MM) + la serie de los últimos 6 meses.",
+    "operationId": "costos_admin_costos_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "dias",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Dias"
+      }
+     },
+     {
+      "in": "query",
+      "name": "mes",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Mes"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Costos",
+    "tags": [
+     "administracion"
+    ]
+   }
+  },
+  "/admin/lista-blanca": {
+   "get": {
+    "operationId": "lista_blanca_admin_lista_blanca_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Lista Blanca"
+   },
+   "put": {
+    "operationId": "lista_blanca_alta_admin_lista_blanca_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ListaBlanca"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Lista Blanca Alta"
+   }
+  },
+  "/admin/lista-blanca/{email}": {
+   "delete": {
+    "operationId": "lista_blanca_baja_admin_lista_blanca__email__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "email",
+      "required": true,
+      "schema": {
+       "title": "Email",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Lista Blanca Baja"
+   }
+  },
+  "/admin/resumen": {
+   "get": {
+    "description": "La portada del Dashboard: ¿funciona? (última corrida de Salud), costo del mes (OpenAI estimado + fijos) y el anterior.",
+    "operationId": "resumen_admin_resumen_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Resumen",
+    "tags": [
+     "administracion"
+    ]
+   }
+  },
+  "/admin/servicios": {
+   "get": {
+    "operationId": "servicios_admin_servicios_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Servicios",
+    "tags": [
+     "administracion"
+    ]
+   },
+   "put": {
+    "description": "Alta (sin id) o edición (con id). Queda registrado en usuarios_cambios.",
+    "operationId": "guardar_servicio_admin_servicios_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Servicio"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Guardar Servicio",
+    "tags": [
+     "administracion"
+    ]
+   }
+  },
+  "/admin/servicios/{sid}": {
+   "delete": {
+    "operationId": "borrar_servicio_admin_servicios__sid__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "sid",
+      "required": true,
+      "schema": {
+       "title": "Sid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Borrar Servicio",
+    "tags": [
+     "administracion"
+    ]
+   }
+  },
+  "/admin/uso": {
+   "get": {
+    "description": "«¿Hubo movimiento?»: por persona, también quien no hizo nada; por semana; lo último; y el\ncosto de OpenAI de cada persona en el mismo período.",
+    "operationId": "uso_admin_uso_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "dias",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Dias"
+      }
+     },
+     {
+      "in": "query",
+      "name": "mes",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Mes"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Uso",
+    "tags": [
+     "administracion"
+    ]
+   }
+  },
+  "/admin/usuarios": {
+   "get": {
+    "operationId": "admin_usuarios_admin_usuarios_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Admin Usuarios"
+   },
+   "post": {
+    "operationId": "admin_crear_admin_usuarios_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/NuevoUsuario"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Admin Crear"
+   }
+  },
+  "/admin/usuarios/{uid}": {
+   "delete": {
+    "operationId": "admin_borrar_admin_usuarios__uid__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "uid",
+      "required": true,
+      "schema": {
+       "title": "Uid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Admin Borrar"
+   },
+   "patch": {
+    "operationId": "admin_editar_admin_usuarios__uid__patch",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "uid",
+      "required": true,
+      "schema": {
+       "title": "Uid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/EdicionUsuario"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Admin Editar"
+   }
+  },
+  "/admin/usuarios/{uid}/clave": {
+   "post": {
+    "description": "Resetea la contraseña: 'temporal' (se muestra UNA vez y hay que cambiarla al entrar) o 'sin_clave'\n(la persona la crea desde «¿Primera vez?» con su email).",
+    "operationId": "admin_reset_clave_admin_usuarios__uid__clave_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "uid",
+      "required": true,
+      "schema": {
+       "title": "Uid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ResetClave"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Admin Reset Clave"
+   }
+  },
+  "/admin/usuarios/{uid}/renombrar": {
+   "post": {
+    "description": "Cambia el nombre de usuario y lo actualiza en conversaciones, publicaciones, clips y uso_openai.",
+    "operationId": "admin_renombrar_admin_usuarios__uid__renombrar_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "uid",
+      "required": true,
+      "schema": {
+       "title": "Uid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/api__cuentas__Renombrar"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Admin Renombrar"
+   }
+  },
+  "/aprobacion/cola": {
+   "get": {
+    "description": "= «🗓 En cola»: las piezas pendientes, por fecha.",
+    "operationId": "cola_aprobacion_cola_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Cola",
+    "tags": [
+     "publicar"
+    ]
+   }
+  },
+  "/aprobacion/papelera": {
+   "get": {
+    "description": "= «🗑 Papelera»: conversaciones que alguien borró; se restauran durante db.PAPELERA_DIAS días.",
+    "operationId": "papelera_aprobacion_papelera_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Papelera",
+    "tags": [
+     "publicar"
+    ]
+   }
+  },
+  "/aprobacion/papelera/{cid}/restaurar": {
+   "post": {
+    "description": "= «↩ Restaurar»: vuelve a aparecer en la lista de esa persona.",
+    "operationId": "restaurar_de_papelera_aprobacion_papelera__cid__restaurar_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "title": "Cid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Restaurar De Papelera",
+    "tags": [
+     "publicar"
+    ]
+   }
+  },
+  "/aprobacion/para-aprobar": {
+   "get": {
+    "description": "Las piezas a_aprobar (más viejas primero) con los datos de la vista previa, y el modo REAL de cada canal (el panel lo muestra:\n«el canal hoy está en modo X»). Sugerencia de fecha/hora como el panel: la pedida, o hoy + 20 min.",
+    "operationId": "para_aprobar_aprobacion_para_aprobar_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Para Aprobar",
+    "tags": [
+     "publicar"
+    ]
+   }
+  },
+  "/aprobacion/registro": {
+   "get": {
+    "description": "= «📒 Registro»: quién creó cada pieza, quién la aprobó o rechazó y qué pasó (las últimas 60, sin subidas ni pruebas ni borradores).",
+    "operationId": "registro_aprobacion_registro_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Registro",
+    "tags": [
+     "publicar"
+    ]
+   }
+  },
+  "/aprobacion/{pid}/aprobar": {
+   "post": {
+    "description": "= «✅ Aprobar y programar»: pasa a 'pendiente' con la fecha/hora elegida (editable) y el modo real del canal; la cola la saca\nese día (corre cada 15 min). Newsletter: queda 'lista' (el HTML se descarga y se pega en Perfit).",
+    "operationId": "aprobar_aprobacion__pid__aprobar_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Aprobar"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Aprobar",
+    "tags": [
+     "publicar"
+    ]
+   }
+  },
+  "/aprobacion/{pid}/cancelar": {
+   "post": {
+    "description": "= «Cancelar» de la cola: estado 'cancelada' con quién la canceló.",
+    "operationId": "cancelar_aprobacion__pid__cancelar_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Cancelar",
+    "tags": [
+     "publicar"
+    ]
+   }
+  },
+  "/aprobacion/{pid}/rechazar": {
+   "post": {
+    "description": "= «✖ Rechazar» con nota: quien la propuso lo ve en «Mis publicaciones» → Rechazadas.",
+    "operationId": "rechazar_aprobacion__pid__rechazar_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Rechazar"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Rechazar",
+    "tags": [
+     "publicar"
+    ]
+   }
+  },
+  "/autorizados": {
+   "get": {
+    "description": "Lista de emails autorizados fuera del dominio (solo lectura por ahora; el alta desde el panel es de otra fase).",
+    "operationId": "autorizados_autorizados_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Autorizados"
+   }
+  },
+  "/banco": {
+   "get": {
+    "description": "Fotos del banco de WordPress: primero las etiquetadas con el formato, después la consulta\nsola, después las recientes. [{id, url, miniatura, titulo}]; sin credenciales de WordPress, lista vacía.",
+    "operationId": "banco_banco_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "consulta",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Consulta",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "formato",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Formato",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "n",
+      "required": false,
+      "schema": {
+       "default": 6,
+       "title": "N",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Banco",
+    "tags": [
+     "chat"
+    ]
+   }
+  },
+  "/banco/subir": {
+   "post": {
+    "description": "= «…o subí un archivo (va al banco de WordPress)»: publicar.subir_imagen_wordpress con el modo real de WordPress.\nEn simulado/apagado no sube nada y lo dice (para Instagram/Facebook la imagen tiene que estar en internet).",
+    "operationId": "subir_al_banco_banco_subir_post",
+    "requestBody": {
+     "content": {
+      "multipart/form-data": {
+       "schema": {
+        "$ref": "#/components/schemas/Body_subir_al_banco_banco_subir_post"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Subir Al Banco",
+    "tags": [
+     "publicar"
+    ]
+   }
+  },
+  "/compartidos-conmigo": {
+   "get": {
+    "description": "Lo que otras personas compartieron conmigo: proyectos (solo las raíces) y conversaciones sueltas.",
+    "operationId": "conmigo_compartidos_conmigo_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Conmigo",
+    "tags": [
+     "proyectos"
+    ]
+   }
+  },
+  "/compartidos/{tipo}/{item_id}": {
+   "get": {
+    "operationId": "con_quien_compartidos__tipo___item_id__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "tipo",
+      "required": true,
+      "schema": {
+       "title": "Tipo",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "item_id",
+      "required": true,
+      "schema": {
+       "title": "Item Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Con Quien",
+    "tags": [
+     "proyectos"
+    ]
+   },
+   "put": {
+    "operationId": "compartir_compartidos__tipo___item_id__put",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "tipo",
+      "required": true,
+      "schema": {
+       "title": "Tipo",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "item_id",
+      "required": true,
+      "schema": {
+       "title": "Item Id",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/api__proyectos__Compartir"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Compartir",
+    "tags": [
+     "proyectos"
+    ]
+   }
+  },
+  "/compartidos/{tipo}/{item_id}/{con}": {
+   "delete": {
+    "description": "El dueño saca a cualquiera; una persona puede sacarse a sí misma (dejar de verlo).",
+    "operationId": "descompartir_compartidos__tipo___item_id___con__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "tipo",
+      "required": true,
+      "schema": {
+       "title": "Tipo",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "item_id",
+      "required": true,
+      "schema": {
+       "title": "Item Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "con",
+      "required": true,
+      "schema": {
+       "title": "Con",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Descompartir",
+    "tags": [
+     "proyectos"
+    ]
+   }
+  },
+  "/conversaciones": {
+   "get": {
+    "description": "Como la barra lateral: [{id, titulo, actualizado}], más recientes primero, sin la papelera.",
+    "operationId": "conversaciones_conversaciones_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Conversaciones"
+   }
+  },
+  "/conversaciones/{cid}": {
+   "delete": {
+    "description": "A la papelera (db.PAPELERA_DIAS días): no se borra de verdad. Se puede deshacer con POST .../restaurar.",
+    "operationId": "borrar_conversaciones__cid__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "title": "Cid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Borrar",
+    "tags": [
+     "chat"
+    ]
+   },
+   "get": {
+    "operationId": "conversacion_conversaciones__cid__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "title": "Cid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Conversacion"
+   },
+   "patch": {
+    "operationId": "renombrar_conversaciones__cid__patch",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "title": "Cid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/api__chat_rutas__Renombrar"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Renombrar",
+    "tags": [
+     "chat"
+    ]
+   }
+  },
+  "/conversaciones/{cid}/mensajes": {
+   "post": {
+    "description": "Manda un mensaje. cid = 'nueva' abre una conversación nueva. Con stream=true (o Accept: text/event-stream)\nresponde Server-Sent Events: estado → fuentes → pieza → texto (deltas) → fin {conversacion_id, titulo, mensaje}.\nSin streaming, responde el JSON del evento fin.",
+    "operationId": "mensaje_conversaciones__cid__mensajes_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "title": "Cid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Mensaje"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Mensaje"
+   }
+  },
+  "/conversaciones/{cid}/mensajes/{n}/docx": {
+   "get": {
+    "operationId": "descargar_docx_conversaciones__cid__mensajes__n__docx_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "title": "Cid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "n",
+      "required": true,
+      "schema": {
+       "title": "N",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Descargar Docx",
+    "tags": [
+     "chat"
+    ]
+   }
+  },
+  "/conversaciones/{cid}/mensajes/{n}/xlsx": {
+   "get": {
+    "operationId": "descargar_xlsx_conversaciones__cid__mensajes__n__xlsx_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "title": "Cid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "n",
+      "required": true,
+      "schema": {
+       "title": "N",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Descargar Xlsx",
+    "tags": [
+     "chat"
+    ]
+   }
+  },
+  "/conversaciones/{cid}/recortes": {
+   "get": {
+    "description": "Los clips (en cualquier estado) de los videos citados en la conversación: la web los consulta cada minuto\nmientras alguno está en proceso, para pasar la tarjeta de «en proceso» a «Ver el recorte».",
+    "operationId": "recortes_de_la_conversacion_conversaciones__cid__recortes_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "title": "Cid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Recortes De La Conversacion",
+    "tags": [
+     "chat"
+    ]
+   }
+  },
+  "/conversaciones/{cid}/restaurar": {
+   "post": {
+    "operationId": "restaurar_conversaciones__cid__restaurar_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "title": "Cid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Restaurar",
+    "tags": [
+     "chat"
+    ]
+   }
+  },
+  "/cuentas/clave": {
+   "post": {
+    "operationId": "cambiar_clave_cuentas_clave_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CambioClave"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Cambiar Clave"
+   }
+  },
+  "/cuentas/primera-vez": {
+   "post": {
+    "description": "Paso 2: elige usuario y contraseña. Crea la fila (rol de la lista blanca o creador) o le pone clave a una\ncuenta que un admin dejó «sin clave». Inicia la sesión.",
+    "operationId": "primera_vez_cuentas_primera_vez_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PrimeraVez"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Primera Vez"
+   }
+  },
+  "/cuentas/verificar": {
+   "post": {
+    "description": "Paso 1 de «¿Primera vez?»: ¿este email puede crear cuenta? No revela la lista: solo sí/no para ese email.",
+    "operationId": "verificar_cuentas_verificar_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Verificar"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Verificar"
+   }
+  },
+  "/frases": {
+   "post": {
+    "operationId": "crear_frases_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Nueva"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Crear",
+    "tags": [
+     "frases"
+    ]
+   }
+  },
+  "/frases/activa": {
+   "put": {
+    "description": "El interruptor «Frase del día activa». Es configuración (config frase_activa): solo admins.",
+    "operationId": "activa_frases_activa_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Activa"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Activa",
+    "tags": [
+     "frases"
+    ]
+   }
+  },
+  "/frases/backlog": {
+   "get": {
+    "description": "Validadas sin día (asignables) y, aparte, las pendientes de validación de Pato (no asignables).",
+    "operationId": "backlog_frases_backlog_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "q",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Q",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limite",
+      "required": false,
+      "schema": {
+       "default": 300,
+       "title": "Limite",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Backlog",
+    "tags": [
+     "frases"
+    ]
+   }
+  },
+  "/frases/canales": {
+   "put": {
+    "description": "(2/11, Franco) Por qué canales sale la frase cada día, desde la cabecera de Frase del día (antes solo en Configuración, admins).\nMisma regla que admin_rutas: canales válidos, al menos uno, en el orden de CANALES_POSIBLES.",
+    "operationId": "canales_frases_canales_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Canales"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Canales",
+    "tags": [
+     "frases"
+    ]
+   }
+  },
+  "/frases/dia/{fecha}": {
+   "get": {
+    "operationId": "dia_frases_dia__fecha__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "fecha",
+      "required": true,
+      "schema": {
+       "title": "Fecha",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Dia",
+    "tags": [
+     "frases"
+    ]
+   }
+  },
+  "/frases/intercambiar": {
+   "post": {
+    "description": "Las dos se cambian la fecha. Si una no tiene día, es «cambiar por otra» (la del día vuelve a sin día).",
+    "operationId": "intercambiar_frases_intercambiar_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Intercambio"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Intercambiar",
+    "tags": [
+     "frases"
+    ]
+   }
+  },
+  "/frases/mail/estado": {
+   "get": {
+    "description": "Cómo está el canal mail: modo, qué secretos faltan, la lista de Perfit, el envío de hoy y mañana (tandas) y las últimas pruebas.",
+    "operationId": "mail_estado_frases_mail_estado_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Mail Estado",
+    "tags": [
+     "frases"
+    ]
+   }
+  },
+  "/frases/mail/previa/{fecha}": {
+   "get": {
+    "description": "El mail de la frase de ese día, armado acá con `distribucion/frase_mail_plantilla.html` y el MISMO contexto que recibe la\nautomation de Perfit (frase_mail.contexto_de). Es una reproducción: el mail real lo arma Perfit con su plantilla; para verlo\nexacto está «Probar el mail». La imagen va embebida (data:) para que la vista previa no dependa de WordPress.",
+    "operationId": "mail_previa_frases_mail_previa__fecha__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "fecha",
+      "required": true,
+      "schema": {
+       "title": "Fecha",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Mail Previa",
+    "tags": [
+     "frases"
+    ]
+   }
+  },
+  "/frases/mail/prueba": {
+   "post": {
+    "description": "Manda la frase del día (o de `fecha`) a los mails de prueba, ya mismo. En modo simulado registra pero no manda.",
+    "operationId": "mail_prueba_frases_mail_prueba_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PruebaMail"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Mail Prueba",
+    "tags": [
+     "frases"
+    ]
+   }
+  },
+  "/frases/manana/encolar": {
+   "post": {
+    "description": "(2/11, Franco) «Volver a encolar»: la frase de mañana entra en la cola por los canales prendidos que todavía no tienen pieza\nviva (p. ej. después de «Frenar mañana»). Mismo camino que la cola (programar_frases.encolar_frase).",
+    "operationId": "manana_encolar_frases_manana_encolar_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Manana Encolar",
+    "tags": [
+     "frases"
+    ]
+   }
+  },
+  "/frases/manana/frenar": {
+   "post": {
+    "description": "(2/11, Franco) «Frenar mañana»: cancela las piezas pendientes de la frase de mañana. La frase queda en el día y se puede\nvolver a encolar. Un mail que ya está enviándose no se frena desde acá (Aprobación → En cola).",
+    "operationId": "manana_frenar_frases_manana_frenar_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Manana Frenar",
+    "tags": [
+     "frases"
+    ]
+   }
+  },
+  "/frases/mes/{anio}/{mes}": {
+   "get": {
+    "operationId": "mes_frases_mes__anio___mes__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "anio",
+      "required": true,
+      "schema": {
+       "title": "Anio",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "path",
+      "name": "mes",
+      "required": true,
+      "schema": {
+       "title": "Mes",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Mes",
+    "tags": [
+     "frases"
+    ]
+   }
+  },
+  "/frases/proximas": {
+   "get": {
+    "operationId": "proximas_frases_proximas_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "dias",
+      "required": false,
+      "schema": {
+       "default": 14,
+       "title": "Dias",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Proximas",
+    "tags": [
+     "frases"
+    ]
+   }
+  },
+  "/frases/repartir": {
+   "post": {
+    "description": "= «📅 Repartir en el año» (programar_frases.repartir + guardar_reparto): a las candidatas de la rotación les asigna un día cada\nuna desde `desde`, sin pisar fechas ocupadas.",
+    "operationId": "repartir_frases_repartir_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Reparto"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Repartir",
+    "tags": [
+     "frases"
+    ]
+   }
+  },
+  "/frases/resumen": {
+   "get": {
+    "description": "La cabecera de frases_ui: conteos, interruptor, hasta cuándo alcanzan las nunca publicadas, qué pasa mañana, avisos.",
+    "operationId": "resumen_frases_resumen_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Resumen",
+    "tags": [
+     "frases"
+    ]
+   }
+  },
+  "/frases/solicitudes": {
+   "get": {
+    "operationId": "solicitudes_frases_solicitudes_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Solicitudes",
+    "tags": [
+     "frases"
+    ]
+   },
+   "post": {
+    "description": "«Me gustaría que el <día> salga esta frase»: una validada que ya existe (del backlog o de otro día) o una nueva (texto + autor).\n(2/11 tarde) Y/o «con esta foto de fondo»: imagen_url sola cambia la foto de la frase que ya está ese día.",
+    "operationId": "solicitar_frases_solicitudes_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Solicitud"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Solicitar",
+    "tags": [
+     "frases"
+    ]
+   }
+  },
+  "/frases/solicitudes/{sid}/aceptar": {
+   "post": {
+    "description": "La aplica al calendario con las mismas reglas que mover / intercambiar / crear, y la marca aceptada.",
+    "operationId": "aceptar_solicitud_frases_solicitudes__sid__aceptar_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "sid",
+      "required": true,
+      "schema": {
+       "title": "Sid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Resolver"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Aceptar Solicitud",
+    "tags": [
+     "frases"
+    ]
+   }
+  },
+  "/frases/solicitudes/{sid}/rechazar": {
+   "post": {
+    "operationId": "rechazar_solicitud_frases_solicitudes__sid__rechazar_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "sid",
+      "required": true,
+      "schema": {
+       "title": "Sid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Resolver"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Rechazar Solicitud",
+    "tags": [
+     "frases"
+    ]
+   }
+  },
+  "/frases/solicitudes/{sid}/retirar": {
+   "post": {
+    "operationId": "retirar_solicitud_frases_solicitudes__sid__retirar_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "sid",
+      "required": true,
+      "schema": {
+       "title": "Sid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Retirar Solicitud",
+    "tags": [
+     "frases"
+    ]
+   }
+  },
+  "/frases/vaciar": {
+   "post": {
+    "operationId": "vaciar_frases_vaciar_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Vaciar"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Vaciar",
+    "tags": [
+     "frases"
+    ]
+   }
+  },
+  "/frases/whatsapp/previa/{fecha}": {
+   "get": {
+    "description": "El mensaje al grupo de la comunidad tal cual se mandaría (publicar.mensaje_whatsapp + la imagen compuesta embebida).\nPrototipo de la reunión del 2/11: todavía no hay forma de mandar desde la cuenta común; el modo lo dice.",
+    "operationId": "whatsapp_previa_frases_whatsapp_previa__fecha__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "fecha",
+      "required": true,
+      "schema": {
+       "title": "Fecha",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Whatsapp Previa",
+    "tags": [
+     "frases"
+    ]
+   }
+  },
+  "/frases/{fid}": {
+   "patch": {
+    "operationId": "editar_frases__fid__patch",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "fid",
+      "required": true,
+      "schema": {
+       "title": "Fid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/api__frases_rutas__Edicion"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Editar",
+    "tags": [
+     "frases"
+    ]
+   }
+  },
+  "/frases/{fid}/mover": {
+   "post": {
+    "description": "A otro día (tiene que estar libre y no ser pasado). Sirve también para asignar una frase sin día.",
+    "operationId": "mover_frases__fid__mover_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "fid",
+      "required": true,
+      "schema": {
+       "title": "Fid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Mover"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Mover",
+    "tags": [
+     "frases"
+    ]
+   }
+  },
+  "/frases/{fid}/previa.jpg": {
+   "get": {
+    "description": "La imagen compuesta chica (frase + autor + logo sobre la foto), como va a salir (frases_ui._vista_previa).\nCon ?foto=<url> la compone con esa foto en vez de la guardada (2/11 tarde: ver cómo quedaría una propuesta).",
+    "operationId": "previa_frases__fid__previa_jpg_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "fid",
+      "required": true,
+      "schema": {
+       "title": "Fid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "foto",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Foto",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Previa",
+    "tags": [
+     "frases"
+    ]
+   }
+  },
+  "/frases/{fid}/sacar": {
+   "post": {
+    "operationId": "sacar_frases__fid__sacar_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "fid",
+      "required": true,
+      "schema": {
+       "title": "Fid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Sacar",
+    "tags": [
+     "frases"
+    ]
+   }
+  },
+  "/login": {
+   "post": {
+    "description": "(22/10) Primero la tabla `usuarios` (hash); si no está ahí, la lista de secrets (transición).",
+    "operationId": "login_login_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Login"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Login"
+   }
+  },
+  "/login/google": {
+   "post": {
+    "operationId": "login_google_login_google_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LoginGoogle"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Login Google"
+   }
+  },
+  "/logout": {
+   "post": {
+    "operationId": "logout_logout_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Logout"
+   }
+  },
+  "/newsletter/a-aprobar": {
+   "post": {
+    "description": "Como newsletter_ui: la pieza queda 'a_aprobar' (canal newsletter, modo 'borrador', texto = el HTML). Cuando la aprueban queda\n'lista': el HTML para pegar en Perfit.",
+    "operationId": "enviar_a_aprobacion_newsletter_a_aprobar_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Guardar"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Enviar A Aprobacion",
+    "tags": [
+     "newsletter"
+    ]
+   }
+  },
+  "/newsletter/borrador": {
+   "post": {
+    "operationId": "guardar_borrador_newsletter_borrador_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Guardar"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Guardar Borrador",
+    "tags": [
+     "newsletter"
+    ]
+   }
+  },
+  "/newsletter/borradores": {
+   "get": {
+    "operationId": "borradores_newsletter_borradores_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Borradores",
+    "tags": [
+     "newsletter"
+    ]
+   }
+  },
+  "/newsletter/borradores/{pid}": {
+   "get": {
+    "operationId": "borrador_newsletter_borradores__pid__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Borrador",
+    "tags": [
+     "newsletter"
+    ]
+   }
+  },
+  "/newsletter/cabecera": {
+   "post": {
+    "description": "(23/10, prueba de Julián) La foto elegida recortada a 1600×500 con el título del newsletter encima; la letra va\nblanca sobre fondo oscuro y azul #00323f sobre fondo claro. Sin `subir`: la imagen para la vista previa. Con `subir`:\nse sube a la biblioteca de WordPress (como cualquier foto de una pieza) y devuelve la URL para cabecera_url.",
+    "operationId": "cabecera_newsletter_cabecera_post",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "subir",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Subir",
+       "type": "boolean"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Cabecera"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Cabecera",
+    "tags": [
+     "newsletter"
+    ]
+   }
+  },
+  "/newsletter/html": {
+   "post": {
+    "operationId": "html_newsletter_html_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Contenido"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Html",
+    "tags": [
+     "newsletter"
+    ]
+   }
+  },
+  "/newsletter/plantillas": {
+   "get": {
+    "operationId": "plantillas_newsletter_plantillas_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Plantillas",
+    "tags": [
+     "newsletter"
+    ]
+   }
+  },
+  "/newsletter/redactar": {
+   "post": {
+    "description": "= «✨ Redactar»: busca material sobre el tema y el bot completa los textos (no toca fechas, links ni fotos).",
+    "operationId": "redactar_newsletter_redactar_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Redaccion"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Redactar",
+    "tags": [
+     "newsletter"
+    ]
+   }
+  },
+  "/proyectos": {
+   "get": {
+    "description": "Lista plana (padre_id arma el árbol): los míos, y los compartidos conmigo con sus subcarpetas (permiso heredado).\n`ubicaciones`: {tipo: {item_id: proyecto_id}} de todo lo que está en esos proyectos (para el chip de la barra).",
+    "operationId": "listar_proyectos_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Listar",
+    "tags": [
+     "proyectos"
+    ]
+   },
+   "post": {
+    "operationId": "crear_proyectos_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ProyectoNuevo"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Crear",
+    "tags": [
+     "proyectos"
+    ]
+   }
+  },
+  "/proyectos/{pid}": {
+   "delete": {
+    "description": "Borra la carpeta, sus subcarpetas y las referencias. Las conversaciones, recortes y piezas quedan donde estaban.",
+    "operationId": "borrar_proyectos__pid__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Borrar",
+    "tags": [
+     "proyectos"
+    ]
+   },
+   "get": {
+    "operationId": "ver_proyectos__pid__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Ver",
+    "tags": [
+     "proyectos"
+    ]
+   },
+   "patch": {
+    "operationId": "editar_proyectos__pid__patch",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ProyectoCambios"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Editar",
+    "tags": [
+     "proyectos"
+    ]
+   }
+  },
+  "/proyectos/{pid}/items": {
+   "post": {
+    "operationId": "agregar_item_proyectos__pid__items_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ItemNuevo"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Agregar Item",
+    "tags": [
+     "proyectos"
+    ]
+   }
+  },
+  "/proyectos/{pid}/items/{iid}": {
+   "delete": {
+    "operationId": "quitar_item_proyectos__pid__items__iid__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "iid",
+      "required": true,
+      "schema": {
+       "title": "Iid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Quitar Item",
+    "tags": [
+     "proyectos"
+    ]
+   }
+  },
+  "/proyectos/{pid}/items/{iid}/mover": {
+   "post": {
+    "operationId": "mover_item_proyectos__pid__items__iid__mover_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "iid",
+      "required": true,
+      "schema": {
+       "title": "Iid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MoverItem"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Mover Item",
+    "tags": [
+     "proyectos"
+    ]
+   }
+  },
+  "/publicaciones": {
+   "get": {
+    "description": "Como «Mis publicaciones»: las piezas de la persona con las solapas\npor estado. todos=1 (solo aprobadores): el registro completo (Panel admin → Registro).",
+    "operationId": "publicaciones_publicaciones_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "todos",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Todos",
+       "type": "boolean"
+      }
+     },
+     {
+      "in": "query",
+      "name": "equipo",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Equipo",
+       "type": "boolean"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Publicaciones"
+   }
+  },
+  "/publicaciones/a-aprobar": {
+   "post": {
+    "description": "= «📨 Enviar a aprobación» la pieza queda 'a_aprobar' para el panel.\nNo sube la foto compuesta ni archivos (fase 3): la imagen es una URL del banco o nada.",
+    "operationId": "enviar_a_aprobacion_publicaciones_a_aprobar_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Pieza"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Enviar A Aprobacion",
+    "tags": [
+     "chat"
+    ]
+   }
+  },
+  "/publicaciones/borrador": {
+   "post": {
+    "description": "= «💾 Guardar borrador»: guarda todo sin mandar nada; se retoma desde «Mis publicaciones», filtro Borradores.",
+    "operationId": "guardar_borrador_publicaciones_borrador_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Pieza"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Guardar Borrador",
+    "tags": [
+     "chat"
+    ]
+   }
+  },
+  "/publicaciones/modos": {
+   "get": {
+    "description": "Para el recuadro: el modo de cada canal (como la línea «Instagram en modo real» del formulario), si esta persona\npublica en real y a qué canales puede mandar a aprobación.",
+    "operationId": "publicaciones_modos_publicaciones_modos_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Publicaciones Modos",
+    "tags": [
+     "chat"
+    ]
+   }
+  },
+  "/publicaciones/{pid}": {
+   "delete": {
+    "description": "= «🗑 Eliminar»: borra de verdad, solo si es propia y está en un estado eliminable (db.ELIMINABLES).",
+    "operationId": "eliminar_publicacion_publicaciones__pid__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Eliminar Publicacion",
+    "tags": [
+     "publicar"
+    ]
+   },
+   "get": {
+    "description": "La pieza (dueño o aprobador) decorada, más `pieza`: el dict con que el formulario se precarga («✏️ Retomar»).",
+    "operationId": "una_publicacion_publicaciones__pid__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Una Publicacion",
+    "tags": [
+     "publicar"
+    ]
+   }
+  },
+  "/publicaciones/{pid}/compartir": {
+   "post": {
+    "description": "(2/11, Franco) Como «Compartir» en Mis recortes: la persona dueña muestra la pieza en «Del equipo» de las demás (solo lectura)\no deja de mostrarla. Solo la dueña.",
+    "operationId": "compartir_publicacion_publicaciones__pid__compartir_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CompartirPieza"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Compartir Publicacion",
+    "tags": [
+     "publicar"
+    ]
+   }
+  },
+  "/publicar/a-aprobar": {
+   "post": {
+    "description": "= «📨 Enviar a aprobación» sube la imagen compuesta a WordPress (si hay frase o\nlogo y WordPress está en borrador/real) y deja la pieza 'a_aprobar' con texto_imagen, formato y video_url para la cola.",
+    "operationId": "enviar_a_aprobacion_publicar_a_aprobar_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Pieza"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Enviar A Aprobacion",
+    "tags": [
+     "publicar"
+    ]
+   }
+  },
+  "/publicar/borrador": {
+   "post": {
+    "description": "= «💾 Guardar borrador»: guarda todo (diseño incluido) sin mandar nada; se retoma desde «Mis publicaciones» → Borradores.\nCon borrador_id actualiza el mismo («al guardar se actualiza el mismo»).",
+    "operationId": "guardar_borrador_publicar_borrador_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Pieza"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Guardar Borrador",
+    "tags": [
+     "publicar"
+    ]
+   }
+  },
+  "/publicar/componer": {
+   "post": {
+    "description": "La vista previa de la foto con la frase (imagen.componer_imagen, mismos parámetros que el formulario).\nDevuelve el JPEG. Sin frase ni logo, devuelve la foto recortada al formato.",
+    "operationId": "componer_publicar_componer_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Componer"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Componer",
+    "tags": [
+     "publicar"
+    ]
+   }
+  },
+  "/publicar/enviar": {
+   "post": {
+    "description": "= «Enviar a <canal>» (modo real, solo quien publica directo) y «👁 Ver simulado» (modo simulado: arma la pieza tal cual\nsaldría y la muestra; no manda nada y queda como 'prueba' en el registro). Sube la imagen compuesta\na WordPress, encola si hay fecha y el canal no programa solo, o llama al conector. Devuelve el resultado del conector.",
+    "operationId": "enviar_publicar_enviar_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Envio"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Enviar",
+    "tags": [
+     "publicar"
+    ]
+   }
+  },
+  "/publicar/opciones": {
+   "get": {
+    "description": "Para el formulario: las listas de imagen.py (logos, tipografías, pesos, posiciones, alineaciones, formatos), el modo real de\ncada canal y el que ve esta persona (Quien no publica en real ve todo simulado), si puede mandar a\naprobación por canal, y su rol.",
+    "operationId": "opciones_publicar_opciones_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Opciones",
+    "tags": [
+     "publicar"
+    ]
+   }
+  },
+  "/recortes": {
+   "get": {
+    "description": "Los que pidió la persona (o el bot en su nombre). equipo=1: la biblioteca compartida (los\nLISTOS de las demás personas QUE ELLAS COMPARTIERON (2/11, Franco: «los clips se comparten cuando el usuario lo permite»),\npara abrir y publicar; sin editar ni borrar). todos=1 (solo aprobadores): todo el equipo, como\nPanel admin → Clips. buscar: filtra por título, video o quién lo pidió.",
+    "operationId": "listar_recortes_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "todos",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Todos",
+       "type": "boolean"
+      }
+     },
+     {
+      "in": "query",
+      "name": "equipo",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Equipo",
+       "type": "boolean"
+      }
+     },
+     {
+      "in": "query",
+      "name": "buscar",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Buscar",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Listar",
+    "tags": [
+     "recortes"
+    ]
+   },
+   "post": {
+    "description": "= los botones «✂️ Pedir el recorte» / «📱 Pedir en vertical», con las validaciones del\nchat (nucleo._ejecutar_tool 'pedir_recorte'): fin > inicio y menos de 15 minutos. El pedido queda firmado por la\npersona; la cola (recortar_pendientes.yml) lo corta en unos 15 minutos.",
+    "operationId": "pedir_recorte_recortes_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PedidoRecorte"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Pedir Recorte",
+    "tags": [
+     "chat"
+    ]
+   }
+  },
+  "/recortes/estilo-defecto": {
+   "get": {
+    "operationId": "estilo_defecto_recortes_estilo_defecto_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Estilo Defecto",
+    "tags": [
+     "recortes"
+    ]
+   },
+   "put": {
+    "description": "Panel admin → Clips → «💾 Guardar como estilo por defecto»: vale para los recortes verticales nuevos. Es configuración: solo admins (21/10).",
+    "operationId": "guardar_estilo_defecto_recortes_estilo_defecto_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/EstiloDefecto"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Guardar Estilo Defecto",
+    "tags": [
+     "recortes"
+    ]
+   }
+  },
+  "/recortes/opciones": {
+   "get": {
+    "description": "Las listas de recortar_clip para los controles de estilo (son las mismas que usa libass al quemar), los límites del tramo y\nel estilo por defecto del equipo (config clips_estilo; null si nadie lo guardó: vale ESTILO_DEFECTO).",
+    "operationId": "opciones_recortes_opciones_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Opciones",
+    "tags": [
+     "recortes"
+    ]
+   }
+  },
+  "/recortes/{cid}": {
+   "delete": {
+    "description": "= «🗑 Borrar» de Mis recortes: saca el archivo de WordPress (publicar.borrar_media_por_url) y la fila. Si está listo y\nWordPress no lo borra, no se borra la fila (502 con el aviso). En proceso o con error: se borra lo que haya.",
+    "operationId": "borrar_recortes__cid__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "title": "Cid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Borrar",
+    "tags": [
+     "recortes"
+    ]
+   },
+   "get": {
+    "operationId": "uno_recortes__cid__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "title": "Cid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Uno",
+    "tags": [
+     "recortes"
+    ]
+   }
+  },
+  "/recortes/{cid}/compartir": {
+   "post": {
+    "description": "(2/11) El dueño comparte el recorte con el equipo (aparece en «Del equipo» y se puede guardar en proyectos ajenos) o deja\nde compartirlo. Solo el dueño, no los aprobadores: la regla es que lo permita quien lo pidió.",
+    "operationId": "compartir_recortes__cid__compartir_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "title": "Cid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/api__recortes__Compartir"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Compartir",
+    "tags": [
+     "recortes"
+    ]
+   }
+  },
+  "/recortes/{cid}/edicion": {
+   "post": {
+    "description": "= «🔁 Regenerar el recorte»: arma clips.edicion con lo que cambió, valida el tramo (fin > inicio,\nentre 2 s y 3 min), avisa si los subtítulos corregidos eran del tramo anterior, pone estado 'pedido' y la nota. La cola de la\nnube lo aplica en ~15 min. Devuelve {ok, edicion, partes, avisos, mensaje}.",
+    "operationId": "editar_recortes__cid__edicion_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "title": "Cid",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/api__recortes__Edicion"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Editar",
+    "tags": [
+     "recortes"
+    ]
+   }
+  },
+  "/recortes/{cid}/reintentar": {
+   "post": {
+    "description": "Panel admin → Clips → «↻ Reintentar»: un recorte en error vuelve a la cola (respeta la edición si la hay).",
+    "operationId": "reintentar_recortes__cid__reintentar_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "title": "Cid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Reintentar",
+    "tags": [
+     "recortes"
+    ]
+   }
+  },
+  "/recortes/{cid}/usos": {
+   "get": {
+    "description": "Piezas (no borrador/prueba) que usan ese video: para avisar antes de borrar (db.publicaciones_con_video).",
+    "operationId": "usos_recortes__cid__usos_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "title": "Cid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Usos",
+    "tags": [
+     "recortes"
+    ]
+   }
+  },
+  "/salud": {
+   "get": {
+    "description": "Lo que ya devolvía (health check de Render y la web): compatible, más versión, arranque y modo de vectores.",
+    "operationId": "salud_salud_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Salud",
+    "tags": [
+     "salud"
+    ]
+   }
+  },
+  "/salud/capacidad": {
+   "get": {
+    "description": "Solo el bloque de capacidad (más barato que /salud/servicios): para el Dashboard.",
+    "operationId": "capacidad_endpoint_salud_capacidad_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "token",
+      "required": false,
+      "schema": {
+       "title": "Token",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Capacidad Endpoint",
+    "tags": [
+     "salud"
+    ]
+   }
+  },
+  "/salud/capacidad/config": {
+   "put": {
+    "operationId": "capacidad_config_salud_capacidad_config_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ConfigCapacidad"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Capacidad Config",
+    "tags": [
+     "salud"
+    ]
+   }
+  },
+  "/salud/historial": {
+   "get": {
+    "description": "Las últimas corridas guardadas (más recientes primero): para el «desde cuándo» de la pantalla.",
+    "operationId": "historial_salud_historial_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "token",
+      "required": false,
+      "schema": {
+       "title": "Token",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limite",
+      "required": false,
+      "schema": {
+       "default": 100,
+       "title": "Limite",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Historial",
+    "tags": [
+     "salud"
+    ]
+   }
+  },
+  "/salud/servicios": {
+   "get": {
+    "description": "Todos los chequeos. Solo admins (o el token de monitoreo). guardar=0 no escribe en salud_historial.",
+    "operationId": "servicios_salud_servicios_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "token",
+      "required": false,
+      "schema": {
+       "title": "Token",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "guardar",
+      "required": false,
+      "schema": {
+       "default": true,
+       "title": "Guardar",
+       "type": "boolean"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Servicios",
+    "tags": [
+     "salud"
+    ]
+   }
+  },
+  "/usuarios/buscar": {
+   "get": {
+    "description": "Para el buscador de «Compartir»: usuarios activos de la tabla cuyo usuario, nombre o email contiene q (sin vos).",
+    "operationId": "buscar_usuarios_usuarios_buscar_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "q",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Q",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Buscar Usuarios",
+    "tags": [
+     "proyectos"
+    ]
+   }
+  },
+  "/yo": {
+   "get": {
+    "operationId": "yo_yo_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Yo"
+   }
+  }
+ }
+}

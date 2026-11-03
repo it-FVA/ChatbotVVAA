@@ -1,4 +1,5 @@
 // Lo que devuelve la API para Publicar, Mis publicaciones y Aprobación (api/publicar_rutas.py y GET /publicaciones de api/main.py).
+import type { components } from "./tiposApi";
 
 /** (3/11) Un canal de Diseñar tal como lo arma la API (chat_rutas.info_canales, del registro canales.py). */
 export interface CanalOpcion {
@@ -39,7 +40,8 @@ export interface OpcionesPublicar {
   zona: string;
 }
 
-/** El estado del formulario de Publicar (= los campos). Es también lo que se manda a la API. */
+/** El estado del formulario de Publicar (= los campos de PiezaApi, con strings en vez de null para los controles).
+ *  Si la API suma un campo, `cuerpo()` en apiPublicar.ts deja de compilar hasta que se agregue acá. */
 export interface PiezaForm {
   canal: string; // clave del canal ('' = sin elegir); los válidos son los de OpcionesPublicar.canales
   titulo: string;
@@ -64,32 +66,10 @@ export interface PiezaForm {
   borrador_id: string | null;
 }
 
-/** El dict `pieza` que guarda un borrador (claves cortas) y que devuelve GET /publicaciones/{id}. */
-export interface PiezaGuardada {
-  _pid?: string;
-  canal?: string | null;
-  titulo?: string;
-  texto?: string;
-  texto_imagen?: string;
-  video_url?: string | null;
-  video_formato?: string | null;
-  vfmt?: string | null;
-  url?: string;
-  busq?: string;
-  imagen_busqueda?: string;
-  firma?: string | null;
-  fmt?: string | null;
-  logo?: string | null;
-  plogo?: string | null;
-  tipo?: string | null;
-  peso?: string | null;
-  pos?: string | null;
-  ali?: string | null;
-  usar_comp?: boolean;
-  fecha?: string | null;
-  hora?: string | null;
-  miniatura?: string | null;
-}
+/** (3/11) La pieza tal como la define la API (api/pieza.py → OpenAPI → tiposApi.d.ts, `npm run tipos`). Es lo que se manda a
+ *  /publicar/borrador, /a-aprobar y /enviar, y lo que devuelve GET /publicaciones/{id} en `pieza` (con borrador_id = el id de la fila). */
+export type PiezaApi = components["schemas"]["Pieza"];
+export type PiezaGuardada = Partial<PiezaApi>;
 
 export interface RespuestaBorrador {
   ok: boolean;

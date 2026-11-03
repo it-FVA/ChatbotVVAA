@@ -23,6 +23,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 
 from . import auth, roles as _roles
+from .pieza import Pieza, ZONA_HORARIA     # (3/11) el modelo único de la pieza (también lo usa publicar_rutas)
 import db            # noqa: E402  (api/__init__ pone la raíz del repo en sys.path)
 import publicar      # noqa: E402
 import documentos    # noqa: E402
@@ -33,7 +34,6 @@ router = APIRouter(tags=["chat"])
 
 # Constantes de publicación. (3/11) Los canales salen del registro único canales.py.
 CANALES = canales.nombres()        # {"wordpress": "WordPress", ...}: los de Diseñar
-ZONA_HORARIA = "-03:00"            # las fechas del recuadro son hora de Argentina
 MODO_TXT = {"apagado": "apagado: este canal no está disponible",
             "simulado": "simulado: arma la pieza y la muestra, NO la manda",
             "borrador": "borrador: la crea en WordPress sin publicar; se publica desde el panel",
@@ -55,22 +55,6 @@ class PedidoRecorte(BaseModel):
     fin_ms: int
     formato: str = "horizontal"     # 'horizontal' | 'vertical'
     titulo: Optional[str] = None
-
-
-class Pieza(BaseModel):
-    """Lo que la persona dejó en el recuadro «Publicar esta pieza» de la web."""
-    canal: str                       # wordpress | instagram | facebook | youtube
-    titulo: str = ""
-    texto: str = ""
-    imagen_url: Optional[str] = None
-    fecha: Optional[str] = None      # 'YYYY-MM-DD'
-    hora: Optional[str] = None       # 'HH:MM'
-    texto_imagen: Optional[str] = None
-    firma: Optional[str] = None
-    imagen_busqueda: Optional[str] = None
-    video_url: Optional[str] = None
-    video_formato: Optional[str] = None
-    borrador_id: Optional[str] = None   # (uuid) si se está retomando un borrador: se actualiza (o se elimina al mandar a aprobación)
 
 
 # ---------------- Helpers ----------------
@@ -97,16 +81,8 @@ def _texto_plano(t):
 
 
 def _fecha_iso(p: Pieza):
-    """'YYYY-MM-DDTHH:MM:SS' como arma el formulario (hora 09:00 si falta), o None si no se programa."""
-    if not p.fecha:
-        return None
-    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", p.fecha):
-        raise HTTPException(400, "La fecha tiene que ser AAAA-MM-DD.")
-    hora = (p.hora or "09:00").strip()
-    if not re.fullmatch(r"\d{1,2}:\d{2}", hora):
-        raise HTTPException(400, "La hora tiene que ser HH:MM.")
-    hh, mm = hora.split(":")
-    return f"{p.fecha}T{int(hh):02d}:{int(mm):02d}:00"
+    """'YYYY-MM-DDTHH:MM:SS' como arma el formulario (hora 09:00 si falta), o None si no se programa (= Pieza.fecha_iso)."""
+    return p.fecha_iso()
 
 
 def _validar_pieza(p: Pieza):
@@ -118,17 +94,6 @@ def _validar_pieza(p: Pieza):
     if canales.CANALES[canal].requiere_titulo and not (p.titulo or "").strip():
         raise HTTPException(400, f"En {CANALES[canal]} hace falta un título.")
     return canal
-
-
-def _datos_borrador(p: Pieza, canal, fecha_iso):
-    """El dict `pieza` que se guarda (botón «💾 Guardar borrador») y que formulario() sabe retomar.
-    Las claves de diseño (fmt, logo, tipografía…) quedan en None: el diseño de la foto es de la fase 3."""
-    return {"canal": canal, "titulo": p.titulo or "", "texto": p.texto or "", "texto_imagen": p.texto_imagen or "",
-            "video_url": p.video_url or None, "video_formato": p.video_formato or None, "vfmt": None,
-            "url": p.imagen_url or "", "busq": p.imagen_busqueda or "", "firma": p.firma or None,
-            "fmt": None, "logo": None, "plogo": None, "tipo": None, "peso": None, "pos": None, "ali": None,
-            "fecha": fecha_iso[:10] if fecha_iso else None, "hora": fecha_iso[11:16] if fecha_iso else None,
-            "origen": "web"}
 
 
 def _adjunto(nombre, ext):
@@ -317,7 +282,7 @@ def guardar_borrador(p: Pieza, usuario=Depends(auth.usuario_actual)):
         raise HTTPException(400, "Elegí el canal para guardar el borrador.")
     fecha_iso = _fecha_iso(p)
     pid = db.guardar_borrador(usuario, canal, p.titulo or "", p.texto or "", (p.imagen_url or "").strip() or None,
-                              (fecha_iso + ZONA_HORARIA) if fecha_iso else None, _datos_borrador(p, canal, fecha_iso),
+                              (fecha_iso + ZONA_HORARIA) if fecha_iso else None, p.a_borrador(canal, fecha_iso),
                               pid=p.borrador_id)
     if not pid:
         raise HTTPException(503, "No pude guardar el borrador.")
