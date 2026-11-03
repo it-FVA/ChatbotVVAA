@@ -179,18 +179,30 @@ def actualizar_envio(eid, campos):
     return _db._req("PATCH", f"?id=eq.{urllib.parse.quote(str(eid))}", campos, tabla="frase_envios")
 
 
+PAGINA = 1000      # el tope de filas por pedido de Supabase (max-rows)
+
+
 def resumen_envios(publicacion_id=None, fecha=None, prueba=None):
     """{pendiente: n, enviado: n, error: n, total: n} de una pieza (o de una fecha)."""
     if not _db.disponible():
         return {}
-    q = "?select=estado&limit=20000"
+    q = "?select=estado"
     if publicacion_id:
         q += f"&publicacion_id=eq.{urllib.parse.quote(str(publicacion_id))}"
     if fecha:
         q += f"&fecha=eq.{_q(str(fecha)[:10])}"
     if prueba is not None:
         q += f"&prueba=is.{'true' if prueba else 'false'}"
-    filas = _db._req("GET", q, tabla="frase_envios") or []
+    # (3/11) Supabase devuelve como mucho 1.000 filas por pedido aunque se pida más: con una lista de 2.241, el conteo veía
+    # solo 1.000 y, cuando esas ya estaban enviadas, la pieza se daba por terminada con 1.241 pendientes (pasó con la del 3/11).
+    # Se pagina de a 1.000, en un orden fijo, hasta traer todas.
+    filas, desde = [], 0
+    while True:
+        tanda = _db._req("GET", q + f"&order=id&limit={PAGINA}&offset={desde}", tabla="frase_envios") or []
+        filas.extend(tanda)
+        if len(tanda) < PAGINA:
+            break
+        desde += PAGINA
     out = {"pendiente": 0, "enviado": 0, "error": 0}
     for f in filas:
         out[f.get("estado") or "pendiente"] = out.get(f.get("estado") or "pendiente", 0) + 1

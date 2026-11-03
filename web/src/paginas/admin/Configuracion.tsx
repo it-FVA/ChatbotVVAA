@@ -332,7 +332,7 @@ function FraseDelDia({ cfg, onGuardado }: { cfg: Config; onGuardado: () => void 
   const [canales, setCanales] = useState<string[]>((v("frase_canales") as string[] | undefined) ?? cfg.defaults.frase_canales);
   const [foto, setFoto] = useState(String(v("frase_imagen") || ""));
   const [pie, setPie] = useState(v("frase_pie") === undefined || v("frase_pie") === null ? cfg.defaults.frase_pie : String(v("frase_pie")));
-  // (26/10) mail por Perfit: a qué hora del día anterior arranca el envío y la lista de prueba del equipo
+  // (26/10) mail por Perfit: a qué hora arranca el envío (3/11: de madrugada ese día o la tarde anterior) y la lista de prueba del equipo
   const [mailInicio, setMailInicio] = useState(String(v("frase_mail_inicio") || cfg.defaults.frase_mail_inicio || "15:00"));
   const [mailPrueba, setMailPrueba] = useState(((v("frase_mail_prueba") as string[] | undefined) ?? []).join("\n"));
   const meta = ["frase_activa", "frase_hora", "frase_canales", "frase_imagen", "frase_pie", "frase_mail_inicio", "frase_mail_prueba"].map((k) => cfg.valores[k]).filter(Boolean).sort((a, b) => (b.actualizado || "").localeCompare(a.actualizado || ""))[0];
@@ -371,7 +371,7 @@ function FraseDelDia({ cfg, onGuardado }: { cfg: Config; onGuardado: () => void 
         </fieldset>
         {canales.includes("mail") && (
           <label>
-            Mail: hora de inicio, el día anterior <span className="suave chico">{cfg.explicaciones.frase_mail_inicio}</span>
+            Mail: hora de inicio <span className="suave chico">{cfg.explicaciones.frase_mail_inicio}</span>
             <input type="time" value={mailInicio} onChange={(e) => setMailInicio(e.target.value)} step={900} style={{ width: 140 }} />
           </label>
         )}

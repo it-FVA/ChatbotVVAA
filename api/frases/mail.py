@@ -59,6 +59,7 @@ def mail_estado(usuario=Depends(auth.usuario_actual)):
     pruebas = db.ultimos_envios(limite=30, prueba=True)
     return {"modo": est["modo"], "faltan": est["faltan"], "lista": est["lista"], "error": est["error"],
             "canal_prendido": "mail" in canales, "inicio": db.obtener_config("frase_mail_inicio", pf.MAIL_INICIO_DEFECTO) or pf.MAIL_INICIO_DEFECTO,
+            "hora": db.obtener_config("frase_hora", pf.HORA_DEFECTO) or pf.HORA_DEFECTO,
             "lista_prueba": db.obtener_config("frase_mail_prueba") or [], "trigger_key": os.environ.get("PERFIT_TRIGGER_KEY") or perfit.TRIGGER_KEY_DEFECTO,
             "limite_por_hora": perfit.LIMITE_POR_HORA, "envios": envios, "pruebas": pruebas,
             "contexto_plantilla": ["frase", "autor", "fuente", "url", "fecha", "imagen_url", "fecha_iso", "fecha_texto", "pie", "link"]}

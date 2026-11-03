@@ -86,6 +86,7 @@ export interface MailEstado {
   error: string | null;
   canal_prendido: boolean;
   inicio: string;
+  hora?: string; // (3/11) la hora de las redes: si el mail arranca antes, arranca de madrugada ese mismo día
   lista_prueba: string[];
   trigger_key: string;
   limite_por_hora: number;

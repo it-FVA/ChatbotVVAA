@@ -169,7 +169,7 @@ _LISTA = (
           en_disenar=True, icono="pelicula", requiere_titulo=True, foto=_youtube, video=_youtube_video),
     # (26/10) el mail de la frase por Perfit (perfit.py + frase_mail.py); el modo es PUBLICAR_MAIL
     Canal("mail", "Mail", "Mail (frase del día)", "PUBLICAR_MAIL", MODOS_RED, claves=CLAVES_PERFIT, icono="sobre",
-          frase="Mail (Perfit, 200 por hora, arranca el día anterior)", foto=_mail),
+          frase="Mail (Perfit, 200 por hora, arranca de madrugada o la tarde anterior)", foto=_mail),
     # (2/11) la frase en la home del sitio: sin PUBLICAR_HOME usa el modo de WordPress
     Canal("home", "Sitio web", "Sitio web (home)", "PUBLICAR_HOME", MODOS_WP, hereda="wordpress", claves=CLAVES_WP, icono="casa",
           frase="Sitio web (la frase en la home de viviragradecidos.org)", foto=_home),

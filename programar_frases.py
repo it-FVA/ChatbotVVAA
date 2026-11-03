@@ -34,7 +34,7 @@ USUARIO = "frase_del_dia"
 HORA_DEFECTO = "07:00"
 CANALES_DEFECTO = ["instagram"]
 # (26/10, reunión) Se suman la historia de Instagram (Beto: la frase va como historia diaria, guardada en Destacadas; el posteo
-# satura) y el mail por Perfit (frase_mail.py: custom trigger, 200 por hora, arranca el día anterior a la hora frase_mail_inicio).
+# satura) y el mail por Perfit (frase_mail.py: custom trigger, 200 por hora, arranca a la hora frase_mail_inicio: de madrugada ese día si es antes que frase_hora, si no la tarde anterior).
 # (3/11) las salidas de la frase salen del registro único canales.SALIDAS_FRASE (historia = Instagram con formato historia)
 import canales as _canales
 CANALES_POSIBLES = {k: s["nombre"] for k, s in _canales.SALIDAS_FRASE.items()}
@@ -114,6 +114,17 @@ def componer(frase, foto, estilo=None, formato=None):
                                   posicion_logo=e.get("posicion_logo") or "abajo derecha")
 
 
+def inicio_mail(fecha, inicio=None, hora=None):
+    """(3/11, Franco) Cuándo arranca el mail de la frase de `fecha`, como 'AAAA-MM-DDTHH:MM:00-03:00'. `inicio` es la hora
+    (config frase_mail_inicio) y `hora` la de las redes (frase_hora). Si el mail arranca antes que las redes («01:00» con las
+    redes a las 07:00), arranca ESE MISMO DÍA de madrugada: la frase viaja de noche y llega al despertar o durante la mañana.
+    Si arranca después («15:00»), arranca el DÍA ANTERIOR a esa hora, como hasta el 3/11."""
+    inicio = inicio or MAIL_INICIO_DEFECTO
+    hora = hora or HORA_DEFECTO
+    dia = fecha if inicio < hora else fecha - datetime.timedelta(days=1)
+    return f"{dia.isoformat()}T{inicio}:00-03:00"
+
+
 def encolar_frase(frase, fecha, cfg, db, publicar, hora=None, quien=USUARIO, canales=None):
     """Arma la imagen, la sube a WordPress y deja una pieza por canal en la cola. Devuelve ({canal: publicacion_id}, aviso)."""
     hora = hora or db.obtener_config("frase_hora", HORA_DEFECTO) or HORA_DEFECTO
@@ -174,9 +185,9 @@ def encolar_frase(frase, fecha, cfg, db, publicar, hora=None, quien=USUARIO, can
         if canal == "historia":
             imagen_pieza = imagen_historia or imagen_url
         elif canal == "mail":
-            # arranca el día anterior: a 200 por hora, 3.140 mails llevan ~16 h; a las 7:00 están todos
+            # a 200 por hora la lista lleva horas: arranca de madrugada ese día o la tarde anterior (inicio_mail)
             inicio = db.obtener_config("frase_mail_inicio", MAIL_INICIO_DEFECTO) or MAIL_INICIO_DEFECTO
-            cuando = f"{(fecha - datetime.timedelta(days=1)).isoformat()}T{inicio}:00-03:00"
+            cuando = inicio_mail(fecha, inicio, hora)
         modo_canal = modos.get(canal_cola, "")
         pid = db.encolar_publicacion(quien, canal_cola, modo_canal,
                                      f"Frase del día {fecha.strftime('%d/%m/%Y')}" + _canales.SALIDAS_FRASE[canal]["sufijo"],

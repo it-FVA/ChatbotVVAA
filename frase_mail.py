@@ -3,8 +3,9 @@ frase_mail.py — La Frase del día por mail, en tandas, con el custom trigger d
 «usar el disparador de 200 por hora aunque sea provisorio, mientras se elige la herramienta nueva»).
 Cómo encaja con lo que ya existe:
   - programar_frases.py deja, para cada día con la frase asignada y el canal «mail» prendido, UNA pieza en la cola
-    (tabla publicaciones, canal 'mail') con fecha = el día anterior a la hora `frase_mail_inicio` (15:00 por defecto):
-    a 200 por hora, la lista de 3.140 lleva ~16 horas, así que arrancando a las 15:00 a las 7:00 la tienen todos.
+    (tabla publicaciones, canal 'mail') que arranca a la hora `frase_mail_inicio` (programar_frases.inicio_mail): si es antes
+    que la hora de las redes (p. ej. 01:00), de madrugada ese mismo día; si es después (15:00, el default), la tarde anterior.
+    A 200 por hora, la lista de 2.241 (3/11) lleva unas 11 horas.
   - procesar_cola.py, cuando esa pieza vence, llama a `iniciar`: baja la lista de Perfit (o, en simulado, usa la lista
     de prueba de config) y deja un renglón por destinatario en `frase_envios` (estado 'pendiente'); la pieza pasa a
     'enviando'.
@@ -23,7 +24,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
 POR_CORRIDA = 50                 # 4 pasadas por hora × 50 = los 200 por hora de Perfit
-INICIO_DEFECTO = "15:00"         # hora Argentina del día ANTERIOR en que arranca el envío
+INICIO_DEFECTO = "15:00"         # hora Argentina en que arranca el envío (ver programar_frases.inicio_mail)
 ZONA = datetime.timezone(datetime.timedelta(hours=-3))
 DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]

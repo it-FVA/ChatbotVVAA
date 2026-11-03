@@ -56,7 +56,7 @@ export function MailPanel({ admin }: { admin: boolean }) {
         {est && (
           <>
             <p className="suave chico">
-              Perfit manda hasta {est.limite_por_hora} mails por hora con su disparador personalizado, así que el envío arranca el día anterior a las {est.inicio} y se completa a la mañana. La automation de Perfit (clave <code>{est.trigger_key}</code>) arma el mail con: {est.contexto_plantilla.join(", ")}.
+              Perfit manda hasta {est.limite_por_hora} mails por hora con su disparador personalizado, así que el envío arranca a las {est.inicio} ({est.inicio < (est.hora || "07:00") ? "de madrugada, el mismo día" : "del día anterior"}) y se completa durante la mañana. La automation de Perfit (clave <code>{est.trigger_key}</code>) arma el mail con: {est.contexto_plantilla.join(", ")}.
             </p>
             {est.faltan.length > 0 && (
               <div className="aviso chico">

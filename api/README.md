@@ -194,7 +194,7 @@ La lista completa y vigente está en `api/variables_entorno.py` (de ahí salen `
 Decisión de Beto (reunión 26/10): la Frase del día vuelve por mail con el disparador personalizado de Perfit (200 por hora),
 provisorio hasta la herramienta de email nueva. Módulos: `perfit.py` (API de contactos + custom trigger), `frase_mail.py`
 (tandas de 50 por pasada de la cola, tabla `frase_envios`), canal `mail` en `programar_frases.py` (la pieza arranca el día
-anterior a la hora `frase_mail_inicio`) y en `procesar_cola.py`; rutas `GET /frases/mail/estado` y `POST /frases/mail/prueba`.
+anterior a la hora `frase_mail_inicio`, o ese mismo día de madrugada si esa hora es antes que `frase_hora`: `programar_frases.inicio_mail`) y en `procesar_cola.py`; rutas `GET /frases/mail/estado` y `POST /frases/mail/prueba`.
 Variables (secretas, las pega Franco en Render, en los secrets de GitHub Actions y en local): `PUBLICAR_MAIL`
 (apagado | simulado | real), `PERFIT_API_KEY`, `PERFIT_CUENTA`, `PERFIT_TRIGGER_URL`, `PERFIT_LISTA_FRASE`. Paso a paso,
 incluida la automation que hay que crear en Perfit: `fva-transcripcion/analisis/perfit-frase-del-dia-setup.md`.

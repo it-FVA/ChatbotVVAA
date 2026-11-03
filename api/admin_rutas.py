@@ -56,7 +56,7 @@ CLAVES_CONFIG = {
     "frase_canales": "Canales por los que sale la frase cada día (una pieza por canal).",
     "frase_imagen": "URL de la foto de fondo por defecto, para los días sin foto elegida. Sin foto, ese día no se encola.",
     "frase_pie": "Texto que va al final del posteo, después de la frase y el autor (hashtags).",
-    "frase_mail_inicio": "Hora (Argentina) del día ANTERIOR en que arranca el envío por mail: Perfit manda 200 por hora, a la lista de 3.140 le lleva ~16 h. A las 15:00, a las 7:00 están todos.",
+    "frase_mail_inicio": "Hora (Argentina) en que arranca el envío por mail. Si es antes que la hora de salida (p. ej. 01:00), arranca de madrugada ese mismo día; si es después (p. ej. 15:00), la tarde del día anterior. Perfit manda 200 por hora: a la lista de 2.241 le lleva unas 11 h.",
     "frase_mail_prueba": "Mails del equipo para las pruebas (10 a 15). Son los que reciben el envío en modo simulado y el botón «Probar el mail» de la Frase del día.",
     "clips_estilo": "Estilo por defecto de los subtítulos de los recortes verticales nuevos (se edita con los controles del editor).",
 }
