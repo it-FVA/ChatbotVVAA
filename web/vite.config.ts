@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 
@@ -13,6 +14,13 @@ export default defineConfig(({ mode }) => {
       proxy: {
         "/api": { target: api, changeOrigin: true, rewrite: (p) => p.replace(/^\/api/, "") },
       },
+    },
+    // (3/11, revisión 5.3 punto 19) pruebas de la web: `npm test`. La API se simula en src/pruebas/apiSimulada.ts.
+    test: {
+      environment: "jsdom",
+      setupFiles: ["./src/pruebas/preparar.ts"],
+      include: ["src/**/*.test.{ts,tsx}"],
+      css: false,
     },
   };
 });
