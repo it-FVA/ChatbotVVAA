@@ -33,7 +33,7 @@ export interface OpcionesPublicar {
   zona: string;
 }
 
-/** El estado del formulario de Publicar (= los campos de publicar_ui.formulario). Es también lo que se manda a la API. */
+/** El estado del formulario de Publicar (= los campos). Es también lo que se manda a la API. */
 export interface PiezaForm {
   canal: Canal | "";
   titulo: string;
@@ -58,7 +58,7 @@ export interface PiezaForm {
   borrador_id: string | null;
 }
 
-/** El dict `pieza` que guarda Streamlit en un borrador (claves cortas) y que devuelve GET /publicaciones/{id}. */
+/** El dict `pieza` que guarda un borrador (claves cortas) y que devuelve GET /publicaciones/{id}. */
 export interface PiezaGuardada {
   _pid?: string;
   canal?: string | null;

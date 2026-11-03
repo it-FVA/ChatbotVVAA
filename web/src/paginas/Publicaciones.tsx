@@ -1,4 +1,4 @@
-// Mis publicaciones (22/10, fase 3) = publicar_ui.mis_publicaciones: solapas por estado con conteos, tarjetas con canal, estado,
+// Mis publicaciones (22/10, fase 3) : solapas por estado con conteos, tarjetas con canal, estado,
 // fechas, miniatura, quién aprobó/rechazó y la nota, y las acciones Retomar (borradores), Eliminar (lo eliminable), Ver resultado
 // (el posteo, la entrada o el borrador de WordPress) y Descargar HTML (newsletter).
 import { useCallback, useEffect, useState } from "react";
@@ -175,7 +175,7 @@ export function descargarHtml(p: Publicacion) {
   window.setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
-/** Una pieza del registro (publicar_ui._fila_publicacion), con o sin quién la hizo y con las acciones que se le pasen. */
+/** Una pieza del registro, con o sin quién la hizo y con las acciones que se le pasen. */
 export function TarjetaPublicacion({ p, mostrarUsuario = false, onEliminar, onCambio, acciones }: { p: Publicacion; mostrarUsuario?: boolean; onEliminar?: () => void; onCambio?: () => void; acciones?: React.ReactNode }) {
   const esNewsletter = p.canal === "newsletter";
   // (2/11, Franco) «Compartir» como en Mis recortes: la dueña la muestra en «Del equipo» de las demás

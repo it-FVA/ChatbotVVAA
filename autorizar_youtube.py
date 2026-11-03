@@ -9,7 +9,7 @@ PRIVADOS aunque se pida público: modo "privado" en PUBLICAR_YOUTUBE y se public
 
 Uso (desde ChatbotVVAA):  python autorizar_youtube.py
 Imprime el link; abrirlo en el navegador con la cuenta del canal y aceptar. Escribe YOUTUBE_TOKEN_JSON
-en .streamlit/secrets.toml (reemplaza el viejo). Después: pegarlo en Streamlit Cloud y en los secrets de GitHub.
+en .streamlit/secrets.toml (reemplaza el viejo). Después: pegarlo en Render y en los secrets de GitHub.
 """
 import json, re, tomllib
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -34,5 +34,5 @@ else:
     t += "\n" + linea
 open(SECRETS, "w", encoding="utf-8").write(t)
 print("OK: YOUTUBE_TOKEN_JSON guardado en", SECRETS)
-print("Para Streamlit Cloud y GitHub (secret YOUTUBE_TOKEN_JSON):")
+print("Para Render y GitHub (secret YOUTUBE_TOKEN_JSON):")
 print(json.dumps(tok, ensure_ascii=False))

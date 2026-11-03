@@ -1,4 +1,4 @@
-// La lista de conversaciones de la persona (la barra lateral del chat de Streamlit): buscador, «Nueva conversación», ítems con
+// La lista de conversaciones de la persona (la barra lateral del chat): buscador, «Nueva conversación», ítems con
 // título y fecha relativa, renombrar en el lugar y borrar con confirmación + «Deshacer» (papelera de db.py).
 // Es un componente aparte y cada ítem es <ItemConversacion data-id> para que, en la próxima etapa (carpetas / proyectos), alcance
 // con envolver la lista en grupos y hacer los ítems arrastrables sin rehacer el chat.

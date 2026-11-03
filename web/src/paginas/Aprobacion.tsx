@@ -1,4 +1,4 @@
-// Aprobación (22/10, fase 3) = publicar_ui.panel_aprobacion, sección aparte para aprobadores: Para aprobar (vista previa completa,
+// Aprobación (22/10, fase 3) sección aparte para aprobadores: Para aprobar (vista previa completa,
 // aprobar con fecha y hora editables, rechazar con nota), En cola (cancelar), Registro, Papelera de conversaciones (restaurar) y
 // Clips de todo el equipo (la pantalla de recortes con la solapa «Todos» fija; los admins además fijan el estilo por defecto).
 import { useCallback, useEffect, useState } from "react";
@@ -379,7 +379,7 @@ export function Clips() {
   );
 }
 
-/** publicar_ui.estilo_por_defecto_admin: el estilo con que salen los subtítulos de los recortes verticales nuevos (config clips_estilo). */
+/** El estilo con que salen los subtítulos de los recortes verticales nuevos (config clips_estilo). */
 function EstiloDefecto() {
   const { avisar } = useToast();
   const [op, setOp] = useState<Opciones | null>(null);

@@ -1,13 +1,14 @@
-# API HTTP del asistente (fase 0 + recortes de la fase 1 + chat de la fase 2 + publicar y aprobar de la fase 3)
-# API HTTP del asistente (fase 0 + recortes de la fase 1 + usuarios)
+# API HTTP del asistente
 
-Es el primer paso del plan de interfaz propia (`fva-transcripcion/analisis/plan-interfaz-propia-2026-10.md`):
-una API en FastAPI que llama al **mismo cerebro** que la app de Streamlit (`nucleo.py`, `db.py`), sin tocarlo.
-Streamlit sigue en producción tal cual; esta API corre al lado. Por ahora: login, sesión, chat con streaming,
-lectura de conversaciones y publicaciones, (fase 1, 21/10 noche, `recortes.py`) todo lo de «Mis recortes»: editar y regenerar
-con el editor visual de la web (`web/`), borrar, estilo por defecto; y (fase 2, 22/10, `chat_rutas.py`) lo que la pantalla de chat
-de la web necesita además del streaming: renombrar y borrar conversaciones (papelera), descargas Word/Excel, pedir recortes desde
-las tarjetas, guardar la pieza propuesta como borrador o mandarla a aprobación. **No publica ni aprueba** (fase 3).
+API en FastAPI (`api/`) sobre los módulos de negocio de la raíz del repo (`nucleo.py`, `db.py`, `publicar.py`,
+`programar_frases.py`…). La usa la web (`web/`, React en Vercel) y corre en Render con Docker (`api/Dockerfile`, `render.yaml`).
+Hace login y sesión, el chat con streaming, conversaciones (papelera, Word/Excel), «Mis recortes» con el editor visual,
+Publicar / Mis publicaciones / Aprobación, la Frase del día, el Newsletter, proyectos y compartidos, cuentas y lista blanca,
+Administración (Dashboard, Servicios y costos, Salud). La cola de publicación (`procesar_cola.py`) corre aparte en GitHub Actions
+(`.github/workflows/cola.yml`) con los mismos módulos. La app de Streamlit se dio de baja el 2/11/2026.
+
+Plan original de la interfaz propia: `fva-transcripcion/analisis/plan-interfaz-propia-2026-10.md`. Cómo se hizo cada cosa y cuándo:
+`fva-transcripcion/HANDOFF.md`.
 
 ## Qué hay
 
@@ -16,29 +17,27 @@ las tarjetas, guardar la pieza propuesta como borrador o mandarla a aprobación.
 | `main.py` | la app FastAPI: carga el corpus una vez al arrancar y define los endpoints |
 | `chat.py` | el chat con streaming (SSE): réplica paso a paso de `nucleo.responder_con_pieza` con la segunda llamada al modelo en streaming; arma las tarjetas de fuentes (traducción en/de, estado de los recortes, «citada») |
 | `auth.py` | cookie de sesión firmada (HttpOnly, SameSite, 30 días), login por usuario/contraseña (22/10: primero la tabla `usuarios`, después secrets), login con Google |
-| `roles.py` | copia de `publicar_ui.roles` leyendo del entorno (ese módulo importa Streamlit); `roles_de_fila` para quien está en la tabla |
+| `roles.py` | roles (creador → aprobador → admin) leyendo `APROBADORES` / `ADMINS` / `PUBLICACION_DIRECTA` del entorno; `roles_de_fila` para quien está en la tabla |
 | `cuentas.py` | (22/10) cuentas: «¿Primera vez?», cambiar mi contraseña, administración de usuarios y lista blanca (solo admins), registro de cambios |
 | `importar_usuarios.py` | (22/10) pasa UNA vez los usuarios de secrets a la tabla `usuarios` (hash bcrypt, rol de las listas); idempotente, `--dry-run` |
 | `migraciones/usuarios_y_lista_blanca.sql` | (22/10) tablas `usuarios` y `usuarios_cambios`; `autorizados` pasa a lista blanca (rol admin, nota) |
-| `config.py` | variables de entorno; en local carga `.streamlit/secrets.toml` |
+| `config.py` | variables de entorno; en local carga `.streamlit/secrets.toml` con `secretos.py` (el cargador único, también de la cola y los scripts) |
+| `variables_entorno.py`, `generar_config.py` | (3/11) la lista ÚNICA de variables: de ahí salen `render.yaml` y `cola.yml` (`python api/generar_config.py`) y la fila «variables» de `/salud/servicios` |
 | `migraciones/autorizados_login_google.sql` | tabla `autorizados` (email, rol, agregado_por, creado) para el login con Google |
-| `recortes.py` | router de recortes (fase 1): misma lógica de negocio que `publicar_ui._mis_recortes` / `_editor_recorte`, más `edicion["segmentos"]` |
-| `chat_rutas.py` | router del chat (fase 2): renombrar / papelera / restaurar, `GET …/mensajes/{n}/docx\|xlsx` (usa `documentos.py`, el módulo que compartimos con Streamlit), `POST /recortes` (= botones «Pedir el recorte» con las validaciones del chat), `GET /banco`, `GET /publicaciones/modos`, `POST /publicaciones/borrador` y `/a-aprobar` (mismos campos que `publicar_ui.formulario`) |
-| `publicar_rutas.py` | (22/10, fase 3) Publicar, Mis publicaciones y Aprobación desde la web: misma lógica que `publicar_ui.formulario` / `_enviar` / `mis_publicaciones` / `panel_aprobacion` sobre `publicar.py`, `imagen.py` y `db.py`. Instala el hook de registro de `publicar.py` (`REGISTRAR_EXTRA`) UNA vez, leyendo de una contextvar quién envía |
-| `tests/` | pytest + httpx: 48 pruebas sin OpenAI ni Supabase (`test_api.py`, `test_recortes.py`, `test_chat_rutas.py`), y 1 real (marcada `real`) |
-| `tests/` | pytest + httpx: 64 pruebas sin OpenAI ni Supabase (`test_api.py`, `test_recortes.py`, `test_cuentas.py` con la tabla simulada en memoria), y 1 real (marcada `real`); `servidor_simulado.py` levanta la API con esa tabla en memoria para probar la web |
+| `recortes.py` | router de recortes (fase 1): validaciones del tramo y `edicion["segmentos"]` |
+| `chat_rutas.py` | router del chat (fase 2): renombrar / papelera / restaurar, `GET …/mensajes/{n}/docx\|xlsx` (usa `documentos.py`, el módulo de Word/Excel), `POST /recortes` (= botones «Pedir el recorte» con las validaciones del chat), `GET /banco`, `GET /publicaciones/modos`, `POST /publicaciones/borrador` y `/a-aprobar` |
+| `publicar_rutas.py` | (22/10, fase 3) Publicar, Mis publicaciones y Aprobación desde la web: formulario, envío, Mis publicaciones y panel de aprobación sobre `publicar.py`, `imagen.py` y `db.py`. Instala el hook de registro de `publicar.py` (`REGISTRAR_EXTRA`) UNA vez, leyendo de una contextvar quién envía |
 | `salud.py` | (22/10) `GET /salud` (health check) y la base de la pantalla «Salud» / Dashboard de Administración: `/salud/servicios` (13 chequeos con ok / aviso / error y «qué hacer» + bloque `capacidad`), `/salud/historial`, `/salud/capacidad`. Guarda cada corrida en `salud_historial` |
-| `admin_rutas.py` | (22/10, noche) lo que las pantallas Dashboard · Servicios y costos · Configuración de la web necesitan (solo admins): `GET /admin/resumen` (última corrida de Salud + costo del mes y del anterior), `GET /admin/uso?dias=7\|28\|90` o `?mes=AAAA-MM` (por persona, también quien no hizo nada; por semana; lo último; costo por persona), `GET /admin/costos` (misma fórmula que `publicar_ui._costo`: por persona, por día, por modelo y para qué, 6 meses), `GET/PUT/DELETE /admin/servicios`, `GET/PUT /admin/config` (precios con fuente obligatoria, presupuesto, umbrales, uso manual de Vercel, Frase del día; cada cambio queda en `usuarios_cambios` con acción `config` / `servicio_*`, de → a). Pruebas en `tests/test_admin_rutas.py` (24, con `db` simulado); 132 en total |
+| `admin_rutas.py` | (22/10, noche) lo que las pantallas Dashboard · Servicios y costos · Configuración de la web necesitan (solo admins): `GET /admin/resumen` (última corrida de Salud + costo del mes y del anterior), `GET /admin/uso?dias=7\|28\|90` o `?mes=AAAA-MM` (por persona, también quien no hizo nada; por semana; lo último; costo por persona), `GET /admin/costos` (por persona, por día, por modelo y para qué, 6 meses), `GET/PUT/DELETE /admin/servicios`, `GET/PUT /admin/config` (precios con fuente obligatoria, presupuesto, umbrales, uso manual de Vercel, Frase del día; cada cambio queda en `usuarios_cambios` con acción `config` / `servicio_*`, de → a). Pruebas en `tests/test_admin_rutas.py` (24, con `db` simulado); 132 en total |
 | `migraciones/salud_historial.sql`, `migraciones/fragmentos_emb_pgvector.sql` | (22/10) tabla del historial de salud; extensión `vector`, tabla `fragmentos_emb`, índice HNSW y funciones `match_fragmentos*`, `match_lexico`, `tamano_base` (todas aplicadas en Supabase el 22/10) |
-| `tests/` | pytest + httpx: 70 pruebas sin OpenAI ni Supabase (`test_api.py`, `test_recortes.py`, `test_salud.py`, `test_capacidad.py`, `test_vectores.py`), y 1 real (marcada `real`) |
-| `recortes.py` | router de recortes (fase 1): misma lógica de negocio que `publicar_ui._mis_recortes` / `_editor_recorte`, más `edicion["segmentos"]` (pedazos conservados, en orden de salida; 22/10: sin solaparse, ≥ 0,5 s cada uno, total 2 s–3 min) |
-| `tests/` | pytest + httpx: 37 pruebas sin OpenAI ni Supabase (`test_api.py`, `test_recortes.py`), y 1 real (marcada `real`) |
+| `recortes.py` | router de recortes (fase 1): validaciones del tramo y `edicion["segmentos"]` (pedazos conservados, en orden de salida; 22/10: sin solaparse, ≥ 0,5 s cada uno, total 2 s–3 min) |
+| `tests/` | pytest + httpx, sin OpenAI ni Supabase (Supabase simulada con monkeypatch sobre `db`); 1 prueba real marcada `real`. `servidor_simulado.py` levanta la API con la tabla en memoria para probar la web. `python -m pytest api/tests -q` desde la raíz; CI en `.github/workflows/ci.yml` |
 | `ejemplos.http` | llamadas de ejemplo (REST Client / curl) |
 | `Dockerfile`, `requirements.txt` | para desplegar en cualquier hosting que acepte un contenedor |
 
 En `db.py` se agregaron al final (sin cambiar las existentes): `cargar_conversacion_de`, `autorizado`,
 `listar_autorizados`, `agregar_autorizado`, `quitar_autorizado`, `restaurar_conversacion_de`. En la raíz, `documentos.py` (22/10)
-tiene `md_a_docx`, `tablas_md` y `tablas_a_xlsx`, que antes vivían en `app.py`; Streamlit los importa de ahí.
+tiene `md_a_docx`, `tablas_md` y `tablas_a_xlsx`, que antes vivían en la app vieja.
 
 ## Endpoints
 
@@ -60,14 +59,14 @@ tiene `md_a_docx`, `tablas_md` y `tablas_a_xlsx`, que antes vivían en `app.py`;
 | `GET /conversaciones/{id}/mensajes/{n}/docx` · `…/xlsx` | dueño | la respuesta `n` como Word · sus tablas como Excel (una hoja por tabla); 404 si no es una respuesta del bot o no tiene tablas |
 | `GET /conversaciones/{id}/recortes` | dueño | los clips (cualquier estado) de los videos citados en la conversación; la web lo consulta cada minuto mientras alguno está en proceso |
 | `POST /recortes` `{video_id, inicio_ms, fin_ms, formato, titulo}` | con sesión | = «✂️ Pedir el recorte» / «📱 Pedir en vertical»: `db.pedir_clip` firmado por la persona; valida fin > inicio y menos de 15 min (como `nucleo` 'pedir_recorte'); si ya existía, `ya: true` con su estado |
-| `GET /banco?consulta=&formato=` | con sesión | fotos del banco de WordPress (`publicar.buscar_imagenes_banco`, con el orden de `publicar_ui._banco`); sin WordPress configurado, `[]` |
+| `GET /banco?consulta=&formato=` | con sesión | fotos del banco de WordPress (`publicar.buscar_imagenes_banco`); sin WordPress configurado, `[]` |
 | `GET /publicaciones/modos` | con sesión | el modo de cada canal (`publicar.Config(os.environ)`), si la persona publica en real y a qué canales puede mandar a aprobación |
-| `POST /publicaciones/borrador` · `POST /publicaciones/a-aprobar` (cuerpo: canal, titulo, texto, imagen_url, fecha, hora, texto_imagen, firma, imagen_busqueda, borrador_id) | con sesión | = «💾 Guardar borrador» (`db.guardar_borrador`, con el dict `pieza` que `publicar_ui.formulario` sabe retomar) · = «📨 Enviar a aprobación» (`db.proponer_publicacion`; solo WordPress/Instagram/Facebook con el canal real en `real` o `borrador`, como Streamlit; texto plano en redes; el borrador retomado se elimina) |
+| `POST /publicaciones/borrador` · `POST /publicaciones/a-aprobar` (cuerpo: canal, titulo, texto, imagen_url, fecha, hora, texto_imagen, firma, imagen_busqueda, borrador_id) | con sesión | = «💾 Guardar borrador» (`db.guardar_borrador`, con el dict `pieza` que el formulario sabe retomar) · = «📨 Enviar a aprobación» (`db.proponer_publicacion`; solo WordPress/Instagram/Facebook con el canal real en `real` o `borrador`; texto plano en redes; el borrador retomado se elimina) |
 | `GET /recortes` (`?equipo=1`, `?todos=1`, `?buscar=`) | con sesión (`todos`: aprobadores) | «Mis recortes» / «Del equipo» (listos de otras personas) / Panel admin → Clips, con `propio`, `puede_editar`, `puede_borrar`, `miniatura`, `duracion_ms`, `estado_texto` |
 | `GET /recortes/opciones` | con sesión | tipografías, tamaños, colores, fondos, posiciones (`recortar_clip`), límites del tramo, estilo del equipo |
 | `GET /recortes/estilo-defecto` · `PUT` | con sesión · aprobadores | config `clips_estilo` |
 | `GET /recortes/{id}` | con sesión | el recorte + `lineas` (SRT parseado), `estilo_actual`, `srt_corregido` |
-| `POST /recortes/{id}/edicion` | dueño o aprobador | = «🔁 Regenerar»: guarda `clips.edicion` (`inicio_ms`, `fin_ms`, `segmentos`, `lineas`/`srt`, `estilo`, `quitar_pausas`, `descartar_srt`), valida como Streamlit, estado 'pedido' |
+| `POST /recortes/{id}/edicion` | dueño o aprobador | = «🔁 Regenerar»: guarda `clips.edicion` (`inicio_ms`, `fin_ms`, `segmentos`, `lineas`/`srt`, `estilo`, `quitar_pausas`, `descartar_srt`), valida el tramo, estado 'pedido' |
 | `DELETE /recortes/{id}` · `GET /recortes/{id}/usos` | dueño o aprobador | = «🗑 Borrar» (archivo de WordPress + fila) · piezas que usan el video |
 | `POST /recortes/{id}/reintentar` | aprobadores | = «↻ Reintentar» |
 | `GET /publicaciones` (`?todos=1`) | con sesión (`todos`: aprobadores) | «Mis publicaciones»: piezas + solapas por estado (o el registro completo) |
@@ -84,12 +83,12 @@ tiene `md_a_docx`, `tablas_md` y `tablas_a_xlsx`, que antes vivían en `app.py`;
 | `GET /admin/lista-blanca` · `PUT` `{email, rol, nota}` · `DELETE /admin/lista-blanca/{email}` | admins | la lista blanca (emails de fuera del dominio que pueden crear cuenta / entrar con Google, con rol y nota) |
 | `GET /admin/cambios` | admins | registro de quién hizo cada cambio (`usuarios_cambios`) |
 
-| `GET /publicar/opciones` | con sesión | (fase 3) logos, tipografías, pesos, posiciones, alineaciones, formatos de `imagen.py`; por canal `modo_real` y `modo` (el que ve esta persona: quien no publica en real ve todo simulado, como `publicar_ui._cfg`), `a_aprobar`; `publica`, `aprobadores` |
+| `GET /publicar/opciones` | con sesión | (fase 3) logos, tipografías, pesos, posiciones, alineaciones, formatos de `imagen.py`; por canal `modo_real` y `modo` (el que ve esta persona: quien no publica en real ve todo simulado), `a_aprobar`; `publica`, `aprobadores` |
 | `POST /banco/subir` (multipart `archivo`, `titulo`) | con sesión | sube una imagen a la biblioteca de WordPress (`publicar.subir_imagen_wordpress`, modo real de WP); en simulado/apagado `ok: false` con el aviso |
 | `POST /publicar/componer` `{imagen_url, texto_imagen, firma, formato, tipografia, peso, posicion, alineacion, logo, posicion_logo}` | con sesión | la foto con la frase encima (`imagen.componer_imagen`), `image/jpeg`; caché de las últimas 24 |
-| `POST /publicar/borrador` (todos los campos del formulario + `borrador_id`) | con sesión | = «💾 Guardar borrador» con el diseño completo (el dict `pieza` que Streamlit también retoma) |
+| `POST /publicar/borrador` (todos los campos del formulario + `borrador_id`) | con sesión | = «💾 Guardar borrador» con el diseño completo (el dict `pieza` que el formulario retoma) |
 | `POST /publicar/a-aprobar` | con sesión | = «📨 Enviar a aprobación»: compone y sube la imagen a WordPress si hay frase/logo y «Publicar así», deja la pieza `a_aprobar` con `texto_imagen`, `formato` (cuadrado/vertical/historia o reel/historia) y `video_url`; elimina el borrador retomado |
-| `POST /publicar/enviar` `{..., modo: real o simulado}` | con sesión (`real`: solo quien publica directo, 403 si no) | = «Enviar a <canal>» / «👁 Ver simulado» (`publicar_ui._enviar`): compuesta a WP, cola si hay fecha y el canal no programa solo (Instagram siempre; Facebook fuera de real), o el conector; en simulado no sube nada y queda `prueba` en el registro. YouTube solo con un recorte (`video_url`); subir un archivo de video sigue en Streamlit |
+| `POST /publicar/enviar` `{..., modo: real o simulado}` | con sesión (`real`: solo quien publica directo, 403 si no) | = «Enviar a <canal>» / «👁 Ver simulado»: compuesta a WP, cola si hay fecha y el canal no programa solo (Instagram siempre; Facebook fuera de real), o el conector; en simulado no sube nada y queda `prueba` en el registro. YouTube solo con un recorte (`video_url`); subir un archivo de video sigue en Streamlit |
 | `GET /publicaciones/{id}` · `DELETE` | dueño o aprobador · dueño | la pieza decorada + `pieza` para retomar («✏️ Retomar») · = «🗑 Eliminar» (`db.eliminar_publicacion`: propias y en `db.ELIMINABLES`) |
 | `GET /aprobacion/para-aprobar` | aprobadores | las `a_aprobar` con `fecha_sugerida`/`hora_sugerida` (la pedida o ahora + 20 min, hora Argentina) y el modo real de cada canal |
 | `POST /aprobacion/{id}/aprobar` `{fecha, hora}` · `…/rechazar` `{nota}` | aprobadores | = «✅ Aprobar y programar» (pasa a `pendiente` con la fecha elegida y el modo real; newsletter → `lista`) · = «✖ Rechazar» |
@@ -118,7 +117,7 @@ Cada tarjeta trae lo que hoy dibuja la app: `tag`, `titulo`, `texto`, `autor`, `
 párrafo), `citada` (el bot la nombró en la respuesta), `traduccion` (cuentas en/de) y, en los videos, `recortes`
 `{horizontal, vertical}` con el estado del clip de ese tramo (null si nadie lo pidió).
 
-Las mismas herramientas que en Streamlit (`nucleo.TOOLS`): `buscar_material`, `proponer_publicacion`, `pedir_recorte`,
+Las herramientas del asistente (`nucleo.TOOLS`): `buscar_material`, `proponer_publicacion`, `pedir_recorte`,
 `estado_recortes`, `analizar_corpus`. Los recortes que pide el bot quedan firmados por la persona de la sesión.
 
 ## Usuarios, contraseñas y roles (22/10)
@@ -134,8 +133,7 @@ Las mismas herramientas que en Streamlit (`nucleo.TOOLS`): `buscar_material`, `p
   asigna el email); (c) un admin la crea desde Administración, sin clave (la persona la crea desde «Primera vez» con su email) o con
   clave temporal. **Sin verificación por mail** (no hay servicio de mail): pendiente.
 - **Transición (fallback a secrets)**: `auth.login_clave` busca primero en la tabla; si el usuario no está, compara contra
-  `[usuarios]`/`USUARIOS_JSON` como siempre, y el rol sale de `APROBADORES`/`ADMINS`. Así Streamlit (que sigue leyendo secrets) y la
-  API conviven. `python api/importar_usuarios.py --dry-run` muestra quién falta importar; sin `--dry-run` los pasa (hash de la clave
+  `[usuarios]`/`USUARIOS_JSON` como siempre, y el rol sale de `APROBADORES`/`ADMINS`. Así conviven las cuentas viejas (secrets) y las de la tabla. `python api/importar_usuarios.py --dry-run` muestra quién falta importar; sin `--dry-run` los pasa (hash de la clave
   actual, rol de las listas; a los que ya están no los toca). **Cuando todos estén en la tabla**, sacar el fallback (está marcado en
   `auth.py` y `cuentas._existe_usuario`) y la variable `USUARIOS_JSON` del hosting. `GET /admin/usuarios` devuelve en `en_secrets` los
   que todavía faltan.
@@ -156,7 +154,7 @@ pip install -r api/requirements.txt
 uvicorn api.main:app --reload
 ```
 
-Lee `.streamlit/secrets.toml` si existe (igual que la app), así que con los mismos secrets anda sin configurar nada
+Lee `.streamlit/secrets.toml` si existe (nombre histórico del archivo local de secretos; lo carga `secretos.py` y avisa si no lo encuentra), así que con los mismos secrets anda sin configurar nada
 más. Arranca en unos 10 s (carga del corpus). Probar: abrir http://127.0.0.1:8000/docs, o los ejemplos de
 `ejemplos.http`. Con otro archivo de secrets: `FVA_SECRETS=/ruta/secrets.toml`.
 
@@ -172,7 +170,7 @@ OPENAI_API_KEY=... python -m pytest api/tests -q -m real -s
 
 ## Variables de entorno
 
-Los mismos nombres que los secrets de Streamlit. En un servidor se cargan como variables de entorno; en local, del `secrets.toml`.
+La lista completa y vigente está en `api/variables_entorno.py` (de ahí salen `render.yaml` y `cola.yml`; `/salud/servicios` avisa cuáles faltan en Render, que no sincroniza las variables solo). En un servidor se cargan como variables de entorno; en local, del `secrets.toml`.
 
 | Variable | Para qué | Obligatoria |
 |---|---|---|
@@ -180,8 +178,8 @@ Los mismos nombres que los secrets de Streamlit. En un servidor se cargan como v
 | `SUPABASE_URL`, `SUPABASE_KEY` | conversaciones, clips, publicaciones, autorizados | sí (sin ellas anda el chat pero no guarda) |
 | `USUARIOS_JSON` | `{"franco": "clave", …}`: reemplaza la tabla `[usuarios]` de secrets en el servidor. (22/10) Solo para los usuarios que todavía no están en la tabla `usuarios`; se saca cuando se importen todos | no (sí mientras haya usuarios sin importar) |
 | `BCRYPT_RONDAS` | costo del hash de las contraseñas (default 12; los tests usan 4) | no |
-| `IDIOMAS_JSON` | `{"gratefulness": "en"}`: reemplaza `[idiomas]` (si falta, valen los defaults de la app) | no |
-| `APROBADORES`, `ADMINS`, `PUBLICACION_DIRECTA` | roles, como en Streamlit (21/10: creador → aprobador → admin; un admin también aprueba) | no (defaults `julian,franco,beto` / `franco,beto`) |
+| `IDIOMAS_JSON` | `{"gratefulness": "en"}`: reemplaza `[idiomas]` (si falta, valen los defaults) | no |
+| `APROBADORES`, `ADMINS`, `PUBLICACION_DIRECTA` | roles (21/10: creador → aprobador → admin; un admin también aprueba) | no (defaults `julian,franco,beto` / `franco,beto`) |
 | `SESION_SECRETO` | firma de la cookie de sesión; una cadena larga al azar | **sí en producción** (si falta se genera una al arrancar y las sesiones mueren al reiniciar) |
 | `COOKIE_SEGURA` | `1` detrás de HTTPS (cookie `Secure`) | sí en producción |
 | `COOKIE_SAMESITE` | `lax` (default) si interfaz y API comparten dominio; `none` + `COOKIE_SEGURA=1` si están en dominios distintos | no |
@@ -218,7 +216,7 @@ Cuentas: Render (workspace «Vivir Agradecidos») y Vercel (equipo «Vivir Agrad
    de `api.env`. Primer deploy: ~5 min (construye la imagen con el corpus).
 3. Vercel → **Import Project** → mismo repo y rama → *Root Directory* `web`, framework Vite (build `npm run build`, salida
    `dist`) → variables `VITE_API_URL=https://fva-api.onrender.com` (la URL que dio Render) y
-   `VITE_STREAMLIT_URL=https://chatbotvvaa.streamlit.app` → Deploy.
+   → Deploy.
 4. Si la URL de Vercel no es `https://fva-web.vercel.app`, corregir `CORS_ORIGENES` en Render con la real.
 5. Probar: abrir la web, entrar con un usuario de `[usuarios]`, ver Mis recortes. Si Render se quedó sin memoria
    (log «Out of memory»), pasar el servicio a Standard o mover los embeddings a Supabase.
@@ -259,12 +257,12 @@ API levantada con `uvicorn api.main:app` sobre los secrets reales (modelo y swit
 | Tiempos (desde el envío) | herramienta decidida a los 7 s · fuentes a los 26 s · primer texto a los 27 s · fin a los 33 s |
 | Fuentes | 6 tarjetas de Br. David (5 artículos, 1 libro con página), 2 marcadas como citadas en la respuesta |
 | Conversación | guardada en Supabase con título «David Steindl Rast y gratitud»; apareció primera en `GET /conversaciones`; `GET /conversaciones/{id}` la devolvió con sus 2 mensajes (la fila de prueba se borró después) |
-| `GET /recortes` · `GET /publicaciones` | 5 recortes · 6 piezas (1 publicada, 5 pruebas), mismas listas que Streamlit |
+| `GET /recortes` · `GET /publicaciones` | 5 recortes · 6 piezas (1 publicada, 5 pruebas), las mismas listas |
 | `GET /autorizados` | 503: falta correr la migración (ver abajo) |
 | `POST /logout` → `GET /yo` | 200 → 401 |
 
 Lo que tarda es el buscador (de los 7 s a los 26 s: búsqueda, reranker y traducción de la consulta), igual que en
-Streamlit; el streaming no lo cambia, solo muestra el texto apenas empieza.
+la app vieja; el streaming no lo cambia, solo muestra el texto apenas empieza.
 
 
 ## Salud de los servicios (22/10)
@@ -345,14 +343,14 @@ sigue llevando el `.npy` (volver a `local` es cambiar la variable). `GET /salud`
 
 ## Publicar, Mis publicaciones y Aprobación (fase 3, 22/10)
 
-`api/publicar_rutas.py` reemplaza en la web lo que en Streamlit hacen `publicar_ui.formulario`, `mis_publicaciones` y `panel_aprobacion`,
+`api/publicar_rutas.py` resuelve en la web el formulario de Publicar, Mis publicaciones y el panel de Aprobación,
 **sin reimplementar conectores**: la foto con la frase la arma `imagen.componer_imagen`, la sube `publicar.subir_imagen_wordpress`, publica
 `publicar.publicar_*`, la cola es la misma tabla `publicaciones` que procesa `procesar_cola.py` cada 15 min. Reglas conservadas: quien no
 publica en real ve todos los canales en simulado; «Enviar a aprobación» solo para WordPress/Instagram/Facebook con el canal real en real o
 borrador; texto plano en redes; Instagram con fecha siempre va a la cola y Facebook fuera de real también; el borrador retomado se elimina al
 enviar; en modo simulado la compuesta no se sube (aviso) y la prueba queda registrada como `prueba`. Diferencias deliberadas: el hook de
 registro ya no deja filas `prueba` del canal wordpress por subidas que no pasaron; las fechas programadas se devuelven y sugieren en hora
-Argentina (Supabase las guarda en UTC; Streamlit mostraba la hora UTC). Probado el 22/10 con dos cuentas temporales (creadora y aprobadora,
+Argentina (Supabase las guarda en UTC; la app vieja mostraba la hora UTC). Probado el 22/10 con dos cuentas temporales (creadora y aprobadora,
 borradas al final): borrador → retomar → ver simulado → a aprobación (compuesta subida a WordPress y borrada después) → aprobar con fecha
 futura → en cola → cancelar; entrada desde el chat y desde un recorte; nada salió a Instagram/Facebook. 15 pruebas en `tests/test_publicar.py`
 (138 en total).
@@ -374,5 +372,4 @@ futura → en cola → cancelar; entrada desde el chat y desde un recorte; nada 
 - (22/10) Si la persona **detiene** la respuesta desde la web, el generador queda cortado antes del evento `fin` y ese intercambio
   **no se guarda** (la web lo avisa). Las piezas desde la web guardan `resultado.origen = "web"` y no suben imagen compuesta ni
   archivos (eso es de la pantalla de Publicar, fase 3): la foto es una URL del banco o nada.
-- (22/10) `POST /publicaciones/a-aprobar` acepta a cualquiera con sesión, también a quien publica en real (en Streamlit esa persona
-  ve «Enviar a X» en vez de «Enviar a aprobación»): publicar directo desde la web llega con la fase 3.
+- (22/10) `POST /publicaciones/a-aprobar` acepta a cualquiera con sesión, también a quien publica en real (quien publica en real también ve «Enviar a X» en Publicar).

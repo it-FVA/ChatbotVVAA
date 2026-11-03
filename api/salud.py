@@ -712,7 +712,7 @@ def _capacidad_vercel():
 
 
 def _costo_fila(fila, precios):
-    """USD de una fila de uso_openai según config openai_precios (misma fórmula que publicar_ui._costo), o None sin precio."""
+    """USD de una fila de uso_openai según config openai_precios, o None sin precio."""
     p = precios.get(fila.get("modelo") or "")
     if not p:
         return None

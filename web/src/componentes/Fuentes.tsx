@@ -1,6 +1,6 @@
 // Las fuentes debajo de una respuesta: plegable «Fuentes (n) · k citadas» con tarjetas compactas (tag, autor, título, cita de dos
 // líneas, «Ver fuente») y las citadas resaltadas; en los videos, la miniatura y los botones de recorte (= app.render_mats +
-// app._botones_clip). Los botones de recorte se muestran solo en español, como en Streamlit.
+// los botones de recorte). Los botones de recorte se muestran solo en español.
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { EstadoRecorte, Tarjeta } from "../tiposChat";

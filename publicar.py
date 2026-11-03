@@ -58,7 +58,7 @@ ZONA_ARGENTINA = datetime.timezone(datetime.timedelta(hours=-3))
 def _fecha_local(fecha):
     """'AAAA-MM-DDTHH:MM[:SS]' (hora Argentina, sin zona) → datetime con zona -03:00.
     (29/9) Julián programó para las 12:50 y Facebook dijo "10 minutos de anticipación": el recuadro
-    manda la hora local sin zona y el servidor de Streamlit Cloud está en UTC, así que 12:50 se
+    manda la hora local sin zona y el servidor estaba en UTC, así que 12:50 se
     tomaba como 09:50 de Argentina. Todo lo que compara fechas pasa por acá."""
     dt = datetime.datetime.fromisoformat(fecha)
     if dt.tzinfo is None:

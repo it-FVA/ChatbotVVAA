@@ -1,4 +1,4 @@
-// Newsletter (22/10): paridad con la solapa «✉️ Newsletter» de Streamlit (newsletter_ui.py) y mejor UX. Editor por bloques de las
+// Newsletter (22/10): editor por bloques de las
 // dos plantillas reales (mensual y Reviví) a la izquierda y la vista previa del mail en vivo a la derecha (iframe de 600 px, el ancho
 // real); en celular, dos solapas. El bot redacta los textos (POST /newsletter/redactar), las fotos salen del banco de WordPress
 // (GET /banco) y el bloque «Un recorte para ver» se carga desde un recorte (?recorte=<id> o el selector). «Descargar HTML» para pegar
@@ -894,7 +894,7 @@ function actividadVacia(): Actividad {
   return { fecha_corta: "", titulo: "", descripcion: "", fecha: "", horario: "", modalidad: "", facilitan: "", boton_texto: "INSCRIBITE", boton_url: "", imagen_url: "" };
 }
 
-/** Como el botón «Llevar al newsletter» de Streamlit: título del recorte, link al mp4 en WordPress y la miniatura de YouTube. */
+/** Botón «Llevar al newsletter»: título del recorte, link al mp4 en WordPress y la miniatura de YouTube. */
 function videoDeRecorte(r: Recorte) {
   return { titulo: r.titulo || "", texto: "", imagen_url: r.miniatura || "", url: r.url || "" };
 }

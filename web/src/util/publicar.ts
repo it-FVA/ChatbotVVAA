@@ -1,4 +1,4 @@
-// Reglas y textos de publicar_ui.py que la pantalla necesita ANTES de llamar a la API (la API los vuelve a aplicar):
+// Reglas y textos que la pantalla necesita ANTES de llamar a la API (la API los vuelve a aplicar):
 // el aviso de qué va a pasar al enviar, el texto plano para redes (vista previa) y el armado del formulario desde una pieza guardada.
 import type { Canal, OpcionesPublicar, PiezaForm, PiezaGuardada } from "../tiposPublicar";
 import type { Pieza } from "../tiposChat";
@@ -12,7 +12,7 @@ export const CANALES: { clave: Canal; nombre: string; detalle: string }[] = [
 export const NOMBRE_CANAL: Record<string, string> = { wordpress: "Blogpost", instagram: "Instagram", facebook: "Facebook", youtube: "YouTube", newsletter: "Newsletter", mail: "Mail (frase del día)", home: "Sitio web (home)", whatsapp: "WhatsApp" };
 const NOMBRE_API: Record<string, string> = { wordpress: "WordPress", instagram: "Instagram", facebook: "Facebook", youtube: "YouTube" };
 
-/** publicar_ui._va_a_la_cola */
+/** ¿Va a la cola? (la API lo vuelve a decidir) */
 export function vaALaCola(canal: string, modo: string): boolean {
   if (modo === "apagado") return false;
   if (canal === "instagram") return true;
@@ -20,7 +20,7 @@ export function vaALaCola(canal: string, modo: string): boolean {
   return false;
 }
 
-/** publicar_ui._aviso: qué va a pasar al enviar, en una o dos frases (sin markdown). */
+/** Aviso: qué va a pasar al enviar, en una o dos frases (sin markdown). */
 export function aviso(canal: string, modo: string, fechaIso: string | null): string {
   const nombre = NOMBRE_API[canal] || canal;
   const cuando = fechaIso ? fechaIso.slice(0, 16).replace("T", " ") : "";
@@ -47,7 +47,7 @@ export function aviso(canal: string, modo: string, fechaIso: string | null): str
   return a;
 }
 
-/** publicar_ui._texto_plano: para redes, saca markdown y links (la API lo vuelve a aplicar al enviar). */
+/** Texto plano: para redes, saca markdown y links (la API lo vuelve a aplicar al enviar). */
 export function textoPlano(t: string): string {
   return (t || "")
     .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, "$1")
@@ -131,7 +131,7 @@ function canalValido(c: string | null | undefined): Canal | "" {
   return c === "wordpress" || c === "instagram" || c === "facebook" || c === "youtube" ? c : "";
 }
 
-/** De una pieza guardada (borrador de Streamlit o de la web: claves cortas) al formulario. */
+/** De una pieza guardada (borrador, claves cortas) al formulario. */
 export function desdeGuardada(g: PiezaGuardada, op: OpcionesPublicar | null): PiezaForm {
   const base = formularioVacio(op);
   const canal = canalValido(g.canal);
@@ -179,7 +179,7 @@ export function desdePropuesta(p: Pieza, op: OpcionesPublicar | null): PiezaForm
   };
 }
 
-/** Desde la tarjeta de un recorte listo («Publicar»): pieza de video, como publicar_ui._mis_recortes. */
+/** Desde la tarjeta de un recorte listo («Publicar»): pieza de video. */
 export function desdeRecorte(r: { url: string | null; formato: string; titulo: string | null }, op: OpcionesPublicar | null): PiezaForm {
   const base = formularioVacio(op);
   return { ...base, canal: r.formato === "vertical" ? "instagram" : "", titulo: (r.titulo || "").slice(0, 100), video_url: r.url, video_formato: r.formato, vfmt: "reel" };

@@ -43,7 +43,7 @@ export function fecha(iso: string | null | undefined, conHora = true): string {
   return conHora ? f + " " + d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) : f;
 }
 
-/** «hace 5 min», «hace 3 h», «ayer», «hace 12 días» (como publicar_ui._hace). */
+/** «hace 5 min», «hace 3 h», «ayer», «hace 12 días». */
 export function hace(iso: string | null | undefined): string {
   if (!iso) return "nunca";
   const d = new Date(iso);

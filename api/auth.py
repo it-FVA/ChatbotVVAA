@@ -4,9 +4,9 @@
   Si falta, se genera uno al azar al arrancar (las sesiones se pierden al reiniciar; en producción ponerlo).
   COOKIE_SEGURA=1 marca la cookie como Secure (obligatorio detrás de HTTPS en producción).
 - Login por usuario y contraseña (22/10): PRIMERO la tabla `usuarios` de Supabase (hash bcrypt, api/cuentas.py);
-  si el usuario no está en la tabla, cae en [usuarios] (secrets.toml) / USUARIOS_JSON, igual que app.py.
+  si el usuario no está en la tabla, cae en [usuarios] (secrets.toml) / USUARIOS_JSON.
   TRANSICIÓN: cuando todos estén en la tabla (api/importar_usuarios.py), sacar ese fallback (login_clave, roles
-  y _existe_usuario en cuentas.py) y la variable USUARIOS_JSON; Streamlit (app.py) sigue leyendo secrets hasta
+  y _existe_usuario en cuentas.py) y la variable USUARIOS_JSON; esa lista sigue valiendo hasta
   que se migre o se apague.
 - Roles: si la persona está en la tabla, el rol sale de ahí (roles.roles_de_fila); si no, de las listas
   APROBADORES/ADMINS como hasta ahora.
@@ -127,7 +127,7 @@ def login_clave(usuario, clave):
         if not fila.get("clave_hash"):
             raise HTTPException(409, "Tu cuenta todavía no tiene contraseña: creala desde «¿Primera vez? Creá tu cuenta» con tu email (o entrá con Google).")
         return fila if cuentas.verificar_hash(clave, fila["clave_hash"]) else None
-    # Fallback (transición): la lista vieja de secrets, tal cual app.py. Sacar cuando todos estén en la tabla.
+    # Fallback (transición): la lista vieja de secrets, tal cual. Sacar cuando todos estén en la tabla.
     us = config.usuarios()
     return "secrets" if usuario in us and str(us[usuario]) == str(clave) else None
 

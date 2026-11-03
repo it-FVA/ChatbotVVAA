@@ -1,7 +1,6 @@
-"""Newsletter en la web (22/10): lo que la pantalla `/newsletter` necesita. Es la MISMA lógica que la solapa de Streamlit
-(newsletter_ui.py): plantillas, redacción con el bot y armado del HTML viven en newsletter.py (raíz) y se reutilizan tal cual;
+"""Newsletter en la web (22/10): lo que la pantalla `/newsletter` necesita. Plantillas, redacción con el bot y armado del HTML viven en newsletter.py (raíz) y se reutilizan tal cual;
 guardar borrador y mandar a aprobación usan db.guardar_borrador / db.proponer_publicacion con el mismo `extra`
-({"plantilla", "datos"}) que Streamlit, así «Mis publicaciones» y el panel de aprobación los ven igual. El email NO sale de acá:
+({"plantilla", "datos"}) de siempre, así «Mis publicaciones» y el panel de aprobación los ven igual. El email NO sale de acá:
 el HTML aprobado se pega en Perfit.
 
 Rutas (todas con sesión):

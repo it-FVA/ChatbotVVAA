@@ -1,4 +1,4 @@
-"""Frase del día en la web (22/10): el calendario anual que vivía en el Panel admin de Streamlit (frases_ui.py). MISMA lógica de
+"""Frase del día en la web (22/10): el calendario anual (antes en el Panel admin de la app vieja). Misma lógica de
 negocio: las reglas de rotación, reparto, foto de fondo y composición de la imagen están en programar_frases.py y db.py y se usan tal
 cual (no se duplican); acá solo hay validaciones y la forma JSON que dibuja la pantalla `/frase-del-dia`.
 

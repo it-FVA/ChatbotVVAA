@@ -1,4 +1,4 @@
-// El recuadro «Publicar esta pieza» debajo de la respuesta cuando el bot propone una pieza (publicar_ui.recuadro). Desde la fase 3
+// El recuadro «Publicar esta pieza» debajo de la respuesta cuando el bot propone una pieza. Desde la fase 3
 // (22/10) el formulario completo vive en la pantalla Publicar (/publicar): acá se muestra la pieza propuesta (canal, título, texto,
 // frase para la imagen, fecha) con un botón principal que la abre precargada, y «Guardar borrador» como atajo (POST /publicaciones/borrador).
 import { useState } from "react";

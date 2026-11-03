@@ -1,5 +1,5 @@
-"""documentos.py — una respuesta del asistente (markdown simple) como Word o Excel. Lo usa la API (antes también la app de Streamlit, dada de baja el 2/11)
-(api/chat_rutas.py: GET /conversaciones/{id}/mensajes/{n}/docx|xlsx). (22/10) Movido desde app.py sin cambiar la lógica:
+"""documentos.py — una respuesta del asistente (markdown simple) como Word o Excel. Lo usa la API 
+(api/chat_rutas.py: GET /conversaciones/{id}/mensajes/{n}/docx|xlsx). (22/10) Movido desde la app vieja sin cambiar la lógica:
 md_a_docx (20/10, Pato pidió el concepto de campaña "en un Word"), tablas_md y tablas_a_xlsx (21/10, Julián: "que también se
 pueda en Excel").
 
@@ -8,7 +8,7 @@ pueda en Excel").
   tablas_a_xlsx(tablas, titulo) -> bytes .xlsx  una hoja por tabla
   nombre_archivo(titulo) -> str                 nombre seguro para el archivo (sin extensión)
 
-Umbral de Streamlit para ofrecer «⬇️ Word»: respuestas de 600 caracteres o más (LARGO_MINIMO_WORD).
+Umbral para ofrecer «⬇️ Word»: respuestas de 600 caracteres o más (LARGO_MINIMO_WORD).
 """
 LARGO_MINIMO_WORD = 600
 

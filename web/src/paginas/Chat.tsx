@@ -1,4 +1,4 @@
-// La pantalla de chat (fase 2 de la interfaz propia, 22/10): paridad con el chat de Streamlit (app.py) y mejor UX.
+// La pantalla de chat (fase 2 de la interfaz propia, 22/10).
 // Izquierda: ListaConversaciones (en celular, un cajón). Derecha: los mensajes con markdown, la respuesta en streaming (SSE),
 // las fuentes plegables con los botones de recorte, el recuadro de la pieza propuesta, las descargas Word/Excel y el cuadro de
 // escribir. Atajos: / enfoca el cuadro, Esc cierra el cajón. Antes de mandar, si la API dormía (Render free), avisa y espera.

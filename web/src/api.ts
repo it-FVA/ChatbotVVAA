@@ -3,7 +3,6 @@
 import type { Autorizado, Cambio, Detalle, Opciones, Recorte, RespuestaEdicion, Uso, Usuario, Yo, Estilo } from "./tipos";
 
 export const BASE = (import.meta.env.VITE_API_URL as string | undefined) || "/api";
-export const STREAMLIT_URL = (import.meta.env.VITE_STREAMLIT_URL as string | undefined) || "https://chatbotvvaa.streamlit.app";
 
 export class ErrorApi extends Error {
   status: number;

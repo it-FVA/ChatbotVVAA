@@ -1,6 +1,6 @@
 """Publicar, Mis publicaciones y Aprobación desde la web (fase 3 del plan de interfaz propia, 22/10).
 
-Es la MISMA lógica de negocio que publicar_ui.py (formulario / _enviar / mis_publicaciones / panel_aprobacion), sin inventar
+Lógica de negocio de Publicar (formulario / envío / Mis publicaciones / Aprobación), sin inventar
 otra: se reutilizan publicar.py (conectores), imagen.py (la foto con la frase encima) y db.py (tabla `publicaciones`). Si cambia
 una regla allá, cambiarla acá. Lo que ya existía en chat_rutas.py (banco, modos, borrador y a-aprobar «cortos» de la pieza
 propuesta) se reutiliza; acá están las versiones completas con el diseño de la foto, el envío real/simulado y el panel.
@@ -41,27 +41,27 @@ router = APIRouter(tags=["publicar"])
 
 CANALES = cr.CANALES                       # {"wordpress": "WordPress", ...}
 ZONA_HORARIA = cr.ZONA_HORARIA             # "-03:00"
-# publicar_ui.CANAL_TXT (16/10, Franco): la entrada en WordPress se llama «Blogpost»; el «Newsletter» es el mail a la comunidad.
+# Nombre visible de cada canal (16/10, Franco): la entrada en WordPress se llama «Blogpost»; el «Newsletter» es el mail a la comunidad.
 CANAL_TXT = {"wordpress": "Blogpost", "instagram": "Instagram", "facebook": "Facebook", "youtube": "YouTube", "newsletter": "Newsletter",
              "mail": "Mail (frase del día)", "home": "Sitio web (home)", "whatsapp": "WhatsApp"}
-# publicar_ui.ESTADO_TXT (sin los emojis: la web pone el icono)
+# Texto de cada estado (sin los emojis: la web pone el icono)
 ESTADO_TXT = {"a_aprobar": "pendiente de aprobación", "pendiente": "aprobada · programada", "procesando": "publicándose", "rechazada": "rechazada",
               "publicada": "publicada", "simulada": "simulada", "error": "error", "cancelada": "cancelada",
               "subida": "imagen subida", "draft": "borrador en WordPress", "programada": "programada",
               "PUBLICADO": "publicada", "borrador": "borrador", "prueba": "prueba (simulado)",
               "lista": "lista para enviar (pegar en Perfit)"}
-NO_SON_PIEZAS = ("subida", "prueba", "borrador", "simulada", "simulado")   # fuera del registro del panel (publicar_ui)
-FORMATO_POR_CANAL = {"facebook": "cuadrado", "instagram": "vertical"}       # publicar_ui.FORMATO_POR_CANAL
+NO_SON_PIEZAS = ("subida", "prueba", "borrador", "simulada", "simulado")   # fuera del registro del panel
+FORMATO_POR_CANAL = {"facebook": "cuadrado", "instagram": "vertical"}       # formato de foto por canal
 FIRMA_DEFECTO = "— Br. David"
 MAX_IMAGEN_BYTES = 12 * 1024 * 1024
-_CACHE_COMPUESTAS: "OrderedDict[str, bytes]" = OrderedDict()                 # publicar_ui._componer cacheaba por contenido
+_CACHE_COMPUESTAS: "OrderedDict[str, bytes]" = OrderedDict()                 # cache por contenido
 _CACHE_MAX = 24
 _candado = threading.Lock()
 
 
 # ---------------- Modelos de entrada ----------------
 class PiezaCompleta(BaseModel):
-    """Todo lo que deja el formulario de Publicar de la web (= los campos de publicar_ui.formulario)."""
+    """Todo lo que deja el formulario de Publicar de la web (= los campos)."""
     canal: str                                  # wordpress | instagram | facebook | youtube
     titulo: str = ""
     texto: str = ""
@@ -113,9 +113,9 @@ class Rechazar(BaseModel):
     nota: str = ""
 
 
-# ---------------- Registro de publicar.py → tabla publicaciones (publicar_ui._hook_registro) ----------------
+# ---------------- Registro de publicar.py → tabla publicaciones ----------------
 # publicar.REGISTRAR_EXTRA es un global del módulo: acá se instala UNA vez y lee de una contextvar quién está enviando
-# (la API atiende varias personas a la vez; Streamlit lo reasignaba en cada redibujo).
+# (la API atiende varias personas a la vez).
 _contexto = contextvars.ContextVar("publicar_contexto", default=None)
 
 
@@ -123,7 +123,7 @@ def _hook_registro(entrada):
     ctx = _contexto.get()
     if not ctx:
         return
-    # (22/10) una subida de imagen que NO pasó (modo simulado/apagado) o un borrado de media no son piezas: en Streamlit quedaban
+    # (22/10) una subida de imagen que NO pasó (modo simulado/apagado) o un borrado de media no son piezas: no quedan
     # como filas «prueba» del canal wordpress sin texto y confundían en «Mis publicaciones»
     if entrada.get("accion") in ("subir_imagen", "borrar_media") and entrada.get("resultado") != "subida":
         return
@@ -145,7 +145,7 @@ publicar.REGISTRAR_EXTRA = _hook_registro
 
 
 def _con_zona(fecha):
-    """publicar_ui._con_zona: la fecha del formulario es hora Argentina sin zona; en la base va con -03:00."""
+    """La fecha del formulario es hora Argentina sin zona; en la base va con -03:00."""
     if fecha and len(fecha) >= 16 and fecha[-6] not in "+-" and not fecha.endswith("Z"):
         return fecha + ZONA_HORARIA
     return fecha
@@ -162,7 +162,7 @@ def _cfg_real():
 
 
 def _cfg_simulada(cfg):
-    """publicar_ui._cfg: quien no publica en real tiene todos los canales en simulado (los apagados siguen apagados)."""
+    """Quien no publica en real tiene todos los canales en simulado (los apagados siguen apagados)."""
     c = copy.copy(cfg)
     for a in ("modo_wp", "modo_ig", "modo_fb", "modo_yt"):
         if getattr(c, a) != "apagado":
@@ -171,7 +171,7 @@ def _cfg_simulada(cfg):
 
 
 def _va_a_la_cola(canal, modo):
-    """publicar_ui._va_a_la_cola. canal: nombre visible (Instagram...)."""
+    """¿Va a la cola? canal: nombre visible (Instagram...)."""
     if modo in ("apagado",):
         return False
     if canal == "Instagram":
@@ -208,7 +208,7 @@ def _fecha_hora_de_iso(fp):
 
 
 def _normalizar_diseno(p: PiezaCompleta, canal):
-    """Los valores del diseño con los defaults de publicar_ui.formulario; None en lo que no aplica."""
+    """Los valores del diseño con los defaults; None en lo que no aplica."""
     con_frase = bool((p.texto_imagen or "").strip())
     logo = p.logo if p.logo in imagen.LOGOS else ("Sin logo" if p.logo is None else "Sin logo")
     formato = p.formato if p.formato in imagen.FORMATOS else FORMATO_POR_CANAL.get(canal, "cuadrado")
@@ -241,7 +241,7 @@ def _componer_cacheado(fuente_url, texto_imagen, firma, formato, tipografia, pos
 
 
 def _compuesta_de(p: PiezaCompleta, canal, avisos):
-    """La imagen con la frase (y/o el logo) encima, como arma publicar_ui.formulario antes de enviar; None si no corresponde."""
+    """La imagen con la frase (y/o el logo) encima, como se arma antes de enviar; None si no corresponde."""
     if canal not in ("instagram", "facebook") or not (p.imagen_url or "").strip() or p.video_url:
         return None, None
     d = _normalizar_diseno(p, canal)
@@ -258,7 +258,7 @@ def _compuesta_de(p: PiezaCompleta, canal, avisos):
 
 
 def _subir_compuesta(cfg, compuesta, titulo, texto, usuario, avisos):
-    """La imagen compuesta tiene que estar en internet para IG/FB: va a la biblioteca de WordPress (publicar_ui._enviar)."""
+    """La imagen compuesta tiene que estar en internet para IG/FB: va a la biblioteca de WordPress."""
     nombre = f"pieza-{datetime.date.today().isoformat()}-{(titulo or texto)[:40]}".strip()
     nombre = "".join(ch if ch.isalnum() or ch in "-_" else "-" for ch in nombre).strip("-") + ".jpg"
     res_img = publicar.subir_imagen_wordpress(cfg, compuesta, nombre, titulo=titulo or texto[:60], quien=usuario,
@@ -289,7 +289,7 @@ def _validar(p: PiezaCompleta, simulado=False):
 
 
 def _datos_borrador(p: PiezaCompleta, canal, fecha_iso):
-    """El dict `pieza` que guarda publicar_ui («💾 Guardar borrador») y que formulario() sabe retomar, con el diseño completo."""
+    """El dict `pieza` que guarda «💾 Guardar borrador» y que el formulario sabe retomar, con el diseño completo."""
     return {"canal": canal, "titulo": p.titulo or "", "texto": p.texto or "", "texto_imagen": p.texto_imagen or "",
             "video_url": p.video_url or None, "video_formato": p.video_formato or None, "vfmt": p.vfmt if p.video_url else None,
             "url": (p.imagen_url or "").strip(), "busq": p.imagen_busqueda or "", "firma": p.firma,
@@ -300,7 +300,7 @@ def _datos_borrador(p: PiezaCompleta, canal, fecha_iso):
 
 
 def pieza_de_fila(p):
-    """publicar_ui._pieza_de_borrador + lo que la web necesita para precargar el formulario desde cualquier fila."""
+    """La pieza del borrador + lo que la web necesita para precargar el formulario desde cualquier fila."""
     res = p.get("resultado") or {}
     d = dict(res.get("pieza") or {})
     d["_pid"] = p["id"]
@@ -321,7 +321,7 @@ def pieza_de_fila(p):
 
 
 def decorar(p):
-    """Campos derivados que dibuja «Mis publicaciones» / el panel (los que calcula publicar_ui._fila_publicacion)."""
+    """Campos derivados que dibuja «Mis publicaciones» / el panel."""
     res = p.get("resultado") or {}
     est = p.get("estado") or ""
     ultimo = res.get("ultimo") if isinstance(res.get("ultimo"), dict) else {}
@@ -361,7 +361,7 @@ def _fila(pid):
 @router.get("/publicar/opciones")
 def opciones(request: Request):
     """Para el formulario: las listas de imagen.py (logos, tipografías, pesos, posiciones, alineaciones, formatos), el modo real de
-    cada canal y el que ve esta persona (publicar_ui._cfg: quien no publica en real ve todo simulado), si puede mandar a
+    cada canal y el que ve esta persona (Quien no publica en real ve todo simulado), si puede mandar a
     aprobación por canal, y su rol."""
     usuario, rol = _rol(request)
     r = cr.modos()
@@ -405,7 +405,7 @@ async def subir_al_banco(archivo: UploadFile = File(...), titulo: str = Form("")
 
 @router.post("/publicar/componer")
 def componer(datos: Componer, usuario=Depends(auth.usuario_actual)):
-    """La vista previa de la foto con la frase (imagen.componer_imagen, mismos parámetros que el formulario de Streamlit).
+    """La vista previa de la foto con la frase (imagen.componer_imagen, mismos parámetros que el formulario).
     Devuelve el JPEG. Sin frase ni logo, devuelve la foto recortada al formato."""
     url = (datos.imagen_url or "").strip()
     if not url.startswith(("http://", "https://")):
@@ -430,7 +430,7 @@ def componer(datos: Componer, usuario=Depends(auth.usuario_actual)):
 @router.post("/publicar/borrador")
 def guardar_borrador(p: PiezaCompleta, usuario=Depends(auth.usuario_actual)):
     """= «💾 Guardar borrador»: guarda todo (diseño incluido) sin mandar nada; se retoma desde «Mis publicaciones» → Borradores.
-    Con borrador_id actualiza el mismo (como Streamlit: «al guardar se actualiza el mismo»)."""
+    Con borrador_id actualiza el mismo («al guardar se actualiza el mismo»)."""
     if not db.disponible():
         raise HTTPException(503, "No pude guardar el borrador (falta la base de datos).")
     canal = (p.canal or "").strip().lower()
@@ -449,7 +449,7 @@ def guardar_borrador(p: PiezaCompleta, usuario=Depends(auth.usuario_actual)):
 
 
 def _borrar_borrador(borrador_id, usuario):
-    """Como Streamlit: al enviar o mandar a aprobación, el borrador que se estaba retomando se elimina."""
+    """Al enviar o mandar a aprobación, el borrador que se estaba retomando se elimina."""
     if not borrador_id:
         return
     try:
@@ -460,7 +460,7 @@ def _borrar_borrador(borrador_id, usuario):
 
 @router.post("/publicar/a-aprobar")
 def enviar_a_aprobacion(p: PiezaCompleta, request: Request):
-    """= «📨 Enviar a aprobación» (publicar_ui._enviar con aprobacion=True): sube la imagen compuesta a WordPress (si hay frase o
+    """= «📨 Enviar a aprobación» sube la imagen compuesta a WordPress (si hay frase o
     logo y WordPress está en borrador/real) y deja la pieza 'a_aprobar' con texto_imagen, formato y video_url para la cola."""
     usuario, rol = _rol(request)
     if not db.disponible():
@@ -508,7 +508,7 @@ def enviar_a_aprobacion(p: PiezaCompleta, request: Request):
 @router.post("/publicar/enviar")
 def enviar(p: Envio, request: Request):
     """= «Enviar a <canal>» (modo real, solo quien publica directo) y «👁 Ver simulado» (modo simulado: arma la pieza tal cual
-    saldría y la muestra; no manda nada y queda como 'prueba' en el registro). Es publicar_ui._enviar: sube la imagen compuesta
+    saldría y la muestra; no manda nada y queda como 'prueba' en el registro). Sube la imagen compuesta
     a WordPress, encola si hay fecha y el canal no programa solo, o llama al conector. Devuelve el resultado del conector."""
     usuario, rol = _rol(request)
     simulado = (p.modo or "simulado") != "real"
@@ -533,7 +533,7 @@ def enviar(p: Envio, request: Request):
                            "pieza_form": _datos_borrador(p, canal, fecha_iso)})
     try:
         if compuesta is not None:
-            # (publicar_ui._enviar recibe la cfg del envío) en «Ver simulado» la cfg es la simulada: no sube nada y avisa
+            # En «Ver simulado» la cfg es la simulada: no sube nada y avisa
             url = _subir_compuesta(cfg, compuesta, titulo, texto, usuario, avisos)
             if url:
                 imagen_url = url
@@ -634,7 +634,7 @@ def compartir_publicacion(pid: str, datos: CompartirPieza, usuario=Depends(auth.
     return {"ok": True, "compartido": bool(datos.compartido)}
 
 
-# ---------------- Aprobación (publicar_ui.panel_aprobacion) ----------------
+# ---------------- Aprobación ----------------
 @router.get("/aprobacion/para-aprobar")
 def para_aprobar(usuario=Depends(auth.aprobador)):
     """Las piezas a_aprobar (más viejas primero) con los datos de la vista previa, y el modo REAL de cada canal (el panel lo muestra:

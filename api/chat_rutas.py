@@ -1,19 +1,19 @@
 """Lo que la pantalla de chat de la web necesita además del chat en sí (22/10, fase 2 del plan de interfaz propia).
-Misma lógica de negocio que la app de Streamlit (app.py y publicar_ui.formulario), sin inventar otra; si cambia una regla
+Una sola lógica de negocio para las piezas del chat; si cambia una regla
 allá, cambiarla acá. El chat en streaming sigue en api/main.py + api/chat.py.
 
 Rutas (todas con sesión; la conversación tiene que ser de la persona):
   PATCH  /conversaciones/{id}                      {titulo}: renombrar (= «✏️ Renombrar» de la barra)
   DELETE /conversaciones/{id}                      a la papelera (= «🗑️ Borrar conversación»; db.borrar_conversacion marca `borrada`)
   POST   /conversaciones/{id}/restaurar            la saca de la papelera (solo la propia)
-  GET    /conversaciones/{id}/mensajes/{n}/docx    la respuesta n como Word (documentos.md_a_docx; «⬇️ Word» de app.py)
+  GET    /conversaciones/{id}/mensajes/{n}/docx    la respuesta n como Word (documentos.md_a_docx; «⬇️ Word»)
   GET    /conversaciones/{id}/mensajes/{n}/xlsx    las tablas de la respuesta n como Excel (documentos.tablas_a_xlsx; «⬇️ Excel»)
   GET    /conversaciones/{id}/recortes             estado de los clips de los videos citados en esa conversación (para refrescar las tarjetas)
   POST   /recortes                                 {video_id, inicio_ms, fin_ms, formato, titulo}: = «✂️ Pedir el recorte» / «📱 Pedir en vertical»
-  GET    /banco?consulta=&formato=                 fotos del banco de WordPress (publicar_ui._banco)
-  GET    /publicaciones/modos                      el modo de cada canal y si se puede mandar a aprobación (publicar_ui.formulario)
-  POST   /publicaciones/borrador                   = «💾 Guardar borrador» (db.guardar_borrador, mismos campos que Streamlit)
-  POST   /publicaciones/a-aprobar                  = «📨 Enviar a aprobación» (db.proponer_publicacion, como publicar_ui._enviar(aprobacion=True))
+  GET    /banco?consulta=&formato=                 fotos del banco de WordPress
+  GET    /publicaciones/modos                      el modo de cada canal y si se puede mandar a aprobación
+  POST   /publicaciones/borrador                   = «💾 Guardar borrador» (db.guardar_borrador)
+  POST   /publicaciones/a-aprobar                  = «📨 Enviar a aprobación» (db.proponer_publicacion(aprobacion=True))
 """
 import os, re, logging, unicodedata
 from urllib.parse import quote
@@ -30,9 +30,9 @@ import documentos    # noqa: E402
 log = logging.getLogger("api")
 router = APIRouter(tags=["chat"])
 
-# Las mismas constantes que publicar_ui (ese módulo importa Streamlit y no se puede importar acá).
+# Constantes de publicación.
 CANALES = {"wordpress": "WordPress", "instagram": "Instagram", "facebook": "Facebook", "youtube": "YouTube"}
-ZONA_HORARIA = "-03:00"            # publicar_ui.ZONA_HORARIA: las fechas del recuadro son hora de Argentina
+ZONA_HORARIA = "-03:00"            # las fechas del recuadro son hora de Argentina
 MODO_TXT = {"apagado": "apagado: este canal no está disponible",
             "simulado": "simulado: arma la pieza y la muestra, NO la manda",
             "borrador": "borrador: la crea en WordPress sin publicar; se publica desde el panel",
@@ -57,7 +57,7 @@ class PedidoRecorte(BaseModel):
 
 
 class Pieza(BaseModel):
-    """Lo que la persona dejó en el recuadro «Publicar esta pieza» de la web (los campos del recuadro de Streamlit)."""
+    """Lo que la persona dejó en el recuadro «Publicar esta pieza» de la web."""
     canal: str                       # wordpress | instagram | facebook | youtube
     titulo: str = ""
     texto: str = ""
@@ -83,7 +83,7 @@ def _conversacion(cid, usuario):
 
 
 def _texto_plano(t):
-    """Copia de publicar_ui._texto_plano: para redes, saca markdown y links, deja texto pegable."""
+    """Copia: para redes, saca markdown y links, deja texto pegable."""
     t = re.sub(r"\[([^\]]+)\]\((https?://[^)]+)\)", r"\1", t or "")
     t = re.sub(r"https?://\S+", "", t)
     t = re.sub(r"^\s{0,3}#{1,6}\s*", "", t, flags=re.M)
@@ -120,7 +120,7 @@ def _validar_pieza(p: Pieza):
 
 
 def _datos_borrador(p: Pieza, canal, fecha_iso):
-    """El dict `pieza` que guarda publicar_ui (botón «💾 Guardar borrador») y que formulario() sabe retomar.
+    """El dict `pieza` que se guarda (botón «💾 Guardar borrador») y que formulario() sabe retomar.
     Las claves de diseño (fmt, logo, tipografía…) quedan en None: el diseño de la foto es de la fase 3."""
     return {"canal": canal, "titulo": p.titulo or "", "texto": p.texto or "", "texto_imagen": p.texto_imagen or "",
             "video_url": p.video_url or None, "video_formato": p.video_formato or None, "vfmt": None,
@@ -146,7 +146,7 @@ def modos():
 
 
 def _puede_proponer(canal, r):
-    """publicar_ui.formulario: «Enviar a aprobación» existe para WordPress, Instagram y Facebook cuando el canal real está
+    """«Enviar a aprobación» existe para WordPress, Instagram y Facebook cuando el canal real está
     en 'real' o 'borrador' (si no, no hay a dónde mandarla cuando la aprueben)."""
     return canal in ("wordpress", "instagram", "facebook") and r.get(canal) in ("real", "borrador")
 
@@ -229,7 +229,7 @@ def recortes_de_la_conversacion(cid: str, usuario=Depends(auth.usuario_actual)):
 
 @router.post("/recortes")
 def pedir_recorte(datos: PedidoRecorte, usuario=Depends(auth.usuario_actual)):
-    """= los botones «✂️ Pedir el recorte» / «📱 Pedir en vertical» de app._botones_clip, con las validaciones del
+    """= los botones «✂️ Pedir el recorte» / «📱 Pedir en vertical», con las validaciones del
     chat (nucleo._ejecutar_tool 'pedir_recorte'): fin > inicio y menos de 15 minutos. El pedido queda firmado por la
     persona; la cola (recortar_pendientes.yml) lo corta en unos 15 minutos."""
     if not db.disponible():
@@ -256,7 +256,7 @@ def pedir_recorte(datos: PedidoRecorte, usuario=Depends(auth.usuario_actual)):
 # ---------------- Pieza propuesta: banco de fotos, borrador, aprobación ----------------
 @router.get("/banco")
 def banco(consulta: str = "", formato: str = "", n: int = 6, usuario=Depends(auth.usuario_actual)):
-    """Fotos del banco de WordPress, como publicar_ui._banco: primero las etiquetadas con el formato, después la consulta
+    """Fotos del banco de WordPress: primero las etiquetadas con el formato, después la consulta
     sola, después las recientes. [{id, url, miniatura, titulo}]; sin credenciales de WordPress, lista vacía."""
     n = max(1, min(int(n or 6), 12))
     consulta = (consulta or "").strip()
@@ -308,7 +308,7 @@ def guardar_borrador(p: Pieza, usuario=Depends(auth.usuario_actual)):
 
 @router.post("/publicaciones/a-aprobar")
 def enviar_a_aprobacion(p: Pieza, s=Depends(auth.sesion)):
-    """= «📨 Enviar a aprobación» (publicar_ui._enviar con aprobacion=True): la pieza queda 'a_aprobar' para el panel.
+    """= «📨 Enviar a aprobación» la pieza queda 'a_aprobar' para el panel.
     No sube la foto compuesta ni archivos (fase 3): la imagen es una URL del banco o nada."""
     usuario = s["usuario"]
     if not db.disponible():
@@ -331,7 +331,7 @@ def enviar_a_aprobacion(p: Pieza, s=Depends(auth.sesion)):
         raise HTTPException(503, f"No pude guardar la pieza para aprobación: {e}")
     if not pid:
         raise HTTPException(503, "No pude guardar la pieza para aprobación.")
-    if p.borrador_id:        # como Streamlit: al mandarla, el borrador que se estaba retomando se elimina
+    if p.borrador_id:        # al mandarla, el borrador que se estaba retomando se elimina
         try:
             db._req("DELETE", f"?id=eq.{quote(str(p.borrador_id))}&estado=eq.borrador&usuario=eq.{quote(usuario)}", tabla="publicaciones")
         except Exception:

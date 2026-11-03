@@ -1,4 +1,4 @@
-// Publicar (22/10, fase 3): el formulario de tres pasos de publicar_ui.formulario, con un paso visible a la vez y el resumen de los
+// Publicar (22/10, fase 3): el formulario de tres pasos, con un paso visible a la vez y el resumen de los
 // anteriores, la vista previa en vivo (la foto con la frase se compone en la API: POST /publicar/componer) y UN botón principal según
 // el rol: «Enviar a aprobación» (creadores) o «Publicar en <canal>» (quien publica directo); secundarios «Ver simulado» y «Guardar
 // borrador». Entra desde «Nueva pieza», desde el chat (la pieza propuesta llega en location.state), desde un recorte (?recorte=<id>)
@@ -165,7 +165,7 @@ function Formulario({ inicial, op, origen, avisoInicial, avisar }: { inicial: Pi
   const faltaTitulo = (canal === "wordpress" || canal === "youtube") && !f.titulo.trim();
   const faltaVideoYT = canal === "youtube" && !conVideo;
 
-  // Banco: busca sola al entrar si hay una sugerencia del bot o el canal es de redes (publicar_ui._banco)
+  // Banco: busca sola al entrar si hay una sugerencia del bot o el canal es de redes
   const buscarFotos = useCallback(
     async (q: string, elegirPrimera = false) => {
       setBuscando(true);
@@ -187,7 +187,7 @@ function Formulario({ inicial, op, origen, avisoInicial, avisar }: { inicial: Pi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canal]);
 
-  // Al cambiar el canal, el formato de la foto arranca en el del canal (publicar_ui: FORMATO_POR_CANAL) si no se tocó
+  // Al cambiar el canal, el formato de la foto arranca en el del canal si no se tocó
   useEffect(() => {
     if (!canal || conVideo) return;
     const sugerido = op.formato_por_canal[canal];

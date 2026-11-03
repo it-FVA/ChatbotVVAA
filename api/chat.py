@@ -1,6 +1,6 @@
 """Chat con streaming, sobre el cerebro (nucleo.py) sin modificarlo.
 
-Qué hace: lo mismo que nucleo.responder_con_pieza (la función que usa app.py), paso por paso:
+Qué hace: lo mismo que nucleo.responder_con_pieza (la función que usa el chat), paso por paso:
   1. arma los mensajes (system_msg, nota de idioma, material ya encontrado en la charla),
   2. primera llamada al modelo con las mismas herramientas (nucleo.TOOLS): buscar_material,
      proponer_publicacion, pedir_recorte, estado_recortes, analizar_corpus,
@@ -12,7 +12,7 @@ NOTA DE MANTENIMIENTO: los pasos 1-3 están copiados de nucleo.responder_con_pie
 en esta fase nucleo.py no se toca. Si esa función cambia, cambiar acá también; el plan (fase 2) prevé
 compararlas con el set dorado y, después, que nucleo tenga su propia versión con streaming.
 
-Variable global nucleo.USUARIO_ACTUAL (firma los recortes que pide el bot): en Streamlit hay un proceso por
+Variable global nucleo.USUARIO_ACTUAL (firma los recortes que pide el bot): antes había un proceso por
 persona; acá hay varias personas en el mismo proceso. Mientras siga siendo global, la ejecución de herramientas
 va bajo un candado (una a la vez) para que un recorte pedido por Julián no quede firmado por Pato.
 """
@@ -27,7 +27,7 @@ _CANDADO_TOOLS = threading.Lock()
 
 # ---------------- Tarjetas (lo que hoy dibuja app.render_mats) ----------------
 def _citadas(mats, texto):
-    """Copia de app._citadas (16/10): qué tarjetas citó el bot (el título aparece en el texto)."""
+    """(16/10) Qué tarjetas citó el bot (el título aparece en el texto)."""
     t = (texto or "").lower()
     out = set()
     for i, r in enumerate(mats):
@@ -39,7 +39,7 @@ def _citadas(mats, texto):
 
 def tarjetas(mats, idioma="es", texto=""):
     """Las fuentes como JSON para la interfaz: campos de nucleo + traducción (en/de) + estado de los recortes
-    por tramo (horizontal/vertical, como los botones de app._botones_clip) + si fue citada en la respuesta."""
+    por tramo (horizontal/vertical, como los botones de recorte) + si fue citada en la respuesta."""
     mats = mats or []
     trads = []
     if idioma in ("en", "de"):
@@ -121,7 +121,7 @@ def _deltas(stream):
 
 # ---------------- El generador de eventos ----------------
 def historial_de(mensajes):
-    """Como app.py antes de llamar a nucleo: role, content y mats de cada mensaje guardado."""
+    """Antes de llamar a nucleo: role, content y mats de cada mensaje guardado."""
     return [{"role": m.get("role", "user"), "content": m.get("content", ""), "mats": m.get("mats")}
             for m in (mensajes or [])]
 

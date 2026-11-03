@@ -22,7 +22,7 @@ PLANTILLAS = {"mensual": "Mensual (reflexión + agenda + recursos)", "revivi": "
 
 # (23/10, prueba de Julián) Tipos de recurso para «Recursos para profundizar»: desplegable, y la cantidad varía (2 o 3, los
 # que haya). Cada ítem es {"tipo", "titulo", "url", "con"}. Los campos viejos lectura/ecos/meditacion siguen funcionando
-# (Streamlit y los borradores anteriores): si no hay `items`, se arman a partir de ellos.
+# (los borradores anteriores): si no hay `items`, se arman a partir de ellos.
 TIPOS_RECURSO = {
     "video": ("🎥", "Video de Br. David"),
     "meditacion": ("🧘", "Meditación con Joaco Grehan"),

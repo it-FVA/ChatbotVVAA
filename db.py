@@ -410,7 +410,7 @@ def actualizar_clip(cid, campos):
 
 # ---------------- Configuraciones persistentes (19/10) ----------------
 # Tabla config(clave text pk, valor jsonb, actualizado, por): lo que el equipo ajusta desde el Panel admin y tiene que
-# valer también para la cola de GitHub Actions (que no ve st.session_state ni secrets de Streamlit). Hoy una sola clave:
+# valer también para la cola de GitHub Actions (que no ve la sesión de la API). Hoy una sola clave:
 # 'clips_estilo' = estilo por defecto de los subtítulos de los recortes nuevos (migración config_tabla_y_clips_estilo).
 # (19/10, tarde) Frase del día: 'frase_activa' (bool, apagada por defecto), 'frase_hora' ("07:00" Argentina), 'frase_imagen' (URL de
 # la foto de fondo por defecto), 'frase_pie' (lo que va al final del caption) y 'frase_estilo' (logo, tipografía, posición).

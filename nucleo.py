@@ -1,6 +1,6 @@
 """
 Cerebro compartido del asistente de contenido "Vivir Agradecidos".
-Lo usa la API (api/). (La app de Streamlit se dio de baja el 2/11; la UI HTML local servidor.py quedó en archivo/, 18/10.)
+Lo usa la API (api/). (La app de Streamlit se dio de baja el 2/11.)
 
 Contiene: carga del corpus, búsqueda semántica (embeddings OpenAI), copiloto con
 tool-calling, análisis/conteos, armado de borradores y los "locators" (página en
@@ -76,7 +76,7 @@ def _sims_supabase(textos):
 # Búsqueda híbrida (T2 del plan de búsqueda): BM25 léxico + vectorial, fusión RRF.
 #
 # APAGADA POR DEFECTO. Se prende con BUSQUEDA_HIBRIDA=1 en el entorno
-# (.streamlit/secrets.toml o variables de Streamlit Cloud). Con la variable
+# (.streamlit/secrets.toml o variables de entorno). Con la variable
 # ausente, la app se comporta exactamente igual que antes.
 #
 # Por qué: el vectorial difumina el vocabulario propio de Br. David (gratuidad,
@@ -1055,7 +1055,7 @@ def titular(mensajes):
     return t[:50] or "Conversación"
 
 
-USUARIO_ACTUAL = ""   # (16/10) app.py lo setea antes de responder: firma los pedidos de recorte
+USUARIO_ACTUAL = ""   # (16/10) la API lo setea antes de responder: firma los pedidos de recorte
 
 
 def _mmss_a_seg(v):

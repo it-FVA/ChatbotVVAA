@@ -1,7 +1,6 @@
 """Administración (22/10, pantallas Dashboard · Servicios y costos · Configuración de la web; solo admins).
 
-Lo que la web necesita además de api/salud.py y api/cuentas.py. Misma lógica que el Dashboard de Streamlit
-(publicar_ui.uso_admin, costo_openai_admin, servicios_admin), sin Streamlit:
+Lo que la web necesita además de api/salud.py y api/cuentas.py. Dashboard, uso del equipo y costos:
 
   GET  /admin/resumen                 la portada: «¿funciona?» (última corrida guardada de Salud), costo del mes y del anterior
   GET  /admin/uso?dias=28 | mes=AAAA-MM   quién usó el bot: por persona (también quien no hizo nada), por semana, lo último
@@ -11,10 +10,10 @@ Lo que la web necesita además de api/salud.py y api/cuentas.py. Misma lógica q
 
 Reglas de la casa:
 - El costo de OpenAI es una ESTIMACIÓN con los precios de config openai_precios (US$ por millón de tokens), con la misma
-  fórmula que publicar_ui._costo (api.salud._costo_fila). Un modelo sin precio suma tokens pero no plata, y se dice cuál.
+  fórmula de api.salud._costo_fila. Un modelo sin precio suma tokens pero no plata, y se dice cuál.
 - Nada se inventa: los montos de servicios no confirmados van marcados; los límites de los planes llevan su fuente (salud.py).
 - Todo cambio de configuración o de un servicio queda en usuarios_cambios (quién, qué clave, de qué valor a cuál).
-- Fechas en hora Argentina (UTC-3): el mes empieza a las 03:00 UTC, como en publicar_ui.
+- Fechas en hora Argentina (UTC-3): el mes empieza a las 03:00 UTC, con ese corte
 """
 import re, datetime as dt
 from typing import Any, Optional
@@ -28,7 +27,7 @@ import db          # noqa: E402  (api/__init__ pone la raíz del repo en sys.pat
 
 router = APIRouter(prefix="/admin", tags=["administracion"])
 
-SERVICIO = {"frase_del_dia", "bot", "cola", "prueba"}       # usuarios que no son personas (publicar_ui._SERVICIO)
+SERVICIO = {"frase_del_dia", "bot", "cola", "prueba"}       # usuarios que no son personas
 REGISTRO_DESDE = "2026-10-21"                                # desde cuándo se registra cada llamada a OpenAI (uso_openai)
 ZONA_AR = dt.timezone(dt.timedelta(hours=-3))
 MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
@@ -163,7 +162,7 @@ def _filas_uso(p):
 
 # ---------------- costos ----------------
 def calcular_costos(filas, precios):
-    """La parte de cálculo de publicar_ui.costo_openai_admin sobre una lista de filas de uso_openai. Devuelve el bloque
+    """La parte de cálculo sobre una lista de filas de uso_openai. Devuelve el bloque
     completo (total, por persona, por día, por modelo y para qué, modelos sin precio)."""
     costos = [_costo_fila(f, precios) for f in filas]
     total = sum(c for c in costos if c is not None)
@@ -264,7 +263,7 @@ def costos(dias: Optional[int] = None, mes: Optional[str] = None, quien=Depends(
 # ---------------- uso ----------------
 @router.get("/uso")
 def uso(dias: Optional[int] = None, mes: Optional[str] = None, quien=Depends(_admin)):
-    """«¿Hubo movimiento?» (publicar_ui.uso_admin): por persona, también quien no hizo nada; por semana; lo último; y el
+    """«¿Hubo movimiento?»: por persona, también quien no hizo nada; por semana; lo último; y el
     costo de OpenAI de cada persona en el mismo período."""
     p = periodo(dias, mes)
     personas = _personas()

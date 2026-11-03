@@ -1,5 +1,5 @@
-// Textos de la pantalla de chat en los tres idiomas de las cuentas (es/en/de), como la tabla _T de app.py.
-// Lo que no está traducido cae al español. Los botones de recortes y la pieza se muestran solo en español (como Streamlit).
+// Textos de la pantalla de chat en los tres idiomas de las cuentas (es/en/de).
+// Lo que no está traducido cae al español. Los botones de recortes y la pieza se muestran solo en español.
 import type { Idioma } from "./util/fechas";
 
 const T = {

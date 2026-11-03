@@ -7,8 +7,8 @@ Correr desde la raíz del repo, con el secrets.toml de producción en .streamlit
     python api/importar_usuarios.py --dry-run     # muestra qué haría, sin escribir
     python api/importar_usuarios.py               # importa
 
-Después de importar, Streamlit sigue leyendo secrets (no cambia nada ahí) y la API entra por la tabla. Cuando
-todos estén en la tabla y Streamlit se apague, se saca el fallback a secrets de api/auth.py y USUARIOS_JSON.
+Después de importar, los secrets no cambian y la API entra por la tabla. Cuando
+todos estén en la tabla se saca el fallback a secrets de api/auth.py y USUARIOS_JSON.
 Nunca imprime contraseñas.
 """
 import os, sys, argparse

@@ -1,16 +1,20 @@
-# Interfaz web propia (fase 1: «Mis recortes» · fase 2: el chat · fase 3: Publicar, Mis publicaciones y Aprobación, 22/10)
+# Interfaz web (React 18 + TypeScript + Vite, en Vercel)
+
+La aplicación del equipo: chat, recortes con editor visual, Publicar / Mis publicaciones / Aprobación, Frase del día, Newsletter,
+proyectos y compartidos, cuenta y Administración. Habla con la API de `api/` por cookie de sesión. La app de Streamlit se dio de baja
+el 2/11/2026. Las secciones de abajo conservan el detalle de cada pantalla tal como se construyó (las «fases» son el orden en que se hicieron).
 
 ## Publicar, Mis publicaciones y Aprobación (fase 3, 22/10)
 
-Las tres pantallas que vivían en Streamlit (`publicar_ui.py`), con la misma lógica de negocio en la API (`api/publicar_rutas.py`) y mejor UX.
+Las tres pantallas de publicación, con la lógica de negocio en la API (`api/publicar_rutas.py`).
 Capturas `capturas/30`–`34` (escritorio y celular).
 
-- **Publicar** (`/publicar`, `src/paginas/Publicar.tsx`): los tres pasos de Streamlit pero **un paso visible a la vez** con el resumen de los
+- **Publicar** (`/publicar`, `src/paginas/Publicar.tsx`): tres pasos, **un paso visible a la vez** con el resumen de los
   anteriores y «Editar». 1 · Qué se publica: canal (Instagram, Facebook, Blogpost, YouTube) con su modo a la vista, título, texto con contador.
   2 · Foto y diseño: frase sobre la imagen, banco de WordPress (busca sola con la sugerencia del bot o el formato del canal), «Otra imagen» (URL
   o subir un archivo, que va al banco), formato, logo y posición, firma, tipografía, peso, posición y alineación, «Publicar así»; con un
   recorte: reel/historia. 3 · Cuándo y enviar: «Cuanto antes» o «Programar» con día, hora (Argentina) y atajos, el aviso de qué va a pasar
-  (`util/publicar.aviso`, = `publicar_ui._aviso`), y **un botón principal según el rol**: «Enviar a aprobación» (creadores) o «Publicar en
+  (`util/publicar.aviso`), y **un botón principal según el rol**: «Enviar a aprobación» (creadores) o «Publicar en
   <canal>» (quien publica directo, con «Entiendo que esto publica de verdad» en modo real); secundarios «Ver simulado» y «Guardar borrador».
   A la derecha (abajo en celular) la **vista previa en vivo** (`componentes/VistaPrevia.tsx`): Instagram feed cuadrado/vertical, historia 9:16,
   reel; Facebook (texto arriba, foto abajo); Blogpost (foto destacada, título, cuerpo con markdown/HTML); YouTube (reproductor, título,
@@ -20,30 +24,26 @@ Capturas `capturas/30`–`34` (escritorio y celular).
   (`?recorte=<id>`: video precargado, Instagram si es vertical) y desde un borrador (`?borrador=<id>`).
 - **Mis publicaciones** (`/publicaciones`, `src/paginas/Publicaciones.tsx`): solapas Todas / Pendientes / Aprobadas / Publicadas / Borradores /
   Rechazadas / Pruebas con conteos; tarjetas con miniatura (foto o video), estado, canal y formato, fecha de creación, «sale el», quién aprobó o
-  rechazó y la nota, error; acciones Retomar (borradores; los de newsletter abren Streamlit), Ver el posteo / la entrada, Abrir en WordPress,
+  rechazó y la nota, error; acciones Retomar (borradores), Ver el posteo / la entrada, Abrir en WordPress,
   Descargar HTML (newsletter) y Eliminar con confirmación (solo lo eliminable).
 - **Aprobación** (`/aprobacion`, aprobadores, `src/paginas/Aprobacion.tsx`), con menú propio como Administración: **Para aprobar** (vista previa
   completa del canal, texto, fecha y hora editables sugeridas en hora Argentina, nota, «Aprobar y programar» / «Rechazar»; newsletter en un
   iframe con «Aprobar (queda listo para Perfit)» y «Descargar HTML»), **En cola** (cancelar), **Registro** con buscador, **Papelera** de
   conversaciones (restaurar) y **Clips** (la pantalla de recortes embebida con «Todos» fijo; los admins fijan ahí el **estilo por defecto** de
-  los subtítulos). El contador de pendientes aparece en el menú. Frase del día y Dashboard siguen en Streamlit (link para admins).
+  los subtítulos). El contador de pendientes aparece en el menú.
 - **Chat**: el recuadro de la pieza propuesta ahora muestra el resumen (canal, título, frase para la imagen, foto sugerida, cuándo, texto) y
   **«Abrir en Publicar»** (precargado) más «Guardar borrador» como atajo. **Recortes**: cada recorte listo tiene **«Publicar»**.
-- **Barra**: Chat, Publicar, Mis publicaciones, Mis recortes, Newsletter (Streamlit), Aprobación (aprobadores), Administración y Frase del día
-  (Streamlit) para admins.
-- Fuera de esta fase: subir un archivo de video para YouTube (solo recortes), Newsletter y Frase del día en la web, Proyectos, Dashboard.
-# Interfaz web propia (fase 1: «Mis recortes» con editor visual · revisión UX del 21/10 · usuarios y administración del 22/10)
-
-Es la interfaz que reemplaza a Streamlit (decisión de Franco del 22/10: la web es la aplicación definitiva; Streamlit queda de
-respaldo hasta el traspaso; plan en `fva-transcripcion/analisis/plan-interfaz-propia-2026-10.md`). Habla con la API de `api/` y
+- **Barra**: Chat, Publicar, Mis publicaciones, Mis recortes, Newsletter, Aprobación (aprobadores), Administración y Frase del día
+  para admins.
+- Fuera de esta fase: subir un archivo de video para YouTube (solo recortes).
+Plan original: `fva-transcripcion/analisis/plan-interfaz-propia-2026-10.md`. Habla con la API de `api/` y
 no toca el cerebro (`nucleo.py`, `db.py`). Las capturas de cómo se ve están en `capturas/` (escritorio 1366 px y celular 375 px):
 `00`–`11` la fase 1 (login, lista, editor de recortes), `20`–`24` el chat (vacío, respuesta con fuentes, tarjeta de video con el
 recorte en proceso, pieza propuesta, cajón de conversaciones en celular). La revisión de UX/UI de los recortes está en `UX-REVISION.md`.
 
 ## El chat (fase 2, 22/10)
 
-`/chat` y `/chat/<id>` (`src/paginas/Chat.tsx`, estilos en `src/chat.css`). Paridad con el chat de Streamlit (`app.py`) y lo que
-Streamlit no podía hacer:
+`/chat` y `/chat/<id>` (`src/paginas/Chat.tsx`, estilos en `src/chat.css`). Detalle:
 
 - **Conversaciones** (`componentes/ListaConversaciones.tsx`): lista de la persona agrupada por Hoy / Ayer / Últimos 7 días /
   Anteriores con fecha relativa, buscador, «Nueva conversación», renombrar en el lugar (lápiz, Enter guarda, Esc cancela) y borrar
@@ -56,7 +56,7 @@ Streamlit no podía hacer:
   Enter envía, Shift+Enter hace una línea nueva; el cuadro crece con el texto. Autoscroll solo si la persona está abajo; si subió,
   aparece un botón para ir al final. Al abrir una conversación se carga el historial completo con sus fuentes y piezas.
 - **Fuentes** (`componentes/Fuentes.tsx`): plegable «Fuentes (n) · k citadas en la respuesta» (abierto salvo que haya pieza, como
-  Streamlit), tarjetas compactas (tag, autor, título, cita de dos líneas que se despliega al pasar el mouse o tocarla, «Ver fuente»),
+  la app vieja), tarjetas compactas (tag, autor, título, cita de dos líneas que se despliega al pasar el mouse o tocarla, «Ver fuente»),
   las citadas resaltadas en verde; en los videos la miniatura de YouTube con el tramo y los botones «Pedir el recorte» / «Pedir en
   vertical» (`POST /recortes`) → «recorte en proceso» → «Ver el recorte» + «Editar» (abre el editor de `/recortes/<id>`). Mientras
   haya alguno en proceso, cada minuto consulta `GET /conversaciones/<id>/recortes` y actualiza las tarjetas.
@@ -64,13 +64,13 @@ Streamlit no podía hacer:
   recuadro con canal (chips), modo del canal (`GET /publicaciones/modos`), título, texto, texto sobre la imagen, fotos del banco de
   WordPress (`GET /banco`, busca sola con la sugerencia del bot), fecha y hora opcionales, y los botones **Enviar a aprobación**
   (`POST /publicaciones/a-aprobar`; deshabilitado con el motivo si el canal no lo permite) y **Guardar borrador**
-  (`POST /publicaciones/borrador`), más el link a «Mis publicaciones» (por ahora Streamlit). Una pieza `newsletter` manda al editor
-  de Newsletter de Streamlit.
+  (`POST /publicaciones/borrador`), más el link a «Mis publicaciones». Una pieza `newsletter` manda al editor
+  de Newsletter.
 - **Descargas**: «Word» en las respuestas de 600 caracteres o más y «Excel» si tienen tablas (`GET …/mensajes/{n}/docx|xlsx`),
   con el nombre de la conversación.
 - **Idioma de la cuenta** (`GET /yo` → `idioma`): los textos de la pantalla en es/en/de (`src/textos.ts`) y las etiquetas de las
   tarjetas traducidas (ARTICLE/BOOK, ARTIKEL/BUCH) con la traducción de título y cita que manda la API. Los botones de recorte y
-  el recuadro de la pieza se muestran solo en español, como en Streamlit.
+  el recuadro de la pieza se muestran solo en español.
 - **Si la API duerme** (Render plan free): antes de mandar, si hace más de 10 min que no hablamos con ella, pega a `/salud`; si no
   contesta avisa «La API está despertando: puede tardar un minuto» y reintenta cada 5 s hasta 2 min; recién entonces manda el mensaje.
 - **Atajos**: `/` enfoca el cuadro, Esc cierra el cajón y los modales. Accesibilidad básica: `role=log` con `aria-live`, botones
@@ -78,11 +78,9 @@ Streamlit no podía hacer:
 
 Capturas del chat: `node capturas/capturas-chat.mjs <token> <id-conversacion> [escritorio|movil]` (mismo mecanismo que
 `capturas.mjs`; solo mira, no manda mensajes ni pide recortes).
-# Interfaz web propia (fase 1: «Mis recortes» con editor visual · revisión UX del 21/10 · pedazos como piezas, 22/10)
+## Mis recortes (editor visual)
 
-Es la primera pantalla de la interfaz que va a reemplazar a Streamlit (plan en
-`fva-transcripcion/analisis/plan-interfaz-propia-2026-10.md`). Habla con la API de `api/` (fase 0 + los endpoints de
-recortes de esta fase) y no toca Streamlit, que sigue en producción. Las capturas de cómo se ve están en `capturas/`
+Las capturas de cómo se ve están en `capturas/`
 (escritorio 1366 px y celular 375 px): login, lista (cargando, vacía, normal), editor antes y después de editar, zoom de la
 línea de tiempo, atajos de teclado, confirmación de borrado, pantalla de «regenerando», barra inferior en celular y (22/10) la
 secuencia de salida con tres pedazos (12), un bloque arrastrándose con la marca de inserción (13) y «Ver secuencia» andando (14).
@@ -93,7 +91,7 @@ La revisión de UX/UI que motivó la segunda vuelta (hallazgos, referencias con 
 
 `/administracion` (solo admins) tiene ahora seis pantallas (`src/paginas/admin/`, estilos en `src/admin.css`, cliente y tipos en
 `adminApi.ts`, piezas comunes en `comun.tsx`, gráficos SVG sin librerías en `Graficos.tsx`). Los datos vienen de `api/admin_rutas.py` y
-`api/salud.py`; la lógica de cálculo es la del Dashboard de Streamlit (`publicar_ui.uso_admin` / `costo_openai_admin` / `servicios_admin`).
+`api/salud.py`.
 
 - **Dashboard** (portada): arriba «¿Funciona la app?» con la luz verde / amarilla / roja, el conteo de avisos del último chequeo guardado y
   el link a Salud; el **costo del mes** (OpenAI estimado + servicios fijos, con el desglose, la proyección a 30 días, el presupuesto si
@@ -120,7 +118,7 @@ La revisión de UX/UI que motivó la segunda vuelta (hallazgos, referencias con 
   selectores de rol de ancho fijo. Capturas `capturas/30-…-35-…-<ancho>.png` en 1366, 1200, 1000, 768 y 375 (`capturas-admin.mjs`).
 
 Probado el 22/10 con la API local y datos reales: las seis pantallas; alta, edición y baja de un servicio de prueba; umbral de Render
-70 → 75 → 70; el registro de cambios. Pendiente: la frase del día sigue con el calendario en Streamlit (acá solo su configuración).
+70 → 75 → 70; el registro de cambios.
 
 ## Qué hay
 
@@ -139,14 +137,13 @@ Probado el 22/10 con la API local y datos reales: las seis pantallas; alta, edic
   la contraseña con clave temporal mostrada una sola vez o «sin clave», borrar con confirmación, crear; aviso con los usuarios que siguen
   solo en secrets; «Últimos cambios» plegado), **Lista blanca** (emails de fuera del dominio con rol y nota: agregar, editar, quitar) y
   los lugares de Dashboard, Salud, Servicios y costos y Configuración marcados «pronto». **Aprobación** (`/aprobacion`, aprobadores) es por
-  ahora un marcador que lleva al Panel admin de Streamlit. En celular, las tablas se vuelven tarjetas.
-- **Roles** (21/10, los mismos que Streamlit, los devuelve `GET /yo` en `rol`): «creador de contenido» (todos: chat, piezas a
+  ahora un marcador. En celular, las tablas se vuelven tarjetas.
+- **Roles** (21/10, los devuelve `GET /yo` en `rol`): «creador de contenido» (todos: chat, piezas a
   aprobación, sus recortes), «aprobador» (`APROBADORES`: además la solapa «Todos» de recortes, editar y borrar los ajenos, cola,
   registro, papelera) y «admin» (`ADMINS`, default `franco,beto`; un admin también aprueba: además Frase del día, Dashboard y la
   configuración, p. ej. `PUT /recortes/estilo-defecto`). En la web hoy se usa `rol.aprueba` (solapa «Todos», permisos de las
   tarjetas) y el nombre del rol en la barra; `rol.admin` queda para la pantalla de configuración cuando exista.
-- **Barra lateral**: «Chat» (fase 2), «Publicar», «Mis publicaciones» (fase 3), «Mis recortes» y «Newsletter» (abre Streamlit, URL en
-  `VITE_STREAMLIT_URL`). En celular se vuelve una barra arriba. La página de inicio es el chat.
+- **Barra lateral**: «Chat» (fase 2), «Publicar», «Mis publicaciones» (fase 3), «Mis recortes» y «Newsletter». En celular se vuelve una barra arriba. La página de inicio es el chat.
 - **Recortes**: solapas «Mis recortes», «👥 Del equipo» (los listos de otras personas: abrir, sin editar ni borrar) y
   «Todos» para aprobadores; buscador por título, video o quién lo pidió; cada tarjeta con el video (o la miniatura de
   YouTube si todavía no está), formato, tramo, duración, estado (listo · en proceso · regenerando con los cambios · error), nota,
@@ -154,7 +151,7 @@ Probado el 22/10 con la API local y datos reales: las seis pantallas; alta, edic
   alguno en proceso, la lista se refresca sola cada minuto.
 - **Editor** (`/recortes/<id>`, solo en un recorte listo y propio, o cualquiera si sos aprobador):
   - reproductor del mp4 del recorte, con la **vista previa del estilo** de subtítulos dibujada encima (tipografía, tamaño, color,
-    fondo o borde, negrita, posición: la misma traducción a CSS que usaba Streamlit, pero sobre el video real; se puede apagar);
+    fondo o borde, negrita, posición: traducción del estilo a CSS sobre el video real; se puede apagar);
   - **línea de tiempo en dos carriles** (`componentes/LineaTiempo.tsx`; las operaciones sobre los pedazos, en `util/piezas.ts`):
     - arriba, el **original**, en el eje del video original: la **tira de miniaturas** (cuadros sacados del mp4 en el navegador
       con un `<video>` oculto + `<canvas>`, sin ffmpeg ni endpoint), la **forma de onda** (el navegador decodifica el audio; si
@@ -177,12 +174,12 @@ Probado el 22/10 con la API local y datos reales: las seis pantallas; alta, edic
   - **atajos de teclado** (panel «Atajos» o tecla ?): Espacio, P (ver secuencia), ←/→ ±1 s, Shift ±0,1 s, I/O marcan inicio y
     fin, S parte, Supr saca, [ y ] mueven el pedazo seleccionado en la secuencia, +/−/0 zoom, Inicio/Fin; no actúan mientras se
     escribe en un campo;
-  - **Quitar pausas largas** (casilla, igual que en Streamlit);
+  - **Quitar pausas largas** (casilla, );
   - **subtítulos por línea** (solo vertical): la que suena se resalta y la lista la sigue, clic en el tiempo salta a ese momento,
     se corrige el texto, una línea vacía se saca; contador de caracteres por línea y aviso cuando puede ocupar tres renglones
     (umbral supuesto: 26 por renglón, `Subtitulos.tsx`; ajustar mirando videos reales);
   - **estilo** con tres presets («El de la Fundación» = el del equipo o el por defecto, «Negrita amarilla», «Caja negra»; solo
-    se ofrecen si sus valores existen en `GET /recortes/opciones`) y los mismos controles de Streamlit;
+    se ofrecen si sus valores existen en `GET /recortes/opciones`) y los controles de estilo;
   - un único **«Regenerar el recorte»** que manda `POST /recortes/{id}/edicion`, cuenta los cambios («3 cambios: tramo,
     pedazos, estilo»), muestra un toast y la pantalla «regenerando, ~15 min»; en celular va en una barra inferior fija.
 - **Sistema**: botones con jerarquía (primario amarillo, secundario, sutil, peligro), iconos SVG propios (`componentes/Iconos.tsx`,
@@ -190,7 +187,7 @@ Probado el 22/10 con la API local y datos reales: las seis pantallas; alta, edic
   llamada a la acción, toasts (`componentes/Toasts.tsx`), modal accesible (Escape, foco atrapado, `componentes/Modal.tsx`),
   migas de pan.
 
-Lo que guarda en `clips.edicion` es lo mismo que Streamlit (`inicio_ms`, `fin_ms`, `srt`, `estilo`, `quitar_pausas`) más una
+Lo que guarda en `clips.edicion` es (`inicio_ms`, `fin_ms`, `srt`, `estilo`, `quitar_pausas`) más una
 clave nueva, `segmentos` = `[[a_ms, b_ms], …]` absolutos del original con los pedazos que se conservan, **en el orden en que
 salen** (22/10): si el orden es el del original, la cola (`procesar_clips.py` → `recortar_clip.cortar(segmentos=)`) los pega
 como antes (select/aselect); si no, recorta cada pedazo y los concatena en ese orden (`recortar_clip.concatenar_tramos`,
@@ -237,7 +234,6 @@ escritorio manda a regenerar al final; después hay que volverla a `listo` o bor
 |---|---|---|
 | `VITE_API_URL` | a dónde van las llamadas a la API. Vacío = `/api` (proxy de Vite en desarrollo, o la API servida bajo `/api` en el mismo dominio) | vacío |
 | `VITE_API_PROXY` | solo desarrollo: dónde corre la API local | `http://127.0.0.1:8000` |
-| `VITE_STREAMLIT_URL` | la app de Streamlit en producción (link «Mis publicaciones», editor de Newsletter) | `https://chatbotvvaa.streamlit.app` |
 
 Las `VITE_*` se fijan al compilar (no se leen en tiempo de ejecución).
 
@@ -247,7 +243,7 @@ La web son archivos estáticos (`npm run build` → `dist/`). La API es un conte
 compatibles con el plan:
 
 - **Vercel (web) + Railway o Render (API)**: en Vercel, *Import project* → carpeta raíz `web`, framework Vite, build
-  `npm run build`, salida `dist`; variables `VITE_API_URL=https://<dominio-de-la-api>` y `VITE_STREAMLIT_URL`. Como la web y la
+  `npm run build`, salida `dist`; variable `VITE_API_URL=https://<dominio-de-la-api>`. Como la web y la
   API quedan en dominios distintos, la API necesita `COOKIE_SAMESITE=none`, `COOKIE_SEGURA=1` y **CORS con credenciales** para
   el dominio de Vercel (no está configurado en la API: se agrega cuando se decida el dominio; son unas líneas con
   `CORSMiddleware`). Alternativa sin CORS: una *rewrite* en Vercel que sirva `/api/*` desde la API (misma mecánica que el
@@ -265,14 +261,9 @@ corre en local.
   limpia hace falta la copia liviana sin subtítulos que el plan prevé subir desde la cola (decisión: espacio en WordPress).
 - **Mover las manijas fuera del tramo actual** se puede (se guarda y la cola corta del original), pero no se ve en el
   reproductor hasta regenerar: misma limitación del plan (hace falta la copia con margen).
-- **Tiempos de los subtítulos**: se edita el texto, no el momento en que entra y sale (como en Streamlit).
-- **Publicar** desde la tarjeta o desde el chat en real: no está (fase 3). Desde el chat la pieza se guarda como borrador o se manda a
-  aprobación; la foto con la frase encima, el logo, el diseño y subir archivos siguen en Publicar de Streamlit. «Mis publicaciones»,
-  el panel de aprobación y el newsletter abren Streamlit.
+- **Tiempos de los subtítulos**: se edita el texto, no el momento en que entra y sale.
 - **Chat**: «📣 Publicar el recorte» desde la tarjeta de video (fase 3); el bot puede pedir recortes solo (`pedir_recorte`) y la
   tarjeta lo refleja al recargar o en el próximo refresco; las carpetas / proyectos de conversaciones son la próxima etapa.
-- **Estilo por defecto del equipo**: la API lo expone (`GET/PUT /recortes/estilo-defecto`), la web todavía no tiene la pantalla
-  de admin (sigue en Panel admin → Clips de Streamlit).
 - **Login con Google**: funciona contra la API local (sin probar con una cuenta real); falta el mapeo usuario ↔ email del historial
   y agregar el dominio de producción a los orígenes autorizados.
 - **Hosting y dominio**: Vercel + Railway/Render o el VPS; CORS y `COOKIE_SAMESITE` dependen de eso.

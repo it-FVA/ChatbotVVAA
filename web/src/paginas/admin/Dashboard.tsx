@@ -9,7 +9,7 @@ import { BarrasApiladas } from "./Graficos";
 // Administración → Dashboard (22/10, portada). Responde en orden: ¿funciona la app? (última corrida de Salud), ¿cuánto cuesta?
 // (OpenAI estimado del mes + costos fijos de Servicios, con el mes anterior al lado) y ¿quién la usa? (período 7/28/90 días o
 // un mes: personas activas, tabla por persona con su costo, gráficos por semana / por día / por mes, consumo por modelo).
-// Misma lógica que el Dashboard de Streamlit (publicar_ui.uso_admin + costo_openai_admin), con los datos de api/admin_rutas.py.
+// Dashboard de uso y costos, con los datos de api/admin_rutas.py.
 
 type Periodo = { dias?: number; mes?: string };
 

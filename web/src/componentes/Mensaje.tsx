@@ -1,5 +1,5 @@
 // Un mensaje del chat: el de la persona (burbuja) o el del bot (markdown, estado mientras escribe, recuadro de la pieza,
-// descargas Word/Excel y las fuentes plegables). Mismo orden que app.py: respuesta → pieza → descargas → fuentes.
+// descargas Word/Excel y las fuentes plegables). Orden: respuesta → pieza → descargas → fuentes.
 import { memo, useMemo, useState } from "react";
 import { ErrorApi } from "../api";
 import { apiChat } from "../apiChat";

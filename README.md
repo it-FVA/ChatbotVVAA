@@ -15,7 +15,6 @@ Frase del día y circuito de aprobación. Desde el 2/11/2026 es **solo la web + 
   `newsletter.py` — las plantillas del newsletter. `recortar_clip.py` / `procesar_clips.py` — recortes de video.
 - `procesar_cola.py` — la cola de publicación: corre en **GitHub Actions** cada 15 minutos (`.github/workflows/cola.yml`).
 - `distribucion/` — plantillas que se copian a otros lados (el mail de la frase, el snippet de WordPress de la home).
-- `archivo/` — prototipos viejos, no se usan.
 
 ## Correr en local
 1. `pip install -r requirements.txt` (una sola vez) y en `web/`: `npm install`.

@@ -1,8 +1,8 @@
 """Recortes (fase 1 del plan de interfaz propia, 21/10 noche): lo que la pantalla «Mis recortes» de la web y su editor visual
-necesitan. Es la MISMA lógica de negocio que publicar_ui._mis_recortes / _editor_recorte (validaciones del tramo, qué va a
+necesitan. Lógica de negocio de los recortes (validaciones del tramo, qué va a
 clips.edicion, la nota, qué se puede borrar y quién), sin inventar otra; si cambia una regla allá, cambiarla acá.
 
-Lo nuevo respecto de Streamlit: `edicion["segmentos"]` = [[a_ms, b_ms], ...] absolutos del original, los pedazos del tramo que se
+Además: `edicion["segmentos"]` = [[a_ms, b_ms], ...] absolutos del original, los pedazos del tramo que se
 conservan (partir + sacar del medio, editor visual); la cola (procesar_clips.py) los aplica con recortar_clip.cortar(segmentos=).
 (22/10) La lista va EN EL ORDEN DE SALIDA: el editor deja mover los pedazos, y si el orden no es el del original la cola los pega en
 ese orden. Validaciones: sin solapamiento entre pedazos, cada uno de al menos 0,5 s, el total entre 2 s y 3 min; si cambian los
@@ -33,7 +33,7 @@ import recortar_clip as rc     # noqa: E402
 log = logging.getLogger("api")
 router = APIRouter(prefix="/recortes", tags=["recortes"])
 
-MIN_MS, MAX_MS = 2000, 180000          # el tramo tiene que durar entre 2 s y 3 min (publicar_ui._editor_recorte)
+MIN_MS, MAX_MS = 2000, 180000          # el tramo tiene que durar entre 2 s y 3 min
 MIN_PEDAZO_MS = 500                    # (22/10) cada pedazo conservado dura al menos medio segundo
 ESTADOS = {"listo": "listo", "pedido": "en proceso", "error": "error"}
 
@@ -54,7 +54,7 @@ class Edicion(BaseModel):
     srt: Optional[str] = None                     # o el SRT entero
     estilo: Optional[dict] = None
     quitar_pausas: Optional[bool] = None
-    descartar_srt: bool = True                    # si cambió el tramo y había subtítulos corregidos: descartarlos y rearmarlos (como la casilla de Streamlit)
+    descartar_srt: bool = True                    # si cambió el tramo y había subtítulos corregidos: descartarlos y rearmarlos
 
 
 class EstiloDefecto(BaseModel):
@@ -90,7 +90,7 @@ def _estilo_defecto_equipo():
 
 
 def _decorar(c, usuario, aprueba):
-    """Campos derivados que dibuja la pantalla (los mismos que calcula publicar_ui._mis_recortes)."""
+    """Campos derivados que dibuja la pantalla."""
     propio = _propio(c, usuario)
     listo = c.get("estado") == "listo" and bool(c.get("url"))
     e = c.get("edicion") or {}
@@ -129,7 +129,7 @@ def _opciones():
 # ---------------- Rutas ----------------
 @router.get("")
 def listar(request: Request, todos: bool = False, equipo: bool = False, buscar: str = ""):
-    """Como «Recortes» en Streamlit: los que pidió la persona (o el bot en su nombre). equipo=1: la biblioteca compartida (los
+    """Los que pidió la persona (o el bot en su nombre). equipo=1: la biblioteca compartida (los
     LISTOS de las demás personas QUE ELLAS COMPARTIERON (2/11, Franco: «los clips se comparten cuando el usuario lo permite»),
     para abrir y publicar; sin editar ni borrar). todos=1 (solo aprobadores): todo el equipo, como
     Panel admin → Clips. buscar: filtra por título, video o quién lo pidió."""
@@ -192,7 +192,7 @@ def uno(cid: str, request: Request):
 
 @router.post("/{cid}/edicion")
 def editar(cid: str, datos: Edicion, request: Request):
-    """= «🔁 Regenerar el recorte» (publicar_ui._editor_recorte): arma clips.edicion con lo que cambió, valida el tramo (fin > inicio,
+    """= «🔁 Regenerar el recorte»: arma clips.edicion con lo que cambió, valida el tramo (fin > inicio,
     entre 2 s y 3 min), avisa si los subtítulos corregidos eran del tramo anterior, pone estado 'pedido' y la nota. La cola de la
     nube lo aplica en ~15 min. Devuelve {ok, edicion, partes, avisos, mensaje}."""
     usuario, aprueba = _sesion_y_rol(request)

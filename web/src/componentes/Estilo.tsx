@@ -1,4 +1,4 @@
-// Controles de estilo de los subtítulos (los mismos que «Editar recorte → Estilo» en Streamlit, con las listas de
+// Controles de estilo de los subtítulos (los mismos que «Editar recorte → Estilo», con las listas de
 // recortar_clip que llegan por GET /recortes/opciones), tres presets con nombre y el CSS que imita a libass sobre el reproductor.
 import type { CSSProperties } from "react";
 import type { Estilo, Opciones } from "../tipos";
@@ -93,7 +93,7 @@ export function ControlesEstilo({ estilo, opciones, onCambio }: { estilo: Estilo
 }
 
 /** CSS de una línea de subtítulo como la dibuja libass (recortar_clip.estilo_ass): tamaños sobre PlayResY=288, escalados al alto
- *  real del video en pantalla. Es la misma traducción que publicar_ui._vista_previa_estilo, pero sobre el video de verdad. */
+ *  real del video en pantalla. Traduce el estilo sobre el video de verdad. */
 export function cssSubtitulo(estilo: Estilo, opciones: Opciones, formato: "horizontal" | "vertical", altoPx: number): { caja: CSSProperties; texto: CSSProperties } {
   const base = formato === "vertical" ? 17 : 13;
   const margen = formato === "vertical" ? 46 : 24;

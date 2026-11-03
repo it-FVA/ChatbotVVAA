@@ -1,4 +1,4 @@
-// Frase del día (22/10): el calendario anual que vivía en el Panel admin de Streamlit (frases_ui.py), con paridad y mejor UX.
+// Frase del día (22/10): el calendario anual de frases.
 // Para aprobadores y admins (botón propio en la barra; pedido de Franco: no va dentro de Administración). Qué hay: cabecera con
 // conteos, interruptor (solo admins) y avisos; «Próximas 14 días»; calendario por mes con ARRASTRAR Y SOLTAR entre días (un día
 // libre = mover; uno ocupado = intercambiar; desde el backlog = asignar) y «Deshacer»; detalle del día (vista previa de la imagen

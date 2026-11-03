@@ -5,7 +5,7 @@ Documentación interactiva:                  http://127.0.0.1:8000/docs
 
 Fase 0: login, sesión, chat con streaming y lecturas. Fase 1 (21/10, noche; api/recortes.py): «Mis recortes» con el editor
 visual (editar, borrar, estilo por defecto). No publica ni aprueba todavía (fases 2 y 3 del plan
-analisis/plan-interfaz-propia-2026-10.md, repo fva-transcripcion). Streamlit sigue en producción y no se toca.
+analisis/plan-interfaz-propia-2026-10.md, repo fva-transcripcion). (La app de Streamlit se dio de baja el 2/11.)
 """
 import os, json, logging
 from contextlib import asynccontextmanager
@@ -201,7 +201,7 @@ def mensaje(cid: str, datos: Mensaje, request: Request, usuario=Depends(auth.usu
             raise HTTPException(404, "No existe esa conversación (o no es tuya, ni la tenés para editar).")
         c = r[0]
         conv_id, titulo, mensajes = c["id"], c.get("titulo"), db.normalizar(c.get("mensajes"))
-    # (8/10, app.py) si el último mensaje de la persona es el mismo, no se duplica
+    # (8/10) si el último mensaje de la persona es el mismo, no se duplica
     ultimo = mensajes[-1] if mensajes else None
     if not (ultimo and ultimo.get("role") == "user" and " ".join(ultimo.get("content", "").split()) == " ".join(texto.split())):
         mensajes.append({"role": "user", "content": texto})
@@ -244,7 +244,7 @@ GRUPOS = {"Pendientes": ("a_aprobar",), "Aprobadas": ("pendiente", "procesando",
 
 @app.get("/publicaciones")
 def publicaciones(request: Request, todos: bool = False, equipo: bool = False, usuario=Depends(auth.usuario_actual)):
-    """Como «Mis publicaciones» (publicar_ui.mis_publicaciones): las piezas de la persona con las solapas
+    """Como «Mis publicaciones»: las piezas de la persona con las solapas
     por estado. todos=1 (solo aprobadores): el registro completo (Panel admin → Registro)."""
     if todos:
         auth.aprobador(request)

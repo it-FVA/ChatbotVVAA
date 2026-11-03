@@ -1,7 +1,7 @@
 """Configuración de la API.
 
 Regla: la API es independiente del hosting. Todo se lee de VARIABLES DE ENTORNO con los mismos nombres
-que hoy usan los secrets de Streamlit (OPENAI_API_KEY, SUPABASE_URL, APROBADORES, …).
+que ya usaban los secrets (histórico: Streamlit, dado de baja el 2/11) (OPENAI_API_KEY, SUPABASE_URL, APROBADORES, …).
 
 En local, si existe `.streamlit/secrets.toml` (o el archivo que indique FVA_SECRETS), se carga al entorno
 sin pisar lo que ya esté definido (lo hace secretos.py, el mismo cargador de la cola y los scripts). FVA_SECRETS="-"
@@ -14,7 +14,7 @@ import os, json
 
 import secretos   # noqa: E402  (api/__init__ pone la raíz del repo en sys.path): el único cargador de secretos locales
 
-# Mismos valores por defecto que app.py (interruptores del buscador; ver ARQUITECTURA-BUSCADOR.md)
+# Valores por defecto (interruptores del buscador; ver ARQUITECTURA-BUSCADOR.md)
 DEFECTOS = {
     "ASISTENTE_MODELO": "gpt-4o-mini",
     "BUSQUEDA_HIBRIDA": "0", "LIMPIEZA_EXTRA": "0",
@@ -22,7 +22,7 @@ DEFECTOS = {
     "DATOS_FIJOS_URL": "", "DISTINCIONES_URL": "", "CONCEPTOS_URL": "", "EXPANSION_CONSULTA": "1",
 }
 
-# (7/10) Idioma por usuario: comunidades inglesa y alemana de Br. David (app.py, _IDIOMAS_DEFAULT)
+# (7/10) Idioma por usuario: comunidades inglesa y alemana de Br. David (_IDIOMAS_DEFAULT)
 _IDIOMAS_DEFAULT = {"gratefulness": "en", "dankbarleben": "de"}
 
 _CFG = {"usuarios": {}, "idiomas": {}, "cargado": False, "secrets": None}
@@ -50,7 +50,7 @@ def usuarios():
 
 
 def idioma(usuario):
-    """'es' | 'en' | 'de', como app.py: [idiomas] en secrets, si no el default por cuenta, si no español."""
+    """'es' | 'en' | 'de', [idiomas] en secrets, si no el default por cuenta, si no español."""
     i = cargar()["idiomas"].get(usuario, _IDIOMAS_DEFAULT.get(usuario, "es"))
     return i if i in ("es", "en", "de") else "es"
 

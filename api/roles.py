@@ -1,8 +1,8 @@
 """Roles (creador / aprobador / publicación directa).
 
-NOTA: es una COPIA de publicar_ui.roles (13/10; roles admin del 21/10). No se importa publicar_ui porque ese módulo importa streamlit
+NOTA: reglas de roles (13/10; roles admin del 21/10).
 en su primera línea y lee st.secrets; acá la lista se lee del entorno con los mismos nombres (APROBADORES,
-ADMINS, PUBLICACION_DIRECTA, separados por coma). Si cambia la regla en publicar_ui.roles, cambiarla acá también
+ADMINS, PUBLICACION_DIRECTA, separados por coma). 
 (el plan de migración prevé unificarlas en servicios.py).
 
 (21/10) Para las cuentas que entran con Google el usuario es el email: se admite que la lista tenga el email
@@ -23,7 +23,7 @@ def _esta(usuario, lista):
 
 
 def roles(usuario, rol_tabla=None):
-    """Tres niveles, acumulativos (misma regla que publicar_ui.roles, 21/10, Franco):
+    """Tres niveles, acumulativos (21/10, Franco):
     - CREADOR DE CONTENIDO (todos): chat, arma piezas en simulado, las manda a aprobación, sus recortes.
     - APROBADOR (APROBADORES): además aprueba y rechaza, ve la cola, el registro, la papelera y los recortes de todos.
     - ADMIN (ADMINS, por defecto franco,beto): además Frase del día, Dashboard y toda la configuración (estilo por
