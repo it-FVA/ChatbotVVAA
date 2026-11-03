@@ -77,6 +77,11 @@ services:
       - key: MEMORIA_LIMITE_MB
         value: "512"
       # Token para consultar /salud/servicios desde un monitor externo sin sesión (?token= o X-Salud-Token). Se carga a mano.
+      # (2/11) avisos al equipo (avisos.py): Slack y/o mail cuando llega una pieza a aprobación y cuando se aprueba o rechaza.
+      # Cargar a mano en el panel (el Blueprint no sincroniza): SLACK_WEBHOOK_URL (Incoming Webhook del canal del equipo) y/o
+      # SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, AVISOS_DESDE (Google Workspace: smtp.gmail.com + contraseña de aplicación).
+      - key: WEB_URL
+        value: "https://chatbot-vvaa.vercel.app"
       - key: SALUD_TOKEN
         sync: false
       - key: GOOGLE_CLIENT_ID

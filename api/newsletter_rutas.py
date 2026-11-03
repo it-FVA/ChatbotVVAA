@@ -206,6 +206,8 @@ def enviar_a_aprobacion(g: Guardar, s=Depends(auth.sesion)):
             db._req("DELETE", f"?id=eq.{quote(str(g.borrador_id))}&estado=eq.borrador&usuario=eq.{quote(usuario)}", tabla="publicaciones")
         except Exception:
             pass
+    import avisos as _avisos
+    _avisos.pieza_a_aprobar(db, pid, usuario, "newsletter", _titulo(d), None)   # (2/11) Slack / mail a los aprobadores
     rol = auth.rol_sesion(s)
     quien = ", ".join(rol.get("aprobadores") or []) or "un aprobador"
     return {"ok": True, "id": pid, "estado": "a_aprobar",

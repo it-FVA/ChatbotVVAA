@@ -497,6 +497,8 @@ def enviar_a_aprobacion(p: PiezaCompleta, request: Request):
     if not pid:
         raise HTTPException(503, "No pude guardar la pieza para aprobación.")
     _borrar_borrador(p.borrador_id, usuario)
+    import avisos as _avisos
+    _avisos.pieza_a_aprobar(db, pid, usuario, canal, p.titulo, texto, formato)   # (2/11) Slack / mail a los aprobadores, en un hilo
     quien = ", ".join(rol.get("aprobadores") or []) or "un aprobador"
     return {"ok": True, "id": pid, "estado": "a_aprobar", "modo": "aprobacion", "imagen_url": imagen_url, "avisos": avisos,
             "mensaje": f"Quedó pendiente de aprobación ({quien}). Si la aprueban, sale por {nombre}"
@@ -662,12 +664,16 @@ def aprobar(pid: str, datos: Aprobar, usuario=Depends(auth.aprobador)):
     ahora = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
     if canal == "newsletter":
         db.actualizar_publicacion(pid, {"estado": "lista", "resultado": dict(res, aprobada_por=usuario, aprobada_en=ahora)})
+        import avisos as _avisos
+        _avisos.pieza_resuelta(db, p, "aprobada", usuario)
         return {"ok": True, "estado": "lista", "mensaje": "Aprobado. El HTML queda en «Mis publicaciones» de quien lo propuso y en el Registro, para descargar y pegar en Perfit."}
     fecha = datos.fecha or datetime.date.today().isoformat()
     hora = datos.hora or "09:00"
     fecha_iso = _fecha_iso(fecha, hora)
     modo = cr.modos().get(canal, "")
     db.aprobar_publicacion(pid, usuario, fecha_iso + ZONA_HORARIA, modo, res)
+    import avisos as _avisos
+    _avisos.pieza_resuelta(db, p, "aprobada", usuario, cuando=fecha_iso[:16].replace("T", " "))   # (2/11) aviso a quien la hizo
     return {"ok": True, "estado": "pendiente", "fecha_programada": fecha_iso + ZONA_HORARIA, "modo": modo,
             "mensaje": f"Aprobada. Sale por la cola el {fecha_iso[:16].replace('T', ' ')} (la cola corre cada 15 min)."}
 
@@ -679,6 +685,8 @@ def rechazar(pid: str, datos: Rechazar, usuario=Depends(auth.aprobador)):
     if p.get("estado") != "a_aprobar":
         raise HTTPException(409, "Esa pieza ya no está pendiente de aprobación.")
     db.rechazar_publicacion(pid, usuario, (datos.nota or "").strip(), p.get("resultado") or {})
+    import avisos as _avisos
+    _avisos.pieza_resuelta(db, p, "rechazada", usuario, nota=(datos.nota or "").strip() or None)   # (2/11) aviso a quien la hizo
     return {"ok": True, "estado": "rechazada", "mensaje": "Rechazada. Quien la propuso lo ve en «Mis publicaciones»."}
 
 
