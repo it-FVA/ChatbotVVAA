@@ -5,8 +5,8 @@ import { Icono } from "./Iconos";
 
 // Barra lateral. Rediseñada el 2/11 a pedido de Alberto (reunión del 2/11): de lo general a lo particular.
 //   Chat · Canales (Diseñar: Instagram, Facebook, Blogpost, YouTube, Email; WhatsApp pronto) · Campañas (Frase del día,
-//   Newsletter) · Proyectos (míos, compartidos conmigo) · Herramientas (Mis publicaciones, Mis recortes) · Equipo (Aprobación,
-//   Administración). «Publicar» pasó a llamarse «Diseñar»: una cosa es diseñar la pieza y otra publicarla (eso lo hace el aprobador).
+//   Newsletter) · Proyectos (míos, compartidos conmigo) · Herramientas (Mis publicaciones, Mis recortes) · Gestión (Aprobación,
+//   Administración; se llamó «Equipo» hasta el 3/11). «Publicar» pasó a llamarse «Diseñar»: una cosa es diseñar la pieza y otra publicarla (eso lo hace el aprobador).
 // Abajo, el usuario lleva a «Mi cuenta» (cambiar la contraseña).
 const CANALES = [
   { clave: "instagram", texto: "Instagram", icono: "imagen" },
@@ -87,7 +87,8 @@ export default function Barra() {
           <Icono nombre="tijera" /> Mis recortes
         </NavLink>
 
-        {(yo?.rol.aprueba || yo?.rol.admin) && <div className="barra-grupo">Equipo</div>}
+        {/* (3/11, Franco) «Equipo» no decía qué era: son las herramientas de aprobación y de administración */}
+        {(yo?.rol.aprueba || yo?.rol.admin) && <div className="barra-grupo">Gestión</div>}
         {yo?.rol.aprueba && (
           <NavLink to="/aprobacion" className={link} title="Las piezas que mandó el equipo: revisar, aprobar y publicar">
             <Icono nombre="check" /> Aprobación
