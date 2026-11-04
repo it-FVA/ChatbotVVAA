@@ -1,5 +1,6 @@
 // Icono o miniatura de un ítem de proyecto según el tipo (22/10): conversación (globo), recorte (miniatura del video),
 // pieza (su imagen, o el megáfono), imagen (la foto). Lo usan la grilla y la lista de la vista grande y el panel de detalles.
+import { useState } from "react";
 import type { ItemProyecto, TipoItem } from "../../tiposProyectos";
 import { Icono, type NombreIcono } from "../Iconos";
 
@@ -13,10 +14,11 @@ export function IconoTipo({ tipo, tam = 18 }: { tipo: TipoItem; tam?: number }) 
 /** Miniatura grande (grilla) o chica (lista). */
 export function Miniatura({ it, chica = false }: { it: ItemProyecto; chica?: boolean }) {
   const clase = "item-mini tipo-" + it.tipo + (chica ? " chica" : "") + (it.formato === "vertical" ? " vertical" : "");
-  if (it.miniatura && it.existe) {
+  const [rota, setRota] = useState(false); // (4/11) la imagen no carga: se muestra el icono del tipo en vez del cuadro roto
+  if (it.miniatura && it.existe && !rota) {
     return (
       <div className={clase}>
-        <img src={it.miniatura} alt="" loading="lazy" />
+        <img src={it.miniatura} alt="" loading="lazy" onError={() => setRota(true)} />
         {it.tipo === "recorte" && (
           <span className="item-mini-play" aria-hidden="true">
             <Icono nombre="reproducir" tam={chica ? 10 : 18} relleno />

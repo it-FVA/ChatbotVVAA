@@ -17,6 +17,15 @@ import { descargarHtml } from "./Publicaciones";
 import "../publicar.css";
 import "../proyectos.css";
 
+/** Corta en la última palabra entera y agrega «…». */
+function recortar(t: string, n: number) {
+  t = t.trim();
+  if (t.length <= n) return t;
+  const corte = t.slice(0, n);
+  const espacio = corte.lastIndexOf(" ");
+  return (espacio > n * 0.6 ? corte.slice(0, espacio) : corte).replace(/[\s,.;:]+$/, "") + "…";
+}
+
 /** Lo que manda la vista de Proyectos al abrir un ítem, para que las migas vuelvan a esa carpeta. */
 export interface DesdeCarpeta {
   desde?: { id: string; nombre: string };
@@ -31,6 +40,7 @@ export default function PiezaVer() {
   const proyectos = useProyectos();
   const [p, setP] = useState<Publicacion | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sinImagen, setSinImagen] = useState(false); // la URL de la imagen no carga (sacada del banco, por ejemplo)
 
   useEffect(() => {
     let vivo = true;
@@ -51,7 +61,7 @@ export default function PiezaVer() {
     const c = proyectos.carpetaDe("pieza", id);
     return c ? { id: c.id, nombre: etiqueta(c) } : null;
   })();
-  const titulo = p ? p.titulo || (p.texto || "").split("\n")[0].slice(0, 70) || p.canal_texto || "Pieza" : "Pieza";
+  const titulo = p ? p.titulo || recortar((p.texto || "").split("\n")[0], 70) || p.canal_texto || "Pieza" : "Pieza";
   const migas = carpeta ? [{ texto: "Proyectos", a: "/proyectos" }, { texto: carpeta.nombre, a: `/proyectos/${carpeta.id}` }, { texto: titulo }] : [{ texto: "Mis publicaciones", a: "/publicaciones" }, { texto: titulo }];
   const volver = carpeta ? `/proyectos/${carpeta.id}` : "/publicaciones";
 
@@ -121,14 +131,14 @@ export default function PiezaVer() {
         <div className={"pieza-ver-medio" + (p.formato === "historia" || p.formato === "vertical" || p.formato === "reel" ? " vertical" : "")}>
           {p.video_url ? (
             <video src={p.video_url} controls playsInline preload="metadata" />
-          ) : p.imagen_url ? (
+          ) : p.imagen_url && !sinImagen ? (
             <a href={p.imagen_url} target="_blank" rel="noreferrer" title="Abrir la imagen en tamaño real">
-              <img src={p.imagen_url} alt={p.texto_imagen || ""} />
+              <img src={p.imagen_url} alt={p.texto_imagen || ""} onError={() => setSinImagen(true)} />
             </a>
           ) : (
             <div className="pieza-ver-sin">
               <Icono nombre={icono} tam={42} />
-              <span className="suave chico">Sin imagen</span>
+              <span className="suave chico">{sinImagen ? "La imagen no carga (puede que la hayan sacado del banco)" : "Sin imagen"}</span>
             </div>
           )}
         </div>
@@ -206,7 +216,7 @@ export default function PiezaVer() {
                 <Icono nombre="check" /> Copiar el texto
               </button>
             )}
-            {p.imagen_url && !p.video_url && (
+            {p.imagen_url && !p.video_url && !sinImagen && (
               <a className="boton" href={p.imagen_url} target="_blank" rel="noreferrer" download>
                 <Icono nombre="descargar" /> Bajar la imagen
               </a>

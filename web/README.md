@@ -41,6 +41,22 @@ no toca el cerebro (`nucleo.py`, `db.py`). Las capturas de cómo se ve están en
 `00`–`11` la fase 1 (login, lista, editor de recortes), `20`–`24` el chat (vacío, respuesta con fuentes, tarjeta de video con el
 recorte en proceso, pieza propuesta, cajón de conversaciones en celular). La revisión de UX/UI de los recortes está en `UX-REVISION.md`.
 
+## Abrir lo que te comparten (4/11)
+
+Antes, abrir una pieza desde una carpeta compartida llevaba a «Mis publicaciones», donde no está lo de otra persona, y un recorte
+ajeno mostraba solo «no se puede editar desde acá». Ahora cada uno tiene su pantalla de solo lectura. Capturas `capturas/40`–`42`.
+
+- **Una pieza** (`/publicaciones/:id`, `src/paginas/PiezaVer.tsx`): la imagen o el video en grande, el texto entero, canal, estado,
+  quién la hizo y en qué carpeta está. Si es de otra persona lleva el chip «de X · solo lectura» y no se retoma ni se borra.
+  **Usar como base** abre Diseñar con una copia (`/publicar?base=<id>`): al guardar queda como pieza nueva de quien la usa y la
+  original no cambia (la API además rechaza guardar sobre el borrador de otra persona). También copiar el texto y bajar la imagen.
+  El título de cada tarjeta de «Mis publicaciones» abre esta pantalla.
+- **Un recorte ajeno o en proceso** (`src/paginas/RecorteVer.tsx`, desde `/recortes/:id` cuando no se puede editar): el video,
+  los datos, los subtítulos, **Descargar** y **Usar en una pieza**.
+- Las dos arman las migas de vuelta a la carpeta desde la que se abrió. La API (`GET /publicaciones/{id}`) deja ver una pieza a su
+  dueña, a un aprobador, a cualquiera si la dueña la compartió con el equipo, y a quien la tiene en un proyecto propio o compartido
+  (`permiso_por_proyectos` en `api/proyectos.py`).
+
 ## El chat (fase 2, 22/10)
 
 `/chat` y `/chat/<id>` (`src/paginas/Chat.tsx`, estilos en `src/chat.css`). Detalle:

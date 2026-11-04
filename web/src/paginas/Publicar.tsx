@@ -36,7 +36,8 @@ export default function Publicar() {
   const { avisar } = useToast();
   const [op, setOp] = useState<OpcionesPublicar | null>(null);
   const [form, setForm] = useState<PiezaForm | null>(null);
-  const [origen, setOrigen] = useState<"chat" | "recorte" | "borrador" | "nueva">("nueva");
+  const [origen, setOrigen] = useState<"chat" | "recorte" | "borrador" | "copia" | "nueva">("nueva");
+  const [copiaDe, setCopiaDe] = useState<string | null>(null); // (4/11) de quién es la pieza que se usa como base
   const [error, setError] = useState<string | null>(null);
 
   // 1) opciones; 2) el formulario según de dónde se entra
@@ -57,13 +58,14 @@ export default function Publicar() {
           const p = await apiPublicar.una(borrador);
           if (!vivo) return;
           if (base || p.propia === false) {
-            setError(p.propia === false ? `Es una copia de una pieza de ${p.propuesta_por || p.usuario || "otra persona"}: al guardar queda como pieza tuya nueva y la original no cambia.` : "Es una copia de la pieza: al guardar se crea una nueva y la original no cambia.");
+            setCopiaDe(p.propia === false ? p.propuesta_por || p.usuario || "otra persona" : null);
             setForm({ ...desdeGuardada(p.pieza || {}, o), borrador_id: null });
+            setOrigen("copia");
           } else if (p.estado !== "borrador" || !p.pieza) {
             setError(p.estado === "prueba" ? "Esto fue una prueba (Ver simulado), no un borrador: se abre el formulario con sus datos; si lo guardás, queda como borrador nuevo." : "Esa pieza ya no es un borrador: se abre el formulario con sus datos, pero al guardar se crea una pieza nueva.");
             setForm({ ...desdeGuardada(p.pieza || {}, o), borrador_id: null });
           } else setForm(desdeGuardada(p.pieza, o));
-          setOrigen("borrador");
+          if (!(base || p.propia === false)) setOrigen("borrador");
         } else if (recorte) {
           const r = await api.recorte(recorte);
           if (!vivo) return;
@@ -128,11 +130,11 @@ export default function Publicar() {
       </div>
     );
   }
-  return <Formulario key={form.borrador_id || origen} inicial={form} op={op} origen={origen} avisoInicial={error} avisar={avisar} />;
+  return <Formulario key={form.borrador_id || origen} inicial={form} op={op} origen={origen} copiaDe={copiaDe} avisoInicial={error} avisar={avisar} />;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-function Formulario({ inicial, op, origen, avisoInicial, avisar }: { inicial: PiezaForm; op: OpcionesPublicar; origen: string; avisoInicial: string | null; avisar: (t: string, tipo?: "ok" | "error" | "info") => void }) {
+function Formulario({ inicial, op, origen, copiaDe = null, avisoInicial, avisar }: { inicial: PiezaForm; op: OpcionesPublicar; origen: string; copiaDe?: string | null; avisoInicial: string | null; avisar: (t: string, tipo?: "ok" | "error" | "info") => void }) {
   // (2/11, reunión: Alberto) desde «Canales · Diseñar» se entra con el canal ya elegido: la pantalla se centra en ese canal
   // (título, texto de ayuda, el canal fijo en una línea: para otro canal se vuelve al menú)
   const [paramsMenu] = useSearchParams();
@@ -199,7 +201,7 @@ function Formulario({ inicial, op, origen, avisoInicial, avisar }: { inicial: Pi
   useEffect(() => {
     if (!canal || conVideo) return;
     const sugerido = op.formato_por_canal[canal];
-    if (sugerido && origen !== "borrador") set("formato", sugerido);
+    if (sugerido && origen !== "borrador" && origen !== "copia") set("formato", sugerido);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canal]);
 
@@ -339,6 +341,7 @@ function Formulario({ inicial, op, origen, avisoInicial, avisar }: { inicial: Pi
             {desdeMenu && canal && (AYUDA_CANAL[canal] ?? "Acá se diseña la pieza: foto, frase, texto y fecha. Publicarla es el paso siguiente, desde Aprobación.")}
             {!desdeMenu && origen === "chat" && "La pieza que propuso el bot, lista para ajustar y mandar."}
             {origen === "recorte" && "Un recorte listo para publicar: elegí el canal y escribí el texto."}
+            {origen === "copia" && (copiaDe ? `Una copia de una pieza de ${copiaDe}: ajustala y guardala como tuya. La original no cambia.` : "Una copia de la pieza: al guardar se crea una nueva y la original no cambia.")}
             {origen === "borrador" && "Retomando un borrador: al guardar se actualiza el mismo; al enviarlo o mandarlo a aprobación, el borrador se elimina."}
             {!desdeMenu && origen === "nueva" && "Acá se diseña la pieza: foto, frase, texto y fecha. Publicarla es el paso siguiente, desde Aprobación. También se puede diseñar desde el chat, debajo de la respuesta del bot."}
           </p>

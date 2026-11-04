@@ -344,7 +344,9 @@ export default function Proyectos() {
   });
 
   const esDuenoDe = (p: Proyecto) => p.permiso === "dueño" || p.dueno === yo?.usuario;
-  const migas = id ? [{ id: "", nombre: "Mis proyectos" }, ...(contenido?.migas || (carpetaActual ? [{ id: carpetaActual.id, nombre: carpetaActual.nombre }] : []))] : [{ id: "", nombre: "Mis proyectos" }];
+  // (4/11) una carpeta de otra persona arranca las migas en «Compartidos conmigo», no en «Mis proyectos»
+  const raizMigas = id && permiso && permiso !== "dueño" ? "Compartidos conmigo" : "Mis proyectos";
+  const migas = id ? [{ id: "", nombre: raizMigas }, ...(contenido?.migas || (carpetaActual ? [{ id: carpetaActual.id, nombre: carpetaActual.nombre }] : []))] : [{ id: "", nombre: "Mis proyectos" }];
   const nombreVentana = carpetaActual ? etiqueta(carpetaActual) : "Proyectos";
   const itemsSel = seleccion.filter((s) => s.clase === "item").map((s) => items.find((i) => i.id === s.id)!).filter(Boolean);
 
@@ -436,7 +438,7 @@ export default function Proyectos() {
                 <span aria-current="page">{m.nombre}</span>
               ) : (
                 <Link
-                  to={m.id ? `/proyectos/${m.id}` : "/proyectos"}
+                  to={m.id ? `/proyectos/${m.id}` : raizMigas === "Compartidos conmigo" ? "/compartidos" : "/proyectos"}
                   className={sobreCarpeta === (m.id || "raiz") ? "sobre" : ""}
                   onDragOver={(e) => {
                     if (!aceptaSoltar(e, m.id ? destino : null)) return;
@@ -800,7 +802,7 @@ function DetalleCarpeta({ p, puedeEditar, esDueno, actual = false, compartidoCon
         <dd>{fechaCorta(p.creado)}</dd>
         <dt>Actualizada</dt>
         <dd>{fechaCorta(p.actualizado)}</dd>
-        {compartidoCon && (
+        {compartidoCon && esDueno && (
           <>
             <dt>Compartida con</dt>
             <dd>{compartidoCon.length ? compartidoCon.map((c) => `${c.usuario} (${c.permiso})`).join(", ") : "nadie todavía"}</dd>
