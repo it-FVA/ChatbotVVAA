@@ -229,7 +229,13 @@ export function TarjetaPublicacion({ p, mostrarUsuario = false, onEliminar, onCa
             </span>
           )}
         </div>
-        {p.titulo && <h3>{p.titulo}</h3>}
+        {p.titulo && (
+          <h3>
+            <Link to={`/publicaciones/${encodeURIComponent(p.id)}`} className="publicacion-titulo-link" title="Ver la pieza entera">
+              {p.titulo}
+            </Link>
+          </h3>
+        )}
         {esNewsletter ? <p className="suave chico">Newsletter · plantilla {p.plantilla || "mensual"}</p> : p.texto && <p className="publicacion-texto">{p.texto.slice(0, 220) + (p.texto.length > 220 ? "…" : "")}</p>}
         {p.texto_imagen && <p className="suave chico">Sobre la imagen: «{p.texto_imagen}»</p>}
         <div className="publicacion-detalle suave chico">

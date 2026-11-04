@@ -509,13 +509,20 @@ def enviar(p: Envio, request: Request):
 # ---------------- Mis publicaciones: una pieza, retomar, eliminar ----------------
 @router.get("/publicaciones/{pid}")
 def una_publicacion(pid: str, request: Request):
-    """La pieza (dueño o aprobador) decorada, más `pieza`: el dict con que el formulario se precarga («✏️ Retomar»)."""
+    """La pieza decorada, más `pieza`: el dict con que el formulario se precarga («✏️ Retomar» o «Usar como base»).
+    (4/11) La ve su dueña, un aprobador, cualquiera si la dueña la compartió con el equipo, y quien la tiene en un proyecto
+    propio o compartido. `propia` dice si es de quien la mira: si no, la web la muestra en solo lectura y no la retoma."""
+    from .proyectos import permiso_por_proyectos
     usuario, rol = _rol(request)
     p = _fila(pid)
-    if p.get("usuario") != usuario and not rol.get("aprueba"):
-        raise HTTPException(403, "Esa pieza es de otra persona.")
+    propia = p.get("usuario") == usuario
+    if not (propia or rol.get("aprueba") or p.get("compartido") or permiso_por_proyectos("pieza", pid, usuario)):
+        raise HTTPException(403, "Esa pieza es de otra persona y no está compartida con vos.")
     p = decorar(p)
     p["pieza"] = pieza_de_fila(p)
+    p["propia"] = propia
+    if not propia:                       # lo que solo hace la dueña
+        p["retomable"] = p["eliminable"] = False
     return p
 
 

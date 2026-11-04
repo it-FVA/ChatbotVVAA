@@ -220,6 +220,24 @@ def conversacion_accesible(cid, usuario, editar=False):
     return c, perm
 
 
+def permiso_por_proyectos(tipo, item_id, usuario):
+    """(4/11, Franco: «cuando quiero abrir una pieza que me comparten no se abre») 'editar' | 'ver' | None según los proyectos
+    donde está el ítem y que la persona ve (propios o compartidos con ella). Lo usan GET /publicaciones/{id} y GET /recortes/{id}
+    para dejar ver una pieza o un recorte ajeno que llegó por una carpeta compartida."""
+    if not db.disponible() or not item_id:
+        return None
+    permisos = set()
+    try:
+        for u in ubicaciones_de(tipo, str(item_id)):
+            perm = permiso_proyecto(proyecto_por_id(u["proyecto_id"]), usuario)
+            if perm:
+                permisos.add("editar" if perm in ("dueño", "editar") else "ver")
+    except Exception as e:
+        log.warning("permiso_por_proyectos: %s", e)
+        return None
+    return "editar" if "editar" in permisos else ("ver" if permisos else None)
+
+
 # ---------------- Resúmenes de los ítems (una consulta por tipo) ----------------
 def _titulo_pieza(p):
     t = (p.get("titulo") or "").strip()
@@ -474,8 +492,10 @@ def _validar_item(tipo, item_id, datos, usuario):
         p = db.obtener_publicacion(item_id)
         if not p:
             raise HTTPException(404, "No existe esa pieza.")
-        if p.get("usuario") != usuario and not _aprueba(usuario):
-            raise HTTPException(403, "Esa pieza es de otra persona.")
+        # (4/11) igual que los recortes: una pieza ajena entra si su dueña la compartió con el equipo, si ya la ves por un
+        # proyecto compartido, o si sos aprobador
+        if p.get("usuario") != usuario and not p.get("compartido") and not _aprueba(usuario) and not permiso_por_proyectos("pieza", item_id, usuario):
+            raise HTTPException(403, "Esa pieza es de otra persona y no está compartida.")
     elif tipo == "imagen":
         url = ((datos or {}).get("url") or item_id).strip()
         if not url.startswith("http"):

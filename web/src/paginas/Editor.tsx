@@ -17,6 +17,7 @@ import { EditorEsqueleto, Migas, Tecla } from "../componentes/Comunes";
 import { useToast } from "../componentes/Toasts";
 import { mmss, tramoAVideo, videoATramo } from "../util/tiempo";
 import * as pz from "../util/piezas";
+import RecorteVer from "./RecorteVer";
 import "../recortes.css";
 
 const MIN_MS = 2000;
@@ -49,16 +50,8 @@ export default function Editor() {
       </div>
     );
   if (!det || !opciones) return <EditorEsqueleto />;
-  if (!det.puede_editar)
-    return (
-      <div className="pagina">
-        <Migas pasos={[{ texto: "Recortes", a: "/recortes" }, { texto: (det.titulo || det.video_id).slice(0, 60) }]} />
-        <div className="aviso">Este recorte no se puede editar desde acá (no está listo, o lo pidió otra persona).</div>
-        <Link className="boton" to="/recortes">
-          <Icono nombre="flechaIzq" /> Volver a los recortes
-        </Link>
-      </div>
-    );
+  // (4/11) de otra persona o todavía en proceso: se ve, se baja y se usa en una pieza (antes era un cartel sin salida)
+  if (!det.puede_editar) return <RecorteVer det={det} />;
   return <EditorCargado det={det} opciones={opciones} />;
 }
 

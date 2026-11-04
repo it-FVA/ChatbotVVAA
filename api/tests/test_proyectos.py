@@ -300,3 +300,37 @@ def test_sin_supabase_y_sin_sesion(cliente, monkeypatch):
     assert cliente.get("/proyectos").status_code == 401
     assert cliente.get("/compartidos-conmigo").status_code == 401
     assert cliente.get("/usuarios/buscar").status_code == 401
+
+
+def test_pieza_ajena_se_abre_por_proyecto_compartido(logueado, base, cliente):
+    """(4/11, Franco) «cuando quiero abrir una pieza que me comparten no se abre»: GET /publicaciones/{id} deja verla en solo
+    lectura a quien la tiene en un proyecto compartido (propia=false, sin Retomar ni Eliminar)."""
+    _lizzie(cliente)
+    assert cliente.get("/publicaciones/p1").status_code == 403          # de Franco, sin compartir: Lizzie no la ve
+    _como(logueado, "franco")
+    a = logueado.post("/proyectos", json={"nombre": "Campaña"}).json()
+    assert logueado.post(f"/proyectos/{a['id']}/items", json={"tipo": "pieza", "item_id": "p1"}).status_code == 200
+    mia = logueado.get("/publicaciones/p1").json()
+    assert mia["propia"] is True and mia["retomable"] is True
+    logueado.put(f"/compartidos/proyecto/{a['id']}", json={"usuario": "lizzie", "permiso": "ver"})
+    _lizzie(cliente)
+    r = cliente.get("/publicaciones/p1")
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["propia"] is False and d["retomable"] is False and d["eliminable"] is False and d["pieza"]["texto"].startswith("Un texto")
+    # si dejan de compartirle la carpeta, ya no la ve
+    _como(logueado, "franco")
+    logueado.delete(f"/compartidos/proyecto/{a['id']}/lizzie")
+    _lizzie(cliente)
+    assert cliente.get("/publicaciones/p1").status_code == 403
+
+
+def test_pieza_ajena_compartida_con_el_equipo_entra_a_un_proyecto(logueado, base, cliente):
+    """(4/11) Como los recortes: una pieza ajena que su dueña compartió con el equipo se puede guardar en un proyecto propio."""
+    base.agregar("publicaciones", id="p2", usuario="franco", canal="facebook", estado="publicada", titulo="De Franco", texto="x", compartido=False)
+    _lizzie(cliente)
+    a = cliente.post("/proyectos", json={"nombre": "Mías"}).json()
+    assert cliente.post(f"/proyectos/{a['id']}/items", json={"tipo": "pieza", "item_id": "p2"}).status_code == 403
+    base.t["publicaciones"][-1]["compartido"] = True
+    assert cliente.post(f"/proyectos/{a['id']}/items", json={"tipo": "pieza", "item_id": "p2"}).status_code == 200
+    assert cliente.get("/publicaciones/p2").json()["propia"] is False

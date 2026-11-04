@@ -47,13 +47,19 @@ export default function Publicar() {
         const o = await apiPublicar.opciones();
         if (!vivo) return;
         setOp(o);
-        const borrador = params.get("borrador");
+        // (4/11) ?base=<id>: «Usar como base» desde una pieza (propia o compartida): el formulario arranca con una copia y al
+        // guardar se crea una pieza nueva de quien la usa; la original no cambia
+        const base = params.get("base");
+        const borrador = params.get("borrador") || base;
         const recorte = params.get("recorte");
         const pieza = (loc.state as { pieza?: Pieza } | null)?.pieza;
         if (borrador) {
           const p = await apiPublicar.una(borrador);
           if (!vivo) return;
-          if (p.estado !== "borrador" || !p.pieza) {
+          if (base || p.propia === false) {
+            setError(p.propia === false ? `Es una copia de una pieza de ${p.propuesta_por || p.usuario || "otra persona"}: al guardar queda como pieza tuya nueva y la original no cambia.` : "Es una copia de la pieza: al guardar se crea una nueva y la original no cambia.");
+            setForm({ ...desdeGuardada(p.pieza || {}, o), borrador_id: null });
+          } else if (p.estado !== "borrador" || !p.pieza) {
             setError(p.estado === "prueba" ? "Esto fue una prueba (Ver simulado), no un borrador: se abre el formulario con sus datos; si lo guardás, queda como borrador nuevo." : "Esa pieza ya no es un borrador: se abre el formulario con sus datos, pero al guardar se crea una pieza nueva.");
             setForm({ ...desdeGuardada(p.pieza || {}, o), borrador_id: null });
           } else setForm(desdeGuardada(p.pieza, o));
@@ -84,7 +90,7 @@ export default function Publicar() {
       vivo = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.get("borrador"), params.get("recorte")]);
+  }, [params.get("borrador"), params.get("base"), params.get("recorte")]);
 
   if (!form || !op) {
     if (error)

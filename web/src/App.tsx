@@ -11,6 +11,7 @@ import Cuenta from "./paginas/Cuenta";
 import Aprobacion, { Clips, Cola, Papelera, ParaAprobar, Registro } from "./paginas/Aprobacion";
 import Publicar from "./paginas/Publicar";
 import Publicaciones from "./paginas/Publicaciones";
+import PiezaVer from "./paginas/PiezaVer";
 import Newsletter from "./paginas/Newsletter";
 import FraseDelDia from "./paginas/frase/FraseDelDia";
 import Administracion from "./paginas/admin/Administracion";
@@ -73,6 +74,7 @@ export default function App() {
                     <Route path="/frase-del-dia" element={<FraseDelDia />} />
                     <Route path="/publicar" element={<Publicar />} />
                     <Route path="/publicaciones" element={<Publicaciones />} />
+                    <Route path="/publicaciones/:id" element={<PiezaVer />} />
                     <Route path="/aprobacion" element={<Aprobacion />}>
                       <Route index element={<ParaAprobar />} />
                       <Route path="cola" element={<Cola />} />

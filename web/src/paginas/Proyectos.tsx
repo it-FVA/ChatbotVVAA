@@ -155,7 +155,8 @@ export default function Proyectos() {
     else {
       const it = items.find((i) => i.id === s.id);
       const r = it && rutaDe(it);
-      if (r) nav(r);
+      // la pantalla del ítem arma las migas de vuelta a esta carpeta
+      if (r) nav(r, { state: carpetaActual ? { desde: { id: carpetaActual.id, nombre: etiqueta(carpetaActual) } } : null });
       else if (it?.tipo === "imagen" && it.url) window.open(it.url, "_blank", "noopener");
       else avisar(it && !it.existe ? "Ese elemento ya no existe." : "Ese elemento todavía no tiene pantalla propia.", "info");
     }

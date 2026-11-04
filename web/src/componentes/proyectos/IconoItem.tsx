@@ -36,8 +36,10 @@ export function Miniatura({ it, chica = false }: { it: ItemProyecto; chica?: boo
 export function rutaDe(it: ItemProyecto): string | null {
   if (!it.existe) return null;
   if (it.tipo === "conversacion") return `/chat/${it.item_id}`;
-  if (it.tipo === "recorte") return it.estado === "listo" ? `/recortes/${it.item_id}` : "/recortes";
-  if (it.tipo === "pieza") return "/publicaciones";
+  // (4/11) cada uno a su propia pantalla: un recorte o una pieza ajenos se ven en solo lectura (antes la pieza iba a «Mis
+  // publicaciones», donde no está lo de otra persona, y el recorte ajeno mostraba solo «no se puede editar»)
+  if (it.tipo === "recorte") return `/recortes/${it.item_id}`;
+  if (it.tipo === "pieza") return `/publicaciones/${it.item_id}`;
   return null;
 }
 

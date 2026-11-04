@@ -5468,7 +5468,7 @@
     ]
    },
    "get": {
-    "description": "La pieza (dueño o aprobador) decorada, más `pieza`: el dict con que el formulario se precarga («✏️ Retomar»).",
+    "description": "La pieza decorada, más `pieza`: el dict con que el formulario se precarga («✏️ Retomar» o «Usar como base»).\n(4/11) La ve su dueña, un aprobador, cualquiera si la dueña la compartió con el equipo, y quien la tiene en un proyecto\npropio o compartido. `propia` dice si es de quien la mira: si no, la web la muestra en solo lectura y no la retoma.",
     "operationId": "una_publicacion_publicaciones__pid__get",
     "parameters": [
      {

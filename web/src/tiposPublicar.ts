@@ -157,6 +157,7 @@ export interface Publicacion {
   hora_sugerida?: string;
   // solo en /publicaciones/{id}
   pieza?: PiezaGuardada;
+  propia?: boolean; // (4/11) false si es de otra persona (llegó por un proyecto compartido o por «Del equipo»)
 }
 
 export interface MisPublicaciones {
