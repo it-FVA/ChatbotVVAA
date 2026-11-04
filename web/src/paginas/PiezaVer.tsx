@@ -62,7 +62,9 @@ export default function PiezaVer() {
     return c ? { id: c.id, nombre: etiqueta(c) } : null;
   })();
   const titulo = p ? p.titulo || recortar((p.texto || "").split("\n")[0], 70) || p.canal_texto || "Pieza" : "Pieza";
-  const migas = carpeta ? [{ texto: "Proyectos", a: "/proyectos" }, { texto: carpeta.nombre, a: `/proyectos/${carpeta.id}` }, { texto: titulo }] : [{ texto: "Mis publicaciones", a: "/publicaciones" }, { texto: titulo }];
+  // una carpeta de otra persona cuelga de «Compartidos conmigo», como en la vista de carpetas
+  const raiz = carpeta && proyectos.porId.get(carpeta.id)?.permiso !== "dueño" && proyectos.porId.has(carpeta.id) ? { texto: "Compartidos conmigo", a: "/compartidos" } : { texto: "Proyectos", a: "/proyectos" };
+  const migas = carpeta ? [raiz, { texto: carpeta.nombre, a: `/proyectos/${carpeta.id}` }, { texto: titulo }] : [{ texto: "Mis publicaciones", a: "/publicaciones" }, { texto: titulo }];
   const volver = carpeta ? `/proyectos/${carpeta.id}` : "/publicaciones";
 
   if (error)

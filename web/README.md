@@ -53,7 +53,12 @@ ajeno mostraba solo «no se puede editar desde acá». Ahora cada uno tiene su p
   El título de cada tarjeta de «Mis publicaciones» abre esta pantalla.
 - **Un recorte ajeno o en proceso** (`src/paginas/RecorteVer.tsx`, desde `/recortes/:id` cuando no se puede editar): el video,
   los datos, los subtítulos, **Descargar** y **Usar en una pieza**.
-- Las dos arman las migas de vuelta a la carpeta desde la que se abrió. La API (`GET /publicaciones/{id}`) deja ver una pieza a su
+- La barra marca la carpeta («Mis proyectos» o «Compartidos») cuando se abre algo desde una carpeta, no «Mis publicaciones» ni
+  «Mis recortes». Una carpeta de otra persona cuelga de «Compartidos conmigo» en las migas.
+- **Celular** (`componentes/Barra.tsx` y el bloque `max-width: 760px` de `estilos.css`): arriba va solo el logo y «Menú»; el menú
+  completo es un cajón lateral que se cierra al elegir, con Esc o tocando afuera (antes los 14 enlaces ocupaban toda la primera
+  pantalla). En la computadora la barra no cambia. Capturas `capturas/43` (celular) y `44` (escritorio).
+- Las dos pantallas arman las migas de vuelta a la carpeta desde la que se abrió. La API (`GET /publicaciones/{id}`) deja ver una pieza a su
   dueña, a un aprobador, a cualquiera si la dueña la compartió con el equipo, y a quien la tiene en un proyecto propio o compartido
   (`permiso_por_proyectos` en `api/proyectos.py`).
 

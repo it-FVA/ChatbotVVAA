@@ -183,6 +183,14 @@ button:focus-visible,
 .barra-link.pronto:hover {
   background: none;
 }
+/* (4/11) el envoltorio del cajón del celular no cuenta en la computadora: nav y pie siguen siendo hijos de .barra */
+.barra-cajon {
+  display: contents;
+}
+.barra .barra-menu-boton,
+.barra .barra-velo {
+  display: none;
+}
 .barra-pie {
   margin-top: auto;
   flex: none;
@@ -880,46 +888,62 @@ input[type="number"] {
 .app {
     flex-direction: column;
   }
+/* (4/11) en celular la barra es una franja con el logo y «Menú»; el menú completo es un cajón lateral (.barra.abierta) */
 .barra {
     width: auto;
     flex: none;
     height: auto;
-    position: static;
+    position: sticky;
+    top: 0;
+    z-index: 45;
     flex-direction: row;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 8px 14px;
-    padding: 10px 12px;
+    padding: 8px 12px;
     border-right: 0;
     border-bottom: 1px solid var(--borde);
+    overflow: visible;
+  }
+.barra-marca {
+    flex: 1;
+  }
+.barra-marca img {
+    width: 34px;
+    height: 34px;
   }
 .barra-marca .suave {
     display: none;
   }
-.barra-nav {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 2px;
-    order: 3;
-    width: 100%;
-  }
-.barra-link {
-    padding: 6px 9px;
-    font-size: 0.86rem;
-    gap: 5px;
-  }
-.barra-link .suave {
-    display: none;
-  }
-.barra-link.sub {
-    padding: 6px 9px;
-    min-height: 0;
-  }
-.barra-link.pronto {
-    display: none;
-  }
-.barra-pie {
+.barra .barra-menu-boton {
+    display: inline-flex;
     margin-left: auto;
+  }
+.barra-cajon {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(300px, 86vw);
+    padding: 14px 12px;
+    background: #fff;
+    box-shadow: var(--sombra-alta);
+    z-index: 60;
+    transform: translateX(-105%);
+    transition: transform 200ms ease;
+    visibility: hidden;
+  }
+.barra.abierta .barra-cajon {
+    transform: none;
+    visibility: visible;
+  }
+.barra .barra-velo {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(43, 43, 43, 0.35);
+    z-index: 55;
   }
 .pagina {
     padding: 14px 12px 50px;
@@ -1316,9 +1340,6 @@ input[type="number"] {
   }
 .celda-acciones .etiqueta {
     display: inline;
-  }
-.barra-grupo {
-    display: none;
   }
 }
 .bloque {

@@ -25,7 +25,9 @@ export default function RecorteVer({ det }: { det: Detalle }) {
   const desde = (loc.state as DesdeCarpeta | null)?.desde;
   const enCarpeta = proyectos.carpetaDe("recorte", det.id);
   const carpeta = desde || (enCarpeta ? { id: enCarpeta.id, nombre: etiqueta(enCarpeta) } : null);
-  const migas = carpeta ? [{ texto: "Proyectos", a: "/proyectos" }, { texto: carpeta.nombre, a: `/proyectos/${carpeta.id}` }, { texto: titulo }] : [{ texto: "Recortes", a: "/recortes" }, { texto: titulo }];
+  // una carpeta de otra persona cuelga de «Compartidos conmigo», como en la vista de carpetas
+  const raiz = carpeta && proyectos.porId.get(carpeta.id)?.permiso !== "dueño" && proyectos.porId.has(carpeta.id) ? { texto: "Compartidos conmigo", a: "/compartidos" } : { texto: "Proyectos", a: "/proyectos" };
+  const migas = carpeta ? [raiz, { texto: carpeta.nombre, a: `/proyectos/${carpeta.id}` }, { texto: titulo }] : [{ texto: "Recortes", a: "/recortes" }, { texto: titulo }];
   const volver = carpeta ? `/proyectos/${carpeta.id}` : "/recortes";
 
   async function descargar() {
