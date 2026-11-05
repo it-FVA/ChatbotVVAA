@@ -63,7 +63,14 @@ def test_config_desde_el_registro():
 
 def test_aviso():
     assert "apagado" in canales.aviso("instagram", "apagado", False)
-    assert "{cuando}" in canales.aviso("instagram", "real", True) and "cola" in canales.aviso("instagram", "real", True)
+    assert "{cuando}" in canales.aviso("instagram", "real", True) and "programada" in canales.aviso("instagram", "real", True)
+    # (5/11) vocabulario de la web: ni «simulado», ni «cola», ni «Modo REAL» en lo que ve el usuario
+    for clave in ("instagram", "facebook", "wordpress", "youtube", "mail"):
+        for modo in ("apagado", "simulado", "real", "privado", "borrador"):
+            for con_fecha in (False, True):
+                a = canales.aviso(clave, modo, con_fecha)
+                assert "simulad" not in a and "cola" not in a and "REAL" not in a, (clave, modo, con_fecha, a)
+    assert "prueba" in canales.aviso("instagram", "simulado", True)
     assert "{cuando}" not in canales.aviso("instagram", "real", False)
     assert "Facebook" in canales.aviso("facebook", "real", True) and "10 minutos" in canales.aviso("facebook", "real", True)
     assert "YouTube Studio" in canales.aviso("youtube", "privado", False)

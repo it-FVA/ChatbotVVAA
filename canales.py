@@ -238,15 +238,16 @@ def para_web():
 
 def aviso(clave, modo, con_fecha):
     """Una o dos frases sin markdown: qué pasa al apretar «Enviar» por este canal con este modo, con o sin fecha.
-    Con fecha, el texto lleva «{cuando}» para que la web ponga la fecha."""
+    Con fecha, el texto lleva «{cuando}» para que la web ponga la fecha.
+    (5/11, QA visual) Mismo vocabulario que la web: «prueba» en vez de «simulado», «programada» en vez de «cola», sin «Modo REAL»."""
     c = canal(clave)
     nombre = c.nombre if c else clave
     if modo == "apagado":
         return f"{nombre} está apagado. No se puede hacer nada por este canal."
     if modo == "simulado":
-        a = f"Se arma la pieza tal cual saldría en {nombre} y se muestra acá. No se manda."
+        a = f"Se arma la pieza tal cual saldría en {nombre} y se muestra acá. No sale de verdad."
         if con_fecha and clave == "facebook":
-            a += " (En modo real, Facebook sí acepta programación.)"
+            a += " (Cuando el canal esté en real, Facebook sí acepta programación.)"
     elif modo == "privado":
         a = "Se sube el video a YouTube como privado. No lo ve nadie hasta que lo publiques desde YouTube Studio."
     elif modo == "borrador":
@@ -254,16 +255,16 @@ def aviso(clave, modo, con_fecha):
         if con_fecha:
             a += " La fecha {cuando} queda guardada en el borrador."
     else:
-        a = f"Modo REAL: se publica en {nombre} de verdad."
+        a = f"Se publica en {nombre} de verdad."
         if con_fecha and clave == "wordpress":
-            a = "Modo REAL: se programa en WordPress para el {cuando} y sale sola ese día (y por newsletter)."
+            a = "Se programa en WordPress para el {cuando} y sale sola ese día (y por newsletter)."
         if con_fecha and clave == "facebook":
-            a = "Modo REAL: se programa en Facebook para el {cuando} (mínimo 10 minutos de anticipación)."
+            a = "Se programa en Facebook para el {cuando} (mínimo 10 minutos de anticipación)."
         if con_fecha and clave == "youtube":
-            a = "Modo REAL: se sube ahora y YouTube lo publica solo el {cuando}."
+            a = "Se sube ahora y YouTube lo publica solo el {cuando}."
     if clave == "youtube" and modo in ("privado", "real"):
         a += " (Hasta que Google audite el proyecto, YouTube deja los videos subidos por API en privado: se publican desde YouTube Studio.)"
     if con_fecha and c and c.va_a_la_cola(modo):
-        a = (f"Queda en la cola para el {{cuando}}: no se manda ahora. Ese día sale sola por {nombre} con el modo que tenga el canal en ese "
-             f"momento (hoy {modo}" + (": se arma y se muestra, no se publica" if modo == "simulado" else "") + ").")
+        a = f"Queda programada para el {{cuando}}: no sale ahora. Ese día sale sola por {nombre}"
+        a += " (el canal está en prueba: ese día se arma y se muestra, no sale de verdad)." if modo == "simulado" else "."
     return a

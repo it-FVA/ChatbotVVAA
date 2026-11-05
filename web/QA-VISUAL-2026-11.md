@@ -17,7 +17,7 @@ solo en el código.
 | T4 | Diseñar | Toast «Pieza simulada: así quedaría.» y título de resultado «Así quedaría en X». | arreglar: «Así quedaría la pieza.» |
 | T5 | Diseñar | «Quedó en la cola.» al enviar. | arreglar: «Quedó programada: sale en su fecha.» |
 | T6 | Diseñar | Mensaje «X está en modo Y: no hay a dónde mandarla cuando la aprueben». | arreglar: «X no está habilitado todavía: guardala como borrador.» |
-| T6b | Diseñar | El aviso del paso 3 («Blogpost: está en simulado, no sale nada de verdad…») lo arma la API (`aviso_con_fecha`). | dejar: texto de la API, fuera del alcance (anotado para el coordinador) |
+| T6b | Diseñar | El aviso del paso 3 («Blogpost: está en simulado, no sale nada de verdad…») lo arma la API (`aviso_con_fecha`). | hecho (coordinador, 5/11 noche): `canales.aviso` habla igual que la web, «prueba», «programada», sin «Modo REAL»; prueba en `test_canales.py` que ninguna combinación canal/modo/fecha diga «simulado», «cola» ni «REAL» |
 | T7 | Diseñar | Al llegar con `?canal=` desde el menú, producción sigue mostrando el selector de los cuatro canales. | dejar: en el código ya está la versión fija (`pub-canal-fijo`, commit 3e5c01b, todavía sin desplegar); se verifica después del deploy |
 | T8 | Diseñar | Vista previa muestra «Blogpost · simulado» como chip. | arreglar: solo el nombre del canal (y el tipo de Instagram) |
 | T9 | Mis publicaciones | Estados «simulada» y «simulado» para la misma cosa (dos piezas seguidas). Vienen de la API en `estado_texto`. | arreglar en la web: se muestra «prueba» para ambos (la API no se toca) |
