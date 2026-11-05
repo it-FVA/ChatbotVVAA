@@ -224,6 +224,7 @@ button:focus-visible,
 }
 .pagina-cabecera-texto h1 {
   margin-bottom: 4px;
+  overflow-wrap: anywhere;
 }
 .pagina-cabecera .pagina-subtitulo {
   margin: 0;
@@ -264,6 +265,8 @@ button:focus-visible,
   display: inline-flex;
   align-items: center;
   gap: 2px;
+  min-width: 0;
+  max-width: 100%;
 }
 .miga a {
   text-decoration: none;
@@ -276,7 +279,7 @@ button:focus-visible,
   text-decoration: underline;
 }
 .miga [aria-current] {
-  max-width: 48ch;
+  max-width: min(48ch, 100%);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1007,7 +1010,7 @@ input[type="number"] {
     flex: none;
   }
 .control-tiempo input {
-    width: 52px;
+    width: 60px;
   }
 /* barra inferior fija con «Regenerar» */
 .pagina.editor {

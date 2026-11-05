@@ -536,9 +536,14 @@ h2 .estado-chip {
 }
 .grafico {
   margin: 0;
+  min-width: 0;
+}
+.graficos > * {
+  min-width: 0;
 }
 .grafico svg {
   width: 100%;
+  max-width: 100%;
   height: auto;
   display: block;
   overflow: visible;

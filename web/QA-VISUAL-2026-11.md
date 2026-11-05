@@ -17,7 +17,8 @@ solo en el código.
 | T4 | Diseñar | Toast «Pieza simulada: así quedaría.» y título de resultado «Así quedaría en X». | arreglar: «Así quedaría la pieza.» |
 | T5 | Diseñar | «Quedó en la cola.» al enviar. | arreglar: «Quedó programada: sale en su fecha.» |
 | T6 | Diseñar | Mensaje «X está en modo Y: no hay a dónde mandarla cuando la aprueben». | arreglar: «X no está habilitado todavía: guardala como borrador.» |
-| T7 | Diseñar | Al llegar con `?canal=` desde el menú, producción sigue mostrando el selector de los cuatro canales. | dejar: en el código ya está la versión fija (`pub-canal-fijo`); se verifica después del deploy |
+| T6b | Diseñar | El aviso del paso 3 («Blogpost: está en simulado, no sale nada de verdad…») lo arma la API (`aviso_con_fecha`). | dejar: texto de la API, fuera del alcance (anotado para el coordinador) |
+| T7 | Diseñar | Al llegar con `?canal=` desde el menú, producción sigue mostrando el selector de los cuatro canales. | dejar: en el código ya está la versión fija (`pub-canal-fijo`, commit 3e5c01b, todavía sin desplegar); se verifica después del deploy |
 | T8 | Diseñar | Vista previa muestra «Blogpost · simulado» como chip. | arreglar: solo el nombre del canal (y el tipo de Instagram) |
 | T9 | Mis publicaciones | Estados «simulada» y «simulado» para la misma cosa (dos piezas seguidas). Vienen de la API en `estado_texto`. | arreglar en la web: se muestra «prueba» para ambos (la API no se toca) |
 | T10 | Mis publicaciones | Subtítulo termina en «… borradores y pruebas.» pero la solapa se llama «Pruebas» y el chip dice «simulada». | arreglar: queda «prueba» en todos lados |
@@ -27,7 +28,7 @@ solo en el código.
 | T14 | Aprobación → En cola | Solapa «En cola». | preguntar: propongo «Programadas» (ver decisiones dudosas) |
 | T15 | Aprobación → Clips | «Los corta la nube cada 15 minutos desde los originales en Drive.» | arreglar: «Se cortan solos, tardan unos 15 minutos.» |
 | T16 | Aprobación → Clips | Chip de estado vacío («estado neutro» sin texto) en dos tarjetas de En cola. | arreglar: si no hay texto no se dibuja el chip |
-| T17 | Mis recortes | «sin pausas (38 s → 32 s)» y «3 pedazos conservados» en la fila de datos, además de la nota larga «Pedazos sacados del medio: 52 s → 38 s (3 tramos conservados)…» | arreglar: queda la nota y se saca la fila duplicada; «pedazos»/«tramos» pasan a «tramos» |
+| T17 | Mis recortes | «sin pausas (38 s → 32 s)» y «3 pedazos conservados» en la fila de datos, además de la nota larga «Pedazos sacados del medio: 52 s → 38 s (3 tramos conservados)…» | arreglar: la fila queda en «editado» (con el detalle en el tooltip) y la nota sigue contando qué se hizo; el Editor sigue hablando de «pedazos», que es la palabra del equipo |
 | T18 | Mis recortes | Subtítulo largo repite la ayuda («Cuando están listos aparece el video y los botones “Diseñar”, “Editar” y “Abrir”…»). | arreglar: «Tus pedazos de video, listos para diseñar una pieza. Tardan unos 15 minutos.» |
 | T19 | Chat | Aviso «La API está despertando…» y «La API no respondió en dos minutos». | arreglar: «El asistente está arrancando: puede tardar un minuto.» / «El asistente no respondió. Probá de nuevo en un rato.» (en los tres idiomas) |
 | T20 | Ayuda → Si algo falla | «la API se despierta sola en un minuto si estuvo dormida». | arreglar: «el asistente tarda un minuto en arrancar» |
@@ -88,9 +89,30 @@ solo en el código.
 |---|---|---|---|
 | M1 | Editor de recortes | Desborda a 423 px: las migas con el título largo no cortan. | arreglar: migas con elipsis y `min-width: 0` |
 | M2 | Editor de recortes | Un `input` de tiempo mide 50 px y su contenido 56. | arreglar: ancho mínimo 60 px |
-| M3 | Administración (escritorio) | A 1366 px el documento mide 1415: alguna tabla del Dashboard empuja. | arreglar: las tablas del dashboard envuelven en un contenedor con scroll propio |
+| M3 | Administración (escritorio) | A 1366 px el documento mide 1415: con el menú plegado a íconos, los gráficos del Dashboard (`.graficos`, grilla de 320 px mínimos) no se achican dentro de su celda. | arreglar: `min-width: 0` en cada gráfico y `max-width: 100%` en el svg |
 | M4 | Resto | Chat, Recortes, Proyectos, Compartidos, Diseñar, Publicaciones, Aprobación, Newsletter, Frase, Ayuda, Cuenta, Pieza: sin desborde. | nada |
 | M5 | Diseñar | Botones de envío al final del formulario; «Enviar a aprobación» ya es ancho completo en celular. | dejar |
+
+## Conteo
+
+| Decisión | Cantidad |
+|---|---|
+| Arreglados | 54 |
+| Dejados | 12 |
+| A preguntar (mandados al coordinador, aplicados según la propuesta) | 5 |
+
+Capas y commits en la rama `claude/elegant-allen-8a6c19`: textos (f6d8709), coherencia (3d20389), restos (c0ed2ec), celular (este commit).
+Verificación local: `npx tsc --noEmit -p .`, `npm test -- --run` (47 pruebas, se agregó `ChipEstado.test.tsx`), `npm run build`.
+
+## Decisiones que tomé sola
+
+- La API manda «simulada» o «simulado» como `estado_texto` según la pieza; la web lo muestra como «prueba» desde `ChipEstado` (la API no se tocó).
+- Las horas van todas en 24 h (`fechaHora` con `hour12: false`): antes convivían «04:08 p. m.» y «21:40» en la misma tarjeta.
+- «Retomar» y «Editar» de las tarjetas de Mis publicaciones y Registro dejan de ser primarios: el primario de la vista es «Diseñar una pieza».
+- El chip de modo del canal en la tarjeta «Mañana» de Frase del día queda solo cuando el canal no está en real, como «prueba» o «apagado».
+- El rol en Mi cuenta se describe en palabras («Administra la app (y aprueba)», «Aprueba y publica», «Crea contenido») en vez de la clave interna.
+- En Newsletter la función interna `Cabecera` (la cabecera del mail) pasa a llamarse `CabeceraMail` para no chocar con el componente común.
+- Constantes exportadas pero usadas solo en su archivo (`PASO_MS`, `LARGO_MINIMO_WORD`, `MAX_POR_RENGLON`, `MAX_DOS_RENGLONES`) se dejaron: no molestan y pueden servir a una prueba.
 
 ## Decisiones dudosas (mandadas al coordinador el 5/11)
 
