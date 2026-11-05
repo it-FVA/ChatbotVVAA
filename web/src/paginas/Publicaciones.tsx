@@ -1,6 +1,7 @@
 // Mis publicaciones (22/10, fase 3) : solapas por estado con conteos, tarjetas con canal, estado,
 // fechas, miniatura, quién aprobó/rechazó y la nota, y las acciones Retomar (borradores), Eliminar (lo eliminable), Ver resultado
 // (el posteo, la entrada o el borrador de WordPress) y Descargar HTML (newsletter).
+import LinkAyuda from "../componentes/LinkAyuda";
 import { fechaCreacion, fechaLegible } from "../util/fechas";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -80,7 +81,7 @@ export default function Publicaciones() {
       <header className="pagina-cabecera">
         <div>
           <h1>Mis publicaciones</h1>
-          <p className="suave">Todas las piezas que mandaste: pendientes, aprobadas, rechazadas, publicadas, borradores y pruebas.</p>
+          <p className="suave">Todas las piezas que mandaste: pendientes, aprobadas, rechazadas, publicadas, borradores y pruebas.  <LinkAyuda seccion="publicaciones" /></p>
         </div>
         <Link to="/publicar" className="boton primario">
           <Icono nombre="mas" tam={16} /> Diseñar una pieza

@@ -3,6 +3,7 @@
 // /proyectos = la raíz (mis carpetas + las compartidas conmigo); /proyectos/:id = adentro de una carpeta.
 // Migas de pan, grilla o lista, buscador, ordenar, selección múltiple (clic, Ctrl/Shift+clic, casillas), arrastrar carpetas e
 // ítems a otra carpeta o a una miga, menú contextual (clic derecho o ⋮), panel de detalles, vacíos con llamada a la acción.
+import LinkAyuda from "../componentes/LinkAyuda";
 import { fechaHora } from "../util/fechas";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -378,6 +379,7 @@ export default function Proyectos() {
           <Icono nombre="carpeta" tam={22} style={{ color: carpetaActual?.color || "var(--amarillo-oscuro)" }} />
           <h1>{nombreVentana}</h1>
           {carpetaActual && permiso && permiso !== "dueño" && <span className="chip suave">{permiso === "ver" ? "solo ver" : "podés editar"} · de {carpetaActual.dueno}</span>}
+          <LinkAyuda seccion="proyectos" />
         </div>
         <div className="buscar drive-buscar">
           <Icono nombre="buscar" tam={16} />

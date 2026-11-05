@@ -4,6 +4,7 @@
 // borrador». Entra desde «Nueva pieza», desde el chat (la pieza propuesta llega en location.state), desde un recorte (?recorte=<id>)
 // y desde un borrador (?borrador=<id>). Las reglas de negocio están en la API (api/publicar_rutas.py); acá solo se repiten para
 // deshabilitar botones a tiempo.
+import LinkAyuda from "../componentes/LinkAyuda";
 import { fechaCreacion, fechaIsoDe, fechaLegible, manana } from "../util/fechas";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -358,7 +359,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
             {origen === "borrador" && !rechazo && !duenaDe && "Retomando un borrador: al guardar se actualiza el mismo. Al mandarlo a aprobación pasa a la cola en el mismo lugar; al enviarlo directo, el borrador se elimina."}
             {origen === "borrador" && !rechazo && duenaDe && `Editando un borrador de ${duenaDe}, compartido con vos para editar. Al guardar se actualiza el mismo y sigue siendo de ${duenaDe}. Si lo mandás a aprobación, va a su nombre y queda en la misma carpeta.`}
             {!desdeMenu && origen === "nueva" && "Acá se diseña la pieza: foto, frase, texto y fecha. Publicarla es el paso siguiente, desde Aprobación. También se puede diseñar desde el chat, debajo de la respuesta del bot."}
-          </p>
+            <LinkAyuda seccion="disenar" /></p>
         </div>
         <Link to="/publicaciones" className="boton sutil">
           <Icono nombre="lista" tam={16} /> Mis publicaciones

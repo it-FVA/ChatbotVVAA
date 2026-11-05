@@ -1,6 +1,7 @@
 // Aprobación (22/10, fase 3) sección aparte para aprobadores: Para aprobar (vista previa completa,
 // aprobar con fecha y hora editables, rechazar con nota), En cola (cancelar), Registro, Papelera de conversaciones (restaurar) y
 // Clips de todo el equipo (la pantalla de recortes con la solapa «Todos» fija; los admins además fijan el estilo por defecto).
+import LinkAyuda from "../componentes/LinkAyuda";
 import { fechaCreacion, fechaLegible } from "../util/fechas";
 import { useCallback, useEffect, useState } from "react";
 import { NavLink, Navigate, Outlet, useOutletContext } from "react-router-dom";
@@ -50,7 +51,7 @@ export default function Aprobacion() {
       <header className="pagina-cabecera">
         <div>
           <h1>Aprobación</h1>
-          <p className="suave">Piezas para aprobar, la cola, el registro, la papelera y los clips del equipo. La Frase del día está en Campañas; el Dashboard, en Administración.</p>
+          <p className="suave">Piezas para aprobar, la cola, el registro, la papelera y los clips del equipo. La Frase del día está en Campañas; el Dashboard, en Administración.  <LinkAyuda seccion="gestion" /></p>
         </div>
       </header>
       <div className="admin-grilla">

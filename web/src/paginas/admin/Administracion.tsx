@@ -1,3 +1,4 @@
+import LinkAyuda from "../../componentes/LinkAyuda";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { NavLink, Navigate, Outlet } from "react-router-dom";
 import { useSesion } from "../../App";
@@ -58,7 +59,7 @@ export default function Administracion() {
         <header className="pagina-cabecera">
           <div>
             <h1>Administración</h1>
-            <p className="suave">¿Funciona la app? ¿Cuánto cuesta? Quién la usa, los servicios, las cuentas y la configuración.</p>
+            <p className="suave">¿Funciona la app? ¿Cuánto cuesta? Quién la usa, los servicios, las cuentas y la configuración.  <LinkAyuda seccion="gestion" /></p>
           </div>
         </header>
         <div className="admin-grilla">

@@ -10,6 +10,7 @@
 // ver el mail de un día como lo arma la plantilla (reproducción de la de Perfit) con «Ver el mail».
 // (3/11, revisión 5.2 punto 13) Partida en paginas/frase/: el estado en useFraseDelDia.ts, un archivo por panel en paneles/ y una
 // solapa del detalle del día por archivo en solapas/ (la lista de solapas se registra en solapas/index.ts). Acá queda solo el armado.
+import LinkAyuda from "../../componentes/LinkAyuda";
 import { diaIso, fechaLarga } from "../../util/fechas";
 import { Link } from "react-router-dom";
 import { apiFrases } from "../../apiFrases";
@@ -44,6 +45,8 @@ export default function FraseDelDia() {
             {aprueba
               ? "Una frase por día, que sale sola cada mañana por mail y redes con una foto de fondo. Solo entran las validadas del Sheet. Arrastrá una frase a otro día para moverla o intercambiarla; desde el backlog, para asignarla."
               : "Una frase por día, que sale sola cada mañana por mail y redes con una foto de fondo. Acá ves qué sale cada día. Si querés que un día salga otra frase, abrí ese día y pedí el cambio: lo revisa quien aprueba."}
+            {" "}
+            <LinkAyuda seccion="frase-del-dia" />
           </p>
         </div>
         <div className="acciones">

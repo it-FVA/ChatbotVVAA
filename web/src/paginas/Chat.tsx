@@ -2,6 +2,7 @@
 // Izquierda: ListaConversaciones (en celular, un cajón). Derecha: los mensajes con markdown, la respuesta en streaming (SSE),
 // las fuentes plegables con los botones de recorte, el recuadro de la pieza propuesta, las descargas Word/Excel y el cuadro de
 // escribir. Atajos: / enfoca el cuadro, Esc cierra el cajón. Antes de mandar, si la API dormía (Render free), avisa y espera.
+import LinkAyuda from "../componentes/LinkAyuda";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ErrorApi } from "../api";
@@ -398,7 +399,7 @@ export default function Chat() {
             <div className="chat-vacio">
               <img src="/logo.png" alt="" />
               <h2>{t("vacioTitulo")}</h2>
-              <p className="suave">{t("vacioTexto")}</p>
+              <p className="suave">{t("vacioTexto")}  <LinkAyuda seccion="chat" /></p>
               <div className="chat-ejemplos">
                 {t("ejemplos").map((ej) => (
                   <button key={ej} type="button" className="boton" onClick={() => entrada.current?.poner(ej)}>
