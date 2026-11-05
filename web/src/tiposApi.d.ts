@@ -1823,6 +1823,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/recortes/subir": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Subir
+         * @description (5/11, Julián edita afuera, p. ej. en Premiere) «Subir un video»: mp4/mov de hasta 200 MB. Se baja a un archivo temporal de a
+         *     pedazos (la API tiene 512 MB), se sube a la biblioteca de WordPress y queda una fila de clips ya 'listo' con video_id «subido:<uuid>»
+         *     (así se distingue sin migración). Desde ahí es un recorte más: Diseñar, Abrir, Descargar, compartir, carpeta, borrar.
+         */
+        post: operations["subir_recortes_subir_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/recortes/{cid}": {
         parameters: {
             query?: never;
@@ -2109,6 +2131,21 @@ export interface components {
              * @default
              */
             pieza: string;
+            /**
+             * Titulo
+             * @default
+             */
+            titulo: string;
+        };
+        /** Body_subir_recortes_subir_post */
+        Body_subir_recortes_subir_post: {
+            /** Archivo */
+            archivo: string;
+            /**
+             * Formato
+             * @default horizontal
+             */
+            formato: string;
             /**
              * Titulo
              * @default
@@ -5934,6 +5971,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    subir_recortes_subir_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_subir_recortes_subir_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -292,3 +292,62 @@ def test_descargar(cliente, tabla, monkeypatch):
     assert cliente.get("/recortes/c4/descargar").status_code == 409        # en proceso: no hay archivo
     monkeypatch.setattr(publicar, "bajar_bytes", lambda url, timeout=300: (None, "timeout"))
     assert cliente.get("/recortes/c2/descargar").status_code == 502
+
+
+# ---------------- Subir un video (5/11) ----------------
+@pytest.fixture
+def subidas(monkeypatch, tabla):
+    """Simula la creación de la fila y la subida a WordPress; guarda lo que recibió."""
+    recibido = {"subidas": [], "tam": []}
+
+    def _subir(cfg, ruta, nombre, titulo="", quien=""):
+        import os
+        recibido["tam"].append(os.path.getsize(ruta))
+        recibido["subidas"].append((nombre, titulo, quien))
+        return {"ok": True, "modo": "simulado", "id": 9, "url": "https://viviragradecidos.org/wp-content/uploads/" + nombre}
+
+    def _crear(video_id, dur, formato, titulo, usuario, url):
+        fila = {"id": "s1", "creado": "2026-11-05T10:00:00", "video_id": video_id, "inicio_ms": 0, "fin_ms": dur, "formato": formato,
+                "titulo": titulo, "pedido_por": usuario, "estado": "listo", "url": url, "error": None, "procesado_en": "x",
+                "srt": None, "edicion": None, "nota": None, "estilo": None, "compartido": False}
+        tabla["filas"].append(fila)
+        return "s1"
+
+    monkeypatch.setattr(publicar, "subir_video_wordpress", _subir)
+    monkeypatch.setattr(db, "crear_clip_subido", _crear)
+    monkeypatch.setattr(rc, "duracion_video", lambda ruta, ffmpeg="ffmpeg": 12.5)
+    return recibido
+
+
+def test_subir_video(cliente, tabla, subidas):
+    _login(cliente, "lizzie", "clave-lizzie")
+    r = cliente.post("/recortes/subir", data={"titulo": "Charla editada", "formato": "vertical"},
+                     files={"archivo": ("editado.mp4", b"0" * 2048, "video/mp4")})
+    assert r.status_code == 200, r.text
+    assert r.json()["id"] == "s1"
+    assert subidas["tam"] == [2048] and subidas["subidas"][0][1:] == ("Charla editada", "lizzie")
+    fila = tabla["filas"][-1]
+    assert fila["video_id"].startswith("subido:") and fila["fin_ms"] == 12500 and fila["estado"] == "listo"
+    c = next(x for x in cliente.get("/recortes").json() if x["id"] == "s1")
+    assert c["subido"] and c["miniatura"] is None and c["estado_texto"] == "subido" and c["puede_editar"] is False and c["puede_compartir"]
+    # borrar un subido borra el archivo de WordPress como los demás
+    assert cliente.delete("/recortes/s1").status_code == 200
+    assert tabla["borrados_wp"] == [fila["url"]]
+
+
+def test_subir_video_muy_pesado(cliente, tabla, subidas, monkeypatch):
+    _login(cliente, "lizzie", "clave-lizzie")
+    monkeypatch.setattr(rec, "MAX_SUBIDA_MB", 1)
+    r = cliente.post("/recortes/subir", data={"titulo": "Grande", "formato": "horizontal"},
+                     files={"archivo": ("grande.mp4", b"0" * (3 * 1024 * 1024), "video/mp4")})
+    assert r.status_code == 413
+    assert "El video pesa 3 MB; el máximo es 1 MB." in r.json()["detail"]
+    assert subidas["subidas"] == []
+
+
+def test_subir_video_tipo_invalido(cliente, tabla, subidas):
+    _login(cliente, "lizzie", "clave-lizzie")
+    r = cliente.post("/recortes/subir", data={"titulo": "x", "formato": "horizontal"},
+                     files={"archivo": ("foto.png", b"0" * 10, "image/png")})
+    assert r.status_code == 415
+    assert subidas["subidas"] == []

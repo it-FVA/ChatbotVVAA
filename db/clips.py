@@ -43,6 +43,17 @@ def pedir_clip(video_id, inicio_ms, fin_ms, formato, titulo, usuario):
         raise
 
 
+def crear_clip_subido(video_id, duracion_ms, formato, titulo, usuario, url):
+    """(5/11) Un video propio subido desde la web entra como un recorte ya listo (video_id «subido:<uuid>»). Devuelve el id de la fila."""
+    if not _db.disponible():
+        return None
+    fila = {"video_id": video_id, "inicio_ms": 0, "fin_ms": int(duracion_ms or 0), "formato": formato,
+            "titulo": (titulo or "")[:200], "pedido_por": usuario, "estado": "listo", "url": url,
+            "procesado_en": datetime.now(timezone.utc).isoformat()}
+    r = _db._req("POST", "", fila, tabla="clips")
+    return r[0]["id"] if r else None
+
+
 def clips_pedidos(limite=20):
     if not _db.disponible():
         return []

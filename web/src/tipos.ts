@@ -135,6 +135,7 @@ export interface Recorte {
   regenerando: boolean;
   estado_texto: string;
   miniatura: string | null;
+  subido?: boolean; // (5/11) video propio subido a mano: sin video de YouTube detrás
   duracion_ms: number;
   sin_pausas: SinPausas | null;
   segmentos_hechos: number[][] | null;

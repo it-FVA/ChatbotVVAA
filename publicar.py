@@ -309,6 +309,35 @@ def subir_imagen_wordpress(cfg, ruta_o_bytes, nombre, titulo="", etiquetas=None,
     return {"ok": True, "modo": modo, "url": r.get("source_url"), "id": r["id"]}
 
 
+def subir_video_wordpress(cfg, ruta, nombre, titulo="", quien=""):
+    """(5/11, Julián) Sube un mp4/mov propio (editado afuera) a la biblioteca de medios, como subir_imagen_wordpress pero desde un
+    archivo en disco (pesa hasta 200 MB: se manda de a pedazos, sin leerlo entero en memoria). Content-Type video/mp4 o video/quicktime.
+    En «simulado» no sube y devuelve una url simulada; en «apagado» ok=False."""
+    modo = cfg.modo_wp
+    tam = os.path.getsize(ruta)
+    tipo = "video/quicktime" if nombre.lower().endswith(".mov") else "video/mp4"
+    base = {"canal": "wordpress", "accion": "subir_video", "modo": modo, "quien": quien, "nombre": nombre, "bytes": tam, "titulo": titulo}
+    if modo in ("apagado", "simulado"):
+        _registrar({**base, "resultado": "no se subió (modo " + modo + ")"})
+        return {"ok": modo == "simulado", "modo": modo, "id": None,
+                "url": f"https://simulado.invalid/wp-content/uploads/{urllib.parse.quote(nombre)}" if modo == "simulado" else None,
+                "aviso": "Simulado: el video no se subió." if modo == "simulado" else "WordPress está apagado."}
+    if not (cfg.wp_site and cfg.wp_user and cfg.wp_pass):
+        return {"ok": False, "modo": modo, "aviso": "Faltan las claves de WordPress."}
+    h = _wp_headers(cfg, {"Content-Type": tipo, "Content-Length": str(tam),
+                          "Content-Disposition": f'attachment; filename="{urllib.parse.quote(nombre)}"'})
+    with open(ruta, "rb") as f:
+        r, err = _http(_wp_api(cfg, "media"), "POST", h, f)
+    if not r:
+        _registrar({**base, "resultado": "error", "error": err})
+        return {"ok": False, "modo": modo, "aviso": "WordPress no aceptó el video: " + json.dumps(err, ensure_ascii=False)[:200]}
+    meta = json.dumps({"title": titulo or nombre, "alt_text": titulo or nombre,
+                       "description": f"Video subido por {quien or 'la herramienta'} el {datetime.date.today()}"}).encode()
+    _http(_wp_api(cfg, f"media/{r['id']}"), "POST", _wp_headers(cfg, {"Content-Type": "application/json"}), meta)
+    _registrar({**base, "resultado": "subida", "id": r["id"], "url": r.get("source_url")})
+    return {"ok": True, "modo": modo, "url": r.get("source_url"), "id": r["id"]}
+
+
 def media_id_por_url(cfg, url):
     """(13/10) Busca en la biblioteca de WP el id de una imagen a partir de su URL (por nombre de archivo).
     Lo usa la cola para poner la imagen destacada en una pieza de WordPress aprobada."""

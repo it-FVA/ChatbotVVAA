@@ -17,6 +17,7 @@ import { aviso as textoAviso, desdeGuardada, desdePropuesta, desdeRecorte, formu
 import VistaPrevia, { type DatosPrevia } from "../componentes/VistaPrevia";
 import { Icono } from "../componentes/Iconos";
 import { Hueso } from "../componentes/Comunes";
+import SubirVideo from "../componentes/SubirVideo";
 import { useToast } from "../componentes/Toasts";
 import "../publicar.css";
 
@@ -692,6 +693,7 @@ function Paso({ n, titulo, resumen, abierto, hecho, deshabilitado = false, onAbr
 function ElegirRecorte({ onElegir }: { onElegir: (r: Recorte) => void }) {
   const [lista, setLista] = useState<Recorte[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [subiendo, setSubiendo] = useState(false); // (5/11) «o subí un video»
   useEffect(() => {
     let vivo = true;
     Promise.all([api.recortes("mios"), api.recortes("equipo").catch(() => [] as Recorte[])])
@@ -709,8 +711,19 @@ function ElegirRecorte({ onElegir }: { onElegir: (r: Recorte) => void }) {
   return (
     <div className="pub-recortes">
       <p className="suave chico">
-        El video es un recorte de YouTube ya listo. Elegí uno; para ajustarlo (tramo, subtítulos, pausas) abrilo en el editor desde <Link to="/recortes">Mis recortes</Link>. Subir un archivo de video propio todavía no se puede desde acá.
+        El video es un recorte ya listo. Elegí uno; para ajustarlo (tramo, subtítulos, pausas) abrilo en el editor desde <Link to="/recortes">Mis recortes</Link>.{" "}
+        <button type="button" className="boton sutil chico" onClick={() => setSubiendo(true)}>o subí un video</button>
       </p>
+      {subiendo && (
+        <SubirVideo
+          onCerrar={() => setSubiendo(false)}
+          onSubido={async (id) => {
+            setSubiendo(false);
+            const r = id ? await api.recorte(id).catch(() => null) : null;
+            if (r) onElegir(r);
+          }}
+        />
+      )}
       {error && <div className="aviso error">{error}</div>}
       {lista === null && !error && (
         <div className="pieza-fotos">
@@ -728,7 +741,7 @@ function ElegirRecorte({ onElegir }: { onElegir: (r: Recorte) => void }) {
         <div className="pieza-fotos pub-recortes-lista" role="list">
           {lista.map((r) => (
             <div key={r.id} className="pieza-foto pub-recorte" role="listitem">
-              {r.miniatura ? <img src={r.miniatura} alt="" loading="lazy" /> : <div className="pub-recorte-sin" />}
+              {r.miniatura ? <img src={r.miniatura} alt="" loading="lazy" /> : r.subido && r.url ? <video src={r.url} preload="metadata" muted playsInline /> : <div className="pub-recorte-sin" />}
               <span className="chico pub-recorte-titulo" title={r.titulo || ""}>{(r.titulo || "(sin título)").slice(0, 48)}</span>
               <span className="suave chico">
                 {r.formato} · {Math.round((r.fin_ms - r.inicio_ms) / 1000)} s{r.propio ? "" : " · del equipo"}
@@ -737,9 +750,11 @@ function ElegirRecorte({ onElegir }: { onElegir: (r: Recorte) => void }) {
                 <button type="button" className="boton primario chico" onClick={() => onElegir(r)}>
                   Usar este
                 </button>
-                <Link to={`/recortes/${r.id}`} className="boton sutil chico" title="Abrir en el editor de recortes">
-                  Editar
-                </Link>
+                {!r.subido && (
+                  <Link to={`/recortes/${r.id}`} className="boton sutil chico" title="Abrir en el editor de recortes">
+                    Editar
+                  </Link>
+                )}
               </span>
             </div>
           ))}

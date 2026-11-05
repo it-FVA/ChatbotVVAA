@@ -66,6 +66,30 @@
     "title": "Body_subir_al_banco_banco_subir_post",
     "type": "object"
    },
+   "Body_subir_recortes_subir_post": {
+    "properties": {
+     "archivo": {
+      "contentMediaType": "application/octet-stream",
+      "title": "Archivo",
+      "type": "string"
+     },
+     "formato": {
+      "default": "horizontal",
+      "title": "Formato",
+      "type": "string"
+     },
+     "titulo": {
+      "default": "",
+      "title": "Titulo",
+      "type": "string"
+     }
+    },
+    "required": [
+     "archivo"
+    ],
+    "title": "Body_subir_recortes_subir_post",
+    "type": "object"
+   },
    "Cabecera": {
     "properties": {
      "color": {
@@ -5910,6 +5934,46 @@
      }
     },
     "summary": "Opciones",
+    "tags": [
+     "recortes"
+    ]
+   }
+  },
+  "/recortes/subir": {
+   "post": {
+    "description": "(5/11, Julián edita afuera, p. ej. en Premiere) «Subir un video»: mp4/mov de hasta 200 MB. Se baja a un archivo temporal de a\npedazos (la API tiene 512 MB), se sube a la biblioteca de WordPress y queda una fila de clips ya 'listo' con video_id «subido:<uuid>»\n(así se distingue sin migración). Desde ahí es un recorte más: Diseñar, Abrir, Descargar, compartir, carpeta, borrar.",
+    "operationId": "subir_recortes_subir_post",
+    "requestBody": {
+     "content": {
+      "multipart/form-data": {
+       "schema": {
+        "$ref": "#/components/schemas/Body_subir_recortes_subir_post"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Subir",
     "tags": [
      "recortes"
     ]
