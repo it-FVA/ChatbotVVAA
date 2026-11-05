@@ -4,6 +4,7 @@
 // imagen o «Usar como base», que abre Diseñar con una copia (la original no cambia). Si es propia, además «Retomar».
 // (4/11) Con permiso «editar» (carpeta compartida para editar, o aprobador) aparece «Editar»: retoma la misma pieza, que sigue
 // siendo de su dueña.
+import Carrusel from "../componentes/Carrusel";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { ErrorApi } from "../api";
@@ -145,6 +146,8 @@ export default function PiezaVer() {
         <div className={"pieza-ver-medio" + (p.formato === "historia" || p.formato === "vertical" || p.formato === "reel" ? " vertical" : "")}>
           {p.video_url ? (
             <video src={p.video_url} controls playsInline preload="metadata" />
+          ) : (p.imagenes?.length ?? 0) >= 2 ? (
+            <Carrusel imagenes={p.imagenes!} nombre="Fotos del carrusel" />
           ) : p.imagen_url && !sinImagen ? (
             <a href={p.imagen_url} target="_blank" rel="noreferrer" title="Abrir la imagen en tamaño real">
               <img src={p.imagen_url} alt={p.texto_imagen || ""} onError={() => setSinImagen(true)} />
@@ -246,7 +249,7 @@ export default function PiezaVer() {
                 <Icono nombre="check" /> Copiar el texto
               </button>
             )}
-            {p.imagen_url && !p.video_url && !sinImagen && (
+            {p.imagen_url && !p.video_url && !sinImagen && (p.imagenes?.length ?? 0) < 2 && (
               <a className="boton" href={p.imagen_url} target="_blank" rel="noreferrer" download>
                 <Icono nombre="descargar" /> Bajar la imagen
               </a>

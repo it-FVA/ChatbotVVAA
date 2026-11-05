@@ -47,6 +47,7 @@ export interface PiezaForm {
   titulo: string;
   texto: string;
   imagen_url: string | null;
+  imagenes: string[] | null; // (5/11, Franco) carrusel: de 2 a 10 URLs https en orden; imagen_url es la primera (portada)
   imagen_busqueda: string;
   fecha: string | null; // 'YYYY-MM-DD' o null = sin programar
   hora: string | null;
@@ -68,7 +69,8 @@ export interface PiezaForm {
 
 /** (3/11) La pieza tal como la define la API (api/pieza.py → OpenAPI → tiposApi.d.ts, `npm run tipos`). Es lo que se manda a
  *  /publicar/borrador, /a-aprobar y /enviar, y lo que devuelve GET /publicaciones/{id} en `pieza` (con borrador_id = el id de la fila). */
-export type PiezaApi = components["schemas"]["Pieza"];
+// (5/11, Franco) `imagenes` (carrusel) lo suma la API en paralelo: hasta que se regeneren los tipos (`npm run tipos`) se declara acá.
+export type PiezaApi = components["schemas"]["Pieza"] & { imagenes?: string[] | null };
 export type PiezaGuardada = Partial<PiezaApi>;
 
 export interface RespuestaBorrador {
@@ -107,6 +109,7 @@ export interface RespuestaEnvio {
   texto_final: string;
   formato: string | null;
   video_url: string | null;
+  imagenes?: string[] | null; // (5/11) carrusel
 }
 
 export interface SubidaBanco {
@@ -136,6 +139,7 @@ export interface Publicacion {
   estado_texto: string;
   canal_texto: string;
   video_url: string | null;
+  imagenes?: string[] | null; // (5/11, Franco) carrusel: 2 a 10 fotos en orden (imagen_url es la portada)
   texto_imagen: string | null;
   formato: string | null;
   nota: string | null;

@@ -712,3 +712,77 @@
   padding: 5px 12px;
   font-size: 0.88rem;
 }
+
+/* (5/11, Franco) Varias fotos (carrusel) en el paso 2: la lista de fotos elegidas, en una tira que se desplaza de costado */
+.pub-carrusel h3 {
+  margin: 4px 0 6px;
+  font-size: 1rem;
+}
+.pub-carrusel-tira {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0 0 8px;
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  max-width: 100%;
+}
+.pub-carrusel-foto {
+  flex: none;
+  width: 120px;
+  display: grid;
+  gap: 6px;
+}
+.pub-carrusel-img {
+  position: relative;
+  border: 2px solid var(--borde);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+.pub-carrusel-foto:first-child .pub-carrusel-img {
+  border-color: var(--amarillo);
+}
+.pub-carrusel-img img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+.pub-carrusel-num {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--tinta);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pub-carrusel-portada {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--amarillo);
+  color: var(--tinta);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 1px 0;
+}
+.pub-carrusel-botones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.pub-carrusel-botones .boton {
+  min-width: 0;
+  padding-left: 8px;
+  padding-right: 8px;
+}
