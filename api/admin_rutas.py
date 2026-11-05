@@ -24,6 +24,7 @@ from pydantic import BaseModel
 from . import auth, config
 from .salud import _costo_fila, _hoy_argentina
 import db          # noqa: E402  (api/__init__ pone la raíz del repo en sys.path)
+from banco import extraer_carpeta_id   # noqa: E402
 
 router = APIRouter(prefix="/admin", tags=["administracion"])
 
@@ -58,6 +59,8 @@ CLAVES_CONFIG = {
     "frase_pie": "Texto que va al final del posteo, después de la frase y el autor (hashtags).",
     "frase_mail_inicio": "Hora (Argentina) en que arranca el envío por mail. Si es antes que la hora de salida (p. ej. 01:00), arranca de madrugada ese mismo día; si es después (p. ej. 15:00), la tarde del día anterior. Perfit manda 200 por hora: a la lista de 2.241 le lleva unas 11 h.",
     "frase_mail_prueba": "Mails del equipo para las pruebas (10 a 15). Son los que reciben el envío en modo simulado y el botón «Probar el mail» de la Frase del día.",
+    "banco_drive_carpeta": "Carpeta de Drive del banco de imágenes (pegá el link de la carpeta o su id). La cola la recorre cada 15 minutos, sube a WordPress lo nuevo (hasta 30 por pasada) con las etiquetas del nombre y las subcarpetas, y lo anota en la tabla banco_imagenes. Convención: etiqueta_etiqueta_1080x1920.jpg.",
+    "banco_solo": "Prendido, las pantallas que buscan fotos (Diseñar, Publicar, Newsletter, Frase del día) buscan SOLO en el banco de imágenes (lo subido desde Drive). Si no hay nada para esa búsqueda, muestran las últimas del banco, no toda la biblioteca de WordPress. Apagado (por defecto): buscan en toda la biblioteca.",
     "clips_estilo": "Estilo por defecto de los subtítulos de los recortes verticales nuevos (se edita con los controles del editor).",
 }
 AVISOS_PRECIOS = {"gpt-5.6-sol": "Precio promocional vigente al menos hasta el 21/11/2026 (según la fuente cargada el 21/10): revisarlo después de esa fecha."}
@@ -488,6 +491,43 @@ def borrar_servicio(sid: str, quien=Depends(_admin)):
     return {"ok": True}
 
 
+# ---------------- banco de imágenes (5/11) ----------------
+@router.get("/banco")
+def banco_estado(quien=Depends(_admin)):
+    """Banco de imágenes: cuántas hay por formato, cuándo se subió la última, si hay carpeta de Drive configurada y si se busca solo en el banco."""
+    if not db.disponible():
+        raise HTTPException(503, "Sin Supabase no hay registro del banco.")
+    try:
+        r = db.banco_resumen()
+        carpeta = extraer_carpeta_id(db.obtener_config("banco_drive_carpeta"))
+        solo = db.obtener_config("banco_solo", False) is True
+    except Exception as e:
+        raise HTTPException(503, f"No pude leer el banco (¿falta aplicar la migración banco_imagenes?): {str(e)[:160]}")
+    return {"total": r["total"], "por_formato": r["por_formato"], "ultima_sincronizacion": r["ultima"],
+            "carpeta_configurada": bool(carpeta), "solo_banco": solo}
+
+
+@router.post("/banco/sincronizar")
+def banco_sincronizar(quien=Depends(_admin)):
+    """Corre la sincronización Drive → WordPress a mano (la misma que hace la cola cada 15 minutos; hasta 30 imágenes por vez).
+    Devuelve {subidas, salteadas, errores, pendientes, simuladas, detalle}."""
+    import os, publicar
+    from banco import sincronizar_desde_config
+    if not db.disponible():
+        raise HTTPException(503, "Sin Supabase no hay registro del banco.")
+    try:
+        r = sincronizar_desde_config(publicar.Config(os.environ))
+    except ImportError:
+        raise HTTPException(503, "Falta la librería de Google Drive en el servidor (google-api-python-client).")
+    except KeyError:
+        raise HTTPException(503, "Falta DRIVE_TOKEN_JSON en el servidor: sin eso no puedo leer Drive.")
+    except Exception as e:
+        raise HTTPException(502, f"No pude sincronizar: {str(e)[:200]}")
+    if r is None:
+        raise HTTPException(400, "Todavía no hay carpeta de Drive: pegala en Configuración → Banco de imágenes.")
+    return r
+
+
 # ---------------- configuración ----------------
 class CambiosConfig(BaseModel):
     cambios: dict[str, Any]
@@ -625,6 +665,19 @@ def _validar(clave, v):
         if len(mails) > 30:
             raise HTTPException(400, "La lista de prueba es para el equipo: hasta 30 mails.")
         return mails
+    if clave == "banco_drive_carpeta":
+        if not isinstance(v, str):
+            raise HTTPException(400, "Pegá el link de la carpeta de Drive o su id.")
+        if not v.strip():
+            return ""          # vacío = el banco no se sincroniza
+        cid = extraer_carpeta_id(v)
+        if not cid:
+            raise HTTPException(400, "No reconozco la carpeta: pegá el link de Drive (…/folders/<id>) o el id de la carpeta.")
+        return cid
+    if clave == "banco_solo":
+        if not isinstance(v, bool):
+            raise HTTPException(400, "banco_solo tiene que ser true o false.")
+        return v
     if clave == "frase_pie":
         if not isinstance(v, str):
             raise HTTPException(400, "El pie tiene que ser texto.")

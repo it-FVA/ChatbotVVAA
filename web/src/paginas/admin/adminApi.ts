@@ -236,6 +236,23 @@ export interface Config {
   proveedores_umbral: string[];
 }
 
+/** (5/11) GET /admin/banco: el banco de imágenes (lo que subió la cola desde Drive). */
+export interface EstadoBanco {
+  total: number;
+  por_formato: Record<string, number>;
+  ultima_sincronizacion: string | null;
+  carpeta_configurada: boolean;
+  solo_banco: boolean;
+}
+export interface ResumenSincronizacion {
+  subidas: number;
+  salteadas: number;
+  errores: number;
+  pendientes: number;
+  simuladas: number;
+  detalle: string[];
+}
+
 export interface CambioRegistro {
   id: number;
   cuando: string;
@@ -257,6 +274,8 @@ export const adminApi = {
   servicios: () => pedir<Servicios>("/admin/servicios"),
   guardarServicio: (s: Servicio) => pedir<{ ok: boolean; servicio: Servicio }>("/admin/servicios", { method: "PUT", body: JSON.stringify(s) }),
   borrarServicio: (id: string) => pedir<{ ok: boolean }>(`/admin/servicios/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  banco: () => pedir<EstadoBanco>("/admin/banco"),
+  sincronizarBanco: () => pedir<ResumenSincronizacion>("/admin/banco/sincronizar", { method: "POST" }),
   config: () => pedir<Config>("/admin/config"),
   guardarConfig: (cambios: Record<string, unknown>) => pedir<{ ok: boolean; guardadas: Record<string, unknown> }>("/admin/config", { method: "PUT", body: JSON.stringify({ cambios }) }),
   cambios: (limite = 200) => pedir<CambioRegistro[]>(`/admin/cambios?limite=${limite}`),

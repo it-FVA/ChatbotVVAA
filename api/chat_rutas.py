@@ -240,12 +240,26 @@ def pedir_recorte(datos: PedidoRecorte, usuario=Depends(auth.usuario_actual)):
 @router.get("/banco")
 def banco(consulta: str = "", formato: str = "", n: int = 6, usuario=Depends(auth.usuario_actual)):
     """Fotos del banco de WordPress: primero las etiquetadas con el formato, después la consulta
-    sola, después las recientes. [{id, url, miniatura, titulo}]; sin credenciales de WordPress, lista vacía."""
+    sola, después las recientes. [{id, url, miniatura, titulo, fuente}]; sin credenciales de WordPress, lista vacía.
+    (5/11) fuente = "banco" | "biblioteca": con la config `banco_solo` prendida solo busca en lo que subió el banco de Drive (marca
+    banco-fva) y, si no hay nada para la consulta, devuelve las últimas del banco, nunca la biblioteca entera."""
     n = max(1, min(int(n or 6), 12))
     consulta = (consulta or "").strip()
     formato = formato if formato in ("cuadrado", "vertical", "historia") else None
     try:
         cfg = publicar.Config(os.environ)
+        try:   # (5/11) «Buscar solo en el banco» (Configuración → Banco de imágenes): solo lo que subió banco.py desde Drive
+            solo_banco = db.obtener_config("banco_solo", False) is True
+        except Exception:
+            solo_banco = False
+        if solo_banco:
+            fmt = {"historia": "vertical"}.get(formato, formato)       # el banco usa cuadrado / vertical / horizontal
+            res = publicar.buscar_imagenes_banco(cfg, consulta, n=n, solo_banco=True, formato=fmt) if consulta else []
+            if not res and fmt:    # sin nada para la consulta: las últimas del banco de ese formato, y si no, las últimas del banco
+                res = publicar.buscar_imagenes_banco(cfg, "", n=n, solo_banco=True, formato=fmt)
+            if not res:
+                res = publicar.buscar_imagenes_banco(cfg, "", n=n, solo_banco=True)
+            return [dict(r, fuente="banco") for r in res]
         res = []
         if formato and formato not in consulta.lower():
             res = publicar.buscar_imagenes_banco(cfg, f"{consulta} {formato}".strip(), n=n)
@@ -254,7 +268,7 @@ def banco(consulta: str = "", formato: str = "", n: int = 6, usuario=Depends(aut
             res = publicar.buscar_imagenes_banco(cfg, consulta, n=n)
         if not res:
             res = publicar.imagenes_recientes_banco(cfg, n=n)
-        return res or []
+        return [dict(r, fuente="biblioteca") for r in (res or [])]
     except Exception as e:
         log.warning("banco: %s", e)
         return []

@@ -17,7 +17,7 @@ import type { OpcionesPublicar, PiezaForm, RespuestaAprobacion, RespuestaEnvio }
 import { aviso as textoAviso, desdeGuardada, desdePropuesta, desdeRecorte, formularioVacio } from "../util/publicar";
 import VistaPrevia, { type DatosPrevia } from "../componentes/VistaPrevia";
 import { Icono } from "../componentes/Iconos";
-import { Hueso } from "../componentes/Comunes";
+import { AvisoBanco, Hueso } from "../componentes/Comunes";
 import SubirVideo from "../componentes/SubirVideo";
 import { useToast } from "../componentes/Toasts";
 import "../publicar.css";
@@ -484,6 +484,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
                           <Icono nombre="buscar" tam={16} /> {buscando ? "Buscando…" : "Buscar"}
                         </button>
                       </div>
+                      <AvisoBanco fotos={fotos} />
                       <div className="pieza-fotos" role="radiogroup" aria-label="Elegí una foto">
                         <button type="button" className={"pieza-foto sin" + (f.imagen_url === null ? " elegida" : "")} onClick={() => (set("imagen_url", null), setUrlManual(""))} role="radio" aria-checked={f.imagen_url === null}>
                           Sin imagen

@@ -2,7 +2,10 @@
 -- (3/11, revisión de código 5.3 punto 21) Rol de Postgres «cola» con permisos SOLO sobre lo que necesita la cola de
 -- publicación y el recorte de clips. Hoy GitHub Actions guarda la clave service_role de Supabase: si se filtran los secrets del
 -- repo, dan acceso total a la base (usuarios con sus hashes, conversaciones, todo). Con esta clave acotada, una fuga solo
--- alcanza publicaciones, frases, frase_envios, config, clips y (lectura) migraciones.
+-- alcanza publicaciones, frases, frase_envios, config, clips, banco_imagenes y (lectura) migraciones.
+--
+-- (5/11) Si ya estaba aplicada: volver a correrlo (es idempotente) DESPUÉS de aplicar la migración 20261105_0045_banco_imagenes, que crea la
+-- tabla banco_imagenes que ahora usa la cola. Si la tabla no existe todavía, el grant de esa línea falla.
 --
 -- NO está aplicada. Pasos (en este orden; nada se corta si algo falla: la cola sigue con SUPABASE_KEY hasta que exista el secret):
 --
@@ -49,6 +52,7 @@ grant select, insert, update, delete on public.frases        to cola;
 grant select, insert, update, delete on public.frase_envios  to cola;
 grant select, insert, update, delete on public.config        to cola;
 grant select, insert, update, delete on public.clips         to cola;
+grant select, insert, update, delete on public.banco_imagenes to cola;   -- (5/11) la cola sincroniza el banco de imágenes desde Drive
 grant select                         on public.migraciones   to cola;
 
 -- Si alguna de esas tablas tiene un id con secuencia (serial o identity), el INSERT necesita usarla.
@@ -61,7 +65,7 @@ begin
     select table_name, column_name
     from information_schema.columns
     where table_schema = 'public'
-      and table_name in ('publicaciones', 'frases', 'frase_envios', 'config', 'clips')
+      and table_name in ('publicaciones', 'frases', 'frase_envios', 'config', 'clips', 'banco_imagenes')
       and (column_default like 'nextval(%' or is_identity = 'YES')
   loop
     seq := pg_get_serial_sequence('public.' || quote_ident(r.table_name), r.column_name);
@@ -76,7 +80,7 @@ end $$;
 do $$
 declare t text;
 begin
-  foreach t in array array['publicaciones', 'frases', 'frase_envios', 'config', 'clips'] loop
+  foreach t in array array['publicaciones', 'frases', 'frase_envios', 'config', 'clips', 'banco_imagenes'] loop
     execute format('drop policy if exists cola_todo on public.%I', t);
     execute format('create policy cola_todo on public.%I for all to cola using (true) with check (true)', t);
   end loop;

@@ -15,6 +15,7 @@ Corre:
   - a modo de prueba:         python procesar_cola.py --simular  (fuerza todos los canales a simulado)
   - programado: .github/workflows/cola.yml lo ejecuta cada 15 min con los secrets del repo.
 Al final de cada pasada llama a programar_frases.main() (19/10): la «Frase del día» se encola desde ahí.
+(5/11) Y a banco.sincronizar_desde_config: si hay carpeta de Drive del banco de imágenes (config banco_drive_carpeta), sube lo nuevo a WordPress.
 """
 import os, sys, json, datetime
 
@@ -108,6 +109,18 @@ def main():
                   + (" · Perfit pidió esperar (429)" if x["limite"] else "") + f" · {x['estado']}")
     except Exception as e:
         print(f"frase por mail: no pude avanzar: {e}")
+    try:   # (5/11) banco de imágenes: sube a WordPress lo nuevo de la carpeta de Drive (hasta 30 por corrida). Nunca rompe la cola.
+        import banco
+        if "--simular" not in sys.argv:
+            r = banco.sincronizar_desde_config(cfg)
+            if r is not None:
+                print(f"banco de imágenes: {r['subidas']} subidas, {r['salteadas']} ya estaban, {r['errores']} con error"
+                      + (f", {r['pendientes']} quedan para la próxima" if r["pendientes"] else "")
+                      + (f" ({r['simuladas']} simuladas: WordPress no está en modo real)" if r["simuladas"] else ""))
+                for d in r["detalle"][:5]:
+                    print(f"  ! {d}")
+    except Exception as e:
+        print(f"banco de imágenes: no pude sincronizar: {type(e).__name__}: {str(e)[:150]}")
     return 0
 
 

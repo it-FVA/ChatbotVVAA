@@ -4,7 +4,7 @@ import { api, ErrorApi } from "../../api";
 import type { Estilo, Opciones } from "../../tipos";
 import { ControlesEstilo, cssSubtitulo } from "../../componentes/Estilo";
 import { useToast } from "../../componentes/Toasts";
-import { adminApi, type CambioRegistro, type Config, type Precio } from "./adminApi";
+import { adminApi, type CambioRegistro, type Config, type EstadoBanco, type Precio } from "./adminApi";
 import { AvisoError, Cargando, IconoAdmin, Plegable } from "./comun";
 
 // Administración → Configuración (22/10): precios de OpenAI por modelo (con fuente y fecha; aviso del precio promocional de
@@ -48,6 +48,7 @@ export default function Configuracion() {
           <Umbrales cfg={cfg} onGuardado={cargar} />
           <EstiloDefecto cfg={cfg} onGuardado={cargar} />
           <FraseDelDia cfg={cfg} onGuardado={cargar} />
+          <BancoImagenes cfg={cfg} onGuardado={cargar} />
           {cambios.length > 0 && (
             <Plegable titulo="Últimos cambios de configuración y servicios" resumen={`${cambios.length}`}>
               <ul className="cambios-lista">
@@ -389,6 +390,77 @@ function FraseDelDia({ cfg, onGuardado }: { cfg: Config; onGuardado: () => void 
           Pie del posteo <span className="suave chico">{cfg.explicaciones.frase_pie}</span>
           <input value={pie} onChange={(e) => setPie(e.target.value)} />
         </label>
+      </div>
+    </Bloque>
+  );
+}
+
+/** (5/11) Banco de imágenes: la carpeta de Drive que la cola sube a WordPress, «buscar solo en el banco» y los números del banco. */
+function BancoImagenes({ cfg, onGuardado }: { cfg: Config; onGuardado: () => void }) {
+  const { avisar } = useToast();
+  const { guardar, guardando } = useGuardar(onGuardado);
+  const v = (k: string) => cfg.valores[k]?.valor;
+  const [carpeta, setCarpeta] = useState(String(v("banco_drive_carpeta") || ""));
+  const [solo, setSolo] = useState(v("banco_solo") === true);
+  const [estado, setEstado] = useState<EstadoBanco | null>(null);
+  const [sinTabla, setSinTabla] = useState<string | null>(null);
+  const [sincronizando, setSincronizando] = useState(false);
+  const meta = ["banco_drive_carpeta", "banco_solo"].map((k) => cfg.valores[k]).filter(Boolean).sort((a, b) => (b.actualizado || "").localeCompare(a.actualizado || ""))[0];
+  const leer = useCallback(() => {
+    adminApi.banco().then((e) => (setEstado(e), setSinTabla(null))).catch((e) => setSinTabla(e instanceof ErrorApi ? e.message : "No pude leer el banco."));
+  }, []);
+  useEffect(() => {
+    leer();
+  }, [leer]);
+  async function sincronizar() {
+    setSincronizando(true);
+    try {
+      const r = await adminApi.sincronizarBanco();
+      avisar(`Banco: ${r.subidas} subidas, ${r.salteadas} ya estaban${r.errores ? `, ${r.errores} con error` : ""}${r.pendientes ? `, ${r.pendientes} quedan para la próxima` : ""}.`, r.errores ? "error" : undefined);
+      leer();
+    } catch (e) {
+      avisar(e instanceof ErrorApi ? e.message : "No pude sincronizar.", "error");
+    } finally {
+      setSincronizando(false);
+    }
+  }
+  return (
+    <Bloque
+      titulo="Banco de imágenes"
+      icono="engranaje"
+      explicacion="Julián carga las fotos en la carpeta de Drive (nombre: etiqueta_etiqueta_1080x1920.jpg, subcarpetas opcionales). La cola las sube a WordPress cada 15 minutos con esas etiquetas y el formato. Con «solo en el banco» prendido, las pantallas que buscan fotos ignoran el resto de la biblioteca."
+      meta={meta}
+      acciones={
+        <button className="boton primario" type="button" onClick={async () => { if (await guardar({ banco_drive_carpeta: carpeta, banco_solo: solo }, "Banco de imágenes guardado.")) leer(); }} disabled={guardando}>
+          Guardar
+        </button>
+      }
+    >
+      <div className="frase-grilla">
+        <label>
+          Carpeta de Drive (link o id) <span className="suave chico">{cfg.explicaciones.banco_drive_carpeta}</span>
+          <input value={carpeta} onChange={(e) => setCarpeta(e.target.value)} placeholder="https://drive.google.com/drive/folders/…" />
+        </label>
+        <label className="interruptor grande">
+          <input type="checkbox" checked={solo} onChange={(e) => setSolo(e.target.checked)} />
+          <span>
+            <strong>{solo ? "Buscar solo en el banco" : "Buscar en toda la biblioteca"}</strong>
+            <span className="suave chico"> · {cfg.explicaciones.banco_solo}</span>
+          </span>
+        </label>
+        {sinTabla && <p className="suave chico">{sinTabla}</p>}
+        {estado && (
+          <p className="chico">
+            <strong>{estado.total}</strong> imágenes en el banco
+            {Object.keys(estado.por_formato).length > 0 && <> ({Object.entries(estado.por_formato).map(([f, n]) => `${n} ${f}`).join(" · ")})</>}
+            {estado.ultima_sincronizacion ? <> · última subida {hace(estado.ultima_sincronizacion)}</> : <> · todavía no se subió ninguna</>}
+          </p>
+        )}
+        <div>
+          <button className="boton" type="button" onClick={sincronizar} disabled={sincronizando || !estado?.carpeta_configurada} title={estado?.carpeta_configurada ? "" : "Primero guardá la carpeta de Drive"}>
+            {sincronizando ? "Sincronizando…" : "Sincronizar ahora"}
+          </button>
+        </div>
       </div>
     </Bloque>
   );

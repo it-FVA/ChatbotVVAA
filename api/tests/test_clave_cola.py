@@ -55,6 +55,6 @@ def test_el_sql_manual_no_lo_aplica_migrar_y_da_permisos_solo_sobre_las_tablas_a
     # solo las líneas que NO son comentario: el bloque OPCIONAL de conversaciones queda comentado
     activo = "\n".join(l for l in sql.splitlines() if not l.strip().startswith("--"))
     tablas = set(re.findall(r"grant [a-z, ]+ on public\.(\w+)\s+to cola", activo))
-    assert tablas == {"publicaciones", "frases", "frase_envios", "config", "clips", "migraciones"}
+    assert tablas == {"publicaciones", "frases", "frase_envios", "config", "clips", "banco_imagenes", "migraciones"}
     assert "usuarios" not in activo and "conversaciones" not in activo
     assert re.search(r"grant select\s+on public\.migraciones\s+to cola", activo)      # migraciones: solo lectura

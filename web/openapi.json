@@ -1869,6 +1869,46 @@
  },
  "openapi": "3.1.0",
  "paths": {
+  "/admin/banco": {
+   "get": {
+    "description": "Banco de imágenes: cuántas hay por formato, cuándo se subió la última, si hay carpeta de Drive configurada y si se busca solo en el banco.",
+    "operationId": "banco_estado_admin_banco_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Banco Estado",
+    "tags": [
+     "administracion"
+    ]
+   }
+  },
+  "/admin/banco/sincronizar": {
+   "post": {
+    "description": "Corre la sincronización Drive → WordPress a mano (la misma que hace la cola cada 15 minutos; hasta 30 imágenes por vez).\nDevuelve {subidas, salteadas, errores, pendientes, simuladas, detalle}.",
+    "operationId": "banco_sincronizar_admin_banco_sincronizar_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Banco Sincronizar",
+    "tags": [
+     "administracion"
+    ]
+   }
+  },
   "/admin/cambios": {
    "get": {
     "operationId": "cambios_admin_cambios_get",
@@ -2828,7 +2868,7 @@
   },
   "/banco": {
    "get": {
-    "description": "Fotos del banco de WordPress: primero las etiquetadas con el formato, después la consulta\nsola, después las recientes. [{id, url, miniatura, titulo}]; sin credenciales de WordPress, lista vacía.",
+    "description": "Fotos del banco de WordPress: primero las etiquetadas con el formato, después la consulta\nsola, después las recientes. [{id, url, miniatura, titulo, fuente}]; sin credenciales de WordPress, lista vacía.\n(5/11) fuente = \"banco\" | \"biblioteca\": con la config `banco_solo` prendida solo busca en lo que subió el banco de Drive (marca\nbanco-fva) y, si no hay nada para la consulta, devuelve las últimas del banco, nunca la biblioteca entera.",
     "operationId": "banco_banco_get",
     "parameters": [
      {

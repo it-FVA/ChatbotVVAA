@@ -74,7 +74,7 @@ VARIABLES = [
     _v("META_IG_TOKEN", secreto=True, cola=SECRET),
     _v("META_FB_PAGE_TOKEN", secreto=True, cola=SECRET),
     _v("YOUTUBE_TOKEN_JSON", secreto=True, cola=SECRET),
-    _v("DRIVE_TOKEN_JSON", secreto=True),
+    _v("DRIVE_TOKEN_JSON", secreto=True, cola=SECRET, nota="(5/11) La cola también lee Drive: sincroniza el banco de imágenes (banco.py)."),
     # --- Perfit (mail de la frase) ---
     _v("PERFIT_API_KEY", secreto=True, cola=SECRET),
     _v("PERFIT_CUENTA", "viviragradecido", cola=VALOR, nota="Nombre de la cuenta en Perfit (no es secreto; verificado el 26/10)."),

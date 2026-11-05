@@ -4,6 +4,47 @@
  */
 
 export interface paths {
+    "/admin/banco": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Banco Estado
+         * @description Banco de imágenes: cuántas hay por formato, cuándo se subió la última, si hay carpeta de Drive configurada y si se busca solo en el banco.
+         */
+        get: operations["banco_estado_admin_banco_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/banco/sincronizar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Banco Sincronizar
+         * @description Corre la sincronización Drive → WordPress a mano (la misma que hace la cola cada 15 minutos; hasta 30 imágenes por vez).
+         *     Devuelve {subidas, salteadas, errores, pendientes, simuladas, detalle}.
+         */
+        post: operations["banco_sincronizar_admin_banco_sincronizar_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/cambios": {
         parameters: {
             query?: never;
@@ -469,7 +510,9 @@ export interface paths {
         /**
          * Banco
          * @description Fotos del banco de WordPress: primero las etiquetadas con el formato, después la consulta
-         *     sola, después las recientes. [{id, url, miniatura, titulo}]; sin credenciales de WordPress, lista vacía.
+         *     sola, después las recientes. [{id, url, miniatura, titulo, fuente}]; sin credenciales de WordPress, lista vacía.
+         *     (5/11) fuente = "banco" | "biblioteca": con la config `banco_solo` prendida solo busca en lo que subió el banco de Drive (marca
+         *     banco-fva) y, si no hay nada para la consulta, devuelve las últimas del banco, nunca la biblioteca entera.
          */
         get: operations["banco_banco_get"];
         put?: never;
@@ -2811,6 +2854,46 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    banco_estado_admin_banco_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    banco_sincronizar_admin_banco_sincronizar_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     cambios_admin_cambios_get: {
         parameters: {
             query?: {

@@ -101,6 +101,7 @@ services:
         sync: false
       - key: YOUTUBE_TOKEN_JSON
         sync: false
+      # (5/11) La cola también lee Drive: sincroniza el banco de imágenes (banco.py).
       - key: DRIVE_TOKEN_JSON
         sync: false
       - key: PERFIT_API_KEY

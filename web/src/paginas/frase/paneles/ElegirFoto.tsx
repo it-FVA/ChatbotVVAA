@@ -1,6 +1,7 @@
 // Elegir una foto: buscar en el banco de WordPress o pegar una URL. Lo usan la solapa «Foto de fondo» y «Pedir un cambio».
 import { useState } from "react";
 import { apiChat } from "../../../apiChat";
+import { AvisoBanco } from "../../../componentes/Comunes";
 import { Icono } from "../../../componentes/Iconos";
 import type { FotoBanco } from "../../../tiposChat";
 
@@ -39,6 +40,7 @@ export function ElegirFoto({ actual, ocupado, textoQuitar, onElegir }: { actual:
           <Icono nombre="buscar" tam={15} /> {buscando ? "Buscando…" : "Buscar"}
         </button>
       </div>
+      <AvisoBanco fotos={fotos} />
       {fotos && fotos.length === 0 && !buscando && <p className="suave chico">El banco no devolvió nada para esa búsqueda.</p>}
       {fotos && fotos.length > 0 && (
         <div className="pieza-fotos">

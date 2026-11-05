@@ -15,7 +15,7 @@ import type { FotoBanco } from "../tiposChat";
 import type { Recorte } from "../tipos";
 import { Icono } from "../componentes/Iconos";
 import Modal from "../componentes/Modal";
-import { Hueso } from "../componentes/Comunes";
+import { AvisoBanco, Hueso } from "../componentes/Comunes";
 import { useToast } from "../componentes/Toasts";
 import MoverA from "../componentes/proyectos/MoverA";
 import { apiProyectos } from "../apiProyectos";
@@ -819,6 +819,7 @@ function Fotos({ destinos, onUsar }: { destinos: Destino[]; onUsar: (destino: De
             </select>
           </label>
         </div>
+        <AvisoBanco fotos={fotos} />
         {fotos && fotos.length === 0 && !buscando && <p className="suave chico">Nada con esas palabras (o la API no tiene acceso a WordPress). Probá otras, o pegá la URL en el campo del bloque.</p>}
         {fotos && fotos.length > 0 && (
           <div className="pieza-fotos nl-banco">

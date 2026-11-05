@@ -221,15 +221,25 @@ def _wp_api(cfg, path):
 # imagen sirve para todos los canales, y las etiquetas van en el título/alt/descripción del adjunto.
 # Julián arma carpetas en Drive con etiquetas en el nombre; un script las sube acá (card Trello).
 
-def buscar_imagenes_banco(cfg, consulta, n=6):
+MARCA_BANCO = "banco-fva"      # (5/11) va en la descripción de lo que sube banco.py desde Drive; con ella se busca solo en el banco
+
+
+def buscar_imagenes_banco(cfg, consulta, n=6, solo_banco=False, formato=None):
     """Busca imágenes en la biblioteca de medios por palabras (título, alt, descripción).
     Devuelve [{id, url, miniatura, titulo}]. Sin credenciales o sin resultados: lista vacía.
-    Prueba primero la consulta entera; si no hay nada, palabra por palabra (unión)."""
+    Prueba primero la consulta entera; si no hay nada, palabra por palabra (unión).
+    (5/11) solo_banco=True: a cada búsqueda se le agrega la marca `banco-fva` (el `search` de WordPress exige todas las palabras) y, si
+    se pide `formato` (cuadrado / vertical / horizontal), también esa palabra; sin consulta devuelve las últimas del banco."""
     if not cfg.wp_site:
         return []
     consulta = (consulta or "").strip()
     palabras = [p for p in consulta.replace(",", " ").split() if len(p) > 2]
-    intentos = [consulta] + palabras if consulta else []
+    if solo_banco:
+        extra = " ".join([MARCA_BANCO] + ([formato] if formato else []))
+        intentos = [f"{consulta} {extra}".strip()] + [f"{p} {extra}" for p in palabras] if consulta else [extra]
+    else:
+        intentos = [consulta] + palabras if consulta else []
+    intentos = list(dict.fromkeys(intentos))        # una consulta de una sola palabra no se busca dos veces
     vistos, out = set(), []
     for q in intentos:
         if len(out) >= n:
@@ -283,17 +293,20 @@ def _recientes(cfg, n):
 
 # ----------------------------------------------------------------------------- WordPress
 
-def subir_imagen_wordpress(cfg, ruta_o_bytes, nombre, titulo="", etiquetas=None, quien="", pieza=""):
+def subir_imagen_wordpress(cfg, ruta_o_bytes, nombre, titulo="", etiquetas=None, quien="", pieza="", banco=False):
     """
     Sube una imagen a la biblioteca de medios del sitio. Devuelve {"ok", "url", "id", "modo"}.
     En "simulado" y "apagado" no sube nada. Lo que sube queda con título, texto alternativo,
     y en la descripción: fecha, pieza y etiquetas (así se arma el banco solo).
+    (5/11) banco=True (lo usa banco.py con las imágenes de la carpeta de Drive): la descripción lleva además la marca fija `banco-fva`,
+    que es lo que deja buscar solo en el banco (buscar_imagenes_banco(solo_banco=True)).
     """
     modo = cfg.modo_wp
     datos = ruta_o_bytes if isinstance(ruta_o_bytes, (bytes, bytearray)) else open(ruta_o_bytes, "rb").read()
     tipo = mimetypes.guess_type(nombre)[0] or "image/jpeg"
     desc = f"Subida por la herramienta el {datetime.date.today()}" + (f" para «{pieza}»" if pieza else "") \
-           + (f". Etiquetas: {', '.join(etiquetas)}" if etiquetas else "") + (f". Por {quien}" if quien else "")
+           + (f". Etiquetas: {', '.join(etiquetas)}" if etiquetas else "") + (f". Por {quien}" if quien else "") \
+           + (f". Banco: {MARCA_BANCO}" if banco else "")
     base = {"canal": "wordpress", "accion": "subir_imagen", "modo": modo, "quien": quien,
             "nombre": nombre, "bytes": len(datos), "titulo": titulo, "etiquetas": etiquetas or []}
     if modo in ("apagado", "simulado"):

@@ -96,6 +96,8 @@ export interface FotoBanco {
   url: string;
   miniatura: string;
   titulo: string;
+  /** (5/11) «banco» = de lo que subió el banco de Drive (Configuración → Banco de imágenes, «buscar solo en el banco»); «biblioteca» = de toda la biblioteca de WordPress. */
+  fuente?: "banco" | "biblioteca";
 }
 
 export interface ModoCanal {

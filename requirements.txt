@@ -8,6 +8,8 @@ fastapi
 uvicorn[standard]
 python-multipart
 google-auth
+# Drive (banco de imágenes: «Sincronizar ahora» desde la API; la cola lo instala en cola.yml)
+google-api-python-client
 requests
 psutil
 itsdangerous

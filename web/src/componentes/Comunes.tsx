@@ -92,6 +92,12 @@ export function Migas({ pasos }: { pasos: { texto: string; a?: string }[] }) {
   );
 }
 
+/** (5/11) «Buscando solo en el banco de imágenes»: se ve cuando la config banco_solo está prendida (las fotos vienen con fuente «banco»). */
+export function AvisoBanco({ fotos }: { fotos: { fuente?: string }[] | null }) {
+  if (!fotos || !fotos.some((f) => f.fuente === "banco")) return null;
+  return <p className="suave chico aviso-banco">Buscando solo en el banco de imágenes.</p>;
+}
+
 export function Tecla({ children }: { children: ReactNode }) {
   return <kbd className="tecla">{children}</kbd>;
 }

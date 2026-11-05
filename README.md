@@ -78,6 +78,13 @@ No se toca la cola, ni las rutas, ni la web: `publicar.enviar_pieza` despacha co
 **Una persona con cualquier permiso**: Administración → Usuarios (rol creador / aprobador / admin en la tabla `usuarios`). Ya no hay contraseñas
 ni listas de roles en secrets ni en el entorno.
 
+## Banco de imágenes (5/11)
+- Julián carga las fotos en Drive, en «FBA Automatización de Contenidos» → «Banco de Imágenes», con subcarpetas libres (por formato o por tema) y nombres `etiqueta_etiqueta_1080x1920.jpg`. Las medidas dan el formato (iguales = `cuadrado`, más alta = `vertical`, más ancha = `horizontal`; sin medidas, lo da una subcarpeta con ese nombre). Las demás palabras del nombre y de las subcarpetas son etiquetas.
+- La cola (`procesar_cola.py`, cada 15 minutos) llama a `banco.sincronizar_desde_config`: recorre la carpeta, sube a WordPress lo que no está en la tabla `banco_imagenes` (o cambió en Drive), con título = etiquetas y la marca `banco-fva` en la descripción. Hasta 30 por pasada; el resto en la siguiente. Nunca rompe la cola: si falla, lo dice en el log.
+- Administración → Configuración → «Banco de imágenes»: la carpeta de Drive (se puede pegar el link entero), el interruptor `banco_solo` (las pantallas que buscan fotos miran solo el banco; si no hay nada para la búsqueda muestran las últimas del banco, no la biblioteca entera), cuántas hay por formato y «Sincronizar ahora» (`POST /admin/banco/sincronizar`; `GET /admin/banco` da los números).
+- Agregar otra carpeta: hoy hay una sola (`banco_drive_carpeta`). Para sumar otra, cambiar la clave a una lista o correr `banco.sincronizar_banco(cfg, svc, carpeta_id, registro)` con su id desde `procesar_cola.py`; el registro es por id de archivo de Drive, así que no se pisan.
+- La cola necesita `DRIVE_TOKEN_JSON` como secret del repo (el mismo de `recortar-pendientes`) y el rol acotado `cola` con permisos sobre `banco_imagenes` (`api/migraciones/manual_cola_rol.sql`, idempotente: volver a correrlo después de aplicar la migración).
+
 ## Token de Instagram (se renueva solo, 5/11)
 - El token de Instagram Login dura 60 días. Vive en la tabla `config`, clave `meta_ig_token` (`{"token", "vence", "renovado"}`); la API y la cola leen ese mismo, sin redeploy (`meta_token.py`, usado por `publicar.Config`).
 - `META_IG_TOKEN` del entorno es solo la **semilla**: se usa si no hay nada guardado o Supabase no está.
