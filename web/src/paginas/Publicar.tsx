@@ -382,6 +382,17 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
           </h1>
           <p className="suave">
             {desdeMenu && canal && (AYUDA_CANAL[canal] ?? "Acá se diseña la pieza: foto, frase, texto y fecha. Publicarla es el paso siguiente, desde Aprobación.")}
+            {desdeMenu && canal === "youtube" && (
+              /* (5/11) Lo exige la política de desarrolladores de YouTube (III.A.1 y III.A.2): el cliente de la API muestra el link a los
+                 Términos de YouTube y a la Política de privacidad de Google, y la nuestra cuenta cómo se usan los datos. */
+              <>
+                {" "}
+                Usa los servicios de la API de YouTube: al publicar aceptás los{" "}
+                <a href="https://www.youtube.com/t/terms" target="_blank" rel="noreferrer">Términos del servicio de YouTube</a>. Ver la{" "}
+                <a href="https://www.google.com/policies/privacy" target="_blank" rel="noreferrer">Política de privacidad de Google</a> y la{" "}
+                <a href="https://viviragradecidos.org/politica-de-privacidad/" target="_blank" rel="noreferrer">de la Fundación</a>.
+              </>
+            )}
             {!desdeMenu && origen === "chat" && "La pieza que propuso el bot, lista para ajustar y mandar."}
             {origen === "recorte" && "Un recorte listo para publicar: elegí el canal y escribí el texto."}
             {origen === "copia" && (copiaDe ? `Una copia de una pieza de ${copiaDe}: ajustala y guardala como tuya. La original no cambia.` : "Una copia de la pieza: al guardar se crea una nueva y la original no cambia.")}

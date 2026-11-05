@@ -142,6 +142,13 @@ export default function Login() {
         <p className="chico primera-vez">
           ¿Primera vez? <Link to="/primera-vez">Creá tu cuenta</Link>
         </p>
+        {/* (5/11) Política de desarrolladores de YouTube III.A: el cliente muestra los links a la política de privacidad y a los términos
+            (los del sitio de la Fundación, que a su vez remiten a los de YouTube y a la Política de privacidad de Google). */}
+        <p className="suave chico login-legal">
+          <a href="https://viviragradecidos.org/politica-de-privacidad/" target="_blank" rel="noreferrer">Política de privacidad</a> ·{" "}
+          <a href="https://viviragradecidos.org/terminos-y-condiciones/" target="_blank" rel="noreferrer">Términos y condiciones</a> ·{" "}
+          <a href="https://www.youtube.com/t/terms" target="_blank" rel="noreferrer">Términos de YouTube</a>
+        </p>
       </form>
     </div>
   );
