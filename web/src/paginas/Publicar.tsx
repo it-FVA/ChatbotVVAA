@@ -21,6 +21,9 @@ import { Icono } from "../componentes/Iconos";
 import { AvisoBanco, Hueso } from "../componentes/Comunes";
 import SubirVideo from "../componentes/SubirVideo";
 import { useToast } from "../componentes/Toasts";
+import Presencia from "../componentes/Presencia";
+import ConflictoGuardado, { esConflictoDeVersion } from "../componentes/ConflictoGuardado";
+import { usePresencia } from "../util/usePresencia";
 import "../publicar.css";
 
 // (2/11) qué se diseña en cada canal, en una línea (Alberto: cada canal con su particularidad)
@@ -39,19 +42,20 @@ type Resultado = { tipo: "aprobacion"; r: RespuestaAprobacion } | { tipo: "envio
 // (5/11, Franco) Ayuda de esta pantalla: de acá salen la página /ayuda y la guía interactiva. Cada id es un data-ayuda="disenar.<id>" en el JSX.
 definirAyuda("disenar", {
   titulo: "Diseñar",
-  que: "Armás la pieza de un canal: foto con frase, texto y fecha. Diseñar no publica: la pieza va a aprobación y la publica quien aprueba. Cada canal tiene lo suyo:",
+  que: "Armás la pieza de un canal: foto con frase, texto, fecha. Diseñar no publica: la pieza va a aprobación y la publica quien aprueba. Por canal:",
   lista: [
-    "Instagram: foto cuadrada o vertical, historia (dura 24 horas y no lleva texto) o reel.",
+    "Instagram: foto cuadrada o vertical, historia (24 horas, sin texto) o reel.",
     "Facebook: foto con la frase y el texto.",
     "Blogpost: entrada de la web, con título, texto largo y foto destacada.",
     "YouTube: un recorte, con título. Sube privado: se publica desde YouTube Studio.",
     "Email: es el Newsletter.",
   ],
   pasos: [
-    { id: "canal", texto: "El canal se elige en la barra. Acá ves cuál es.", titulo: "Canal" },
+    { id: "canal", texto: "El canal se elige en la barra.", titulo: "Canal" },
+    { id: "presencia", texto: "Acá ves si otra persona está mirando o editando esta misma pieza.", titulo: "Quién más está acá" },
     { id: "texto", texto: "Cargá título y texto." },
     { id: "foto", texto: "Cargá la foto y la frase." },
-    { id: "cuando", texto: "Elegí cuándo sale y «Enviar a aprobación», o «Guardar borrador» para seguir después." },
+    { id: "cuando", texto: "Elegí cuándo sale y «Enviar a aprobación», o «Guardar borrador» para seguir luego." },
     { id: "previa", texto: "Mirá la vista previa." },
   ],
 });
@@ -60,6 +64,9 @@ export default function Publicar() {
   const [params] = useSearchParams();
   const loc = useLocation();
   const { avisar } = useToast();
+  const navParent = useNavigate();
+  const [versionBorrador, setVersionBorrador] = useState<string | null>(null); // (5/11) resultado.guardado_en del borrador que se retomó
+  const [recarga, setRecarga] = useState(0); // (5/11) «Recargar y ver sus cambios»: vuelve a pedir el borrador y arma el formulario de nuevo
   const [op, setOp] = useState<OpcionesPublicar | null>(null);
   const [form, setForm] = useState<PiezaForm | null>(null);
   const [origen, setOrigen] = useState<"chat" | "recorte" | "borrador" | "copia" | "nueva">("nueva");
@@ -97,7 +104,10 @@ export default function Publicar() {
           } else if ((p.estado !== "borrador" && p.estado !== "rechazada") || !p.pieza) {
             setError(p.estado === "prueba" ? "Esto fue una prueba (Ver simulado), no un borrador: se abre el formulario con sus datos; si lo guardás, queda como borrador nuevo." : "Esa pieza ya no es un borrador: se abre el formulario con sus datos, pero al guardar se crea una pieza nueva.");
             setForm({ ...desdeGuardada(p.pieza || {}, o), borrador_id: null });
-          } else setForm(desdeGuardada(p.pieza, o));
+          } else {
+            setForm(desdeGuardada(p.pieza, o));
+            setVersionBorrador(p.version ?? null);
+          }
           if (!(base || (p.propia === false && !colabora))) setOrigen("borrador");
         } else if (recorte) {
           const r = await api.recorte(recorte);
@@ -125,7 +135,7 @@ export default function Publicar() {
       vivo = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.get("borrador"), params.get("base"), params.get("recorte")]);
+  }, [params.get("borrador"), params.get("base"), params.get("recorte"), recarga]);
 
   if (!form || !op) {
     if (error)
@@ -163,17 +173,25 @@ export default function Publicar() {
       </div>
     );
   }
-  return <Formulario key={form.borrador_id || origen} inicial={form} op={op} origen={origen} copiaDe={copiaDe} duenaDe={duenaDe} rechazo={rechazo} avisoInicial={error} avisar={avisar} />;
+  const recargar = (id: string) => {
+    navParent(`/publicar?borrador=${encodeURIComponent(id)}`, { replace: true });
+    setRecarga((n) => n + 1);
+  };
+  return <Formulario key={`${form.borrador_id || origen}:${recarga}`} inicial={form} op={op} origen={origen} copiaDe={copiaDe} duenaDe={duenaDe} rechazo={rechazo} avisoInicial={error} avisar={avisar} versionInicial={versionBorrador} recargar={recargar} />;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, rechazo = null, avisoInicial, avisar }: { inicial: PiezaForm; op: OpcionesPublicar; origen: string; copiaDe?: string | null; duenaDe?: string | null; rechazo?: Rechazo | null; avisoInicial: string | null; avisar: (t: string, tipo?: "ok" | "error" | "info") => void }) {
+function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, rechazo = null, avisoInicial, avisar, versionInicial = null, recargar }: { inicial: PiezaForm; op: OpcionesPublicar; origen: string; copiaDe?: string | null; duenaDe?: string | null; rechazo?: Rechazo | null; avisoInicial: string | null; avisar: (t: string, tipo?: "ok" | "error" | "info") => void; versionInicial?: string | null; recargar: (id: string) => void }) {
   // (2/11, reunión: Alberto) desde «Canales · Diseñar» se entra con el canal ya elegido: la pantalla se centra en ese canal
   // (título, texto de ayuda, el canal fijo en una línea: para otro canal se vuelve al menú)
   const [paramsMenu] = useSearchParams();
   const desdeMenu = !!paramsMenu.get("canal") && origen === "nueva";
   const nav = useNavigate();
   const [f, setF] = useState<PiezaForm>(inicial);
+  // (5/11) presencia y aviso de conflicto: la versión que cargó esta pantalla se manda al guardar; si otra persona guardó antes, la API contesta 409
+  const [version, setVersion] = useState<string | null>(versionInicial);
+  const [conflicto, setConflicto] = useState<string | null>(null);
+  const presentes = usePresencia("pieza", f.borrador_id, "edita");
   const [paso, setPaso] = useState<1 | 2 | 3>(inicial.canal && inicial.texto ? (inicial.video_url ? 2 : 2) : 1);
   const [fotos, setFotos] = useState<FotoBanco[] | null>(null);
   const [buscando, setBuscando] = useState(false);
@@ -324,13 +342,14 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
             : `Enviar a ${info!.texto_canal} (simulado)`
       : "Enviar a aprobación";
 
-  async function mandar(que: "aprobar" | "real" | "simulado" | "borrador") {
+  async function mandar(que: "aprobar" | "real" | "simulado" | "borrador", pisar = false) {
     setError(null);
     setEnviando(que);
     try {
       if (que === "borrador") {
-        const r = await apiPublicar.borrador(f);
+        const r = await apiPublicar.borrador(f, pisar ? null : version);
         const yaEstaba = !!f.borrador_id; // (4/11) sobre un borrador que ya existía: «Cambios guardados»
+        setVersion(r.version ?? null);
         set("borrador_id", r.id);
         avisar(yaEstaba ? "Cambios guardados." : "Borrador guardado.");
         setResultado({ tipo: "borrador", id: r.id, mensaje: r.mensaje, cambios: yaEstaba });
@@ -346,7 +365,8 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
       }
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {
-      setError(e instanceof ErrorApi ? e.message : "No pude conectarme con la API.");
+      if (que === "borrador" && esConflictoDeVersion(e)) setConflicto(e.message); // (5/11) otra persona guardó antes: se pregunta qué hacer
+      else setError(e instanceof ErrorApi ? e.message : "No pude conectarme con la API.");
     } finally {
       setEnviando(null);
     }
@@ -381,11 +401,29 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
             {origen === "borrador" && !rechazo && duenaDe && `Editando un borrador de ${duenaDe}, compartido con vos para editar. Al guardar se actualiza el mismo y sigue siendo de ${duenaDe}. Si lo mandás a aprobación, va a su nombre y queda en la misma carpeta.`}
             {!desdeMenu && origen === "nueva" && "Acá se diseña la pieza: foto, frase, texto y fecha. Publicarla es el paso siguiente, desde Aprobación. También se puede diseñar desde el chat, debajo de la respuesta del bot."}
             <LinkAyuda pantalla="disenar" /></p>
+          <div data-ayuda="disenar.presencia">
+            <Presencia presentes={presentes} vacio={f.borrador_id ? "Nadie más está en esta pieza ahora." : "Cuando la guardes como borrador, acá ves si otra persona la mira o la edita."} />
+          </div>
         </div>
         <Link to="/publicaciones" className="boton sutil">
           <Icono nombre="lista" tam={16} /> Mis publicaciones
         </Link>
       </header>
+      {conflicto && f.borrador_id && (
+        <ConflictoGuardado
+          mensaje={conflicto}
+          ocupado={enviando !== null}
+          onCerrar={() => setConflicto(null)}
+          onRecargar={() => {
+            setConflicto(null);
+            recargar(f.borrador_id!);
+          }}
+          onPisar={() => {
+            setConflicto(null);
+            void mandar("borrador", true);
+          }}
+        />
+      )}
       {rechazo && (
         <div className="aviso rechazo-nota" role="note">
           <Icono nombre="cruz" tam={16} />{" "}

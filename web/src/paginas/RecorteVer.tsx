@@ -11,6 +11,8 @@ import { fechaCreacion } from "../util/fechas";
 import { Icono } from "../componentes/Iconos";
 import { Migas } from "../componentes/Comunes";
 import { useToast } from "../componentes/Toasts";
+import Presencia from "../componentes/Presencia";
+import { usePresencia } from "../util/usePresencia";
 import { etiqueta, useProyectos } from "../componentes/proyectos/ProyectosContexto";
 import type { DesdeCarpeta } from "./PiezaVer";
 import "../proyectos.css";
@@ -20,6 +22,7 @@ export default function RecorteVer({ det }: { det: Detalle }) {
   const { avisar } = useToast();
   const proyectos = useProyectos();
   const [descargando, setDescargando] = useState(false);
+  const presentes = usePresencia("recorte", det.id, "mira"); // (5/11) quién más lo está mirando o editando
   const listo = det.estado === "listo" && !!det.url;
   const titulo = (det.titulo || det.video_id).slice(0, 80);
 
@@ -69,6 +72,7 @@ export default function RecorteVer({ det }: { det: Detalle }) {
               </span>
             )}
           </div>
+          <Presencia presentes={presentes} />
         </div>
       </header>
 

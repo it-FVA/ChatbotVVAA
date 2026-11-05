@@ -1,0 +1,10 @@
+/* (5/11) Chips de presencia y el aviso de conflicto al guardar. */
+.presencia { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0 0; }
+.presencia-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px 2px 8px; border-radius: 999px; font-size: 0.82rem; line-height: 1.5;
+  background: rgba(127, 127, 127, 0.12); border: 1px solid rgba(127, 127, 127, 0.3); }
+.presencia-chip i { width: 8px; height: 8px; border-radius: 50%; background: #3a9d5d; flex: none; }
+.presencia-chip.edita i { background: #e07a2f; animation: presencia-pulso 2s ease-in-out infinite; }
+.presencia-vacio { margin: 0; }
+@keyframes presencia-pulso { 50% { opacity: 0.4; } }
+@media (prefers-reduced-motion: reduce) { .presencia-chip.edita i { animation: none; } }
+.conflicto-acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; justify-content: flex-end; }

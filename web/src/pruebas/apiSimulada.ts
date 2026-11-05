@@ -31,6 +31,7 @@ export function instalarApi(rutas: Record<string, Manejador>) {
     const m = rutas[clave];
     const salida = typeof m === "function" ? (m as (c: unknown, u: URL) => unknown)(cuerpo, url) : m;
     if (salida instanceof Blob) return new Response(salida, { status: 200 });
+    if (salida instanceof Response) return salida; // la prueba decide el estado (un 409, por ejemplo)
     return new Response(JSON.stringify(salida), { status: 200, headers: { "Content-Type": "application/json" } });
   });
   vi.stubGlobal("fetch", falso);

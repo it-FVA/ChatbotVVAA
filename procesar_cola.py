@@ -58,6 +58,12 @@ def main():
             print(f"- {pid} estaba 'procesando' hace más de 30 min: vuelve a pendiente")
     except Exception as e:
         print(f"no pude revisar las piezas en 'procesando': {e}")
+    try:   # (5/11) presencia: los latidos de más de 10 minutos ya no le sirven a nadie
+        n = db.limpiar_viejas()
+        if n:
+            print(f"presencia: {n} latidos viejos borrados")
+    except Exception as e:
+        print(f"presencia: no pude limpiar: {e}")
     pend = db.listar_pendientes(vencidas=True)
     print(f"pendientes vencidas: {len(pend)}")
     for p in pend:

@@ -89,3 +89,22 @@ def test_borradores_y_aprobacion(logueado, monkeypatch):
 
 def test_sin_sesion(cliente):
     assert cliente.get("/newsletter/plantillas").status_code == 401
+
+
+def test_newsletter_borrador_con_version_vieja_da_409(logueado, monkeypatch):
+    """(5/11) Aviso de conflicto también en el editor de Newsletter."""
+    filas = [{"id": "b1", "usuario": "franco", "canal": "newsletter", "estado": "borrador", "titulo": "Octubre", "creado": "", "texto": "<html>",
+              "resultado": {"pieza": {"plantilla": "mensual", "datos": {}}, "guardado_en": "2026-11-05T12:00:00+00:00"}}]
+    _con_db(monkeypatch, filas)
+    monkeypatch.setattr(db, "obtener_publicacion", lambda pid: next((dict(f) for f in filas if f["id"] == pid), None))
+    guardados = []
+    monkeypatch.setattr(db, "guardar_borrador", lambda *a, pid=None, **k: guardados.append(pid) or pid)
+    assert logueado.get("/newsletter/borradores/b1").json()["version"] == "2026-11-05T12:00:00+00:00"
+    cuerpo = {"plantilla": "mensual", "datos": {"mes": "Noviembre"}, "borrador_id": "b1"}
+    r = logueado.post("/newsletter/borrador", json=dict(cuerpo, version="2026-11-05T10:00:00+00:00"))
+    assert r.status_code == 409 and guardados == [] and "newsletter se guardó" in r.json()["detail"]     # lo guardó la misma persona (otra pestaña)
+    filas[0]["resultado"]["editada_por"] = "lizzie"
+    r = logueado.post("/newsletter/borrador", json=dict(cuerpo, version="2026-11-05T10:00:00+00:00"))
+    assert r.status_code == 409 and r.json()["editada_por"] == "lizzie" and "Otra persona guardó este newsletter hace" in r.json()["detail"]
+    assert logueado.post("/newsletter/borrador", json=dict(cuerpo, version="2026-11-05T12:00:00+00:00")).status_code == 200
+    assert logueado.post("/newsletter/borrador", json=cuerpo).status_code == 200 and guardados == ["b1", "b1"]

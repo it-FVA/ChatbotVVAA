@@ -18,6 +18,9 @@ import { Icono } from "../componentes/Iconos";
 import Modal from "../componentes/Modal";
 import { AvisoBanco, Hueso } from "../componentes/Comunes";
 import { useToast } from "../componentes/Toasts";
+import Presencia from "../componentes/Presencia";
+import ConflictoGuardado, { esConflictoDeVersion } from "../componentes/ConflictoGuardado";
+import { usePresencia } from "../util/usePresencia";
 import MoverA from "../componentes/proyectos/MoverA";
 import { apiProyectos } from "../apiProyectos";
 import { etiqueta, useProyectos } from "../componentes/proyectos/ProyectosContexto";
@@ -57,6 +60,10 @@ export default function Newsletter() {
   const [plantilla, setPlantilla] = useState<Plantilla>("mensual");
   const [d, setD] = useState<Datos | null>(null);
   const [borradorId, setBorradorId] = useState<string | null>(null);
+  // (5/11) presencia y aviso de conflicto: la versión que cargó esta pantalla se manda al guardar; si otra persona guardó antes, la API contesta 409
+  const [version, setVersion] = useState<string | null>(null);
+  const [conflicto, setConflicto] = useState<string | null>(null);
+  const presentes = usePresencia("pieza", borradorId, "edita");
   // (4/11) de quién es lo que se retoma (si es ajeno, por una carpeta con «editar») y el rechazo, si lo rechazaron
   const [abierto, setAbierto] = useState<BorradorAbierto | null>(null);
   const [tema, setTema] = useState("");
@@ -120,6 +127,7 @@ export default function Newsletter() {
             datos = b.datos;
             setBorradorId(b.id);
             setAbierto(b);
+            setVersion(b.version ?? null);
           } catch (e) {
             setError(e instanceof ErrorApi ? e.message : "No pude abrir ese borrador.");
           }
@@ -219,13 +227,14 @@ export default function Newsletter() {
     avisar("HTML descargado: se pega en Perfit.");
   }
 
-  async function guardar(que: "borrador" | "aprobar") {
+  async function guardar(que: "borrador" | "aprobar", pisar = false) {
     if (!d) return;
     setEnviando(que);
     setError(null);
     try {
       if (que === "borrador") {
-        const r = await apiNewsletter.guardarBorrador(plantilla, d, borradorId);
+        const r = await apiNewsletter.guardarBorrador(plantilla, d, borradorId, pisar ? null : version);
+        setVersion(r.version ?? null);
         setBorradorId(r.id);
         setParams({ borrador: r.id }, { replace: true });
         avisar(r.mensaje);
@@ -237,7 +246,8 @@ export default function Newsletter() {
         setParams({}, { replace: true });
       }
     } catch (e) {
-      setError(e instanceof ErrorApi ? e.message : "No pude guardar la pieza.");
+      if (que === "borrador" && esConflictoDeVersion(e)) setConflicto(e.message); // (5/11) otra persona guardó antes: se pregunta qué hacer
+      else setError(e instanceof ErrorApi ? e.message : "No pude guardar la pieza.");
     } finally {
       setEnviando(null);
     }
@@ -265,9 +275,26 @@ export default function Newsletter() {
         setD(r.datos);
         setBorradorId(r.id);
         setAbierto(r);
+        setVersion(r.version ?? null);
         setMateriales([]);
       })
       .catch((e) => setError(e instanceof ErrorApi ? e.message : "No pude abrir ese borrador."));
+  }
+
+  /** (5/11) «Recargar y ver sus cambios»: vuelve a pedir el borrador guardado y reemplaza lo que había en el editor. */
+  function recargarBorrador() {
+    if (!borradorId) return;
+    setConflicto(null);
+    apiNewsletter
+      .borrador(borradorId)
+      .then((r) => {
+        setPlantilla(r.plantilla);
+        setD(r.datos);
+        setAbierto(r);
+        setVersion(r.version ?? null);
+        avisar("Recargué el newsletter con la última versión guardada.");
+      })
+      .catch((e) => setError(e instanceof ErrorApi ? e.message : "No pude recargar el borrador."));
   }
 
   const destinos = useMemo<Destino[]>(() => (d ? destinosDe(plantilla, d) : []), [plantilla, d]);
@@ -302,6 +329,7 @@ export default function Newsletter() {
           <p className="suave">
             El email a la comunidad, bloque por bloque, con las plantillas reales de la Fundación. El bot redacta los textos desde el material; la agenda, las fotos y los links los cargás vos. El email no sale de acá: el HTML aprobado se pega en Perfit. (Una entrada de la web es un «blogpost» y se diseña en Canales → Blogpost.)
             <LinkAyuda pantalla="newsletter" /></p>
+          <Presencia presentes={presentes} />
         </div>
         <div className="acciones">
           <button type="button" className="boton" data-ayuda="newsletter.retomar" onClick={() => setAbrirBorradores(true)}>
@@ -312,6 +340,19 @@ export default function Newsletter() {
           </button>
         </div>
       </header>
+
+      {conflicto && borradorId && (
+        <ConflictoGuardado
+          mensaje={conflicto}
+          ocupado={enviando !== null}
+          onCerrar={() => setConflicto(null)}
+          onRecargar={recargarBorrador}
+          onPisar={() => {
+            setConflicto(null);
+            void guardar("borrador", true);
+          }}
+        />
+      )}
 
       {hecho && (
         <div className="aviso nl-hecho" role="status">

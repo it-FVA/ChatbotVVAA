@@ -28,7 +28,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from . import auth
+from . import auth, presencia_rutas as _presencia
 import db                      # noqa: E402  (api/__init__ pone la raíz del repo en sys.path)
 import publicar                # noqa: E402
 import recortar_clip as rc     # noqa: E402
@@ -61,6 +61,7 @@ class Edicion(BaseModel):
     estilo: Optional[dict] = None
     quitar_pausas: Optional[bool] = None
     descartar_srt: bool = True                    # si cambió el tramo y había subtítulos corregidos: descartarlos y rearmarlos
+    version: Optional[str] = None                 # (5/11) la que la pantalla cargó (edicion.guardado_en): si otra persona guardó después, 409
 
 
 class EstiloDefecto(BaseModel):
@@ -266,6 +267,7 @@ def uno(cid: str, request: Request):
     c["srt_corregido"] = bool(e.get("srt"))
     c["estilo_actual"] = rc.normalizar_estilo(e.get("estilo") or c.get("estilo") or (_estilo_defecto_equipo() if db.disponible() else None))
     c["estilo_propio"] = bool(e.get("estilo") or c.get("estilo"))
+    c["version"] = e.get("guardado_en")      # (5/11) control de versión al guardar
     return c
 
 
@@ -282,6 +284,9 @@ def editar(cid: str, datos: Edicion, request: Request):
         raise HTTPException(409, "Un video subido no se edita acá: se edita afuera y se vuelve a subir.")
     if c.get("estado") != "listo":
         raise HTTPException(409, "Solo se edita un recorte que ya está listo." + (" Este está en proceso." if c.get("estado") == "pedido" else ""))
+    c409 = _presencia.conflicto(datos.version, *_presencia.version_de_recorte(c), usuario, que="recorte")   # (5/11) ¿alguien guardó mientras editabas?
+    if c409:
+        return c409
     edicion = dict(c.get("edicion") or {})
     nueva = dict(edicion)
     partes, avisos = [], []
@@ -389,8 +394,11 @@ def editar(cid: str, datos: Edicion, request: Request):
         raise HTTPException(400, "Todavía no cambiaste nada.")
     hoy = datetime.date.today().strftime("%d/%m")
     nota = f"Cambios de {usuario} el {hoy}: {', '.join(partes) or 'edición'}. El video anterior se reemplaza cuando termine."
+    version = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    nueva.update(guardado_en=version, guardado_por=usuario)       # (5/11) la versión que la próxima persona tiene que haber visto
     db.actualizar_clip(cid, {"edicion": nueva, "estado": "pedido", "error": None, "nota": nota})
-    return {"ok": True, "edicion": nueva, "partes": partes, "avisos": avisos,
+    return {"ok": True, "edicion": {k: v for k, v in nueva.items() if k not in ("guardado_en", "guardado_por")},
+            "partes": partes, "avisos": avisos, "version": version,
             "mensaje": "Listo, en unos 15 minutos el recorte aparece con los cambios."}
 
 

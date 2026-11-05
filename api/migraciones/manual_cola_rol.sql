@@ -6,6 +6,7 @@
 --
 -- (5/11) Si ya estaba aplicada: volver a correrlo (es idempotente) DESPUÉS de aplicar la migración 20261105_0045_banco_imagenes, que crea la
 -- tabla banco_imagenes que ahora usa la cola. Si la tabla no existe todavía, el grant de esa línea falla.
+-- (5/11) Lo mismo con la migración 20261105_1500_presencia (la cola borra los latidos viejos; select y delete alcanzan).
 --
 -- NO está aplicada. Pasos (en este orden; nada se corta si algo falla: la cola sigue con SUPABASE_KEY hasta que exista el secret):
 --
@@ -53,6 +54,7 @@ grant select, insert, update, delete on public.frase_envios  to cola;
 grant select, insert, update, delete on public.config        to cola;
 grant select, insert, update, delete on public.clips         to cola;
 grant select, insert, update, delete on public.banco_imagenes to cola;   -- (5/11) la cola sincroniza el banco de imágenes desde Drive
+grant select, delete                 on public.presencia     to cola;   -- (5/11) la cola borra los latidos de más de 10 minutos
 grant select                         on public.migraciones   to cola;
 
 -- Si alguna de esas tablas tiene un id con secuencia (serial o identity), el INSERT necesita usarla.
@@ -84,6 +86,8 @@ begin
     execute format('drop policy if exists cola_todo on public.%I', t);
     execute format('create policy cola_todo on public.%I for all to cola using (true) with check (true)', t);
   end loop;
+  drop policy if exists cola_presencia on public.presencia;
+  create policy cola_presencia on public.presencia for all to cola using (true) with check (true);
   drop policy if exists cola_lee on public.migraciones;
   create policy cola_lee on public.migraciones for select to cola using (true);
 end $$;

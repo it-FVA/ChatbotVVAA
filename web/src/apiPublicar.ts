@@ -48,7 +48,8 @@ export const apiPublicar = {
     return URL.createObjectURL(await r.blob());
   },
 
-  borrador: (p: PiezaForm) => pedir<RespuestaBorrador>("/publicar/borrador", { method: "POST", body: JSON.stringify(cuerpo(p)) }),
+  /** `version`: la que la pantalla cargó (5/11); si otra persona guardó después, la API contesta 409 y no pisa. Sin versión, guarda igual. */
+  borrador: (p: PiezaForm, version?: string | null) => pedir<RespuestaBorrador>("/publicar/borrador", { method: "POST", body: JSON.stringify({ ...cuerpo(p), version: version ?? null }) }),
   aAprobar: (p: PiezaForm) => pedir<RespuestaAprobacion>("/publicar/a-aprobar", { method: "POST", body: JSON.stringify(cuerpo(p)) }),
   enviar: (p: PiezaForm, modo: "real" | "simulado") => pedir<RespuestaEnvio>("/publicar/enviar", { method: "POST", body: JSON.stringify({ ...cuerpo(p), modo }) }),
 

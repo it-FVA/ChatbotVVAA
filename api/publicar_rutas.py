@@ -32,6 +32,7 @@ from pydantic import BaseModel
 
 from . import auth
 from . import chat_rutas as cr
+from . import presencia_rutas as _presencia
 from .pieza import Pieza
 import db            # noqa: E402  (api/__init__ pone la raíz del repo en sys.path)
 import publicar      # noqa: E402
@@ -409,8 +410,12 @@ def componer(datos: Componer, usuario=Depends(auth.usuario_actual)):
 
 
 # ---------------- Guardar borrador · Enviar a aprobación · Enviar / Ver simulado ----------------
+class PiezaBorrador(PiezaCompleta):
+    version: Optional[str] = None      # (5/11) la versión que la pantalla cargó (resultado.guardado_en): si otra persona guardó después, 409
+
+
 @router.post("/publicar/borrador")
-def guardar_borrador(p: PiezaCompleta, request: Request):
+def guardar_borrador(p: PiezaBorrador, request: Request):
     """= «💾 Guardar borrador»: guarda todo (diseño incluido) sin mandar nada; se retoma desde «Mis publicaciones» → Borradores.
     Con borrador_id actualiza el mismo («al guardar se actualiza el mismo»). (4/11) También el de otra persona si quien guarda
     tiene permiso «editar» por un proyecto: sigue siendo de su dueña y queda quién lo editó por última vez."""
@@ -430,6 +435,9 @@ def guardar_borrador(p: PiezaCompleta, request: Request):
         duena = _borrador_ajeno(p.borrador_id, usuario, rol)
         if not duena:
             raise HTTPException(409, "Ese borrador es de otra persona y no tenés permiso para editarlo: se guarda uno nuevo, tuyo, si volvés a intentar sin el id.")
+        c409 = _presencia.conflicto(p.version, *_presencia.version_de_fila(fila), usuario)     # (5/11) ¿alguien guardó mientras editabas?
+        if c409:
+            return c409
         # (4/11) una rechazada que se corrige pasa a borrador en la misma fila y conserva el rechazo (quién, cuándo, la nota)
         conservar = db.historial_de(fila.get("resultado"))
         if fila.get("estado") == "rechazada" or conservar.get("rechazada_por"):
@@ -439,11 +447,20 @@ def guardar_borrador(p: PiezaCompleta, request: Request):
                               conservar=conservar)
     if not pid:
         raise HTTPException(503, "No pude guardar el borrador.")
+    version = _version_guardada(pid)
     if duena != usuario:
-        return {"ok": True, "id": pid, "estado": "borrador", "mensaje": f"Cambios guardados. El borrador sigue siendo de {duena} y queda en la misma carpeta."}
+        return {"ok": True, "id": pid, "estado": "borrador", "version": version, "mensaje": f"Cambios guardados. El borrador sigue siendo de {duena} y queda en la misma carpeta."}
     if p.borrador_id:
-        return {"ok": True, "id": pid, "estado": "borrador", "mensaje": "Cambios guardados en el mismo borrador. Lo retomás desde «Mis publicaciones»."}
-    return {"ok": True, "id": pid, "estado": "borrador", "mensaje": "Guardado como borrador. Lo retomás desde «Mis publicaciones», filtro Borradores."}
+        return {"ok": True, "id": pid, "estado": "borrador", "version": version, "mensaje": "Cambios guardados en el mismo borrador. Lo retomás desde «Mis publicaciones»."}
+    return {"ok": True, "id": pid, "estado": "borrador", "version": version, "mensaje": "Guardado como borrador. Lo retomás desde «Mis publicaciones», filtro Borradores."}
+
+
+def _version_guardada(pid):
+    """(5/11) La versión recién guardada (resultado.guardado_en), para que la pantalla la mande en el próximo guardado."""
+    try:
+        return _presencia.version_de_fila(db.obtener_publicacion(pid))[0]
+    except Exception:
+        return None
 
 
 def _borrar_borrador(borrador_id, usuario):
@@ -597,6 +614,7 @@ def una_publicacion(pid: str, request: Request):
     p["propia"] = propia
     p["permiso"] = permiso               # (4/11) con «editar» se retoma la misma pieza: edición en colaboración
     p["editada_por"] = (p.get("resultado") or {}).get("editada_por")
+    p["version"] = _presencia.version_de_fila(p)[0]     # (5/11) control de versión al guardar
     if permiso == "ver":
         p["retomable"] = False
     if not propia:                       # borrar sigue siendo solo de la dueña

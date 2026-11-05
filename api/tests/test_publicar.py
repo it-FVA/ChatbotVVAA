@@ -138,6 +138,30 @@ def test_borrador_completo(logueado, base, monkeypatch):
     assert logueado.post("/publicar/borrador", json={"canal": "", "texto": "y"}).status_code == 400
 
 
+def test_borrador_con_version_vieja_da_409(logueado, base, monkeypatch):
+    """(5/11) Aviso de conflicto: si la pantalla manda la versión que cargó y otra persona guardó después, 409; sin versión, como siempre."""
+    guardados = []
+    monkeypatch.setattr(db, "guardar_borrador", lambda usuario, canal, titulo, texto, img, fecha, pieza, pid=None, por=None, conservar=None:
+                        guardados.append(pid) or pid)
+    monkeypatch.setattr(db, "listar_usuarios", lambda limite=500: [{"usuario": "lizzie", "nombre": "Lizzie P."}])
+    import api.presencia_rutas as prr
+    monkeypatch.setattr(prr, "_cache", {"t": 0.0, "nombres": {}})
+    base["filas"]["b1"] = {"id": "b1", "usuario": "lizzie", "estado": "borrador", "canal": "instagram",
+                           "resultado": {"guardado_en": "2026-11-05T12:00:00+00:00", "editada_por": "lizzie"}}
+    base["filas"]["b1"]["resultado"].pop("editada_por")
+    cuerpo = {"canal": "instagram", "texto": "y", "borrador_id": "b1"}
+    r = logueado.post("/publicar/borrador", json=dict(cuerpo, version="2026-11-05T11:00:00+00:00"))
+    assert r.status_code == 409 and guardados == []
+    j = r.json()
+    assert j["version_actual"] == "2026-11-05T12:00:00+00:00" and j["editada_por"] == "lizzie"
+    assert "Otra persona guardó esta pieza hace" in j["detail"] and "Lizzie P." in j["detail"] and "Recargá" in j["detail"]
+    r = logueado.post("/publicar/borrador", json=dict(cuerpo, version="2026-11-05T12:00:00+00:00"))        # la vigente: guarda
+    assert r.status_code == 200 and guardados == ["b1"] and r.json()["version"] == "2026-11-05T12:00:00+00:00"
+    assert logueado.post("/publicar/borrador", json=cuerpo).status_code == 200 and guardados == ["b1", "b1"]   # sin versión: como hoy
+    # GET devuelve la versión
+    assert logueado.get("/publicaciones/b1").json()["version"] == "2026-11-05T12:00:00+00:00"
+
+
 # ---------------- A aprobación ----------------
 def test_a_aprobar_con_compuesta(lizzie, base, monkeypatch):
     propuesto, subidas = {}, []
