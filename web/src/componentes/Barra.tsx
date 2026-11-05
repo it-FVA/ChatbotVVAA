@@ -127,9 +127,8 @@ export default function Barra() {
         <NavLink to="/recortes" className={subSinCarpeta} title="Recortes de video de YouTube, con editor">
           <Icono nombre="tijera" /> Mis recortes
         </NavLink>
-        <NavLink to="/ayuda" className={sub} title="Cómo se usa cada pantalla">
-          <Icono nombre="info" /> Ayuda
-        </NavLink>
+        {/* (5/11, Franco) «Ayuda» salió del menú: confundía al lado de la guía interactiva. La página /ayuda sigue existiendo y se
+            llega desde «¿Cómo se usa?» → «Leer la ayuda» en cada pantalla. */}
 
         {/* (3/11, Franco) «Equipo» no decía qué era: son las herramientas de aprobación y de administración */}
         {(yo?.rol.aprueba || yo?.rol.admin) && <div className="barra-grupo">Gestión</div>}
