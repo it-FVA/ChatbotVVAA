@@ -28,7 +28,27 @@ async def _vida(app):
     if os.environ.get("API_CARGAR_CORPUS", "1") != "0":
         frs, _ = nucleo.cargar()
         log.info("Corpus cargado: %d fragmentos", len(frs))
+    if os.environ.get("API_PAPELERA", "1") != "0":
+        _papelera_periodica()
     yield
+
+
+def _papelera_periodica():
+    """(5/11) La papelera de conversaciones (borrado definitivo a los 30 días) se vacía desde la API, al arrancar y una vez por día,
+    en un hilo aparte. Antes lo hacía la cola; con la clave acotada la cola no borra `conversaciones` a propósito."""
+    import threading, time
+
+    def correr():
+        while True:
+            try:
+                n = db.vaciar_papelera_vencida()
+                if n:
+                    log.info("papelera: %d conversaciones borradas definitivamente (más de %d días)", n, db.PAPELERA_DIAS)
+            except Exception as e:
+                log.warning("papelera: no pude vaciar: %s", e)
+            time.sleep(24 * 3600)
+
+    threading.Thread(target=correr, name="papelera", daemon=True).start()
 
 
 app = FastAPI(title="Asistente · Vivir Agradecidos", version="0.2 (fase 1)", lifespan=_vida)

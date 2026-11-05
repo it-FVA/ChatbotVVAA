@@ -7,7 +7,8 @@
 -- (5/11) Si ya estaba aplicada: volver a correrlo (es idempotente) DESPUÉS de aplicar la migración 20261105_0045_banco_imagenes, que crea la
 -- tabla banco_imagenes que ahora usa la cola. Si la tabla no existe todavía, el grant de esa línea falla.
 --
--- NO está aplicada. Pasos (en este orden; nada se corta si algo falla: la cola sigue con SUPABASE_KEY hasta que exista el secret):
+-- (5/11) APLICADA: rol creado, SUPABASE_KEY_COLA en GitHub, la cola y recortar-pendientes corren con ella y SUPABASE_KEY se borró de GitHub.
+-- Pasos originales (por si hay que rehacerla; nada se corta si algo falla: la cola sigue con SUPABASE_KEY hasta que exista el secret):
 --
 --  1. Supabase → SQL Editor → pegar ESTE archivo y correrlo. Es idempotente (se puede correr dos veces).
 --  2. Supabase → Project Settings → JWT Keys → solapa «Legacy JWT Secret» → Reveal (el secreto HS256 que sigue verificando JWTs). Copiarlo SOLO a una variable de entorno de

@@ -47,12 +47,15 @@ def main():
     r = cfg.resumen()
     ahora = datetime.datetime.now(datetime.timezone.utc)
     print(f"[{ahora.isoformat(timespec='minutes')}] modos: " + " ".join(f"{k}={v}" for k, v in cfg.modos.items() if k != "newsletter"))
-    try:   # (15/10) papelera de conversaciones: borrado definitivo pasados los 30 días
-        n = db.vaciar_papelera_vencida()
-        if n:
-            print(f"papelera: {n} conversaciones borradas definitivamente (más de {db.PAPELERA_DIAS} días)")
-    except Exception as e:
-        print(f"papelera: no pude vaciar: {e}")
+    if not os.environ.get("SUPABASE_KEY_COLA"):
+        # (15/10) papelera de conversaciones: borrado definitivo pasados los 30 días. (5/11) Con la clave acotada la cola no toca
+        # `conversaciones` (a propósito): lo hace la API al arrancar y una vez por día (api/main.py). Solo queda acá para correr en local.
+        try:
+            n = db.vaciar_papelera_vencida()
+            if n:
+                print(f"papelera: {n} conversaciones borradas definitivamente (más de {db.PAPELERA_DIAS} días)")
+        except Exception as e:
+            print(f"papelera: no pude vaciar: {e}")
     try:   # (3/11) una corrida que murió dejó piezas en 'procesando': vuelven a la cola
         for pid in db.liberar_procesando_viejas():
             print(f"- {pid} estaba 'procesando' hace más de 30 min: vuelve a pendiente")

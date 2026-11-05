@@ -30,8 +30,7 @@ jobs:
         env:
           # >>> generado (api/variables_entorno.py: no editar a mano; correr python api/generar_config.py)
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          # (3/11) Clave acotada de la cola (rol de Postgres «cola»: api/migraciones/manual_cola_rol.sql). Si existe, db/_cliente.py la usa en vez de SUPABASE_KEY.
+          # (3/11) Clave acotada de la cola (rol de Postgres «cola»: api/migraciones/manual_cola_rol.sql). db/_cliente.py la usa en vez de SUPABASE_KEY. (5/11) Cargada en GitHub y verificada: la cola corre con ella.
           SUPABASE_KEY_COLA: ${{ secrets.SUPABASE_KEY_COLA }}
           # (2/11, Franco) real: el aprobador publica la entrada de verdad desde la plataforma (o la programa).
           PUBLICAR_WORDPRESS: ${{ secrets.PUBLICAR_WORDPRESS }}

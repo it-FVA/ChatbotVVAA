@@ -34,7 +34,8 @@ Frase del día y circuito de aprobación. Desde el 2/11/2026 es **solo la web + 
 - **Vercel** (web): despliega solo con cada push a `main`.
 - **GitHub Actions** (cola): los secretos en Settings → Secrets and variables → Actions (`PUBLICAR_*`, claves de los canales).
   La cola puede correr con una clave de Supabase acotada (`SUPABASE_KEY_COLA`, sin acceso a usuarios ni conversaciones): los pasos para
-  crearla están en el encabezado de `api/migraciones/manual_cola_rol.sql`; mientras no exista el secret usa `SUPABASE_KEY`.
+  crearla están en el encabezado de `api/migraciones/manual_cola_rol.sql`. (5/11) Aplicada: la cola y recortar-pendientes corren con `SUPABASE_KEY_COLA`;
+  la clave total `SUPABASE_KEY` vive solo en Render. La papelera de conversaciones la vacía la API (al arrancar y una vez por día).
 
 ## Cómo agregar X (después de la reestructuración del 3/11)
 

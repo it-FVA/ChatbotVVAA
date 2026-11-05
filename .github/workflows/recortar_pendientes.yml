@@ -21,7 +21,7 @@ jobs:
       - name: Procesar clips pedidos
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_KEY_COLA: ${{ secrets.SUPABASE_KEY_COLA }}   # (5/11) clave acotada (rol cola: clips, config); ya no usa la total
           DRIVE_TOKEN_JSON: ${{ secrets.DRIVE_TOKEN_JSON }}
           WP_SITE: ${{ secrets.WP_SITE }}
           WP_USER: ${{ secrets.WP_USER }}

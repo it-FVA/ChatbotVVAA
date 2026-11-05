@@ -23,6 +23,7 @@ services:
         sync: false
       - key: SUPABASE_URL
         sync: false
+      # (5/11) Solo la API (Render). La cola y recortar-pendientes usan la clave acotada del rol cola.
       - key: SUPABASE_KEY
         sync: false
       # (21/10) Configuración NO secreta, administrada desde acá.

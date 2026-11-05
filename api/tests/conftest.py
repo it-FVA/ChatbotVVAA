@@ -9,6 +9,7 @@ if RAIZ not in sys.path:
 
 os.environ["FVA_SECRETS"] = "-"
 os.environ["API_CARGAR_CORPUS"] = "0"
+os.environ["API_PAPELERA"] = "0"       # (5/11) la papelera periódica no arranca en las pruebas
 os.environ["SESION_SECRETO"] = "secreto-de-prueba"
 os.environ["BCRYPT_RONDAS"] = "4"
 os.environ["DOMINIO_FVA"] = "viviragradecidos.org"
