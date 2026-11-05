@@ -52,7 +52,7 @@ type Rechazo = { por: string; en: string | null; nota: string | null };
 
 type Resultado = { tipo: "aprobacion"; r: RespuestaAprobacion } | { tipo: "envio"; r: RespuestaEnvio; modo: "real" | "simulado" } | { tipo: "borrador"; id: string; mensaje: string; cambios?: boolean };
 
-// (5/11, Franco) Ayuda de esta pantalla: de acá salen la página /ayuda y la guía interactiva. Cada id es un data-ayuda="disenar.<id>" en el JSX.
+// (5/11, Franco) Ayuda de esta pantalla: de acá sale la guía interactiva («¿Cómo se usa?»). Cada id es un data-ayuda="disenar.<id>" en el JSX.
 definirAyuda("disenar", {
   titulo: "Diseñar",
   que: "Armás la pieza de un canal. Diseñar no publica: toda pieza va a aprobación. Por canal:",

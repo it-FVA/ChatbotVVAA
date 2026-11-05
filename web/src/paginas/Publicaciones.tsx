@@ -37,7 +37,7 @@ function nombreTipo(canales: CanalInfo[], t: string): string {
   return nombre;
 }
 
-// (5/11, Franco) Ayuda de esta pantalla: de acá salen la página /ayuda y la guía interactiva. Cada id es un data-ayuda="publicaciones.<id>" en el JSX.
+// (5/11, Franco) Ayuda de esta pantalla: de acá sale la guía interactiva («¿Cómo se usa?»). Cada id es un data-ayuda="publicaciones.<id>" en el JSX.
 definirAyuda("publicaciones", {
   titulo: "Mis publicaciones",
   que: "Todo lo que diseñaste, con su estado: borrador (todavía no la mandaste), a aprobar, aprobada (espera su fecha), publicada o rechazada.",

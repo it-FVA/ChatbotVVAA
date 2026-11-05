@@ -5,9 +5,6 @@
 .link-ayuda:focus-visible { box-shadow: var(--foco); }
 .link-ayuda-signo { display: inline-grid; place-items: center; width: 16px; height: 16px; border: 1.5px solid currentColor; border-radius: 50%; font-size: 0.7rem; font-weight: 700; }
 .link-ayuda-punto { position: absolute; top: 0; right: -4px; width: 7px; height: 7px; border-radius: 50%; background: var(--amarillo-oscuro); }
-.link-ayuda-menu { position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; min-width: 230px; display: flex; flex-direction: column; background: #fff; border: 1px solid var(--borde); border-radius: 10px; box-shadow: var(--sombra-alta); padding: 4px; }
-.link-ayuda-menu > * { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 1px; padding: 8px 10px; border-radius: 8px; font-size: 0.9rem; color: var(--tinta); }
-.link-ayuda-menu > *:hover, .link-ayuda-menu > *:focus-visible { background: var(--amarillo-suave); }
 
 .guia { position: fixed; inset: 0; z-index: 3000; }
 .guia-bloqueo { position: absolute; inset: 0; }

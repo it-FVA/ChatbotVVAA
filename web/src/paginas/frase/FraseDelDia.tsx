@@ -34,7 +34,7 @@ import { useFraseDelDia } from "./useFraseDelDia";
 import { DetalleDia } from "./DetalleDia";
 import "../../frases.css";
 
-// (5/11, Franco) Ayuda de esta pantalla: de acá salen la página /ayuda y la guía interactiva. Cada id es un data-ayuda="frase-del-dia.<id>" en el JSX.
+// (5/11, Franco) Ayuda de esta pantalla: de acá sale la guía interactiva («¿Cómo se usa?»). Cada id es un data-ayuda="frase-del-dia.<id>" en el JSX.
 definirAyuda("frase-del-dia", {
   titulo: "Frase del día",
   que: "Una frase por día, con foto de fondo, que sale sola cada mañana por mail y redes. La tarjeta «Mañana» muestra qué sale y por dónde.",

@@ -35,7 +35,7 @@ function claveSel(s: Sel) {
   return s.clase + ":" + s.id;
 }
 
-// (5/11, Franco) Ayuda de esta pantalla: de acá salen la página /ayuda y la guía interactiva. Cada id es un data-ayuda="proyectos.<id>" en el JSX.
+// (5/11, Franco) Ayuda de esta pantalla: de acá sale la guía interactiva («¿Cómo se usa?»). Cada id es un data-ayuda="proyectos.<id>" en el JSX.
 definirAyuda("proyectos", {
   titulo: "Proyectos",
   que: "Un proyecto es una carpeta con conversaciones, piezas y recortes de una misma campaña. Se pueden compartir con el equipo.",

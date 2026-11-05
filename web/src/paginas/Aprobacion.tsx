@@ -35,7 +35,7 @@ interface Ctx {
   refrescarConteo: () => void;
 }
 
-// (5/11, Franco) Ayuda de esta pantalla: de acá salen la página /ayuda y la guía interactiva. Cada id es un data-ayuda="aprobacion.<id>" en el JSX.
+// (5/11, Franco) Ayuda de esta pantalla: de acá sale la guía interactiva («¿Cómo se usa?»). Cada id es un data-ayuda="aprobacion.<id>" en el JSX.
 definirAyuda("aprobacion", {
   titulo: "Aprobación",
   que: "Solo la ve quien tiene el rol de aprobar. Acá se revisa lo que mandó el equipo y se publica.",

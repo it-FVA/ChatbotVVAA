@@ -16,7 +16,7 @@ import { etiqueta, useProyectos } from "../componentes/proyectos/ProyectosContex
 import { relativa } from "../util/fechas";
 import "../proyectos.css";
 
-// (5/11, Franco) Ayuda de esta pantalla: de acá salen la página /ayuda y la guía interactiva. Cada id es un data-ayuda="compartidos.<id>" en el JSX.
+// (5/11, Franco) Ayuda de esta pantalla: de acá sale la guía interactiva («¿Cómo se usa?»). Cada id es un data-ayuda="compartidos.<id>" en el JSX.
 definirAyuda("compartidos", {
   titulo: "Compartidos",
   que: "Las carpetas y conversaciones que otras personas del equipo compartieron con vos.",

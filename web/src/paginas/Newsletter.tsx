@@ -36,7 +36,7 @@ interface PiezaChat {
   texto?: string;
 }
 
-// (5/11, Franco) Ayuda de esta pantalla: de acá salen la página /ayuda y la guía interactiva. Cada id es un data-ayuda="newsletter.<id>" en el JSX.
+// (5/11, Franco) Ayuda de esta pantalla: de acá sale la guía interactiva («¿Cómo se usa?»). Cada id es un data-ayuda="newsletter.<id>" en el JSX.
 definirAyuda("newsletter", {
   titulo: "Newsletter",
   que: "El email a la comunidad, armado bloque por bloque con la plantilla de la Fundación. El mail no sale de acá: el HTML aprobado se pega en Perfit.",

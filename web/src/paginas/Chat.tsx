@@ -31,7 +31,7 @@ function normalizar(s: string) {
   return s.split(/\s+/).join(" ").trim();
 }
 
-// (5/11, Franco) Ayuda de esta pantalla: de acá salen la página /ayuda y la guía interactiva. Cada id es un data-ayuda="chat.<id>" en el JSX.
+// (5/11, Franco) Ayuda de esta pantalla: de acá sale la guía interactiva («¿Cómo se usa?»). Cada id es un data-ayuda="chat.<id>" en el JSX.
 definirAyuda("chat", {
   titulo: "Chat",
   que: "Le preguntás al asistente y busca en el material de la Fundación: libros, videos y charlas. Cada respuesta muestra las fuentes y, debajo, se puede diseñar una pieza.",

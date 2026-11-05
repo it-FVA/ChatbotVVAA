@@ -28,7 +28,7 @@ interface Admin {
 const Ctx = createContext<Admin>({ resumen: null, errorResumen: null, recargarResumen: async () => {} });
 export const useAdmin = () => useContext(Ctx);
 
-// (5/11, Franco) Ayuda de esta pantalla: de acá salen la página /ayuda y la guía interactiva. Cada id es un data-ayuda="administracion.<id>" en el JSX.
+// (5/11, Franco) Ayuda de esta pantalla: de acá sale la guía interactiva («¿Cómo se usa?»). Cada id es un data-ayuda="administracion.<id>" en el JSX.
 definirAyuda("administracion", {
   titulo: "Administración",
   que: "Solo la ve el equipo técnico. Muestra si la app funciona, cuánto cuesta y quién la usa.",

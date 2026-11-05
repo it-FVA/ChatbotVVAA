@@ -21,7 +21,7 @@ import "../recortes.css";
 type Vista = "mios" | "equipo" | "todos";
 
 /** vistaFija (22/10): embebida en Aprobación → Clips con la solapa «Todos» fija y sin cabecera. */
-// (5/11, Franco) Ayuda de esta pantalla: de acá salen la página /ayuda y la guía interactiva. Cada id es un data-ayuda="recortes.<id>" en el JSX.
+// (5/11, Franco) Ayuda de esta pantalla: de acá sale la guía interactiva («¿Cómo se usa?»). Cada id es un data-ayuda="recortes.<id>" en el JSX.
 definirAyuda("recortes", {
   titulo: "Mis recortes",
   que: "Los pedazos de video que pediste desde el chat. Tardan unos 15 minutos en estar listos, y aparecen acá solos.",
