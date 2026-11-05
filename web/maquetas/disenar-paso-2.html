@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maqueta · Diseñar, paso 2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --amarillo: #f4b43c; --amarillo-oscuro: #d99a1f; --amarillo-suave: #fdf1d6;
+    --verde: #3a6b35; --verde-oscuro: #2d5429; --verde-claro: #e6efe3;
+    --crema: #fbf8f1; --tinta: #2b2b2b; --suave: #666; --borde: #e6e0d4; --borde-fuerte: #cfc7b6;
+    --rojo: #b43c3c; --radio: 12px;
+    --sombra: 0 1px 2px rgba(43,43,43,.06), 0 4px 14px rgba(43,43,43,.06);
+    --foco: 0 0 0 3px rgba(244,180,60,.55);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--crema); color: var(--tinta); font: 15px/1.45 Raleway, system-ui, sans-serif; }
+  .nota { background: #fff7e0; border-bottom: 1px solid #f1dca0; padding: 10px 24px; font-size: .9rem; display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+  .nota b { color: var(--amarillo-oscuro); }
+  .nota .sel { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+  .nota .sel button { font: inherit; font-size: .85rem; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--borde-fuerte); background: #fff; cursor: pointer; }
+  .nota .sel button.on { background: var(--tinta); color: #fff; border-color: var(--tinta); }
+  main { max-width: 1120px; margin: 0 auto; padding: 22px 24px 60px; }
+  h1 { font-size: 1.35rem; margin: 0 0 4px; }
+  .sub { color: var(--suave); margin: 0 0 18px; }
+  .grilla { display: grid; grid-template-columns: minmax(0,1fr) 380px; gap: 22px; align-items: start; }
+  @media (max-width: 900px) { .grilla { grid-template-columns: 1fr; } }
+  .pasos { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .paso { background: #fff; border: 1px solid var(--borde); border-radius: var(--radio); box-shadow: var(--sombra); overflow: hidden; }
+  .paso.deshabilitado { opacity: .6; }
+  .cab { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 0; background: transparent; text-align: left; font: inherit; color: inherit; cursor: pointer; min-height: 54px; }
+  .num { flex: none; width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: .9rem; background: var(--borde); }
+  .paso.abierto .num { background: var(--amarillo); }
+  .num.hecho { background: var(--verde-claro); color: var(--verde-oscuro); }
+  .textos { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+  .titulo { font-weight: 700; }
+  .resumen { color: var(--suave); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .92rem; }
+  .editar { color: var(--verde); font-weight: 600; flex: none; }
+  .cuerpo { padding: 4px 16px 16px; display: grid; gap: 14px; }
+  .suave { color: var(--suave); } .chico { font-size: .86rem; }
+
+  /* --- lo nuevo: elección del camino --- */
+  .caminos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  @media (max-width: 600px) { .caminos { grid-template-columns: 1fr; } }
+  .camino { font: inherit; text-align: left; background: #fff; border: 2px solid var(--borde); border-radius: var(--radio); padding: 16px 14px; cursor: pointer; display: grid; gap: 6px; color: inherit; min-height: 112px; transition: border-color .14s, box-shadow .14s; }
+  .camino:hover { border-color: var(--borde-fuerte); }
+  .camino:focus-visible { outline: none; box-shadow: var(--foco); }
+  .camino b { font-size: 1.05rem; display: flex; align-items: center; gap: 8px; }
+  .camino .ico { width: 30px; height: 30px; border-radius: 8px; background: var(--amarillo-suave); display: inline-flex; align-items: center; justify-content: center; }
+  .camino.pronto { border-style: dashed; cursor: default; opacity: .7; }
+  .camino.pronto .pill { justify-self: start; font-size: .75rem; font-weight: 700; background: var(--borde); border-radius: 999px; padding: 1px 8px; }
+
+  .elegido { display: flex; align-items: center; gap: 10px; background: var(--amarillo-suave); border-radius: 999px; padding: 6px 14px; font-weight: 600; justify-self: start; }
+  .elegido button { font: inherit; font-size: .85rem; background: transparent; border: 0; color: var(--verde); font-weight: 600; cursor: pointer; text-decoration: underline; }
+
+  .fuentes { display: flex; gap: 6px; border-bottom: 1px solid var(--borde); }
+  .fuentes button { font: inherit; background: transparent; border: 0; border-bottom: 3px solid transparent; padding: 8px 12px; cursor: pointer; font-weight: 600; color: var(--suave); margin-bottom: -1px; }
+  .fuentes button.on { color: var(--tinta); border-bottom-color: var(--amarillo); }
+
+  .buscar { display: flex; gap: 8px; }
+  input[type=text], input[type=url] { font: inherit; padding: 8px 10px; border: 1px solid var(--borde-fuerte); border-radius: 8px; width: 100%; }
+  .boton { font: inherit; font-weight: 600; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--borde-fuerte); background: #fff; cursor: pointer; white-space: nowrap; }
+  .boton.primario { background: var(--amarillo); border-color: var(--amarillo); }
+  .fotos { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+  .foto { border: 2px solid var(--borde); border-radius: 10px; overflow: hidden; background: #fff; cursor: pointer; padding: 0; font: inherit; display: grid; }
+  .foto.on { border-color: var(--amarillo); box-shadow: var(--foco); }
+  .foto .img { aspect-ratio: 1; background: linear-gradient(135deg, #cfe3c9, #9fc69a); }
+  .foto .img.b { background: linear-gradient(135deg, #fde3b1, #f4b43c); }
+  .foto .img.c { background: linear-gradient(135deg, #d9e6f2, #8fb3d9); }
+  .foto .img.d { background: linear-gradient(135deg, #f1d9e6, #d98fb3); }
+  .foto .img.v { background: #2b2b2b; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1.4rem; aspect-ratio: 9/16; max-height: 150px; }
+  .foto span { font-size: .78rem; padding: 4px 6px; color: var(--suave); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .zona { border: 2px dashed var(--borde-fuerte); border-radius: var(--radio); padding: 22px; text-align: center; color: var(--suave); display: grid; gap: 8px; justify-items: center; }
+  .diseno { border-top: 1px solid var(--borde); padding-top: 12px; display: grid; gap: 10px; }
+  .diseno h3 { margin: 0; font-size: .95rem; }
+  .fila { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+  .casilla { display: inline-flex; gap: 6px; align-items: center; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chips button { font: inherit; font-size: .88rem; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--borde-fuerte); background: #fff; cursor: pointer; }
+  .chips button.on { background: var(--tinta); color: #fff; border-color: var(--tinta); }
+
+  /* vista previa */
+  .previa { background: #fff; border: 1px solid var(--borde); border-radius: var(--radio); box-shadow: var(--sombra); padding: 14px; position: sticky; top: 16px; }
+  .previa h2 { margin: 0 0 10px; font-size: .95rem; }
+  .tel { border: 1px solid var(--borde); border-radius: 14px; overflow: hidden; }
+  .tel .cab2 { display: flex; gap: 8px; align-items: center; padding: 8px 10px; font-size: .85rem; font-weight: 600; }
+  .tel .cab2 i { width: 26px; height: 26px; border-radius: 50%; background: var(--amarillo); display: inline-block; }
+  .tel .lienzo { aspect-ratio: 1; background: linear-gradient(135deg, #cfe3c9, #9fc69a); display: flex; align-items: flex-end; padding: 14px; color: #fff; font-weight: 700; font-size: 1.1rem; text-shadow: 0 1px 6px rgba(0,0,0,.4); }
+  .tel .lienzo.vacio { background: var(--crema); color: var(--suave); font-weight: 400; font-size: .9rem; text-shadow: none; align-items: center; justify-content: center; }
+  .tel .lienzo.video { background: #2b2b2b; aspect-ratio: 9/16; max-height: 360px; align-items: center; justify-content: center; font-size: 2rem; }
+  .tel .cap { padding: 10px; font-size: .88rem; }
+  .oculto { display: none !important; }
+</style>
+</head>
+<body>
+<div class="nota">
+  <span><b>Maqueta</b> · Diseñar, paso 2. Nada funciona de verdad; sirve para mirar el flujo.</span>
+  <span class="sel" id="canales">
+    <span class="suave chico">Canal:</span>
+    <button data-canal="ig" class="on">Instagram · Posteo</button>
+    <button data-canal="fb">Facebook</button>
+    <button data-canal="wp">Blogpost</button>
+    <button data-canal="hist">Instagram · Historia</button>
+  </span>
+</div>
+
+<main>
+  <h1>Diseñar</h1>
+  <p class="sub">Elegí el canal, escribí el texto y armá la pieza. Después va a aprobación.</p>
+
+  <div class="grilla">
+    <div class="pasos">
+
+      <!-- Paso 1 cerrado -->
+      <div class="paso">
+        <button class="cab">
+          <span class="num hecho">✓</span>
+          <span class="textos"><span class="titulo">Canal y texto</span><span class="resumen" id="res1">Instagram · Posteo — «Agradecer es volver a mirar lo que ya tenemos…»</span></span>
+          <span class="editar">Editar</span>
+        </button>
+      </div>
+
+      <!-- Paso 2 abierto -->
+      <div class="paso abierto">
+        <button class="cab">
+          <span class="num">2</span>
+          <span class="textos"><span class="titulo">Qué va en la pieza</span><span class="resumen" id="res2">Todavía no elegiste</span></span>
+        </button>
+        <div class="cuerpo">
+
+          <!-- Estado A: elegir camino -->
+          <div id="elegir">
+            <p class="suave" style="margin:0 0 10px">Una pieza lleva una foto o un video. Elegí por dónde vas.</p>
+            <div class="caminos">
+              <button class="camino" data-ir="foto">
+                <b><span class="ico">🖼</span> Foto</b>
+                <span class="suave chico">Del banco, de tu compu o de un link. Después le ponés la frase y el logo.</span>
+              </button>
+              <button class="camino" data-ir="video">
+                <b><span class="ico">🎬</span> Video</b>
+                <span class="suave chico">Un recorte listo o un video tuyo. Después elegís el formato.</span>
+              </button>
+              <div class="camino pronto" id="carrusel">
+                <b><span class="ico">🖼🖼</span> Varias fotos</b>
+                <span class="suave chico">Carrusel para Instagram y Facebook.</span>
+                <span class="pill">pronto</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Estado B: camino Foto -->
+          <div id="foto" class="oculto" style="display:grid;gap:14px">
+            <div class="elegido">🖼 Foto <button data-ir="elegir">Cambiar a video</button></div>
+
+            <div class="fuentes" id="fuentes">
+              <button class="on" data-f="banco">Banco de la Fundación</button>
+              <button data-f="archivo">Subir de mi compu</button>
+              <button data-f="url">Pegar un link</button>
+            </div>
+
+            <div id="f-banco" style="display:grid;gap:10px">
+              <div class="buscar"><input type="text" placeholder="ej. amanecer montaña calma"><button class="boton">Buscar</button></div>
+              <div class="fotos" id="grilla-fotos">
+                <button class="foto on"><div class="img"></div><span>amanecer-sierras</span></button>
+                <button class="foto"><div class="img b"></div><span>girasoles</span></button>
+                <button class="foto"><div class="img c"></div><span>cielo-mar</span></button>
+                <button class="foto"><div class="img d"></div><span>manos-flor</span></button>
+                <button class="foto"><div class="img"></div><span>sendero</span></button>
+                <button class="foto"><div class="img c"></div><span>lago-quieto</span></button>
+              </div>
+            </div>
+            <div id="f-archivo" class="oculto">
+              <div class="zona">
+                <b style="color:var(--tinta)">Arrastrá una imagen o elegila</b>
+                <span class="chico">JPG, PNG o WebP. Se guarda en el banco de la Fundación para que la pueda usar el equipo.</span>
+                <button class="boton">Elegir archivo</button>
+              </div>
+            </div>
+            <div id="f-url" class="oculto" style="display:grid;gap:6px">
+              <label>Link de una imagen que ya está en internet<input type="url" placeholder="https://…"></label>
+              <span class="suave chico">Tiene que ser un link directo a la imagen (termina en .jpg o .png).</span>
+            </div>
+
+            <div class="diseno" id="diseno">
+              <h3>Con la frase encima</h3>
+              <label>Texto sobre la imagen <span class="suave chico">(va encima de la foto, no es el caption)</span><input type="text" value="Agradecer es volver a mirar lo que ya tenemos"></label>
+              <div class="fila">
+                <span class="suave chico">Formato</span>
+                <span class="chips" id="fmt-foto"><button class="on">Cuadrado</button><button>Vertical</button></span>
+                <label class="casilla"><input type="checkbox" checked> Logo de la Fundación</label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Estado C: camino Video -->
+          <div id="video" class="oculto" style="display:grid;gap:14px">
+            <div class="elegido">🎬 Video <button data-ir="elegir">Cambiar a foto</button></div>
+
+            <div class="fuentes" id="fuentes-v">
+              <button class="on" data-f="recortes">Recortes listos</button>
+              <button data-f="subir">Subir un video mío</button>
+            </div>
+
+            <div id="v-recortes" style="display:grid;gap:10px">
+              <span class="suave chico">Los que ya están listos en Mis recortes. Si falta alguno, pedilo desde la tarjeta del chat.</span>
+              <div class="fotos">
+                <button class="foto on"><div class="img v">▶</div><span>Beto · la gratitud · 0:42 · vertical</span></button>
+                <button class="foto"><div class="img v" style="aspect-ratio:16/9">▶</div><span>Charla UCA · 1:10 · horizontal</span></button>
+                <button class="foto"><div class="img v">▶</div><span>Mañana en la ruta · 0:28 · vertical</span></button>
+              </div>
+            </div>
+            <div id="v-subir" class="oculto">
+              <div class="zona">
+                <b style="color:var(--tinta)">Arrastrá un video o elegilo</b>
+                <span class="chico">MP4 o MOV, hasta 200 MB. Queda en Mis recortes como «subido».</span>
+                <button class="boton">Elegir archivo</button>
+              </div>
+            </div>
+
+            <div class="diseno">
+              <h3>Formato</h3>
+              <div class="fila">
+                <span class="chips" id="fmt-video"><button class="on">Vertical (reel)</button><button>Horizontal</button></span>
+                <span class="suave chico" id="aviso-v">En Instagram se ve mejor el vertical.</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Paso 3 cerrado -->
+      <div class="paso deshabilitado">
+        <button class="cab" disabled>
+          <span class="num">3</span>
+          <span class="textos"><span class="titulo">Cuándo sale</span><span class="resumen">Se habilita cuando la pieza tiene foto o video</span></span>
+        </button>
+      </div>
+    </div>
+
+    <aside class="previa">
+      <h2>Así quedaría</h2>
+      <div class="tel">
+        <div class="cab2"><i></i> viviragradecidos</div>
+        <div class="lienzo vacio" id="lienzo">Elegí una foto o un video para ver la pieza</div>
+        <div class="cap"><b>viviragradecidos</b> Agradecer es volver a mirar lo que ya tenemos…</div>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<script>
+  const $ = (s) => document.querySelector(s);
+  const $$ = (s) => [...document.querySelectorAll(s)];
+  const estado = { canal: 'ig', camino: 'elegir', fuente: 'banco', fuenteV: 'recortes' };
+  const nombres = { ig: 'Instagram · Posteo', fb: 'Facebook', wp: 'Blogpost', hist: 'Instagram · Historia' };
+
+  function pintar() {
+    ['elegir','foto','video'].forEach(id => $('#'+id).classList.toggle('oculto', estado.camino !== id));
+    ['banco','archivo','url'].forEach(f => $('#f-'+f).classList.toggle('oculto', estado.fuente !== f));
+    $$('#fuentes button').forEach(b => b.classList.toggle('on', b.dataset.f === estado.fuente));
+    ['recortes','subir'].forEach(f => $('#v-'+f).classList.toggle('oculto', estado.fuenteV !== f));
+    $$('#fuentes-v button').forEach(b => b.classList.toggle('on', b.dataset.f === estado.fuenteV));
+    $$('#canales button').forEach(b => b.classList.toggle('on', b.dataset.canal === estado.canal));
+    $('#res1').textContent = nombres[estado.canal] + ' — «Agradecer es volver a mirar lo que ya tenemos…»';
+    // carrusel solo en posteo IG y Facebook
+    $('#carrusel').classList.toggle('oculto', !(estado.canal === 'ig' || estado.canal === 'fb'));
+    // blogpost: la foto es la destacada; sin frase encima
+    $('#diseno').classList.toggle('oculto', estado.canal === 'wp');
+    $('#aviso-v').textContent = estado.canal === 'hist' ? 'La historia es vertical y dura 24 h.' : estado.canal === 'wp' ? 'El video va al principio de la entrada.' : 'En Instagram se ve mejor el vertical.';
+    const l = $('#lienzo');
+    l.className = 'lienzo';
+    if (estado.camino === 'foto') { l.textContent = 'Agradecer es volver a mirar lo que ya tenemos'; }
+    else if (estado.camino === 'video') { l.classList.add('video'); l.textContent = '▶'; }
+    else { l.classList.add('vacio'); l.textContent = 'Elegí una foto o un video para ver la pieza'; }
+    $('#res2').textContent = estado.camino === 'foto' ? 'Foto del banco «amanecer-sierras», con la frase y el logo' : estado.camino === 'video' ? 'Video «Beto · la gratitud», vertical' : 'Todavía no elegiste';
+    document.querySelector('.paso.deshabilitado').classList.toggle('deshabilitado', estado.camino === 'elegir');
+  }
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.ir) { estado.camino = b.dataset.ir; }
+    else if (b.dataset.f && b.closest('#fuentes')) estado.fuente = b.dataset.f;
+    else if (b.dataset.f && b.closest('#fuentes-v')) estado.fuenteV = b.dataset.f;
+    else if (b.dataset.canal) estado.canal = b.dataset.canal;
+    else if (b.classList.contains('foto')) { b.parentElement.querySelectorAll('.foto').forEach(x => x.classList.remove('on')); b.classList.add('on'); return; }
+    else if (b.parentElement.classList.contains('chips')) { b.parentElement.querySelectorAll('button').forEach(x => x.classList.remove('on')); b.classList.add('on'); return; }
+    else return;
+    pintar();
+  });
+  pintar();
+</script>
+</body>
+</html>

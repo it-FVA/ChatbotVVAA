@@ -215,8 +215,11 @@ describe("Diseñar", () => {
       expect(screen.queryByRole("button", { name: /^Foto/ })).not.toBeInTheDocument();
       expect(screen.queryByLabelText(/Texto sobre la imagen/)).not.toBeInTheDocument();
       expect(screen.queryByRole("radiogroup", { name: "Elegí una foto" })).not.toBeInTheDocument();
-      // sin video el paso 3 espera
-      expect(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ })).toBeDisabled();
+      // sin video se puede seguir (para guardar borrador), pero enviar avisa que falta
+      await u.click(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ }));
+      expect(await screen.findByText(/falta el video/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Enviar a aprobación/ })).toBeDisabled();
+      await u.click(screen.getByRole("button", { name: /Qué va en la pieza/ }));
       // se elige un recorte
       await u.click(await screen.findByRole("button", { name: "Usar este" }));
       await u.click(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ }));
@@ -240,8 +243,10 @@ describe("Diseñar", () => {
       expect(screen.queryByRole("button", { name: /Varias fotos/ })).not.toBeInTheDocument();
       await u.click(screen.getByRole("button", { name: /^Foto/ }));
       expect(screen.queryByLabelText(/^Formato/)).not.toBeInTheDocument();
-      // sin foto ni video no se puede seguir
-      expect(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ })).toBeDisabled();
+      // sin foto ni video se puede seguir, pero no enviar
+      await u.click(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ }));
+      expect(await screen.findByText(/falta la foto/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Enviar a aprobación/ })).toBeDisabled();
       expect(api.de("POST", "/publicar/a-aprobar")).toHaveLength(0);
     });
 
@@ -281,13 +286,16 @@ describe("Diseñar", () => {
       return api;
     }
 
-    it("al abrir el paso sin nada elegido se ven las tarjetas Foto y Video, y el paso 3 espera", async () => {
+    it("al abrir el paso sin nada elegido se ven las tarjetas Foto y Video; se puede seguir, pero enviar avisa que falta", async () => {
       const u = userEvent.setup();
       await aPaso2(u, "/publicar?canal=facebook");
       expect(screen.getByText("Qué va en la pieza")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /^Foto/ })).toBeEnabled();
       expect(screen.getByRole("button", { name: /^Video/ })).toBeEnabled();
-      expect(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ })).toBeDisabled();
+      await u.click(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ }));
+      expect(await screen.findByText(/falta la foto o el video/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Enviar a aprobación/ })).toBeDisabled();
+      expect(screen.getByRole("button", { name: /Guardar borrador/ })).toBeEnabled();
     });
 
     it("elegir Foto muestra las tres solapas", async () => {
@@ -336,8 +344,7 @@ describe("Diseñar", () => {
       await u.click(await screen.findByLabelText(/Programar para una fecha/));
       await u.click(screen.getByRole("button", { name: /Qué va en la pieza/ }));
       await u.click(screen.getByRole("button", { name: "Cambiar a video" }));
-      // lo elegido de la foto se limpió: el paso 3 vuelve a esperar
-      expect(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ })).toBeDisabled();
+      // lo elegido de la foto se limpió
       await u.click(screen.getByRole("button", { name: "Cambiar a foto" }));
       expect(await screen.findByRole("radio", { name: /amanecer-sierras/ })).toHaveAttribute("aria-checked", "false");
       // el texto del paso 1 sigue

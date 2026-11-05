@@ -838,14 +838,15 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
               <button type="button" className="boton" onClick={() => setPaso(1)}>
                 Volver
               </button>
-              <button type="button" className="boton primario" onClick={() => setPaso(3)} disabled={!hayPieza} title={hayPieza ? undefined : "Elegí una foto o un video para seguir."}>
+              {/* (5/11, coordinador) se puede seguir sin foto ni video: el paso 3 avisa qué falta y deja «Guardar borrador» (Julián, 2/11: diseñó a medias y no podía retomar) */}
+              <button type="button" className="boton primario" onClick={() => setPaso(3)}>
                 Siguiente: cuándo y enviar <Icono nombre="chevron" tam={16} />
               </button>
             </div>
           </Paso>
 
           {/* ---------- Paso 3: cuándo y enviar ---------- */}
-          <Paso data-ayuda="disenar.cuando" n={3} titulo="Cuándo y enviar" resumen={resumen3} abierto={paso === 3} hecho={false} onAbrir={() => canal && hayPieza && setPaso(3)} deshabilitado={!canal || !hayPieza}>
+          <Paso data-ayuda="disenar.cuando" n={3} titulo="Cuándo y enviar" resumen={resumen3} abierto={paso === 3} hecho={false} onAbrir={() => canal && setPaso(3)} deshabilitado={!canal}>
             <Programar f={f} set={set} />
             {canal && info && (
               <div className={"pub-aviso " + modo}>
