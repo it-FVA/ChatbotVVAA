@@ -137,10 +137,10 @@ Recorrida con el Chrome de Franco (Browser 1, logueado como franco; Browser 2 se
 - [x] Pieza (detalle): cabecera nueva con migas y chip de estado. Recorte: `/recortes/:id` abre el editor con la cabecera nueva.
 - [x] Mis recortes: «Subir un video» único primario, solapas «Míos / Del equipo / Todos», fila «editado» en vez de los números de pausas y pedazos.
 - [x] Editor de recortes a 375 px: sin scroll horizontal (antes 423 px).
-- [ ] Administración a 1366 px: seguía midiendo 1415 px. La causa no eran los gráficos sino la tabla «Costo de OpenAI por mes», más ancha que su tarjeta. Arreglado en la rama `claude/qa-visual-produccion` (commit 46d37b1): las tablas chicas del Dashboard van en `.tabla-scroll`. Verificar después de mergear.
+- [ ] Administración a 1366 px: seguía midiendo 1415 px. La causa no eran los gráficos sino la tabla «Costo de OpenAI por mes», más ancha que su tarjeta. Arreglado en la rama `claude/qa-visual-produccion` (commit 46d37b1): las tablas chicas del Dashboard van en `.tabla-scroll`. Mergeado a `main` (5c62bab) y desplegado en Vercel: la hoja de estilos de producción ya trae `.tabla-scroll{overflow-x:auto;max-width:100%}`. Falta la mirada con sesión abierta a 1366 px (en el Chrome de Franco no había sesión de la plataforma al momento de revisar).
 - [x] Chat: el bundle ya no tiene «La API está despertando» ni «en cola»; «La API arrancó …» queda solo en Administración → Salud.
 - [x] Frase del día: leyenda «programada · publicada · prueba · salteada»; tarjeta Mañana sin modo ni «en la API».
-- [ ] Frase del día: el panel seguía titulado «Backlog» mientras el subtítulo decía «Sin día». En la misma rama pasa a «Frases sin día» y los textos que lo nombraban dicen lo mismo. Verificar después de mergear.
+- [ ] Frase del día: el panel seguía titulado «Backlog» mientras el subtítulo decía «Sin día». En la misma rama pasa a «Frases sin día» y los textos que lo nombraban dicen lo mismo. Mergeado (5c62bab) y desplegado: el bundle de producción (`index-ON3ZN_IE.js`) ya dice «Frases sin día» y no queda «Backlog» visible. Falta la mirada con sesión abierta.
 - [x] Guía interactiva: los `data-ayuda` no cambiaron; el script de verificación y `registro.test.tsx` pasan en el merge.
 
-Pendiente de verificar tras el próximo deploy: los dos ítems sin tilde.
+Los dos ítems sin tilde ya están desplegados (comprobado en el bundle y la hoja de estilos de producción, 5/11 noche). Queda mirarlos con una sesión abierta: Administración a 1366 px sin scroll horizontal y el panel «Frases sin día» en Frase del día.
