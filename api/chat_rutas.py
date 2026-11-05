@@ -89,6 +89,7 @@ def _validar_pieza(p: Pieza):
     canal = (p.canal or "").strip().lower()
     if canal not in CANALES:
         raise HTTPException(400, "Elegí el canal (WordPress, Instagram, Facebook o YouTube). El newsletter se arma en su editor: Campañas → Newsletter.")
+    p.aplicar_carrusel(canal)     # (5/11, Franco) carrusel: valida y deja imagen_url = la portada
     if not (p.texto or "").strip():
         raise HTTPException(400, "Falta el texto de la pieza.")
     if canales.CANALES[canal].requiere_titulo and not (p.titulo or "").strip():
@@ -294,6 +295,7 @@ def guardar_borrador(p: Pieza, usuario=Depends(auth.usuario_actual)):
     canal = (p.canal or "").strip().lower()
     if canal not in CANALES:
         raise HTTPException(400, "Elegí el canal para guardar el borrador.")
+    p.aplicar_carrusel(canal, estricto=False)
     fecha_iso = _fecha_iso(p)
     pid = db.guardar_borrador(usuario, canal, p.titulo or "", p.texto or "", (p.imagen_url or "").strip() or None,
                               (fecha_iso + ZONA_HORARIA) if fecha_iso else None, p.a_borrador(canal, fecha_iso),
@@ -324,7 +326,7 @@ def enviar_a_aprobacion(p: Pieza, s=Depends(auth.sesion)):
         pid = db.proponer_publicacion(usuario, canal, r.get(canal), p.titulo or "", texto, imagen_url,
                                       (fecha_iso + ZONA_HORARIA) if fecha_iso else None,
                                       extra={"texto_imagen": (p.texto_imagen or None), "formato": None,
-                                             "video_url": (p.video_url or None), "origen": "web"})
+                                             "video_url": (p.video_url or None), "imagenes": p.imagenes, "origen": "web"})
     except Exception as e:
         raise HTTPException(503, f"No pude guardar la pieza para aprobación: {e}")
     if not pid:

@@ -199,6 +199,7 @@ def guardar_borrador(usuario, canal, titulo, texto, imagen_url, fecha_programada
         return None
     ahora = datetime.now(timezone.utc).isoformat(timespec="seconds")
     resultado = dict(conservar or {}, pieza=pieza, guardado_en=ahora)   # conservar: el historial de un rechazo (4/11)
+    resultado["imagenes"] = (pieza or {}).get("imagenes") or None       # (5/11, Franco) carrusel: también al nivel de video_url
     if por and por != usuario:
         resultado.update(editada_por=por, editada_en=ahora)
     fila = {"usuario": usuario, "canal": canal, "modo": "borrador", "titulo": titulo, "texto": texto,

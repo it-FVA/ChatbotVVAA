@@ -189,7 +189,7 @@ def test_a_aprobar_con_compuesta(lizzie, base, monkeypatch):
     assert propuesto["imagen_url"] == "https://wp/compuesta.jpg" and propuesto["modo"] == "real" and propuesto["texto"] == "Hola link"
     assert propuesto["fecha"] == "2026-11-03T09:15:00-03:00"
     extra = dict(propuesto["extra"]); pz = extra.pop("pieza")
-    assert extra == {"texto_imagen": "La gratitud es la llave", "formato": "vertical", "video_url": None, "origen": "web"}
+    assert extra == {"texto_imagen": "La gratitud es la llave", "formato": "vertical", "video_url": None, "imagenes": None, "origen": "web"}
     assert pz["url"] == "https://wp/f.jpg"         # el formulario guarda la foto original, no la compuesta
     assert propuesto["pid"] == "b7" and r.json()["id"] == "b7"     # el mismo id del borrador retomado
     # sin frase ni logo: no se compone ni se sube nada; «Publicar así» destildado tampoco

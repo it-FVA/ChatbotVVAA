@@ -212,7 +212,7 @@ def _componer_cacheado(fuente_url, texto_imagen, firma, formato, tipografia, pos
 
 def _compuesta_de(p: PiezaCompleta, canal, avisos):
     """La imagen con la frase (y/o el logo) encima, como se arma antes de enviar; None si no corresponde."""
-    if canal not in ("instagram", "facebook") or not (p.imagen_url or "").strip() or p.video_url:
+    if canal not in ("instagram", "facebook") or not (p.imagen_url or "").strip() or p.video_url or p.imagenes:
         return None, None
     d = _normalizar_diseno(p, canal)
     if not (d["con_frase"] or d["con_logo"]) or not p.usar_compuesta:
@@ -249,6 +249,7 @@ def _validar(p: PiezaCompleta, simulado=False):
     canal = (p.canal or "").strip().lower()
     if canal not in CANALES:
         raise HTTPException(400, "Elegí el canal (Blogpost, Instagram, Facebook o YouTube). El newsletter se arma en su editor.")
+    p.aplicar_carrusel(canal)     # (5/11, Franco) si es un carrusel: valida y deja imagen_url = la portada, sin frase ni logo
     if not (p.texto or "").strip():
         raise HTTPException(400, "Falta el texto de la pieza.")
     if canales.CANALES[canal].requiere_titulo and not (p.titulo or "").strip():
@@ -277,6 +278,7 @@ def decorar(p):
     p["estado_texto"] = ESTADO_TXT.get(est, est)
     p["canal_texto"] = CANAL_TXT.get((p.get("canal") or "").lower(), p.get("canal") or "")
     p["video_url"] = res.get("video_url")
+    p["imagenes"] = res.get("imagenes") or None      # (5/11, Franco) carrusel: las fotos en orden; imagen_url es la primera
     p["texto_imagen"] = res.get("texto_imagen")
     p["formato"] = res.get("formato")
     p["nota"] = res.get("nota")
@@ -425,6 +427,7 @@ def guardar_borrador(p: PiezaBorrador, request: Request):
     canal = (p.canal or "").strip().lower()
     if canal not in CANALES:
         raise HTTPException(400, "Elegí el canal para guardar el borrador.")
+    p.aplicar_carrusel(canal, estricto=False)
     fecha_iso = _fecha_iso(p.fecha, p.hora)
     duena = usuario
     conservar = None
@@ -503,7 +506,7 @@ def enviar_a_aprobacion(p: PiezaCompleta, request: Request):
     formato = (p.vfmt if p.video_url else (diseno or {}).get("formato")) if canal in ("instagram", "facebook") else None
     # (4/11) el formulario completo (foto original y diseño) queda guardado: si la rechazan, se corrige desde ahí y no desde la
     # imagen ya compuesta
-    extra = {"texto_imagen": (p.texto_imagen or None), "formato": formato or None, "video_url": (p.video_url or None), "origen": "web",
+    extra = {"texto_imagen": (p.texto_imagen or None), "formato": formato or None, "video_url": (p.video_url or None), "imagenes": p.imagenes, "origen": "web",
              "pieza": _datos_borrador(p, canal, fecha_iso)}
     try:
         if duena:     # (4/11) un borrador o una rechazada que se corrige: la misma fila pasa a a_aprobar (mismo id, misma carpeta)
@@ -564,7 +567,7 @@ def enviar(p: Envio, request: Request):
         if fecha_iso and _va_a_la_cola(canal, modo):
             try:
                 pid = db.encolar_publicacion(duena or usuario, canal, modo, titulo, texto, imagen_url, fecha_iso + ZONA_HORARIA,
-                                             extra={"texto_imagen": p.texto_imagen or None, "formato": formato or None, "video_url": video_url, "origen": "web",
+                                             extra={"texto_imagen": p.texto_imagen or None, "formato": formato or None, "video_url": video_url, "imagenes": p.imagenes, "origen": "web",
                                                     **({"viene_de": p.borrador_id} if duena else {})},
                                              por=usuario)
             except Exception as e:
@@ -576,10 +579,12 @@ def enviar(p: Envio, request: Request):
             return {"ok": True, "modo": modo, "encolada": True, "id": pid, "estado": "pendiente", "imagen_url": imagen_url, "avisos": avisos,
                     "aviso": f"Quedó en la cola para el {cuando}. Ese día sale sola por {nombre}, con el modo que tenga el canal en ese momento (hoy: {modo}). "
                              "Se puede cancelar desde Aprobación → En cola.",
-                    "pieza": {"image_url": imagen_url, ("caption" if canal == "instagram" else "message"): texto, "fecha_programada": fecha_iso}}
+                    "imagenes": p.imagenes,
+                    "pieza": {"image_url": imagen_url, ("caption" if canal == "instagram" else "message"): texto, "fecha_programada": fecha_iso,
+                              **({"imagenes": p.imagenes} if p.imagenes else {})}}
         try:   # (3/11) el mismo despacho que la cola: publicar.enviar_pieza con la pieza armada como una fila de `publicaciones`
             res = publicar.enviar_pieza(cfg, {"canal": canal, "titulo": titulo, "texto": texto, "imagen_url": imagen_url, "fecha_programada": fecha_iso,
-                                              "resultado": {"video_url": video_url, "formato": formato, "texto_imagen": p.texto_imagen or None}},
+                                              "resultado": {"video_url": video_url, "imagenes": p.imagenes, "formato": formato, "texto_imagen": p.texto_imagen or None}},
                                         quien=usuario)
         except HTTPException:
             raise
@@ -592,7 +597,7 @@ def enviar(p: Envio, request: Request):
         _cerrar_borrador(p.borrador_id, duena, ctx.get("pid"))
     salida = {k: v for k, v in res.items() if k in ("ok", "modo", "aviso", "estado", "id", "link", "link_editar", "permalink", "privacidad", "pieza")}
     salida.update(encolada=False, imagen_url=imagen_url, avisos=avisos, simulado=(modo == "simulado"),
-                  texto_final=texto, formato=formato, video_url=video_url)
+                  texto_final=texto, formato=formato, video_url=video_url, imagenes=p.imagenes)
     return salida
 
 

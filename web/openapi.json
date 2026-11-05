@@ -459,6 +459,20 @@
       ],
       "title": "Imagen Url"
      },
+     "imagenes": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Imagenes"
+     },
      "logo": {
       "anyOf": [
        {
@@ -1034,6 +1048,20 @@
       ],
       "title": "Imagen Url"
      },
+     "imagenes": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Imagenes"
+     },
      "logo": {
       "anyOf": [
        {
@@ -1248,6 +1276,20 @@
        }
       ],
       "title": "Imagen Url"
+     },
+     "imagenes": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Imagenes"
      },
      "logo": {
       "anyOf": [

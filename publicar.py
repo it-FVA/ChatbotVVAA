@@ -168,7 +168,13 @@ def enviar_pieza(cfg, pieza, quien="cola"):
     c = canales.canal(pieza.get("canal"))
     if not c:
         return {"ok": False, "modo": "", "aviso": f"canal desconocido: {pieza.get('canal')}"}
-    fn = c.video if (pieza.get("resultado") or {}).get("video_url") and c.video else c.foto
+    res = pieza.get("resultado") or {}
+    if res.get("video_url") and c.video:
+        fn = c.video
+    elif len([u for u in (res.get("imagenes") or []) if u]) >= 2 and c.carrusel:     # (5/11, Franco) varias fotos = carrusel
+        fn = c.carrusel
+    else:
+        fn = c.foto
     if not fn:
         return {"ok": False, "modo": cfg.modo(c.clave), "aviso": f"{c.texto} no se publica desde la plataforma."}
     return fn(cfg, pieza, quien, _fecha_futura(pieza.get("fecha_programada")))
@@ -592,6 +598,86 @@ def publicar_instagram(cfg, imagen_url, texto, quien="", historia=False):
             "aviso": "PUBLICADA como historia en Instagram (dura 24 h)." if historia else "PUBLICADO en Instagram."}
 
 
+def publicar_instagram_carrusel(cfg, imagenes, texto, quien=""):
+    """(5/11, Franco) Carrusel de Instagram: un posteo con varias fotos. Mismos modos que publicar_instagram.
+    Lo que pide la Graph API para carruseles (en esta versión, solo imágenes):
+      - de 2 a 10 elementos; todos con URL pública https (jpg; Instagram recorta al formato de la primera);
+      - cada hijo es un contenedor propio: POST /{ig_id}/media con image_url e is_carousel_item=true, SIN caption;
+      - el contenedor del carrusel: POST /{ig_id}/media con media_type=CAROUSEL, children (ids separados por coma) y el caption;
+      - se publica con POST /{ig_id}/media_publish (creation_id = el contenedor del carrusel).
+    Si algún hijo falla no se publica nada. Un carrusel no lleva frase encima ni logo: las fotos van como están."""
+    modo = cfg.modo_ig
+    imagenes = [str(u).strip() for u in (imagenes or []) if str(u or "").strip()]
+    pieza = {"imagenes": imagenes, "caption": texto}
+    base = {"canal": "instagram", "accion": "carrusel", "modo": modo, "quien": quien, "pieza": pieza}
+    if modo == "apagado":
+        _registrar({**base, "resultado": "no se hizo nada (apagado)"})
+        return {"ok": False, "modo": modo, "aviso": "Instagram está apagado.", "pieza": pieza}
+    if modo == "simulado":
+        _registrar({**base, "resultado": "simulado"})
+        return {"ok": True, "modo": modo, "pieza": pieza,
+                "aviso": f"Simulado: así quedaría el carrusel de {len(imagenes)} fotos. No se mandó nada a Instagram."}
+    if modo != "real":
+        return {"ok": False, "modo": modo, "aviso": "Modo desconocido; no se publica.", "pieza": pieza}
+    if not (cfg.ig_token and cfg.ig_id):
+        return {"ok": False, "modo": modo, "aviso": "Faltan las claves de Instagram.", "pieza": pieza}
+    if not 2 <= len(imagenes) <= 10:
+        return {"ok": False, "modo": modo, "aviso": "Un carrusel lleva entre 2 y 10 fotos.", "pieza": pieza}
+    if not all(u.startswith("https://") for u in imagenes):
+        return {"ok": False, "modo": modo, "aviso": "Instagram necesita una URL pública https de cada foto.", "pieza": pieza}
+
+    def call(path, params, method="POST"):
+        params = dict(params, access_token=cfg.ig_token)
+        data = urllib.parse.urlencode(params).encode()
+        url = f"{IG_HOST}/{path}"
+        if method == "GET":
+            return _http(url + "?" + data.decode(), "GET")
+        return _http(url, "POST", {"Content-Type": "application/x-www-form-urlencoded"}, data)
+
+    def esperar(cid, intentos):
+        """'ok' | 'error' | 'tarde': espera a que Instagram termine de procesar el contenedor."""
+        for _ in range(intentos):
+            s, _e = call(cid, {"fields": "status_code,status"}, "GET")
+            if s and s.get("status_code") == "FINISHED":
+                return "ok", s
+            if s and s.get("status_code") == "ERROR":
+                return "error", s
+            time.sleep(3)
+        return "tarde", None
+
+    hijos = []
+    for i, u in enumerate(imagenes, 1):
+        r, err = call(f"{cfg.ig_id}/media", {"image_url": u, "is_carousel_item": "true"})
+        if not r or not r.get("id"):
+            _registrar({**base, "resultado": "error foto", "foto": i, "error": err})
+            return {"ok": False, "modo": modo, "pieza": pieza,
+                    "aviso": f"Instagram no aceptó la foto {i} de {len(imagenes)}, no se publicó nada: " + json.dumps(err, ensure_ascii=False)[:200]}
+        hijos.append(r["id"])
+    for i, cid in enumerate(hijos, 1):
+        est, s = esperar(cid, 12)
+        if est == "error":
+            _registrar({**base, "resultado": "error procesando", "foto": i, "error": s})
+            return {"ok": False, "modo": modo, "pieza": pieza,
+                    "aviso": f"Instagram no pudo procesar la foto {i} de {len(imagenes)}, no se publicó nada: " + str(s.get("status"))[:200]}
+    r, err = call(f"{cfg.ig_id}/media", {"media_type": "CAROUSEL", "children": ",".join(hijos), "caption": texto})
+    if not r or not r.get("id"):
+        _registrar({**base, "resultado": "error contenedor", "error": err})
+        return {"ok": False, "modo": modo, "aviso": "Instagram no aceptó el carrusel: " + json.dumps(err, ensure_ascii=False)[:200], "pieza": pieza}
+    cid = r["id"]
+    est, s = esperar(cid, 12)
+    if est == "error":
+        _registrar({**base, "resultado": "error procesando", "error": s})
+        return {"ok": False, "modo": modo, "pieza": pieza, "aviso": "Instagram no pudo procesar el carrusel: " + str(s.get("status"))[:200]}
+    r, err = call(f"{cfg.ig_id}/media_publish", {"creation_id": cid})
+    if not r:
+        _registrar({**base, "resultado": "error publicar", "error": err})
+        return {"ok": False, "modo": modo, "aviso": "No se pudo publicar: " + json.dumps(err, ensure_ascii=False)[:200], "pieza": pieza}
+    m, _e = call(r["id"], {"fields": "permalink"}, "GET")
+    permalink = (m or {}).get("permalink")
+    _registrar({**base, "resultado": "PUBLICADO", "id": r["id"], "permalink": permalink, "hijos": hijos})
+    return {"ok": True, "modo": modo, "id": r["id"], "permalink": permalink, "pieza": pieza, "aviso": "PUBLICADO el carrusel en Instagram."}
+
+
 # ----------------------------------------------------------------------------- Facebook (solo simulado)
 
 def publicar_facebook(cfg, imagen_url, texto, quien="", fecha=None):
@@ -644,6 +730,66 @@ def publicar_facebook(cfg, imagen_url, texto, quien="", fecha=None):
         return {"ok": False, "modo": modo, "aviso": "Facebook no aceptó el posteo: " + json.dumps(err, ensure_ascii=False)[:200], "pieza": pieza}
     post_id = r.get("post_id") or r.get("id")
     _registrar({**base, "resultado": "PROGRAMADO" if fecha else "PUBLICADO", "id": post_id})
+    return {"ok": True, "modo": modo, "id": post_id, "pieza": pieza,
+            "permalink": f"https://www.facebook.com/{post_id}" if post_id else None,
+            "aviso": (f"PROGRAMADO en Facebook para {fecha}." if fecha else "PUBLICADO en Facebook.")}
+
+
+def publicar_facebook_fotos(cfg, imagenes, texto, quien="", fecha=None):
+    """(5/11, Franco) Carrusel de fotos en la página de Facebook: un posteo con varias fotos. Mismos modos que publicar_facebook.
+    Graph API, en real:
+      1) por cada foto POST /{page}/photos con `url` y published=false (la foto queda subida pero sin salir) → un id por foto;
+      2) POST /{page}/feed con `message` y attached_media[0..n] = {"media_fbid": id}, un parámetro por foto.
+    Con `fecha` futura el feed lleva published=false y scheduled_publish_time (10 min a 30 días), como publicar_facebook.
+    Si alguna foto falla no se arma el posteo (las ya subidas quedan sin publicar en la página, no las ve nadie)."""
+    modo = cfg.modo_fb
+    imagenes = [str(u).strip() for u in (imagenes or []) if str(u or "").strip()]
+    pieza = {"imagenes": imagenes, "message": texto, "fecha_programada": fecha}
+    base = {"canal": "facebook", "accion": "carrusel", "modo": modo, "quien": quien, "pieza": pieza}
+    if modo == "apagado":
+        _registrar({**base, "resultado": "no se hizo nada (apagado)"})
+        return {"ok": False, "modo": modo, "aviso": "Facebook está apagado.", "pieza": pieza}
+    if modo == "simulado":
+        _registrar({**base, "resultado": "simulado"})
+        return {"ok": True, "modo": modo, "pieza": pieza,
+                "aviso": f"Simulado: así quedaría el posteo con {len(imagenes)} fotos en Facebook. No se mandó nada."}
+    if modo != "real":
+        return {"ok": False, "modo": modo, "aviso": "Modo desconocido; no se publica.", "pieza": pieza}
+    if not (cfg.fb_page_id and cfg.fb_token):
+        return {"ok": False, "modo": modo, "aviso": "Faltan las claves de Facebook (META_FB_PAGE_ID / META_FB_PAGE_TOKEN).", "pieza": pieza}
+    if not 2 <= len(imagenes) <= 10:
+        return {"ok": False, "modo": modo, "aviso": "Un carrusel lleva entre 2 y 10 fotos.", "pieza": pieza}
+    if not all(u.startswith("https://") for u in imagenes):
+        return {"ok": False, "modo": modo, "aviso": "Facebook necesita una URL pública https de cada foto.", "pieza": pieza}
+    ts = None
+    if fecha:
+        try:
+            ts = int(_fecha_local(fecha).timestamp())
+        except Exception:
+            return {"ok": False, "modo": modo, "aviso": "Fecha inválida.", "pieza": pieza}
+        if ts < time.time() + 600:
+            return {"ok": False, "modo": modo, "aviso": "Facebook exige programar con al menos 10 minutos de anticipación.", "pieza": pieza}
+    cab = {"Content-Type": "application/x-www-form-urlencoded"}
+    ids = []
+    for i, u in enumerate(imagenes, 1):
+        data = urllib.parse.urlencode({"access_token": cfg.fb_token, "url": u, "published": "false"}).encode()
+        r, err = _http(f"{FB_HOST}/{cfg.fb_page_id}/photos", "POST", cab, data)
+        if not r or not r.get("id"):
+            _registrar({**base, "resultado": "error foto", "foto": i, "error": err})
+            return {"ok": False, "modo": modo, "pieza": pieza,
+                    "aviso": f"Facebook no aceptó la foto {i} de {len(imagenes)}, no se publicó nada: " + json.dumps(err, ensure_ascii=False)[:200]}
+        ids.append(r["id"])
+    params = {"access_token": cfg.fb_token, "message": texto}
+    for i, fid in enumerate(ids):
+        params[f"attached_media[{i}]"] = json.dumps({"media_fbid": fid})
+    if ts:
+        params.update({"published": "false", "scheduled_publish_time": str(ts)})
+    r, err = _http(f"{FB_HOST}/{cfg.fb_page_id}/feed", "POST", cab, urllib.parse.urlencode(params).encode())
+    if not r:
+        _registrar({**base, "resultado": "error", "error": err})
+        return {"ok": False, "modo": modo, "aviso": "Facebook no aceptó el posteo: " + json.dumps(err, ensure_ascii=False)[:200], "pieza": pieza}
+    post_id = r.get("post_id") or r.get("id")
+    _registrar({**base, "resultado": "PROGRAMADO" if fecha else "PUBLICADO", "id": post_id, "fotos": ids})
     return {"ok": True, "modo": modo, "id": post_id, "pieza": pieza,
             "permalink": f"https://www.facebook.com/{post_id}" if post_id else None,
             "aviso": (f"PROGRAMADO en Facebook para {fecha}." if fecha else "PUBLICADO en Facebook.")}

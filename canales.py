@@ -80,6 +80,16 @@ def _facebook_video(cfg, p, quien, fecha):
     return publicar.publicar_facebook_video(cfg, _extra(p)["video_url"], _texto(p), quien=quien, fecha=fecha, titulo=p.get("titulo") or "")
 
 
+def _instagram_carrusel(cfg, p, quien, fecha):
+    import publicar
+    return publicar.publicar_instagram_carrusel(cfg, _extra(p).get("imagenes") or [], _texto(p), quien=quien)
+
+
+def _facebook_carrusel(cfg, p, quien, fecha):
+    import publicar
+    return publicar.publicar_facebook_fotos(cfg, _extra(p).get("imagenes") or [], _texto(p), quien=quien, fecha=fecha)
+
+
 def _youtube(cfg, p, quien, fecha):
     """Sin video (solo pasa en «Ver simulado»): la ficha con bytes vacíos."""
     import publicar
@@ -139,6 +149,7 @@ class Canal:
     frase: Optional[str] = None     # nombre en la Frase del día (None = la frase no sale por acá)
     foto: Optional[Callable] = field(default=None, compare=False)    # (cfg, pieza, quien, fecha) -> resultado
     video: Optional[Callable] = field(default=None, compare=False)   # idem con resultado.video_url; None = usa `foto`
+    carrusel: Optional[Callable] = field(default=None, compare=False)  # (5/11, Franco) idem con resultado.imagenes (2 o más); None = usa `foto`
 
     def va_a_la_cola(self, modo):
         """¿Una pieza con fecha va a la cola (en vez de programarla el proveedor)?"""
@@ -161,10 +172,10 @@ _LISTA = (
           en_disenar=True, icono="casa", requiere_titulo=True, acepta_aprobacion=True, foto=_wordpress),
     Canal("instagram", "Instagram", "Instagram", "PUBLICAR_INSTAGRAM", MODOS_RED, detalle="foto con la frase, reel o historia", claves=CLAVES_IG,
           formato="vertical", en_disenar=True, icono="imagen", acepta_aprobacion=True, cola="siempre", frase="Instagram (posteo cuadrado)",
-          foto=_instagram, video=_instagram_video),
+          foto=_instagram, video=_instagram_video, carrusel=_instagram_carrusel),
     Canal("facebook", "Facebook", "Facebook", "PUBLICAR_FACEBOOK", MODOS_RED, detalle="posteo en la página", claves=CLAVES_FB,
           formato="cuadrado", en_disenar=True, icono="megafono", acepta_aprobacion=True, cola="salvo_real", frase="Facebook (foto con texto)",
-          foto=_facebook, video=_facebook_video),
+          foto=_facebook, video=_facebook_video, carrusel=_facebook_carrusel),
     Canal("youtube", "YouTube", "YouTube", "PUBLICAR_YOUTUBE", MODOS_YT, detalle="un recorte como video", claves=("YOUTUBE_TOKEN_JSON",),
           en_disenar=True, icono="pelicula", requiere_titulo=True, acepta_aprobacion=True, cola="siempre",   # (5/11) también pasa por aprobación; la cola lo sube a su hora
           foto=_youtube, video=_youtube_video),

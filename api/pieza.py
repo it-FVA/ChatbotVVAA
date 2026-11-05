@@ -46,6 +46,33 @@ class Pieza(BaseModel):
     video_formato: Optional[str] = None         # horizontal | vertical (el del recorte)
     vfmt: Optional[str] = None                  # reel | historia (formato en Instagram)
     borrador_id: Optional[str] = None           # si se está retomando un borrador: se actualiza (o se elimina al mandar)
+    # (5/11, Franco) Carrusel: las URLs https de las fotos, en orden (2 a 10). imagen_url es la primera (la portada).
+    imagenes: Optional[list[str]] = None
+
+    def aplicar_carrusel(self, canal, estricto=True):
+        """(5/11, Franco) Valida y normaliza un carrusel. Sin `imagenes` no hace nada y devuelve None. Con `imagenes` devuelve la
+        lista limpia, deja imagen_url = la primera y descarta lo que un carrusel no lleva (frase, logo, composición, formato).
+        `estricto=False` (guardar borrador): deja guardar con 1 o más fotos, para poder retomarlo a medio armar."""
+        if not self.imagenes:
+            self.imagenes = None
+            return None
+        lista = [str(u).strip() for u in self.imagenes if str(u or "").strip()]
+        if not lista:
+            self.imagenes = None
+            return None
+        canal = (canal or "").strip().lower()
+        if canal not in ("instagram", "facebook") or (canal == "instagram" and "historia" in ((self.formato or ""), (self.vfmt or ""))):
+            raise HTTPException(400, "El carrusel solo sale en posteo de Instagram o Facebook.")
+        if (self.video_url or "").strip():
+            raise HTTPException(400, "Un carrusel no puede llevar un video a la vez.")
+        if len(lista) > 10 or (estricto and len(lista) < 2):
+            raise HTTPException(400, "Un carrusel lleva entre 2 y 10 fotos.")
+        if not all(u.startswith("https://") for u in lista):
+            raise HTTPException(400, "Las fotos del carrusel tienen que ser direcciones https.")
+        self.imagenes = lista
+        self.imagen_url = lista[0]
+        self.texto_imagen, self.usar_compuesta, self.formato, self.logo = None, False, None, None
+        return lista
 
     def canal_clave(self):
         return (self.canal or "").strip().lower()
@@ -103,6 +130,7 @@ class Pieza(BaseModel):
         datos.setdefault("imagen_url", fila.get("imagen_url") or "")
         datos.setdefault("texto_imagen", res.get("texto_imagen") or "")
         datos.setdefault("video_url", res.get("video_url"))
+        datos.setdefault("imagenes", res.get("imagenes"))
         if not datos.get("formato"):   # (2/11) pruebas anteriores al 2/11 no guardaban el formulario: al menos el formato (historia) se rescata
             fmt = res.get("formato") or ("historia" if res.get("accion") == "historia" else None)
             if fmt:
@@ -116,4 +144,4 @@ class Pieza(BaseModel):
         # está dentro de la foto): al corregirla no se vuelve a poner la frase encima, va la imagen tal cual
         if not g and res.get("texto_imagen") and fila.get("estado") not in ("borrador", "prueba"):
             limpio["usar_compuesta"] = False
-        return cls(**{k: (str(v) if v is not None and k not in ("usar_compuesta",) else v) for k, v in limpio.items()})
+        return cls(**{k: (str(v) if v is not None and k not in ("usar_compuesta", "imagenes") else v) for k, v in limpio.items()})
