@@ -47,7 +47,7 @@ export function MananaCard({ resumen, version = 0, aprueba, ocupado, onActiva, o
   }
 
   return (
-    <section className="tarjeta fd-manana-card" aria-label="Mañana">
+    <section className="tarjeta fd-manana-card" data-ayuda="frase-del-dia.manana" aria-label="Mañana">
       <div className="fd-manana-cab">
         <h2>{titulo}</h2>
         <div className="fd-manana-estado">

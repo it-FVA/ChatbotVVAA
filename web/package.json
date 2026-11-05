@@ -6,10 +6,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/verificar-ayuda.mjs",
     "build": "tsc -b && vite build",
+    "verificar-ayuda": "node scripts/verificar-ayuda.mjs",
     "preview": "vite preview",
     "typecheck": "tsc -b",
-    "test": "vitest run",
+    "test": "node scripts/verificar-ayuda.mjs && vitest run",
     "tipos": "python ../api/generar_openapi.py && openapi-typescript openapi.json -o src/tiposApi.d.ts"
   },
   "dependencies": {

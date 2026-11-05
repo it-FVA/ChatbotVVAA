@@ -9,7 +9,7 @@ import type { EstadoFrase } from "../useFraseDelDia";
 export function Calendario({ s }: { s: EstadoFrase }) {
   const { cuando, setCuando, mes, setDiaSel, arrastre, setArrastre, sobre, setSobre, soltar, meses, aprueba } = s;
   return (
-    <section className="fd-calendario" aria-label="Calendario">
+    <section className="fd-calendario" data-ayuda="frase-del-dia.calendario" aria-label="Calendario">
       <div className="fd-mes-nav">
         <button type="button" className="boton chico icono-solo" aria-label="Mes anterior" onClick={() => cuando && setCuando(mesVecino(cuando, -1))} disabled={!cuando || !meses.length || (cuando.anio === meses[0].anio && cuando.mes === meses[0].mes)}>
           <Icono nombre="chevron" tam={16} style={{ transform: "rotate(180deg)" }} />

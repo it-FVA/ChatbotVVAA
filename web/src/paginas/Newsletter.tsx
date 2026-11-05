@@ -5,6 +5,7 @@
 // en Perfit, «Guardar borrador» (se retoma desde acá o desde Mis publicaciones: ?borrador=<id>) y «Enviar a aprobación» (tabla
 // publicaciones, canal newsletter, mismos estados que las demás piezas). El email NO sale de acá.
 import LinkAyuda from "../componentes/LinkAyuda";
+import { definirAyuda } from "../ayuda/registro";
 import { fechaCreacion, fechaHora } from "../util/fechas";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -31,6 +32,20 @@ interface PiezaChat {
   titulo?: string;
   texto?: string;
 }
+
+// (5/11, Franco) Ayuda de esta pantalla: de acá salen la página /ayuda y la guía interactiva. Cada id es un data-ayuda="newsletter.<id>" en el JSX.
+definirAyuda("newsletter", {
+  titulo: "Newsletter",
+  que: "El email a la comunidad, armado bloque por bloque con la plantilla de la Fundación. El mail no sale de acá: el HTML aprobado se pega en Perfit.",
+  pasos: [
+    { id: "plantilla", texto: "Elegí la plantilla." },
+    { id: "tema", texto: "Escribí el tema para que el asistente redacte los textos." },
+    { id: "contenido", texto: "Cargá la agenda, las fotos y los links." },
+    { id: "guardar", texto: "«Guardar borrador» para seguir otro día." },
+    { id: "retomar", texto: "«Retomar un borrador» recupera uno guardado." },
+    { id: "aprobar", texto: "«Enviar a aprobación». Aprobado, se descarga el HTML y se pega en Perfit." },
+  ],
+});
 
 export default function Newsletter() {
   const { avisar } = useToast();
@@ -286,10 +301,10 @@ export default function Newsletter() {
           <h1>Newsletter</h1>
           <p className="suave">
             El email a la comunidad, bloque por bloque, con las plantillas reales de la Fundación. El bot redacta los textos desde el material; la agenda, las fotos y los links los cargás vos. El email no sale de acá: el HTML aprobado se pega en Perfit. (Una entrada de la web es un «blogpost» y se diseña en Canales → Blogpost.)
-            <LinkAyuda seccion="newsletter" /></p>
+            <LinkAyuda pantalla="newsletter" /></p>
         </div>
         <div className="acciones">
-          <button type="button" className="boton" onClick={() => setAbrirBorradores(true)}>
+          <button type="button" className="boton" data-ayuda="newsletter.retomar" onClick={() => setAbrirBorradores(true)}>
             <Icono nombre="lapiz" tam={16} /> Retomar un borrador
           </button>
           <button type="button" className="boton sutil" onClick={() => (vacioTotal ? reiniciar() : setConfirmarReinicio(true))} title="Vaciar el editor y empezar un newsletter nuevo">
@@ -316,7 +331,7 @@ export default function Newsletter() {
       )}
 
       <div className="nl-arriba tarjeta">
-        <div className="nl-plantillas" role="radiogroup" aria-label="Plantilla">
+        <div className="nl-plantillas" data-ayuda="newsletter.plantilla" role="radiogroup" aria-label="Plantilla">
           {(Object.keys(NOMBRE) as Plantilla[]).map((p) => (
             <button key={p} type="button" role="radio" aria-checked={plantilla === p} className={"nl-plantilla" + (plantilla === p ? " activa" : "")} onClick={() => cambiarPlantilla(p)}>
               <strong>{NOMBRE[p]}</strong>
@@ -324,7 +339,7 @@ export default function Newsletter() {
             </button>
           ))}
         </div>
-        <div className="nl-redactar">
+        <div className="nl-redactar" data-ayuda="newsletter.tema">
           <label htmlFor="nl-tema">
             Tema <span className="suave">(para que el bot redacte los textos)</span>
           </label>
@@ -395,7 +410,7 @@ export default function Newsletter() {
       </div>
 
       <div className={"nl-grilla " + solapa}>
-        <section className="nl-editor" aria-label="Contenido">
+        <section className="nl-editor" data-ayuda="newsletter.contenido" aria-label="Contenido">
           <Fotos destinos={destinos} onUsar={(destino, url) => cambiar((x) => destino.poner(x, url))} />
           {plantilla === "mensual" ? <EditorMensual d={d} cambiar={cambiar} tipos={tiposRecurso} /> : <EditorRevivi d={d} cambiar={cambiar} />}
           <Bloque titulo="Un recorte para ver (video)" icono="pelicula" abierto={!!d.video?.url}>
@@ -439,13 +454,13 @@ export default function Newsletter() {
         <button type="button" className="boton" onClick={descargar} disabled={!html} title="El HTML completo del mail, para pegarlo en Perfit">
           <Icono nombre="descargar" tam={16} /> Descargar HTML
         </button>
-        <button type="button" className="boton" onClick={() => guardar("borrador")} disabled={enviando !== null} title="Guarda todo sin mandar nada; se retoma desde acá o desde Mis publicaciones">
+        <button type="button" className="boton" data-ayuda="newsletter.guardar" onClick={() => guardar("borrador")} disabled={enviando !== null} title="Guarda todo sin mandar nada; se retoma desde acá o desde Mis publicaciones">
           <Icono nombre="lapiz" tam={16} /> {enviando === "borrador" ? "Guardando…" : borradorId ? "Guardar cambios" : "Guardar borrador"}
         </button>
         <button type="button" className="boton sutil" onClick={() => setAProyecto(true)} disabled={!borradorId} title={!borradorId ? "Primero guardalo como borrador" : carpeta ? `Está en «${etiqueta(carpeta)}»; mover a otra carpeta` : "Guardar este borrador en un proyecto"}>
           <Icono nombre="carpeta" tam={16} /> {carpeta ? etiqueta(carpeta) : "Proyecto"}
         </button>
-        <button type="button" className="boton primario" onClick={() => guardar("aprobar")} disabled={enviando !== null || !d.asunto.trim()} title={d.asunto.trim() ? "Un aprobador lo revisa; aprobado, el HTML queda listo para Perfit" : "Falta el asunto del email"}>
+        <button type="button" className="boton primario" data-ayuda="newsletter.aprobar" onClick={() => guardar("aprobar")} disabled={enviando !== null || !d.asunto.trim()} title={d.asunto.trim() ? "Un aprobador lo revisa; aprobado, el HTML queda listo para Perfit" : "Falta el asunto del email"}>
           <Icono nombre="check" tam={16} /> {enviando === "aprobar" ? "Enviando…" : "Enviar a aprobación"}
         </button>
       </div>

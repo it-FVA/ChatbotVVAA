@@ -148,7 +148,7 @@ export function SolicitudesPanel({ aprueba, version, onCambio, onVerDia }: { apr
   const n = datos?.pendientes.length ?? 0;
   if (datos && !n && !datos.resueltas.length && aprueba) return null;
   return (
-    <details className="fd-panel tarjeta" open={n > 0}>
+    <details className="fd-panel tarjeta" data-ayuda="frase-del-dia.solicitudes" open={n > 0}>
       <summary>
         <Icono nombre="chevron" tam={16} />
         <Icono nombre="pregunta" tam={17} />

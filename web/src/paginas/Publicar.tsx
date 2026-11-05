@@ -5,6 +5,7 @@
 // y desde un borrador (?borrador=<id>). Las reglas de negocio están en la API (api/publicar_rutas.py); acá solo se repiten para
 // deshabilitar botones a tiempo.
 import LinkAyuda from "../componentes/LinkAyuda";
+import { definirAyuda } from "../ayuda/registro";
 import { fechaCreacion, fechaIsoDe, fechaLegible, manana } from "../util/fechas";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -34,6 +35,26 @@ const AYUDA_CANAL: Record<string, string> = {
 type Rechazo = { por: string; en: string | null; nota: string | null };
 
 type Resultado = { tipo: "aprobacion"; r: RespuestaAprobacion } | { tipo: "envio"; r: RespuestaEnvio; modo: "real" | "simulado" } | { tipo: "borrador"; id: string; mensaje: string; cambios?: boolean };
+
+// (5/11, Franco) Ayuda de esta pantalla: de acá salen la página /ayuda y la guía interactiva. Cada id es un data-ayuda="disenar.<id>" en el JSX.
+definirAyuda("disenar", {
+  titulo: "Diseñar",
+  que: "Armás la pieza de un canal: foto con frase, texto y fecha. Diseñar no publica: la pieza va a aprobación y la publica quien aprueba. Cada canal tiene lo suyo:",
+  lista: [
+    "Instagram: foto cuadrada o vertical, historia (dura 24 horas y no lleva texto) o reel.",
+    "Facebook: foto con la frase y el texto.",
+    "Blogpost: entrada de la web, con título, texto largo y foto destacada.",
+    "YouTube: un recorte, con título. Sube privado: se publica desde YouTube Studio.",
+    "Email: es el Newsletter.",
+  ],
+  pasos: [
+    { id: "canal", texto: "El canal se elige en la barra. Acá ves cuál es.", titulo: "Canal" },
+    { id: "texto", texto: "Cargá título y texto." },
+    { id: "foto", texto: "Cargá la foto y la frase." },
+    { id: "cuando", texto: "Elegí cuándo sale y «Enviar a aprobación», o «Guardar borrador» para seguir después." },
+    { id: "previa", texto: "Mirá la vista previa." },
+  ],
+});
 
 export default function Publicar() {
   const [params] = useSearchParams();
@@ -359,7 +380,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
             {origen === "borrador" && !rechazo && !duenaDe && "Retomando un borrador: al guardar se actualiza el mismo. Al mandarlo a aprobación pasa a la cola en el mismo lugar; al enviarlo directo, el borrador se elimina."}
             {origen === "borrador" && !rechazo && duenaDe && `Editando un borrador de ${duenaDe}, compartido con vos para editar. Al guardar se actualiza el mismo y sigue siendo de ${duenaDe}. Si lo mandás a aprobación, va a su nombre y queda en la misma carpeta.`}
             {!desdeMenu && origen === "nueva" && "Acá se diseña la pieza: foto, frase, texto y fecha. Publicarla es el paso siguiente, desde Aprobación. También se puede diseñar desde el chat, debajo de la respuesta del bot."}
-            <LinkAyuda seccion="disenar" /></p>
+            <LinkAyuda pantalla="disenar" /></p>
         </div>
         <Link to="/publicaciones" className="boton sutil">
           <Icono nombre="lista" tam={16} /> Mis publicaciones
@@ -391,14 +412,14 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
               </div>
             )}
             {desdeMenu && canal ? (
-              <div className="pub-canal-fijo">
+              <div className="pub-canal-fijo" data-ayuda="disenar.canal">
                 <span>
                   <strong>{info?.texto_canal || canal}</strong> <span className="suave chico">{info?.detalle}</span>
                   {op.canales[canal] && <span className={"pub-modo chico " + op.canales[canal].modo}> {op.canales[canal].modo}</span>}
                 </span>
               </div>
             ) : (
-            <fieldset className="pub-canales">
+            <fieldset className="pub-canales" data-ayuda="disenar.canal">
               <legend>Canal</legend>
               {Object.entries(op.canales).map(([clave, i]) => (
                 <label key={clave} className={"pub-canal" + (canal === clave ? " activo" : "") + (i.modo === "apagado" ? " apagado" : "")}>
@@ -421,7 +442,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
               Título <span className="suave">{canal === "wordpress" || canal === "youtube" ? "(obligatorio)" : "(opcional, para el registro)"}</span>
               <input value={f.titulo} onChange={(e) => set("titulo", e.target.value)} maxLength={150} />
             </label>
-            <label>
+            <label data-ayuda="disenar.texto">
               Texto de la pieza <span className="suave">{esRed ? "(el caption)" : canal === "youtube" ? "(la descripción del video)" : canal === "wordpress" ? "(el cuerpo; se puede usar HTML simple o markdown)" : ""}</span>
               <textarea value={f.texto} onChange={(e) => set("texto", e.target.value)} rows={9} placeholder="Escribí la pieza o pedísela al bot en el chat." />
               <span className="suave chico pub-contador">
@@ -436,7 +457,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
           </Paso>
 
           {/* ---------- Paso 2: foto y diseño / formato del video ---------- */}
-          <Paso n={2} titulo={conVideo ? "Formato del video" : canal === "youtube" ? "Video" : "Foto y diseño"} resumen={resumen2} abierto={paso === 2} hecho={paso > 2} onAbrir={() => canal && setPaso(2)} deshabilitado={!canal}>
+          <Paso data-ayuda="disenar.foto" n={2} titulo={conVideo ? "Formato del video" : canal === "youtube" ? "Video" : "Foto y diseño"} resumen={resumen2} abierto={paso === 2} hecho={paso > 2} onAbrir={() => canal && setPaso(2)} deshabilitado={!canal}>
             {conVideo ? (
               <>
                 {canal === "instagram" && (
@@ -614,7 +635,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
           </Paso>
 
           {/* ---------- Paso 3: cuándo y enviar ---------- */}
-          <Paso n={3} titulo="Cuándo y enviar" resumen={resumen3} abierto={paso === 3} hecho={false} onAbrir={() => canal && setPaso(3)} deshabilitado={!canal}>
+          <Paso data-ayuda="disenar.cuando" n={3} titulo="Cuándo y enviar" resumen={resumen3} abierto={paso === 3} hecho={false} onAbrir={() => canal && setPaso(3)} deshabilitado={!canal}>
             <Programar f={f} set={set} />
             {canal && info && (
               <div className={"pub-aviso " + modo}>
@@ -654,7 +675,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
           </Paso>
         </div>
 
-        <aside className="pub-previa">
+        <aside className="pub-previa" data-ayuda="disenar.previa">
           <div className="pub-previa-cabecera">
             <h2>
               <Icono nombre="ojo" tam={16} /> Así se vería
@@ -670,9 +691,9 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-function Paso({ n, titulo, resumen, abierto, hecho, deshabilitado = false, onAbrir, children }: { n: number; titulo: string; resumen: string; abierto: boolean; hecho: boolean; deshabilitado?: boolean; onAbrir: () => void; children: React.ReactNode }) {
+function Paso({ "data-ayuda": ayuda, n, titulo, resumen, abierto, hecho, deshabilitado = false, onAbrir, children }: { "data-ayuda"?: string; n: number; titulo: string; resumen: string; abierto: boolean; hecho: boolean; deshabilitado?: boolean; onAbrir: () => void; children: React.ReactNode }) {
   return (
-    <section className={"pub-paso" + (abierto ? " abierto" : "") + (deshabilitado ? " deshabilitado" : "")} aria-labelledby={`paso-${n}`}>
+    <section {...(ayuda ? { "data-ayuda": ayuda } : {})} className={"pub-paso" + (abierto ? " abierto" : "") + (deshabilitado ? " deshabilitado" : "")} aria-labelledby={`paso-${n}`}>
       <button type="button" className="pub-paso-cabecera" onClick={onAbrir} disabled={deshabilitado || abierto} aria-expanded={abierto}>
         <span className={"pub-paso-num" + (hecho && !abierto ? " hecho" : "")}>{hecho && !abierto ? <Icono nombre="check" tam={14} /> : n}</span>
         <span className="pub-paso-textos">
