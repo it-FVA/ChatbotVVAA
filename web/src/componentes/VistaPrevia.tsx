@@ -7,6 +7,7 @@ import { aHtml } from "../util/markdown";
 import { useSesion } from "../App";
 import { nombreCanal, textoPlano } from "../util/publicar";
 import { Icono } from "./Iconos";
+import Carrusel from "./Carrusel";
 
 export interface DatosPrevia {
   canal: string;
@@ -14,6 +15,7 @@ export interface DatosPrevia {
   texto: string;
   imagenSrc: string | null; // la compuesta (blob) o la URL de la foto
   videoUrl: string | null;
+  imagenes?: string[] | null; // (5/11, Franco) carrusel: con 2 o más se ve como carrusel (la portada es imagenSrc)
   formato: string | null; // cuadrado | vertical | historia (foto) · reel | historia (video)
   videoFormato?: string | null; // horizontal | vertical (el del recorte)
   textoImagen?: string | null;
@@ -45,7 +47,10 @@ export default function VistaPrevia({ d, compacta = false }: { d: DatosPrevia; c
   );
 }
 
+const enCarrusel = (d: DatosPrevia) => !d.videoUrl && (d.imagenes?.length ?? 0) >= 2;
+
 function Medio({ d, ratio }: { d: DatosPrevia; ratio: string }) {
+  if (enCarrusel(d)) return <Carrusel imagenes={d.imagenes!} ratio={ratio} />;
   const vertical = d.videoFormato === "vertical";
   return (
     <div className={"previa-medio" + (d.componiendo ? " componiendo" : "")} style={{ aspectRatio: ratio }}>
@@ -137,7 +142,7 @@ function Facebook({ d }: { d: DatosPrevia }) {
         </span>
       </div>
       <Caption texto={d.texto} limite={400} />
-      {(d.imagenSrc || d.videoUrl) && <Medio d={d} ratio={ratio} />}
+      {(d.imagenSrc || d.videoUrl || enCarrusel(d)) && <Medio d={d} ratio={ratio} />}
       <div className="fb-reacciones suave chico" aria-hidden="true">
         <span>👍 ❤️ Me gusta</span>
         <span>Comentar</span>

@@ -322,14 +322,15 @@ describe("Diseñar", () => {
       expect(screen.getByText("Arrastrá un video o elegilo")).toBeInTheDocument();
     });
 
-    it("«Varias fotos» aparece solo en Instagram posteo y Facebook, y está deshabilitada", async () => {
+    it("«Varias fotos» aparece solo en Instagram posteo y Facebook, y está habilitada", async () => {
       const u = userEvent.setup();
       for (const [ruta, aparece] of [["/publicar?canal=facebook", true], ["/publicar?canal=instagram&tipo=posteo", true], ["/publicar?canal=wordpress", false], ["/publicar?canal=instagram&tipo=historia", false]] as const) {
         await aPaso2(u, ruta);
         const varias = screen.queryByRole("button", { name: /Varias fotos/ });
         if (aparece) {
-          expect(varias).toBeDisabled();
-          expect(varias).toHaveTextContent("pronto");
+          expect(varias).toBeEnabled();
+          expect(varias).not.toHaveTextContent("pronto");
+          expect(varias).toHaveTextContent("Carrusel: de 2 a 10 fotos, en el orden que elijas.");
         } else expect(varias).not.toBeInTheDocument();
         cleanup();
       }
@@ -365,6 +366,137 @@ describe("Diseñar", () => {
       expect(screen.getByRole("tab", { name: "Recortes listos" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Cambiar a foto" })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /^Foto/ })).not.toBeInTheDocument();
+    });
+  });
+
+  // (5/11, Franco) camino «Varias fotos» (carrusel): se suman fotos a una lista, se ordenan y viajan en `imagenes`
+  describe("Varias fotos (carrusel)", () => {
+    const F1 = { id: 1, url: "https://w/uno.jpg", miniatura: "https://w/uno-m.jpg", titulo: "uno" };
+    const F2 = { id: 2, url: "https://w/dos.jpg", miniatura: "https://w/dos-m.jpg", titulo: "dos" };
+    const F3 = { id: 3, url: "https://w/tres.jpg", miniatura: "https://w/tres-m.jpg", titulo: "tres" };
+
+    async function aVarias(u: ReturnType<typeof userEvent.setup>, ruta = "/publicar?canal=facebook") {
+      const api = instalarApi({
+        "GET /publicar/opciones": OPCIONES,
+        "GET /banco": [F1, F2, F3],
+        "GET /recortes": [RECORTE],
+        "POST /publicar/a-aprobar": { ok: true, id: "n1", estado: "a_aprobar", modo: "aprobacion", imagen_url: null, avisos: [], mensaje: "Quedó pendiente." },
+      });
+      montar(ruta);
+      await u.type(await screen.findByLabelText(/Texto de la pieza/), "Hoy agradezco el día.");
+      await u.click(screen.getByRole("button", { name: /Siguiente: qué va en la pieza/ }));
+      await u.click(await screen.findByRole("button", { name: /Varias fotos/ }));
+      return api;
+    }
+    const sumar = (u: ReturnType<typeof userEvent.setup>, nombre: string) => u.click(screen.getByRole("button", { name: `Sumar ${nombre}` }));
+    const orden = () => screen.getAllByRole("listitem").map((li) => li.querySelector("img")?.getAttribute("src"));
+
+    it("sumar fotos del banco las agrega a la lista; la primera es la portada; con menos de 2 avisa", async () => {
+      const u = userEvent.setup();
+      await aVarias(u);
+      expect(screen.getByText("Fotos del carrusel (0 de 10)")).toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: "Banco de la Fundación" })).toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: "Subir de mi compu" })).toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: "Pegar un link" })).toBeInTheDocument();
+      await u.click(await screen.findByRole("button", { name: "Sumar uno" }));
+      expect(screen.getByText("Fotos del carrusel (1 de 10)")).toBeInTheDocument();
+      expect(screen.getByText("Portada")).toBeInTheDocument();
+      expect(screen.getByText(/Faltan fotos: un carrusel lleva al menos 2\./)).toBeInTheDocument();
+      await sumar(u, "dos");
+      expect(screen.getByText("Fotos del carrusel (2 de 10)")).toBeInTheDocument();
+      expect(screen.queryByText(/Faltan fotos/)).not.toBeInTheDocument();
+      expect(orden()).toEqual([F1.url, F2.url]);
+      // el resumen del paso cerrado
+      await u.click(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ }));
+      expect(screen.getByRole("button", { name: /Qué va en la pieza/ })).toHaveTextContent("Carrusel de 2 fotos");
+    });
+
+    it("se pueden mover y quitar", async () => {
+      const u = userEvent.setup();
+      await aVarias(u);
+      await u.click(await screen.findByRole("button", { name: "Sumar uno" }));
+      await sumar(u, "dos");
+      await sumar(u, "tres");
+      await u.click(screen.getByRole("button", { name: "Mover la foto 3 a la izquierda" }));
+      expect(orden()).toEqual([F1.url, F3.url, F2.url]);
+      await u.click(screen.getByRole("button", { name: "Mover la foto 1 a la derecha" }));
+      expect(orden()).toEqual([F3.url, F1.url, F2.url]);
+      await u.click(screen.getByRole("button", { name: "Quitar la foto 1" }));
+      expect(orden()).toEqual([F1.url, F2.url]);
+      expect(screen.getByText("Fotos del carrusel (2 de 10)")).toBeInTheDocument();
+    });
+
+    it("con 1 foto el paso 3 avisa y no deja enviar; con 2 manda imagenes en orden, portada y sin frase", async () => {
+      const u = userEvent.setup();
+      const api = await aVarias(u);
+      await u.click(await screen.findByRole("button", { name: "Sumar uno" }));
+      await u.click(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ }));
+      expect(await screen.findByText(/faltan fotos para el carrusel/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Enviar a aprobación/ })).toBeDisabled();
+      expect(screen.getByRole("button", { name: /Ver cómo quedaría/ })).toBeDisabled();
+      await u.click(screen.getByRole("button", { name: /Qué va en la pieza/ }));
+      await sumar(u, "tres");
+      await u.click(screen.getByRole("button", { name: "Mover la foto 2 a la izquierda" }));
+      await u.click(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ }));
+      await u.click(await screen.findByRole("button", { name: /Enviar a aprobación/ }));
+      await waitFor(() => expect(api.de("POST", "/publicar/a-aprobar")).toHaveLength(1));
+      expect(api.de("POST", "/publicar/a-aprobar")[0].cuerpo).toMatchObject({ canal: "facebook", imagenes: [F3.url, F1.url], imagen_url: F3.url, video_url: null, texto_imagen: null, usar_compuesta: false });
+    });
+
+    it("cambiar a Foto conserva la portada y vacía la lista; cambiar a Video vacía todo", async () => {
+      const u = userEvent.setup();
+      await aVarias(u);
+      await u.click(await screen.findByRole("button", { name: "Sumar uno" }));
+      await sumar(u, "dos");
+      await u.click(screen.getByRole("button", { name: "Cambiar a foto" }));
+      expect(screen.getByRole("button", { name: "Cambiar a varias fotos" })).toBeInTheDocument();
+      expect(screen.queryByText(/Fotos del carrusel/)).not.toBeInTheDocument();
+      expect(screen.getByRole("radio", { name: /uno/ })).toHaveAttribute("aria-checked", "true");
+      expect(screen.getByLabelText(/Texto sobre la imagen/)).toBeInTheDocument();
+      // de Foto a Varias fotos la foto sigue como primera
+      await u.click(screen.getByRole("button", { name: "Cambiar a varias fotos" }));
+      expect(screen.getByText("Fotos del carrusel (1 de 10)")).toBeInTheDocument();
+      await u.click(screen.getByRole("button", { name: "Cambiar a video" }));
+      await u.click(screen.getByRole("button", { name: "Cambiar a foto" }));
+      expect(screen.getByRole("radio", { name: /uno/ })).toHaveAttribute("aria-checked", "false");
+      // el texto del paso 1 sigue
+      await u.click(screen.getByRole("button", { name: /Volver/ }));
+      expect(screen.getByLabelText(/Texto de la pieza/)).toHaveValue("Hoy agradezco el día.");
+    });
+
+    it("con 10 fotos las fuentes avisan que ya está completo", async () => {
+      const u = userEvent.setup();
+      const fotos = Array.from({ length: 11 }, (_, i) => ({ id: i + 1, url: `https://w/f${i + 1}.jpg`, miniatura: `https://w/m${i + 1}.jpg`, titulo: `foto${i + 1}` }));
+      instalarApi({ "GET /publicar/opciones": OPCIONES, "GET /banco": fotos, "GET /recortes": [RECORTE] });
+      montar("/publicar?canal=facebook");
+      await u.type(await screen.findByLabelText(/Texto de la pieza/), "Hola");
+      await u.click(screen.getByRole("button", { name: /Siguiente: qué va en la pieza/ }));
+      await u.click(await screen.findByRole("button", { name: /Varias fotos/ }));
+      for (let i = 1; i <= 10; i++) await u.click(await screen.findByRole("button", { name: `Sumar foto${i}` }));
+      expect(screen.getByText("Fotos del carrusel (10 de 10)")).toBeInTheDocument();
+      expect(screen.getByText(/El carrusel ya está completo/)).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Sumar foto11" })).not.toBeInTheDocument();
+    });
+
+    it("un borrador con imagenes abre directo en Varias fotos con la lista cargada", async () => {
+      const u = userEvent.setup();
+      instalarApi({
+        "GET /publicar/opciones": OPCIONES,
+        "GET /banco": [],
+        "GET /publicaciones/b1": {
+          id: "b1", creado: "2026-11-05T10:00:00+00:00", canal: "instagram", estado: "borrador", propia: true, retomable: true,
+          pieza: { canal: "instagram", texto: "Mi carrusel", imagen_url: F2.url, imagenes: [F2.url, F1.url, F3.url], formato: "cuadrado", borrador_id: "b1" },
+        },
+      });
+      montar("/publicar?borrador=b1");
+      // texto y canal ya están: el paso 2 abre solo, directo en Varias fotos
+      expect(await screen.findByText("Fotos del carrusel (3 de 10)")).toBeInTheDocument();
+      expect(orden()).toEqual([F2.url, F1.url, F3.url]);
+      expect(screen.getByRole("button", { name: "Cambiar a foto" })).toBeInTheDocument();
+      // la vista previa es un carrusel
+      expect(screen.getByText("1/3")).toBeInTheDocument();
+      await u.click(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ }));
+      expect(screen.getByRole("button", { name: /Qué va en la pieza/ })).toHaveTextContent("Carrusel de 3 fotos");
     });
   });
 

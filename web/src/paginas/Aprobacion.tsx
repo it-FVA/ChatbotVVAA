@@ -161,7 +161,7 @@ function PiezaParaAprobar({ p, modo, onHecho }: { p: Publicacion; modo: string; 
           {esNewsletter ? (
             <iframe title={"Newsletter " + (p.titulo || "")} className="aprobar-iframe" sandbox="" srcDoc={p.texto || ""} />
           ) : (
-            <VistaPrevia d={{ canal: p.canal, titulo: p.titulo || "", texto: p.texto || "", imagenSrc: p.imagen_url, videoUrl: p.video_url, formato: p.formato, fechaIso: p.fecha_programada, textoImagen: p.texto_imagen }} compacta />
+            <VistaPrevia d={{ canal: p.canal, titulo: p.titulo || "", texto: p.texto || "", imagenSrc: p.imagen_url, videoUrl: p.video_url, imagenes: p.imagenes, formato: p.formato, fechaIso: p.fecha_programada, textoImagen: p.texto_imagen }} compacta />
           )}
         </div>
         <div className="aprobar-datos">

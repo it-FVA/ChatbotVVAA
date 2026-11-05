@@ -67,9 +67,9 @@ definirAyuda("disenar", {
   ],
   pasos: [
     { id: "canal", texto: "El canal se elige en la barra.", titulo: "Canal" },
-    { id: "presencia", texto: "Acá ves si otra persona está mirando o editando esta misma pieza.", titulo: "Quién más está acá" },
+    { id: "presencia", texto: "Acá ves si otra persona mira o edita esta pieza.", titulo: "Quién más está acá" },
     { id: "texto", texto: "Cargá título y texto." },
-    { id: "foto", texto: "Elegí foto (banco, compu o link) o video (recorte o propio)." },
+    { id: "foto", texto: "Elegí foto (banco, compu o link), varias fotos (carrusel) o video (recorte o propio)." },
     { id: "cuando", texto: "Elegí cuándo sale y «Enviar a aprobación», o «Guardar borrador» para seguir luego." },
     { id: "previa", texto: "Mirá la vista previa." },
   ],
@@ -78,7 +78,9 @@ definirAyuda("disenar", {
 /** Qué pasa con la pieza cuando el canal no está en real (modo_real del registro de canales). */
 // (5/11, Franco) el paso 2 se llama siempre igual; antes cambiaba según lo elegido
 const TITULO_PASO_2 = "Qué va en la pieza";
-type Camino = "elegir" | "foto" | "video";
+type Camino = "elegir" | "foto" | "varias" | "video";
+const MAX_FOTOS = 10; // (5/11, Franco) un carrusel lleva de 2 a 10 fotos
+const MIN_FOTOS = 2;
 
 const TEXTO_NO_REAL: Record<string, string> = {
   simulado: "Este canal está en modo de prueba: la pieza se arma pero no sale de verdad.",
@@ -220,7 +222,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
   const [buscando, setBuscando] = useState(false);
   const [subiendo, setSubiendo] = useState(false);
   const [avisoSubida, setAvisoSubida] = useState<string | null>(null);
-  const [urlManual, setUrlManual] = useState(inicial.imagen_url && !inicial.imagen_busqueda ? inicial.imagen_url : "");
+  const [urlManual, setUrlManual] = useState(inicial.imagen_url && !inicial.imagen_busqueda && !inicial.imagenes?.length ? inicial.imagen_url : "");
   const [compuesta, setCompuesta] = useState<string | null>(null);
   const [componiendo, setComponiendo] = useState(false);
   const [errorCompuesta, setErrorCompuesta] = useState<string | null>(null);
@@ -228,10 +230,12 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
   const [error, setError] = useState<string | null>(avisoInicial);
   const [resultado, setResultado] = useState<Resultado | null>(null);
   // (5/11, Franco) paso 2 con dos caminos: si la pieza ya trae video, imagen o una búsqueda del bot, abre directo en el que corresponde
-  const [camino, setCamino] = useState<Camino>(inicial.video_url ? "video" : inicial.imagen_url || inicial.imagen_busqueda ? "foto" : "elegir");
-  const [fuente, setFuente] = useState<"banco" | "archivo" | "url">(inicial.imagen_url && !inicial.imagen_busqueda ? "url" : "banco");
+  // (5/11, Franco) una pieza con `imagenes` (carrusel) abre directo en «Varias fotos» con la lista cargada
+  const [camino, setCamino] = useState<Camino>(inicial.video_url ? "video" : inicial.imagenes?.length ? "varias" : inicial.imagen_url || inicial.imagen_busqueda ? "foto" : "elegir");
+  const unaFoto = !!inicial.imagen_url && !inicial.imagen_busqueda && !inicial.imagenes?.length;
+  const [fuente, setFuente] = useState<"banco" | "archivo" | "url">(unaFoto ? "url" : "banco");
   const [fuenteV, setFuenteV] = useState<"recortes" | "subir">("recortes");
-  const [fuenteFoto, setFuenteFoto] = useState<"banco" | "subida" | "link">(inicial.imagen_url && !inicial.imagen_busqueda ? "link" : "banco");
+  const [fuenteFoto, setFuenteFoto] = useState<"banco" | "subida" | "link">(unaFoto ? "link" : "banco");
   const [nombreSubida, setNombreSubida] = useState("");
   const [nombreVideo, setNombreVideo] = useState("");
   const [videoParaSubir, setVideoParaSubir] = useState<File | null>(null);
@@ -259,20 +263,26 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
   const modo = info?.modo ?? "apagado";
   const esRed = canal === "instagram" || canal === "facebook";
   const conVideo = !!f.video_url;
+  // (5/11, Franco) carrusel: solo en posteo de Instagram y en Facebook. Mientras se arma, `imagenes` es la lista y `imagen_url` la portada.
+  const permiteCarrusel = canal === "facebook" || tipoIG === "posteo";
+  const soloVideo = canal === "youtube" || tipoUrl === "reel" || tipoElegido === "reel";
+  const caminoEf: Camino = soloVideo ? "video" : camino === "varias" && !permiteCarrusel ? "elegir" : camino;
+  const enVarias = caminoEf === "varias";
+  const lista = enVarias ? f.imagenes ?? [] : [];
+  const nFotos = lista.length;
+  const completo = nFotos >= MAX_FOTOS;
   const conFrase = !!f.texto_imagen.trim();
   const conLogo = f.logo !== "Sin logo";
-  const seCompone = esRed && !conVideo && !!f.imagen_url && (conFrase || conLogo) && f.usar_compuesta;
+  const seCompone = esRed && !conVideo && !enVarias && !!f.imagen_url && (conFrase || conLogo) && f.usar_compuesta;
   const fechaIso = fechaIsoDe(f);
   const faltaTexto = !f.texto.trim() && !esHistoria; // la historia no lleva caption
 
   const faltaTitulo = (canal === "wordpress" || canal === "youtube") && !f.titulo.trim();
   const faltaVideoYT = (canal === "youtube" || esReel) && !conVideo;
-  const faltaFotoIG = (tipoIG === "posteo" || esHistoria) && !conVideo && !f.imagen_url;
+  const faltaFotoIG = (tipoIG === "posteo" || esHistoria) && !conVideo && !enVarias && !f.imagen_url;
+  const faltanFotos = enVarias && nFotos < MIN_FOTOS;
   // (5/11, Franco) el paso 3 espera a que haya foto o video; YouTube y el reel solo llevan video (no hay elección)
-  const hayPieza = conVideo || !!f.imagen_url;
-  const soloVideo = canal === "youtube" || tipoUrl === "reel" || tipoElegido === "reel";
-  const caminoEf: Camino = soloVideo ? "video" : camino;
-  const conCarrusel = camino === "elegir" && (canal === "facebook" || tipoIG === "posteo"); // el carrusel es una tarea aparte: solo la tarjeta, deshabilitada
+  const hayPieza = conVideo || (enVarias ? nFotos > 0 : !!f.imagen_url);
 
   // Banco: busca sola al entrar si hay una sugerencia del bot o el canal es de redes
   const buscarFotos = useCallback(
@@ -291,8 +301,8 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
     [canal, op.formato_por_canal, set],
   );
   useEffect(() => {
-    if (caminoEf !== "foto") return;
-    if (fotos === null && (f.imagen_busqueda || esRed)) buscarFotos(f.imagen_busqueda, !!f.imagen_busqueda && !f.imagen_url);
+    if (caminoEf !== "foto" && caminoEf !== "varias") return;
+    if (fotos === null && (f.imagen_busqueda || esRed)) buscarFotos(f.imagen_busqueda, caminoEf === "foto" && !!f.imagen_busqueda && !f.imagen_url);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canal, caminoEf]);
 
@@ -340,13 +350,41 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seCompone, f.imagen_url, f.texto_imagen, f.firma, f.formato, f.tipografia, f.peso, f.posicion, f.alineacion, f.logo, f.posicion_logo]);
 
+  // ---- carrusel (5/11, Franco): cada foto elegida se agrega a la lista; la primera es la portada y viaja también como imagen_url
+  const conLista = (x: PiezaForm, l: string[]): PiezaForm => ({ ...x, imagenes: l, imagen_url: l[0] ?? null });
+  function agregarFoto(url: string) {
+    if (nFotos >= MAX_FOTOS) return;
+    if (lista.includes(url)) {
+      avisar("Esa foto ya está en el carrusel.", "info");
+      return;
+    }
+    setF((x) => ((x.imagenes ?? []).length >= MAX_FOTOS ? x : conLista(x, [...(x.imagenes ?? []), url])));
+  }
+  const quitarFoto = (k: number) => setF((x) => conLista(x, (x.imagenes ?? []).filter((_, j) => j !== k)));
+  const moverFoto = (k: number, d: -1 | 1) =>
+    setF((x) => {
+      const l = [...(x.imagenes ?? [])];
+      const j = k + d;
+      if (j < 0 || j >= l.length) return x;
+      [l[k], l[j]] = [l[j], l[k]];
+      return conLista(x, l);
+    });
+
+  function sumarLink() {
+    const u = urlManual.trim();
+    if (!/^https:\/\/\S+$/i.test(u)) return;
+    agregarFoto(u);
+    setUrlManual("");
+  }
+
   async function subirArchivo(archivo: File) {
     setSubiendo(true);
     setAvisoSubida(null);
     try {
       const r = await apiPublicar.subirAlBanco(archivo, f.titulo || archivo.name);
       if (r.url) {
-        set("imagen_url", r.url);
+        if (enVarias) agregarFoto(r.url);
+        else set("imagen_url", r.url);
         setUrlManual("");
         setFuenteFoto("subida");
         setNombreSubida(archivo.name);
@@ -364,21 +402,22 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
       canal,
       titulo: f.titulo,
       texto: f.texto,
-      imagenSrc: conVideo ? null : seCompone && compuesta ? compuesta : f.imagen_url,
+      imagenSrc: conVideo ? null : enVarias ? lista[0] ?? null : seCompone && compuesta ? compuesta : f.imagen_url,
       videoUrl: f.video_url,
+      imagenes: enVarias && nFotos >= MIN_FOTOS ? lista : null,
       formato: conVideo ? f.vfmt : esRed ? f.formato : null,
       videoFormato: f.video_formato,
       textoImagen: f.texto_imagen,
       fechaIso,
       componiendo: seCompone && componiendo && !compuesta,
     }),
-    [canal, f, conVideo, seCompone, compuesta, esRed, fechaIso, componiendo],
+    [canal, f, conVideo, seCompone, compuesta, esRed, fechaIso, componiendo, enVarias, lista, nFotos],
   );
 
   // ---- botones
   const puedeProponer = !!info?.a_aprobar;
   const motivoNoProponer = !canal ? "Elegí el canal." : info && !info.acepta_aprobacion ? `${info.texto_canal} no pasa por aprobación.` : info && !info.a_aprobar ? `${info.texto_canal} todavía no está habilitado: guardala como borrador.` : null;
-  const faltas = [faltaTexto && "falta el texto", faltaTitulo && "falta el título", faltaVideoYT && "falta el video (un recorte)", faltaFotoIG && "falta la foto", !hayPieza && !faltaVideoYT && !faltaFotoIG && "falta la foto o el video"].filter(Boolean) as string[];
+  const faltas = [faltaTexto && "falta el texto", faltaTitulo && "falta el título", faltaVideoYT && "falta el video (un recorte)", faltaFotoIG && "falta la foto", faltanFotos && "faltan fotos para el carrusel", !hayPieza && !enVarias && !faltaVideoYT && !faltaFotoIG && "falta la foto o el video"].filter(Boolean) as string[];
   const etiquetaPrincipal = !canal ? "Elegí el canal" : "Enviar a aprobación"; // (5/11) nadie publica directo: todo pasa por aprobación
 
   async function mandar(que: "aprobar" | "simulado" | "borrador", pisar = false) {
@@ -387,6 +426,8 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
     // (5/11) lo que viaja es la pieza de siempre: el tipo se traduce a formato y vfmt. La historia no lleva caption, pero la API pide
     // texto: si no hay, va la frase (o el título) y la API igual la manda sin texto.
     let pz: PiezaForm = f;
+    // (5/11, Franco) un carrusel no lleva frase, logo ni formato; con menos de 2 fotos (un borrador a medias) viaja como una foto sola
+    if (enVarias) pz = { ...pz, imagenes: nFotos >= MIN_FOTOS ? lista : null, imagen_url: lista[0] ?? null, video_url: null, video_formato: null, texto_imagen: "", usar_compuesta: false };
     if (esReel) pz = { ...pz, formato: "vertical", vfmt: "reel" };
     if (esHistoria) pz = pz.video_url ? { ...pz, vfmt: "historia", formato: "historia" } : { ...pz, formato: "historia" };
     if (esHistoria && que !== "borrador" && !pz.texto.trim()) pz = { ...pz, texto: pz.texto_imagen.trim() || pz.titulo.trim() || "Historia de Instagram" };
@@ -423,7 +464,9 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
   const queFoto = !f.imagen_url ? "" : fuenteFoto === "subida" ? "Foto subida de tu compu" : fuenteFoto === "link" && !fotoBanco ? "Foto de un link" : fotoBanco?.titulo ? `Foto del banco «${fotoBanco.titulo}»` : "Foto del banco";
   const conQue = [conFrase && f.usar_compuesta ? "la frase" : null, conLogo && f.usar_compuesta ? "el logo" : null].filter(Boolean).join(" y ");
   const nombreDelVideo = nombreVideo || (origen === "recorte" ? f.titulo : "");
-  const resumen2 = conVideo
+  const resumen2 = enVarias
+    ? nFotos === 0 ? "Todavía no elegiste" : `Carrusel de ${nFotos} foto${nFotos === 1 ? "" : "s"}`
+    : conVideo
     ? `Video${nombreDelVideo ? ` «${nombreDelVideo.slice(0, 40)}»` : ""}, ${f.video_formato === "horizontal" ? "horizontal" : "vertical"}`
     : f.imagen_url
       ? `${queFoto}${esRed ? (conQue ? `, con ${conQue}` : ", sola") : canal === "wordpress" ? ", destacada" : ""}`
@@ -442,14 +485,21 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
     setF((x) => ({ ...x, titulo: x.titulo || (r.titulo || "").slice(0, 100), video_url: r.url, video_formato: r.formato, vfmt: esHistoria ? "historia" : "reel", formato: esHistoria ? "historia" : esReel ? "vertical" : x.formato }));
   };
   // (5/11, Franco) cambiar de camino conserva el texto del paso 1 y la fecha del paso 3, pero limpia lo elegido del camino anterior
-  const irA = (c: "foto" | "video") => {
+  // A Foto desde el carrusel conserva la portada; a Varias fotos desde Foto arranca la lista con esa foto; a Video vacía todo.
+  const irA = (c: "foto" | "video" | "varias") => {
+    const desde = caminoEf;
     setCamino(c);
     setNombreVideo("");
     setUrlManual("");
     setFuente("banco");
     setFuenteV("recortes");
     setFuenteFoto("banco");
-    setF((x) => ({ ...x, imagen_url: null, video_url: null, video_formato: null }));
+    setF((x) => {
+      const limpio = { ...x, video_url: null, video_formato: null };
+      if (c === "foto") return { ...limpio, imagenes: null, imagen_url: desde === "varias" ? x.imagenes?.[0] ?? null : null };
+      if (c === "varias") return conLista(limpio, desde === "foto" && x.imagen_url ? [x.imagen_url] : []);
+      return { ...limpio, imagenes: null, imagen_url: null };
+    });
   };
   const resumen3 = fechaIso ? `Programada: ${fechaLegible(fechaIso)}` : "Cuanto antes";
 
@@ -605,25 +655,63 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
                     </b>
                     <span className="suave chico">Un recorte listo o un video tuyo. Después elegís el formato.</span>
                   </button>
-                  {conCarrusel && (
-                    <button type="button" className="pub-camino pronto" disabled>
+                  {permiteCarrusel && (
+                    <button type="button" className="pub-camino" onClick={() => irA("varias")}>
                       <b>
                         <span className="pub-camino-ico"><Icono nombre="imagen" tam={18} /></span> Varias fotos
                       </b>
-                      <span className="suave chico">Carrusel para Instagram y Facebook.</span>
-                      <span className="pub-camino-pronto">pronto</span>
+                      <span className="suave chico">Carrusel: de 2 a 10 fotos, en el orden que elijas.</span>
                     </button>
                   )}
                 </div>
               </div>
             )}
 
-            {caminoEf === "foto" && (
+            {(caminoEf === "foto" || enVarias) && (
               <>
                 <div className="pub-elegido">
-                  <Icono nombre="imagen" tam={16} /> Foto
+                  <Icono nombre="imagen" tam={16} /> {enVarias ? "Varias fotos" : "Foto"}
+                  {enVarias && <button type="button" onClick={() => irA("foto")}>Cambiar a foto</button>}
+                  {!enVarias && permiteCarrusel && <button type="button" onClick={() => irA("varias")}>Cambiar a varias fotos</button>}
                   <button type="button" onClick={() => irA("video")}>Cambiar a video</button>
                 </div>
+
+                {enVarias && (
+                  <div className="pub-carrusel">
+                    <h3 id="pub-carrusel-titulo">Fotos del carrusel ({nFotos} de {MAX_FOTOS})</h3>
+                    {nFotos === 0 ? (
+                      <p className="suave chico">Elegí fotos abajo: cada una se suma a la lista, y desde acá las ordenás.</p>
+                    ) : (
+                      <ol className="pub-carrusel-tira" aria-labelledby="pub-carrusel-titulo">
+                        {lista.map((url, k) => (
+                          <li key={url} className="pub-carrusel-foto">
+                            <div className="pub-carrusel-img">
+                              <img src={url} alt={`Foto ${k + 1}`} loading="lazy" />
+                              <span className="pub-carrusel-num">{k + 1}</span>
+                              {k === 0 && <span className="pub-carrusel-portada">Portada</span>}
+                            </div>
+                            <div className="pub-carrusel-botones">
+                              <button type="button" className="boton chico" aria-label={`Mover la foto ${k + 1} a la izquierda`} disabled={k === 0} onClick={() => moverFoto(k, -1)}>
+                                ←
+                              </button>
+                              <button type="button" className="boton chico" aria-label={`Mover la foto ${k + 1} a la derecha`} disabled={k === nFotos - 1} onClick={() => moverFoto(k, 1)}>
+                                →
+                              </button>
+                              <button type="button" className="boton sutil chico" aria-label={`Quitar la foto ${k + 1}`} onClick={() => quitarFoto(k)}>
+                                Quitar
+                              </button>
+                            </div>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                    {nFotos < MIN_FOTOS && (
+                      <p className="aviso chico" role="status">
+                        <Icono nombre="info" tam={14} /> Faltan fotos: un carrusel lleva al menos 2.
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <div className="pub-fuentes" role="tablist" aria-label="De dónde sale la foto">
                   {([["banco", "Banco de la Fundación"], ["archivo", "Subir de mi compu"], ["url", "Pegar un link"]] as const).map(([k, t]) => (
@@ -633,7 +721,13 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
                   ))}
                 </div>
 
-                {fuente === "banco" && (
+                {enVarias && completo && (
+                  <p className="aviso chico" role="status">
+                    <Icono nombre="info" tam={14} /> El carrusel ya está completo: {MAX_FOTOS} fotos. Quitá alguna para sumar otra.
+                  </p>
+                )}
+
+                {fuente === "banco" && !(enVarias && completo) && (
                   <div className="pub-banco">
                     <label htmlFor="pub-busq">Imagen {canal === "wordpress" ? "(la destacada de la entrada)" : ""}</label>
                     <div className="pieza-banco-buscar">
@@ -643,6 +737,17 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
                       </button>
                     </div>
                     <AvisoBanco fotos={fotos} />
+                    {enVarias ? (
+                      <div className="pieza-fotos" role="group" aria-label="Elegí las fotos para sumar al carrusel">
+                        {fotos?.map((x) => (
+                          <button key={x.id} type="button" className={"pieza-foto" + (lista.includes(x.url) ? " elegida" : "")} onClick={() => agregarFoto(x.url)} aria-label={`Sumar ${x.titulo || "#" + x.id}`} title={x.titulo || `#${x.id}`}>
+                            <img src={x.miniatura} alt="" loading="lazy" />
+                            <span className="chico">{lista.includes(x.url) ? "en el carrusel" : (x.titulo || `#${x.id}`).slice(0, 28)}</span>
+                          </button>
+                        ))}
+                        {buscando && fotos === null && [1, 2, 3].map((i) => <Hueso key={i} ancho={112} alto={132} radio={10} />)}
+                      </div>
+                    ) : (
                     <div className="pieza-fotos" role="radiogroup" aria-label="Elegí una foto">
                       {f.imagen_url && !fotos?.some((x) => x.url === f.imagen_url) && (
                         <button type="button" className="pieza-foto elegida" role="radio" aria-checked="true" title={f.imagen_url}>
@@ -658,20 +763,21 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
                       ))}
                       {buscando && fotos === null && [1, 2, 3].map((i) => <Hueso key={i} ancho={112} alto={132} radio={10} />)}
                     </div>
+                    )}
                     {fotos && fotos.length === 0 && !buscando && <p className="suave chico">El banco no tiene nada para esa búsqueda. Probá otras palabras, o subí una foto de tu compu o pegá un link.</p>}
                   </div>
                 )}
 
-                {fuente === "archivo" && (
+                {fuente === "archivo" && !(enVarias && completo) && (
                   <div className="pub-banco">
                     <ZonaArchivo titulo="Arrastrá una imagen o elegila" detalle="JPG, PNG o WebP. Se guarda en el banco de la Fundación para que la pueda usar el equipo." accept="image/jpeg,image/png,image/webp" etiqueta="Archivo de imagen" ocupado={subiendo} onArchivo={subirArchivo} />
                     {subiendo && <p className="suave chico" role="status">Subiendo al banco de la Fundación…</p>}
                     {avisoSubida && <div className="aviso chico">{avisoSubida}</div>}
-                    {f.imagen_url && fuenteFoto === "subida" && <p className="suave chico">Quedó elegida: {nombreSubida || "tu imagen"}.</p>}
+                    {!enVarias && f.imagen_url && fuenteFoto === "subida" && <p className="suave chico">Quedó elegida: {nombreSubida || "tu imagen"}.</p>}
                   </div>
                 )}
 
-                {fuente === "url" && (
+                {fuente === "url" && !(enVarias && completo) && (
                   <div className="pub-banco">
                     <label>
                       Link de una imagen que ya está en internet
@@ -680,17 +786,25 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
                         value={urlManual}
                         onChange={(e) => {
                           setUrlManual(e.target.value);
-                          if (/^https?:\/\/\S+$/i.test(e.target.value.trim())) (set("imagen_url", e.target.value.trim()), setFuenteFoto("link"));
+                          if (!enVarias && /^https?:\/\/\S+$/i.test(e.target.value.trim())) (set("imagen_url", e.target.value.trim()), setFuenteFoto("link"));
+                        }}
+                        onKeyDown={(e) => {
+                          if (enVarias && e.key === "Enter") (e.preventDefault(), sumarLink());
                         }}
                         placeholder="https://…"
                         inputMode="url"
                       />
                     </label>
-                    <span className="suave chico">Tiene que ser un link directo a la imagen (termina en .jpg o .png).</span>
+                    {enVarias && (
+                      <button type="button" className="boton" onClick={sumarLink} disabled={!/^https:\/\/\S+$/i.test(urlManual.trim())}>
+                        Sumar al carrusel
+                      </button>
+                    )}
+                    <span className="suave chico">Tiene que ser un link directo a la imagen (termina en .jpg o .png){enVarias ? " y empezar con https" : ""}.</span>
                   </div>
                 )}
 
-                {esRed && (
+                {esRed && !enVarias && (
                   <div className="pub-diseno">
                     <h3>{conFrase ? "Con la frase encima" : "Frase, formato y logo"}</h3>
                     <label>
@@ -867,7 +981,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
               <button type="button" className="boton primario grande" onClick={() => mandar("aprobar")} disabled={enviando !== null || !puedeProponer || faltas.length > 0} title={motivoNoProponer || undefined}>
                 <Icono nombre="check" /> {enviando === "aprobar" ? "Enviando…" : etiquetaPrincipal}
               </button>
-              <button type="button" className="boton" onClick={() => mandar("simulado")} disabled={enviando !== null || !canal || modo === "apagado" || faltaTexto || faltaTitulo || (esReel && !conVideo) || faltaFotoIG || !hayPieza} title="Arma la pieza tal cual saldría y la muestra. No manda nada; queda como prueba en Mis publicaciones.">
+              <button type="button" className="boton" onClick={() => mandar("simulado")} disabled={enviando !== null || !canal || modo === "apagado" || faltaTexto || faltaTitulo || (esReel && !conVideo) || faltaFotoIG || faltanFotos || !hayPieza} title="Arma la pieza tal cual saldría y la muestra. No manda nada; queda como prueba en Mis publicaciones.">
                 <Icono nombre="ojo" /> {enviando === "simulado" ? "Armando…" : "Ver cómo quedaría"}
               </button>
               <button type="button" className="boton" onClick={() => mandar("borrador")} disabled={enviando !== null || !canal} title="Guarda todo sin mandar nada; se retoma desde Mis publicaciones.">
@@ -1064,6 +1178,7 @@ function ResultadoPanel({ resultado, previa, canal, info, ajena = false, onVolve
   const links: { texto: string; url: string }[] = [];
   let mostrarPrevia = false;
   let imagenFinal: string | null = null;
+  let imagenesFinal: string[] | null = null;
   if (resultado.tipo === "borrador") {
     titulo = resultado.cambios ? "Cambios guardados" : "Borrador guardado";
     detalle = resultado.mensaje;
@@ -1080,6 +1195,7 @@ function ResultadoPanel({ resultado, previa, canal, info, ajena = false, onVolve
     detalle = r.aviso;
     avisos = r.avisos;
     imagenFinal = r.imagen_url;
+    imagenesFinal = r.imagenes ?? null;
     mostrarPrevia = r.simulado || !!r.pieza;
     if (r.link_editar) links.push({ texto: "Abrir el borrador en WordPress", url: r.link_editar });
     if (r.link && canal === "youtube") links.push({ texto: "Ver el video en YouTube", url: r.link });
@@ -1136,7 +1252,7 @@ function ResultadoPanel({ resultado, previa, canal, info, ajena = false, onVolve
       {mostrarPrevia && (
         <div className="pub-resultado-previa">
           <h3 className="suave">Así quedaría en {nombre}</h3>
-          <VistaPrevia d={{ ...previa, imagenSrc: previa.imagenSrc || imagenFinal }} compacta />
+          <VistaPrevia d={{ ...previa, imagenSrc: previa.imagenSrc || imagenFinal, imagenes: previa.imagenes ?? imagenesFinal }} compacta />
         </div>
       )}
     </div>

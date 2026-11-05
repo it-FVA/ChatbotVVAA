@@ -1,6 +1,7 @@
 // Mis publicaciones (22/10, fase 3) : solapas por estado con conteos, tarjetas con canal, estado,
 // fechas, miniatura, quién aprobó/rechazó y la nota, y las acciones Retomar (borradores), Eliminar (lo eliminable), Ver resultado
 // (el posteo, la entrada o el borrador de WordPress) y Descargar HTML (newsletter).
+import Carrusel from "../componentes/Carrusel";
 import Cabecera from "../componentes/Cabecera";
 import ChipEstado, { textoEstado } from "../componentes/ChipEstado";
 import { definirAyuda } from "../ayuda/registro";
@@ -217,7 +218,7 @@ export function TarjetaPublicacion({ p, mostrarUsuario = false, onEliminar, onCa
   return (
     <article className="tarjeta publicacion" aria-label={p.titulo || p.canal_texto}>
       <div className="publicacion-mini">
-        {p.video_url ? <video src={p.video_url} preload="metadata" muted playsInline controls /> : p.imagen_url ? <img src={p.imagen_url} alt="" loading="lazy" /> : <div className="mini-vacia" />}
+        {p.video_url ? <video src={p.video_url} preload="metadata" muted playsInline controls /> : (p.imagenes?.length ?? 0) >= 2 ? <Carrusel imagenes={p.imagenes!} nombre="Fotos del carrusel" /> : p.imagen_url ? <img src={p.imagen_url} alt="" loading="lazy" /> : <div className="mini-vacia" />}
       </div>
       <div className="publicacion-cuerpo">
         <div className="publicacion-meta">

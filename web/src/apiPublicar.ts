@@ -10,6 +10,7 @@ export function cuerpo(p: PiezaForm): PiezaApi {
     titulo: p.titulo.trim(),
     texto: p.texto,
     imagen_url: p.imagen_url || null,
+    imagenes: p.imagenes?.length ? p.imagenes : null,
     imagen_busqueda: p.imagen_busqueda.trim() || null,
     fecha: p.fecha,
     hora: p.fecha ? p.hora || "09:00" : null,
