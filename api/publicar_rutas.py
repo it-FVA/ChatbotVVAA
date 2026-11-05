@@ -292,9 +292,9 @@ def decorar(p):
     p["eliminable"] = est in db.ELIMINABLES
     p["compartido"] = bool(p.get("compartido"))      # (2/11) compartida con el equipo (publicaciones.compartido)
     # (2/11) también una prueba («Ver simulado»): Julián diseñó una historia, la probó sin guardar borrador y no podía retomarla
-    # (4/11) y una rechazada: deja de ser final, se corrige en la misma fila y se reenvía (el newsletter tiene su propio editor)
-    p["retomable"] = est in ("borrador", "prueba") or (est == "rechazada" and p.get("canal") != "newsletter")
-    p["corregible"] = est == "rechazada" and p.get("canal") != "newsletter"
+    # (4/11) y una rechazada: deja de ser final, se corrige en la misma fila y se reenvía (el newsletter, en su editor)
+    p["retomable"] = est in ("borrador", "prueba", "rechazada")
+    p["corregible"] = est == "rechazada"
     return p
 
 
@@ -440,7 +440,9 @@ def guardar_borrador(p: PiezaCompleta, request: Request):
     if not pid:
         raise HTTPException(503, "No pude guardar el borrador.")
     if duena != usuario:
-        return {"ok": True, "id": pid, "estado": "borrador", "mensaje": f"Guardado. El borrador sigue siendo de {duena} y queda en la misma carpeta."}
+        return {"ok": True, "id": pid, "estado": "borrador", "mensaje": f"Cambios guardados. El borrador sigue siendo de {duena} y queda en la misma carpeta."}
+    if p.borrador_id:
+        return {"ok": True, "id": pid, "estado": "borrador", "mensaje": "Cambios guardados en el mismo borrador. Lo retomás desde «Mis publicaciones»."}
     return {"ok": True, "id": pid, "estado": "borrador", "mensaje": "Guardado como borrador. Lo retomás desde «Mis publicaciones», filtro Borradores."}
 
 

@@ -82,6 +82,20 @@ export interface Respuesta {
   mensaje: string;
 }
 
+/** (4/11) Lo que se retoma: un borrador o una rechazada, propio o de otra persona con permiso «editar» por una carpeta. */
+export interface BorradorAbierto {
+  id: string;
+  titulo: string | null;
+  plantilla: Plantilla;
+  datos: Datos;
+  creado: string | null;
+  estado?: string;
+  duena?: string;
+  propia?: boolean;
+  rechazo?: { por: string; en: string | null; nota: string | null } | null;
+  editada_por?: string | null;
+}
+
 export const apiNewsletter = {
   plantillas: () => pedir<{ plantillas: Record<Plantilla, string>; vacios: Record<Plantilla, Datos>; tipos_recurso: TiposRecurso }>("/newsletter/plantillas"),
   /** La cabecera armada (1600×500, título encima) como blob para la vista previa; devuelve también el color elegido. */
@@ -94,7 +108,7 @@ export const apiNewsletter = {
   html: (plantilla: Plantilla, datos: Datos, signal?: AbortSignal) => pedir<{ html: string; titulo: string }>("/newsletter/html", { method: "POST", body: JSON.stringify({ plantilla, datos }), signal }),
   redactar: (plantilla: Plantilla, tema: string, datos: Datos) => pedir<{ datos: Datos; materiales: Material[]; html: string }>("/newsletter/redactar", { method: "POST", body: JSON.stringify({ plantilla, tema, datos }) }),
   borradores: () => pedir<BorradorResumen[]>("/newsletter/borradores"),
-  borrador: (id: string) => pedir<{ id: string; titulo: string | null; plantilla: Plantilla; datos: Datos; creado: string | null }>(`/newsletter/borradores/${encodeURIComponent(id)}`),
+  borrador: (id: string) => pedir<BorradorAbierto>(`/newsletter/borradores/${encodeURIComponent(id)}`),
   guardarBorrador: (plantilla: Plantilla, datos: Datos, borrador_id: string | null) => pedir<Respuesta>("/newsletter/borrador", { method: "POST", body: JSON.stringify({ plantilla, datos, borrador_id }) }),
   aAprobar: (plantilla: Plantilla, datos: Datos, borrador_id: string | null) => pedir<Respuesta>("/newsletter/a-aprobar", { method: "POST", body: JSON.stringify({ plantilla, datos, borrador_id }) }),
 };

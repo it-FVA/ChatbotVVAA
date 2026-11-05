@@ -4,12 +4,12 @@
 // (GET /banco) y el bloque «Un recorte para ver» se carga desde un recorte (?recorte=<id> o el selector). «Descargar HTML» para pegar
 // en Perfit, «Guardar borrador» (se retoma desde acá o desde Mis publicaciones: ?borrador=<id>) y «Enviar a aprobación» (tabla
 // publicaciones, canal newsletter, mismos estados que las demás piezas). El email NO sale de acá.
-import { fechaHora } from "../util/fechas";
+import { fechaCreacion, fechaHora } from "../util/fechas";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { api, ErrorApi } from "../api";
 import { apiChat } from "../apiChat";
-import { apiNewsletter, type Actividad, type BorradorResumen, type Datos, type Material, type Plantilla, type RecursoItem, type TiposRecurso } from "../apiNewsletter";
+import { apiNewsletter, type Actividad, type BorradorAbierto, type BorradorResumen, type Datos, type Material, type Plantilla, type RecursoItem, type TiposRecurso } from "../apiNewsletter";
 import type { FotoBanco } from "../tiposChat";
 import type { Recorte } from "../tipos";
 import { Icono } from "../componentes/Iconos";
@@ -41,6 +41,8 @@ export default function Newsletter() {
   const [plantilla, setPlantilla] = useState<Plantilla>("mensual");
   const [d, setD] = useState<Datos | null>(null);
   const [borradorId, setBorradorId] = useState<string | null>(null);
+  // (4/11) de quién es lo que se retoma (si es ajeno, por una carpeta con «editar») y el rechazo, si lo rechazaron
+  const [abierto, setAbierto] = useState<BorradorAbierto | null>(null);
   const [tema, setTema] = useState("");
   const [redactando, setRedactando] = useState(false);
   const [materiales, setMateriales] = useState<Material[]>([]);
@@ -101,7 +103,7 @@ export default function Newsletter() {
             pl = b.plantilla;
             datos = b.datos;
             setBorradorId(b.id);
-            avisar("Retomaste el borrador: al guardar se actualiza el mismo.", "info");
+            setAbierto(b);
           } catch (e) {
             setError(e instanceof ErrorApi ? e.message : "No pude abrir ese borrador.");
           }
@@ -215,6 +217,7 @@ export default function Newsletter() {
         const r = await apiNewsletter.aAprobar(plantilla, d, borradorId);
         setHecho({ mensaje: r.mensaje, estado: r.estado });
         setBorradorId(null);
+        setAbierto(null);
         setParams({}, { replace: true });
       }
     } catch (e) {
@@ -245,8 +248,8 @@ export default function Newsletter() {
         setPlantilla(r.plantilla);
         setD(r.datos);
         setBorradorId(r.id);
+        setAbierto(r);
         setMateriales([]);
-        avisar("Retomaste el borrador: al guardar se actualiza el mismo.", "info");
       })
       .catch((e) => setError(e instanceof ErrorApi ? e.message : "No pude abrir ese borrador."));
   }
@@ -355,9 +358,24 @@ export default function Newsletter() {
         </div>
       </div>
 
+      {borradorId && abierto?.rechazo && (
+        <div className="aviso rechazo-nota" role="note">
+          <Icono nombre="cruz" tam={16} />{" "}
+          <span>
+            <strong>Lo rechazó {abierto.rechazo.por}</strong>
+            {abierto.rechazo.en ? ` (${fechaCreacion(abierto.rechazo.en)})` : ""}
+            {abierto.rechazo.nota ? <>: «{abierto.rechazo.nota}»</> : ". No dejó nota."}
+          </span>
+        </div>
+      )}
       {borradorId && (
         <p className="suave chico nl-retomando">
-          <Icono nombre="info" tam={14} /> Estás retomando un borrador: al guardar se actualiza el mismo.
+          <Icono nombre="info" tam={14} />{" "}
+          {abierto && abierto.propia === false
+            ? `Estás editando un newsletter de ${abierto.duena}, compartido con vos para editar. Al guardar se actualiza el mismo y sigue siendo de ${abierto.duena}. Si lo mandás a aprobación, va a su nombre y queda en la misma carpeta.`
+            : abierto?.rechazo
+              ? "Estás corrigiendo un newsletter rechazado: al guardar queda como borrador en el mismo lugar. Al mandarlo a aprobación vuelve a la cola con el mismo historial."
+              : "Estás retomando un borrador: al guardar se actualiza el mismo. Al mandarlo a aprobación pasa a la cola en el mismo lugar."}
         </p>
       )}
       {error && (
@@ -421,7 +439,7 @@ export default function Newsletter() {
           <Icono nombre="descargar" tam={16} /> Descargar HTML
         </button>
         <button type="button" className="boton" onClick={() => guardar("borrador")} disabled={enviando !== null} title="Guarda todo sin mandar nada; se retoma desde acá o desde Mis publicaciones">
-          <Icono nombre="lapiz" tam={16} /> {enviando === "borrador" ? "Guardando…" : borradorId ? "Guardar el borrador" : "Guardar como borrador"}
+          <Icono nombre="lapiz" tam={16} /> {enviando === "borrador" ? "Guardando…" : borradorId ? "Guardar cambios" : "Guardar borrador"}
         </button>
         <button type="button" className="boton sutil" onClick={() => setAProyecto(true)} disabled={!borradorId} title={!borradorId ? "Primero guardalo como borrador" : carpeta ? `Está en «${etiqueta(carpeta)}»; mover a otra carpeta` : "Guardar este borrador en un proyecto"}>
           <Icono nombre="carpeta" tam={16} /> {carpeta ? etiqueta(carpeta) : "Proyecto"}

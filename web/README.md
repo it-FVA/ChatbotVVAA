@@ -96,6 +96,21 @@ están en la cola.
   ya trae la frase, así que al corregirlas «Publicar así» arranca destildado para no ponerle la frase dos veces.
 - Capturas 48 a 50.
 
+## El newsletter con la misma lógica (4/11)
+
+- **Permisos:** retomar, guardar y mandar a aprobación un newsletter usan la misma regla que Publicar (`permiso_pieza`,
+  `_borrador_ajeno` y `CORREGIBLES` de `api/publicar_rutas.py`). Lo editan la dueña, un aprobador o quien tiene «editar» por una
+  carpeta. Con «ver», o si no es un borrador o una rechazada, la API da 409.
+- **De otra persona:** sigue siendo de su dueña y queda `editada_por`. El editor de Newsletter dice de quién es.
+- **Rechazado:** se corrige en la misma fila, con la nota del rechazo arriba del editor, y se reenvía con el mismo id. Los
+  rechazados anteriores al 4/11 guardaban la plantilla y los datos sueltos en `resultado`, y también se abren.
+- **A aprobación desde un borrador:** la misma fila pasa a «a aprobar», como en Publicar.
+- **En la web:** en la pieza aparece «Editar y reenviar» o «Corregir y reenviar», que abren el editor de Newsletter. En Mis
+  publicaciones, la dueña tiene «Corregir y reenviar».
+- **Botón de guardar:** en Diseñar y en Newsletter, con un borrador abierto dice «Guardar cambios» y el aviso dice «Cambios
+  guardados». Sin borrador sigue «Guardar borrador».
+- Capturas 51 a 53.
+
 ## El chat (fase 2, 22/10)
 
 `/chat` y `/chat/<id>` (`src/paginas/Chat.tsx`, estilos en `src/chat.css`). Detalle:

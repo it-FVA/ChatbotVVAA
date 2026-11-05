@@ -4690,6 +4690,7 @@
   },
   "/newsletter/borrador": {
    "post": {
+    "description": "(4/11) Con borrador_id guarda los cambios en la misma fila, también si es una rechazada (pasa a borrador y conserva el\nrechazo) o de otra persona con permiso «editar» (sigue siendo de ella, queda quién lo editó). Sin permiso: 409.",
     "operationId": "guardar_borrador_newsletter_borrador_post",
     "requestBody": {
      "content": {
@@ -4748,6 +4749,7 @@
   },
   "/newsletter/borradores/{pid}": {
    "get": {
+    "description": "Para retomar. (4/11) También una rechazada y el de otra persona con permiso «editar»: devuelve de quién es y el rechazo.",
     "operationId": "borrador_newsletter_borradores__pid__get",
     "parameters": [
      {

@@ -1300,7 +1300,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Guardar Borrador */
+        /**
+         * Guardar Borrador
+         * @description (4/11) Con borrador_id guarda los cambios en la misma fila, también si es una rechazada (pasa a borrador y conserva el
+         *     rechazo) o de otra persona con permiso «editar» (sigue siendo de ella, queda quién lo editó). Sin permiso: 409.
+         */
         post: operations["guardar_borrador_newsletter_borrador_post"];
         delete?: never;
         options?: never;
@@ -1332,7 +1336,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Borrador */
+        /**
+         * Borrador
+         * @description Para retomar. (4/11) También una rechazada y el de otra persona con permiso «editar»: devuelve de quién es y el rechazo.
+         */
         get: operations["borrador_newsletter_borradores__pid__get"];
         put?: never;
         post?: never;

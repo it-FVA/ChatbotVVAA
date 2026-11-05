@@ -138,6 +138,8 @@ describe("Diseñar", () => {
     expect(screen.getByText(/Corrigiendo una pieza rechazada de patricio/)).toBeInTheDocument();
     // al retomar, el formulario arranca con el paso 1 hecho
     await u.click(await screen.findByRole("button", { name: /Siguiente: cuándo y enviar/ }));
+    // (4/11) sobre algo que ya existe, el botón de guardar dice «Guardar cambios»
+    expect(screen.getByRole("button", { name: /Guardar cambios/ })).toBeInTheDocument();
     await u.click(await screen.findByRole("button", { name: /Enviar a aprobación/ }));
     await waitFor(() => expect(api.de("POST", "/publicar/a-aprobar")).toHaveLength(1));
     expect(api.de("POST", "/publicar/a-aprobar")[0].cuerpo).toMatchObject({ borrador_id: "r1", canal: "facebook", texto: "Texto de Patricio" });

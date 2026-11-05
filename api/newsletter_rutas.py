@@ -10,9 +10,12 @@ Rutas (todas con sesión):
   POST /newsletter/cabecera?subir=1      la misma, subida a la biblioteca de WordPress → {url, color} para cabecera_url
   POST /newsletter/redactar              {plantilla, tema, datos} → {datos, materiales}  (newsletter.redactar: el bot completa los textos)
   GET  /newsletter/borradores            mis borradores de newsletter [{id, titulo, plantilla, creado, guardado_en}]
-  GET  /newsletter/borradores/{id}       uno (solo propio) con {plantilla, datos} para retomarlo
-  POST /newsletter/borrador              {plantilla, datos, borrador_id?} = «💾 Guardar como borrador» (actualiza si viene borrador_id)
-  POST /newsletter/a-aprobar             {plantilla, datos, borrador_id?} = «📨 Enviar a aprobación» (el borrador retomado se elimina)
+  GET  /newsletter/borradores/{id}       uno con {plantilla, datos} para retomarlo: un borrador o una rechazada (4/11) de quien
+                                         lo puede editar (la dueña, un aprobador o quien tiene «editar» por una carpeta)
+  POST /newsletter/borrador              {plantilla, datos, borrador_id?} = «💾 Guardar» (actualiza el mismo si viene borrador_id)
+  POST /newsletter/a-aprobar             {plantilla, datos, borrador_id?} = «📨 Enviar a aprobación» (4/11: el retomado pasa a
+                                         a_aprobar en la misma fila, mismo id y misma carpeta)
+Los permisos y el circuito de una rechazada son los de Publicar (publicar_rutas.permiso_pieza / _borrador_ajeno / CORREGIBLES).
 Las fotos del banco van por GET /banco (chat_rutas) y el recorte para el bloque de video por GET /recortes/{id}.
 """
 import datetime, logging, os
@@ -72,8 +75,25 @@ def _titulo(d):
     return d.get("asunto") or (f"Newsletter {d.get('mes')}" if d.get("mes") else "Newsletter")
 
 
-def _borrador_propio(pid, usuario):
-    return db.obtener_borrador(pid, usuario, canal="newsletter")
+def _editable(pid, usuario, rol):
+    """(4/11) La fila de newsletter que se retoma y su dueña, si quien edita la puede tocar (la misma regla que Publicar). Con «ver»
+    o si no es un newsletter, un borrador o una rechazada: 409."""
+    from .publicar_rutas import CORREGIBLES, _borrador_ajeno
+    fila = db.obtener_publicacion(pid)
+    if not fila or fila.get("canal") != "newsletter" or fila.get("estado") not in CORREGIBLES:
+        raise HTTPException(409, "Ese borrador de newsletter ya no existe o ya no se puede editar (está en aprobación o salió).")
+    duena = _borrador_ajeno(pid, usuario, rol)
+    if not duena:
+        raise HTTPException(409, "Ese newsletter es de otra persona y no tenés permiso para editarlo. Podés verlo desde la carpeta.")
+    return fila, duena
+
+
+def _contenido_de(fila):
+    """El {plantilla, datos} guardado: en un borrador va en resultado.pieza; una propuesta anterior al 4/11 los tenía sueltos."""
+    res = fila.get("resultado") or {}
+    pieza = res.get("pieza") or {"plantilla": res.get("plantilla"), "datos": res.get("datos")}
+    plantilla = pieza.get("plantilla") if pieza.get("plantilla") in newsletter.PLANTILLAS else "mensual"
+    return plantilla, _completar(plantilla, pieza.get("datos") or {})
 
 
 # ---------------- Rutas ----------------
@@ -151,31 +171,46 @@ def borradores(usuario=Depends(auth.usuario_actual)):
 
 
 @router.get("/borradores/{pid}")
-def borrador(pid: str, usuario=Depends(auth.usuario_actual)):
+def borrador(pid: str, s=Depends(auth.sesion)):
+    """Para retomar. (4/11) También una rechazada y el de otra persona con permiso «editar»: devuelve de quién es y el rechazo."""
+    usuario = s["usuario"]
     if not db.disponible():
         raise HTTPException(503, "Sin Supabase: no hay borradores.")
-    p = _borrador_propio(pid, usuario)
-    if not p:
-        raise HTTPException(404, "No existe ese borrador de newsletter (o no es tuyo, o ya no es borrador).")
-    pieza = (p.get("resultado") or {}).get("pieza") or {}
-    plantilla = pieza.get("plantilla") if pieza.get("plantilla") in newsletter.PLANTILLAS else "mensual"
-    return {"id": p["id"], "titulo": p.get("titulo"), "plantilla": plantilla, "datos": _completar(plantilla, pieza.get("datos") or {}),
-            "creado": p.get("creado")}
+    p, duena = _editable(pid, usuario, auth.rol_sesion(s))
+    res = p.get("resultado") or {}
+    plantilla, datos = _contenido_de(p)
+    rechazo = {"por": res.get("rechazada_por"), "en": res.get("rechazada_en"), "nota": res.get("nota")} if res.get("rechazada_por") else None
+    return {"id": p["id"], "titulo": p.get("titulo"), "plantilla": plantilla, "datos": datos, "creado": p.get("creado"),
+            "estado": p.get("estado"), "duena": duena, "propia": duena == usuario, "rechazo": rechazo, "editada_por": res.get("editada_por")}
 
 
 @router.post("/borrador")
-def guardar_borrador(g: Guardar, usuario=Depends(auth.usuario_actual)):
+def guardar_borrador(g: Guardar, s=Depends(auth.sesion)):
+    """(4/11) Con borrador_id guarda los cambios en la misma fila, también si es una rechazada (pasa a borrador y conserva el
+    rechazo) o de otra persona con permiso «editar» (sigue siendo de ella, queda quién lo editó). Sin permiso: 409."""
+    usuario = s["usuario"]
     if not db.disponible():
         raise HTTPException(503, "No pude guardar el borrador (falta la base de datos).")
     p = _plantilla(g.plantilla)
     d = _completar(p, g.datos)
     html_ = newsletter.armar_html(p, d)
-    pid_prev = g.borrador_id if (g.borrador_id and _borrador_propio(g.borrador_id, usuario)) else None
-    pid = db.guardar_borrador(usuario, "newsletter", _titulo(d), html_, None, None, {"plantilla": p, "datos": d}, pid=pid_prev)
+    duena, conservar = usuario, None
+    if g.borrador_id:
+        fila, duena = _editable(g.borrador_id, usuario, auth.rol_sesion(s))
+        conservar = db.historial_de(fila.get("resultado"))
+        if conservar.get("rechazada_por"):
+            conservar.update(corregida_por=usuario, corregida_en=datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"))
+    pid = db.guardar_borrador(duena, "newsletter", _titulo(d), html_, None, None, {"plantilla": p, "datos": d}, pid=g.borrador_id or None,
+                              por=usuario, conservar=conservar)
     if not pid:
         raise HTTPException(503, "No pude guardar el borrador.")
-    return {"ok": True, "id": pid, "estado": "borrador",
-            "mensaje": "Guardado como borrador." + (" Se actualizó el mismo." if pid_prev else " Lo retomás desde «Retomar un borrador» o Mis publicaciones.")}
+    if not g.borrador_id:
+        mensaje = "Guardado como borrador. Lo retomás desde «Retomar un borrador» o Mis publicaciones."
+    elif duena != usuario:
+        mensaje = f"Cambios guardados. El newsletter sigue siendo de {duena} y queda en la misma carpeta."
+    else:
+        mensaje = "Cambios guardados en el mismo borrador."
+    return {"ok": True, "id": pid, "estado": "borrador", "mensaje": mensaje}
 
 
 @router.post("/a-aprobar")
@@ -190,13 +225,17 @@ def enviar_a_aprobacion(g: Guardar, s=Depends(auth.sesion)):
     if not (d.get("asunto") or "").strip():
         raise HTTPException(400, "Falta el asunto del email.")
     html_ = newsletter.armar_html(p, d)
-    pid = db.proponer_publicacion(usuario, "newsletter", "borrador", _titulo(d), html_, None, None, extra={"plantilla": p, "datos": d, "origen": "web"})
+    extra = {"plantilla": p, "datos": d, "origen": "web", "pieza": {"plantilla": p, "datos": d}}
+    if g.borrador_id:
+        # (4/11) como en Publicar: el borrador o la rechazada que se corrige pasa a a_aprobar en la MISMA fila (mismo id, misma
+        # carpeta, el rechazo queda en el historial), a nombre de su dueña
+        fila, duena = _editable(g.borrador_id, usuario, auth.rol_sesion(s))
+        pid = db.reproponer_publicacion(g.borrador_id, duena, "newsletter", "borrador", _titulo(d), html_, None, None, extra=extra,
+                                        por=usuario, previo=fila.get("resultado"))
+    else:
+        pid = db.proponer_publicacion(usuario, "newsletter", "borrador", _titulo(d), html_, None, None, extra=extra)
     if not pid:
         raise HTTPException(503, "No pude guardar la pieza para aprobación.")
-    try:
-        db.borrar_borrador(g.borrador_id, usuario)
-    except Exception as e:
-        log.warning("No pude borrar el borrador %s: %s", g.borrador_id, e)
     import avisos as _avisos
     _avisos.pieza_a_aprobar(db, pid, usuario, "newsletter", _titulo(d), None)   # (2/11) Slack / mail a los aprobadores
     rol = auth.rol_sesion(s)

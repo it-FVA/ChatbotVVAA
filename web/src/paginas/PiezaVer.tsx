@@ -220,7 +220,7 @@ export default function PiezaVer() {
           </dl>
 
           <div className="acciones">
-            {edita && p.retomable && (propia || !esNewsletter) && (
+            {edita && p.retomable && (
               <Link className="boton primario" to={esNewsletter ? `/newsletter?borrador=${encodeURIComponent(p.id)}` : `/publicar?borrador=${encodeURIComponent(p.id)}`}>
                 <Icono nombre="lapiz" /> {p.estado === "rechazada" ? (propia ? "Corregir y reenviar" : "Editar y reenviar") : propia ? "Retomar" : "Editar"}
               </Link>

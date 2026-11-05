@@ -265,8 +265,8 @@ export function TarjetaPublicacion({ p, mostrarUsuario = false, onEliminar, onCa
         <div className="acciones">
           {p.retomable &&
             (esNewsletter ? (
-              <Link className="boton primario" to={`/newsletter?borrador=${encodeURIComponent(p.id)}`}>
-                <Icono nombre="lapiz" /> Retomar
+              <Link className="boton primario" to={`/newsletter?borrador=${encodeURIComponent(p.id)}`} title={p.estado === "rechazada" ? "Abre el newsletter con la nota del rechazo arriba: corregilo y mandalo otra vez a aprobación" : undefined}>
+                <Icono nombre="lapiz" /> {p.estado === "rechazada" ? "Corregir y reenviar" : "Retomar"}
               </Link>
             ) : (
               <Link className="boton primario" to={`/publicar?borrador=${encodeURIComponent(p.id)}`} title={p.estado === "rechazada" ? "Abre la pieza con la nota del rechazo arriba: corregila y mandala otra vez a aprobación" : undefined}>

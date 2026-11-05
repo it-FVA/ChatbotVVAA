@@ -31,7 +31,7 @@ const AYUDA_CANAL: Record<string, string> = {
 /** (4/11) El rechazo de la pieza que se está corrigiendo, para mostrarlo arriba del formulario. */
 type Rechazo = { por: string; en: string | null; nota: string | null };
 
-type Resultado = { tipo: "aprobacion"; r: RespuestaAprobacion } | { tipo: "envio"; r: RespuestaEnvio; modo: "real" | "simulado" } | { tipo: "borrador"; id: string; mensaje: string };
+type Resultado = { tipo: "aprobacion"; r: RespuestaAprobacion } | { tipo: "envio"; r: RespuestaEnvio; modo: "real" | "simulado" } | { tipo: "borrador"; id: string; mensaje: string; cambios?: boolean };
 
 export default function Publicar() {
   const [params] = useSearchParams();
@@ -307,9 +307,10 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
     try {
       if (que === "borrador") {
         const r = await apiPublicar.borrador(f);
+        const yaEstaba = !!f.borrador_id; // (4/11) sobre un borrador que ya existía: «Cambios guardados»
         set("borrador_id", r.id);
-        avisar("Borrador guardado.");
-        setResultado({ tipo: "borrador", id: r.id, mensaje: r.mensaje });
+        avisar(yaEstaba ? "Cambios guardados." : "Borrador guardado.");
+        setResultado({ tipo: "borrador", id: r.id, mensaje: r.mensaje, cambios: yaEstaba });
       } else if (que === "aprobar") {
         const r = await apiPublicar.aAprobar(f);
         avisar("Pieza enviada a aprobación.");
@@ -643,7 +644,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
                 <Icono nombre="ojo" /> {enviando === "simulado" ? "Armando…" : "Ver simulado"}
               </button>
               <button type="button" className="boton" onClick={() => mandar("borrador")} disabled={enviando !== null || !canal} title="Guarda todo sin mandar nada; se retoma desde Mis publicaciones.">
-                <Icono nombre="lapiz" /> {enviando === "borrador" ? "Guardando…" : f.borrador_id ? "Actualizar el borrador" : "Guardar borrador"}
+                <Icono nombre="lapiz" /> {enviando === "borrador" ? "Guardando…" : f.borrador_id ? "Guardar cambios" : "Guardar borrador"}
               </button>
             </div>
             {!op.publica && motivoNoProponer && canal && <p className="suave chico">{motivoNoProponer}</p>}
@@ -810,7 +811,7 @@ function ResultadoPanel({ resultado, previa, canal, info, ajena = false, onVolve
   let mostrarPrevia = false;
   let imagenFinal: string | null = null;
   if (resultado.tipo === "borrador") {
-    titulo = "Borrador guardado";
+    titulo = resultado.cambios ? "Cambios guardados" : "Borrador guardado";
     detalle = resultado.mensaje;
   } else if (resultado.tipo === "aprobacion") {
     titulo = "Enviada a aprobación";

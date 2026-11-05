@@ -500,3 +500,43 @@ def test_rechazada_vieja_no_compone_la_frase_dos_veces(logueado, base):
     assert pz["texto_imagen"] == "La gratitud es la llave" and pz["usar_compuesta"] is False
     p1["resultado"]["pieza"] = {"txt": "x", "url": "https://x/original.jpg"}     # una nueva sí guarda el formulario: se compone normal
     assert logueado.get("/publicaciones/p1").json()["pieza"]["usar_compuesta"] is True
+
+
+def test_newsletter_ajeno_se_corrige_por_carpeta(logueado, base, cliente, monkeypatch):
+    """(4/11, Franco) El newsletter con la misma lógica que las piezas: con «ver» 409; con «editar» por la carpeta se abre en su
+    editor, se guarda en la misma fila (sigue siendo de la dueña) y una rechazada se corrige y vuelve a aprobación con el mismo id."""
+    avisados = _sin_envio_real(monkeypatch)
+    nl = base.agregar("publicaciones", id="n1", usuario="franco", canal="newsletter", modo="borrador", estado="rechazada", titulo="Octubre",
+                      texto="<html>", resultado={"plantilla": "mensual", "datos": {"asunto": "Octubre"}, "propuesta_por": "franco",
+                                                 "rechazada_por": "julian", "rechazada_en": "2026-11-04T20:00:00+00:00", "nota": "falta la agenda"})
+    _como(logueado, "franco")
+    d = logueado.get("/publicaciones/n1").json()
+    assert d["retomable"] is True and d["corregible"] is True
+    a = logueado.post("/proyectos", json={"nombre": "Newsletter"}).json()
+    logueado.post(f"/proyectos/{a['id']}/items", json={"tipo": "pieza", "item_id": "n1"})
+    logueado.put(f"/compartidos/proyecto/{a['id']}", json={"usuario": "lizzie", "permiso": "ver"})
+    cuerpo = {"plantilla": "mensual", "datos": {"asunto": "Octubre corregido"}, "borrador_id": "n1"}
+
+    _lizzie(cliente)
+    assert cliente.get("/publicaciones/n1").json()["retomable"] is False
+    assert cliente.get("/newsletter/borradores/n1").status_code == 409
+    assert cliente.post("/newsletter/borrador", json=cuerpo).status_code == 409
+    assert cliente.post("/newsletter/a-aprobar", json=cuerpo).status_code == 409
+    assert nl["estado"] == "rechazada"
+
+    _como(logueado, "franco")
+    logueado.put(f"/compartidos/proyecto/{a['id']}", json={"usuario": "lizzie", "permiso": "editar"})
+    _lizzie(cliente)
+    r = cliente.get("/newsletter/borradores/n1")          # una propuesta vieja: plantilla y datos sueltos en resultado
+    assert r.status_code == 200 and r.json()["duena"] == "franco" and r.json()["datos"]["asunto"] == "Octubre"
+    assert r.json()["rechazo"] == {"por": "julian", "en": "2026-11-04T20:00:00+00:00", "nota": "falta la agenda"}
+    r = cliente.post("/newsletter/borrador", json=cuerpo)
+    assert r.status_code == 200 and r.json()["id"] == "n1" and "franco" in r.json()["mensaje"]
+    res = nl["resultado"]
+    assert nl["estado"] == "borrador" and nl["usuario"] == "franco" and res["corregida_por"] == "lizzie" and res["editada_por"] == "lizzie"
+    assert res["nota"] == "falta la agenda" and res["pieza"]["datos"]["asunto"] == "Octubre corregido"
+    r = cliente.post("/newsletter/a-aprobar", json=cuerpo)
+    assert r.status_code == 200 and r.json()["id"] == "n1", r.text
+    res = nl["resultado"]
+    assert nl["estado"] == "a_aprobar" and nl["usuario"] == "franco" and res["propuesta_por"] == "lizzie" and res["rechazada_por"] == "julian"
+    assert avisados == ["n1"] and [i["item_id"] for i in base.t["proyecto_items"] if i["tipo"] == "pieza"] == ["n1"]
