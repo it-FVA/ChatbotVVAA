@@ -1,5 +1,5 @@
 """Pruebas de api/publicar_rutas.py (fase 3, 22/10) sin Supabase, WordPress ni redes: db, publicar e imagen con monkeypatch.
-franco es admin (publica directo); lizzie, creadora de contenido (todo simulado, manda a aprobación)."""
+franco es admin (desde el 5/11 nadie publica directo: manda a aprobación como todos); lizzie, creadora de contenido (todo simulado, manda a aprobación)."""
 import io
 
 import pytest
@@ -56,7 +56,7 @@ def base(monkeypatch):
 # ---------------- Opciones, banco, componer ----------------
 def test_opciones_por_rol(logueado, lizzie, base, monkeypatch):
     d = logueado.get("/publicar/opciones").json()
-    assert d["publica"] is True and d["canales"]["instagram"]["modo"] == "real" and d["canales"]["instagram"]["modo_real"] == "real"
+    assert d["publica"] is False and d["canales"]["instagram"]["modo"] == "simulado" and d["canales"]["instagram"]["modo_real"] == "real"   # (5/11) también el admin
     assert d["canales"]["wordpress"]["a_aprobar"] is True and d["canales"]["facebook"]["a_aprobar"] is False
     assert "Sin logo" in d["logos"] and d["tipografia_defecto"] in d["tipografias"] and d["formatos"]["historia"] == [1080, 1920]
     assert d["firma_defecto"] == "— Br. David" and d["formato_por_canal"]["instagram"] == "vertical"
@@ -176,9 +176,12 @@ def test_a_aprobar_con_compuesta(lizzie, base, monkeypatch):
     # pieza de video: formato = reel/historia, sin composición
     lizzie.post("/publicar/a-aprobar", json={"canal": "instagram", "texto": "x", "video_url": "https://wp/clip.mp4", "vfmt": "historia", "video_formato": "vertical"})
     assert propuesto["extra"]["video_url"] == "https://wp/clip.mp4" and propuesto["extra"]["formato"] == "historia"
-    # reglas: Facebook en simulado no se puede proponer; YouTube tampoco; título obligatorio en WordPress
+    # reglas: Facebook en simulado no se puede proponer; título obligatorio en WordPress
     assert lizzie.post("/publicar/a-aprobar", json={"canal": "facebook", "texto": "x"}).status_code == 400
-    assert lizzie.post("/publicar/a-aprobar", json={"canal": "youtube", "titulo": "t", "texto": "x", "video_url": "https://wp/c.mp4"}).status_code == 400
+    # (5/11) YouTube pasa por aprobación: con su video y título queda a_aprobar con el modo del canal (privado)
+    r = lizzie.post("/publicar/a-aprobar", json={"canal": "youtube", "titulo": "t", "texto": "d", "video_url": "https://wp/c.mp4"})
+    assert r.status_code == 200 and propuesto["canal"] == "youtube" and propuesto["modo"] == "privado" and propuesto["extra"]["video_url"] == "https://wp/c.mp4"
+    assert lizzie.post("/publicar/a-aprobar", json={"canal": "youtube", "titulo": "t", "texto": "d"}).status_code == 400   # sin video no
     assert lizzie.post("/publicar/a-aprobar", json={"canal": "wordpress", "texto": "x"}).status_code == 400
 
 
@@ -212,53 +215,67 @@ def test_ver_simulado_creadora(lizzie, base, monkeypatch):
     assert r.json()["encolada"] is True and r.json()["id"] == "q1" and "2026-12-01 08:00" in r.json()["aviso"]
 
 
-def test_enviar_real_instagram(logueado, base, monkeypatch):
-    publicado, subidas = {}, []
-    monkeypatch.setattr(publicar, "subir_imagen_wordpress", lambda cfg, datos, nombre, **k: subidas.append(cfg.modo_wp) or {"ok": True, "url": "https://wp/comp.jpg", "id": 3, "modo": cfg.modo_wp})
+def test_enviar_real_da_403_tambien_al_admin(logueado, base, monkeypatch):
+    """(5/11) Nadie publica directo: «Enviar a <canal>» en modo real da 403 siempre, también para un admin; no llama a ningún conector."""
+    llamado = []
+    for f in ("publicar_instagram", "publicar_wordpress", "publicar_youtube", "publicar_facebook"):
+        monkeypatch.setattr(publicar, f, lambda *a, **k: llamado.append(f) or {"ok": True})
+    monkeypatch.setattr(db, "encolar_publicacion", lambda *a, **k: llamado.append("cola") or "q")
+    for canal in ("instagram", "wordpress", "youtube", "facebook"):
+        r = logueado.post("/publicar/enviar", json={"modo": "real", "canal": canal, "titulo": "T", "texto": "Hola", "video_url": "https://wp/c.mp4"})
+        assert r.status_code == 403 and "Aprobación" in r.json()["detail"]
+    assert llamado == []
+
+
+def test_ver_simulado_instagram_del_admin(logueado, base, monkeypatch):
+    """«Ver simulado» sigue para todos: arma la pieza, no sube ni manda; con fecha, Instagram va a la cola."""
+    publicado = {}
 
     def _ig(cfg, imagen_url, texto, quien="", historia=False):
-        publicado.update(modo=cfg.modo_ig, imagen_url=imagen_url, texto=texto, quien=quien, historia=historia)
-        return {"ok": True, "modo": cfg.modo_ig, "id": "17", "permalink": "https://instagram.com/p/x", "pieza": {"image_url": imagen_url, "caption": texto}, "aviso": "PUBLICADO en Instagram."}
+        publicado.update(modo=cfg.modo_ig, imagen_url=imagen_url, texto=texto, historia=historia)
+        return {"ok": True, "modo": cfg.modo_ig, "pieza": {"image_url": imagen_url, "caption": texto}, "aviso": "Simulado."}
     monkeypatch.setattr(publicar, "publicar_instagram", _ig)
-    base["filas"]["b3"] = {"id": "b3", "usuario": "franco", "estado": "borrador"}
-    r = logueado.post("/publicar/enviar", json={"modo": "real", "canal": "instagram", "texto": "Hola", "imagen_url": "https://wp/f.jpg", "texto_imagen": "frase",
-                                                "formato": "historia", "borrador_id": "b3"})
+    r = logueado.post("/publicar/enviar", json={"modo": "simulado", "canal": "instagram", "texto": "Hola", "imagen_url": "https://wp/f.jpg", "formato": "historia"})
     assert r.status_code == 200, r.text
-    assert publicado == {"modo": "real", "imagen_url": "https://wp/comp.jpg", "texto": "Hola", "quien": "franco", "historia": True}
-    assert subidas == ["borrador"] and r.json()["permalink"] == "https://instagram.com/p/x" and r.json()["simulado"] is False
-    assert "b3" not in base["filas"]
-    # con fecha, Instagram va a la cola (la API de Instagram no programa)
-    monkeypatch.setattr(db, "encolar_publicacion", lambda usuario, canal, modo, titulo, texto, imagen_url, fecha, extra=None, por=None: publicado.update(cola=(canal, modo, fecha, extra)) or "q2")
-    r = logueado.post("/publicar/enviar", json={"modo": "real", "canal": "instagram", "texto": "Hola", "fecha": "2026-12-24", "hora": "18:00", "video_url": "https://wp/c.mp4", "vfmt": "reel"})
-    assert r.json()["encolada"] is True and publicado["cola"] == ("instagram", "real", "2026-12-24T18:00:00-03:00", {"texto_imagen": None, "formato": "reel", "video_url": "https://wp/c.mp4", "origen": "web"})
+    assert publicado["modo"] == "simulado" and publicado["historia"] is True and r.json()["simulado"] is True
+    monkeypatch.setattr(db, "encolar_publicacion", lambda usuario, canal, modo, titulo, texto, imagen_url, fecha, extra=None, por=None: publicado.update(cola=(canal, modo, fecha)) or "q2")
+    r = logueado.post("/publicar/enviar", json={"modo": "simulado", "canal": "instagram", "texto": "Hola", "fecha": "2026-12-24", "hora": "18:00"})
+    assert r.json()["encolada"] is True and publicado["cola"] == ("instagram", "simulado", "2026-12-24T18:00:00-03:00")
 
 
-def test_enviar_wordpress_y_youtube(logueado, base, monkeypatch):
+def test_simulado_wordpress_y_youtube(logueado, base, monkeypatch):
     hecho = {}
-    monkeypatch.setattr(publicar, "media_id_por_url", lambda cfg, url: 44 if url else None)
 
     def _wp(cfg, titulo, contenido, imagen_id=None, categorias=None, quien="", fecha=None):
-        hecho.update(titulo=titulo, contenido=contenido, imagen_id=imagen_id, fecha=fecha, modo=cfg.modo_wp)
-        return {"ok": True, "modo": cfg.modo_wp, "estado": "draft", "id": 1, "link_editar": "https://wp/edit", "link": "https://wp/p", "pieza": {}, "aviso": "Borrador creado."}
+        hecho.update(titulo=titulo, contenido=contenido, fecha=fecha, modo=cfg.modo_wp)
+        return {"ok": True, "modo": cfg.modo_wp, "estado": "draft", "id": 1, "pieza": {}, "aviso": "Simulado."}
     monkeypatch.setattr(publicar, "publicar_wordpress", _wp)
-    r = logueado.post("/publicar/enviar", json={"modo": "real", "canal": "wordpress", "titulo": "Entrada", "texto": "<p>**md** se conserva</p>", "imagen_url": "https://wp/f.jpg",
+    r = logueado.post("/publicar/enviar", json={"modo": "simulado", "canal": "wordpress", "titulo": "Entrada", "texto": "<p>**md** se conserva</p>",
                                                 "fecha": "2026-11-10", "hora": "07:30", "video_url": "https://wp/clip.mp4"})
-    assert r.status_code == 200 and r.json()["link_editar"] == "https://wp/edit"
-    assert hecho["titulo"] == "Entrada" and hecho["imagen_id"] == 44 and hecho["fecha"] == "2026-11-10T07:30:00" and hecho["modo"] == "borrador"
+    assert r.status_code == 200 and hecho["titulo"] == "Entrada" and hecho["fecha"] == "2026-11-10T07:30:00" and hecho["modo"] == "simulado"
     assert hecho["contenido"].startswith("<!-- wp:video -->") and "**md** se conserva" in hecho["contenido"]
-    # YouTube sin recorte: 400 (el archivo se sube desde Streamlit); con recorte en privado baja el mp4 y lo sube
-    assert logueado.post("/publicar/enviar", json={"modo": "real", "canal": "youtube", "titulo": "T", "texto": "d"}).status_code == 400
-    monkeypatch.setattr(publicar, "bajar_bytes", lambda url, timeout=300: (b"mp4", None))
-    monkeypatch.setattr(publicar, "publicar_youtube", lambda cfg, datos, titulo, desc, **k: hecho.update(yt=(len(datos), titulo, k.get("nombre_archivo"), cfg.modo_yt)) or {"ok": True, "modo": cfg.modo_yt, "link": "https://youtu.be/1", "pieza": {}})
-    r = logueado.post("/publicar/enviar", json={"modo": "real", "canal": "youtube", "titulo": "T", "texto": "d", "video_url": "https://wp/clip.mp4"})
-    assert r.status_code == 200 and hecho["yt"] == (3, "T", "clip.mp4", "privado") and r.json()["link"] == "https://youtu.be/1"
+    # YouTube simulado: no baja el mp4
+    monkeypatch.setattr(publicar, "publicar_youtube", lambda cfg, datos, titulo, desc, **k: hecho.update(yt=(len(datos), titulo, cfg.modo_yt)) or {"ok": True, "modo": cfg.modo_yt, "pieza": {}})
+    r = logueado.post("/publicar/enviar", json={"modo": "simulado", "canal": "youtube", "titulo": "T", "texto": "d", "video_url": "https://wp/clip.mp4"})
+    assert r.status_code == 200 and hecho["yt"] == (0, "T", "simulado")
     # canal apagado
     monkeypatch.setenv("PUBLICAR_FACEBOOK", "apagado")
-    assert logueado.post("/publicar/enviar", json={"modo": "real", "canal": "facebook", "texto": "x"}).status_code == 400
+    assert logueado.post("/publicar/enviar", json={"modo": "simulado", "canal": "facebook", "texto": "x"}).status_code == 400
     # el conector falla con excepción: ok False, sin 500
     monkeypatch.setattr(publicar, "publicar_wordpress", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
-    r = logueado.post("/publicar/enviar", json={"modo": "real", "canal": "wordpress", "titulo": "E", "texto": "t"})
+    r = logueado.post("/publicar/enviar", json={"modo": "simulado", "canal": "wordpress", "titulo": "E", "texto": "t"})
     assert r.status_code == 200 and r.json()["ok"] is False and "boom" in r.json()["aviso"]
+
+
+def test_aprobador_aprueba_su_propia_pieza_de_youtube(logueado, base, monkeypatch):
+    """(5/11) Un aprobador que mandó una pieza la aprueba desde Aprobación (no hay regla que lo impida) y queda en la cola con el modo del canal."""
+    base["filas"]["y1"] = {"id": "y1", "usuario": "franco", "canal": "youtube", "estado": "a_aprobar", "titulo": "T", "texto": "d", "resultado": {"video_url": "https://wp/c.mp4"}}
+    aprobadas = []
+    monkeypatch.setattr(db, "aprobar_publicacion", lambda pid, usuario, fecha, modo, res: aprobadas.append((pid, usuario, fecha, modo)))
+    monkeypatch.setattr("avisos.pieza_resuelta", lambda *a, **k: None)
+    r = logueado.post("/aprobacion/y1/aprobar", json={"fecha": "2026-12-01", "hora": "10:00"})
+    assert r.status_code == 200 and r.json()["estado"] == "pendiente"
+    assert aprobadas == [("y1", "franco", "2026-12-01T10:00:00-03:00", "privado")]
 
 
 # ---------------- Mis publicaciones: decorar, una, eliminar ----------------

@@ -85,7 +85,7 @@ export default function PiezaPropuesta({ pieza, abierto }: { pieza: Pieza; abier
           </div>
           <div className="acciones">
             <Link className="boton primario" to={`/publicar?borrador=${encodeURIComponent(hecho.id)}`}>
-              <Icono nombre="lapiz" /> Retomar y publicar
+              <Icono nombre="lapiz" /> Retomar y enviar a aprobación
             </Link>
             <Link className="boton" to="/publicaciones">
               <Icono nombre="megafono" /> Mis publicaciones

@@ -147,8 +147,8 @@ class Canal:
         return self.cola == "siempre" or (self.cola == "salvo_real" and modo != "real")
 
     def puede_proponer(self, modo_real):
-        """«Enviar a aprobación» existe cuando el canal real está en real o borrador (si no, no hay a dónde mandarla cuando la aprueben)."""
-        return self.acepta_aprobacion and modo_real in ("real", "borrador")
+        """«Enviar a aprobación» existe cuando el canal real está en real, borrador o privado (YouTube) (si no, no hay a dónde mandarla cuando la aprueben)."""
+        return self.acepta_aprobacion and modo_real in ("real", "borrador", "privado")
 
     def para_web(self):
         return {"clave": self.clave, "nombre": self.nombre, "texto": self.texto, "detalle": self.detalle, "icono": self.icono,
@@ -166,7 +166,8 @@ _LISTA = (
           formato="cuadrado", en_disenar=True, icono="megafono", acepta_aprobacion=True, cola="salvo_real", frase="Facebook (foto con texto)",
           foto=_facebook, video=_facebook_video),
     Canal("youtube", "YouTube", "YouTube", "PUBLICAR_YOUTUBE", MODOS_YT, detalle="un recorte como video", claves=("YOUTUBE_TOKEN_JSON",),
-          en_disenar=True, icono="pelicula", requiere_titulo=True, foto=_youtube, video=_youtube_video),
+          en_disenar=True, icono="pelicula", requiere_titulo=True, acepta_aprobacion=True, cola="siempre",   # (5/11) también pasa por aprobación; la cola lo sube a su hora
+          foto=_youtube, video=_youtube_video),
     # (26/10) el mail de la frase por Perfit (perfit.py + frase_mail.py); el modo es PUBLICAR_MAIL
     Canal("mail", "Mail", "Mail (frase del día)", "PUBLICAR_MAIL", MODOS_RED, claves=CLAVES_PERFIT, icono="sobre",
           frase="Mail (Perfit, 200 por hora, arranca de madrugada o la tarde anterior)", foto=_mail),

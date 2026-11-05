@@ -119,12 +119,12 @@ def _puede_proponer(canal, r):
 
 def info_canales(r, rol):
     """(3/11) Lo que la web necesita de cada canal de Diseñar, armado acá y no en listas propias de la web: nombres, el modo real y
-    el que ve esta persona (quien no publica en real ve todo simulado), si va a la cola con fecha, si pasa por aprobación y el
+    el que ve esta persona (todos ven simulado: nadie publica directo desde el 5/11), si va a la cola con fecha, si pasa por aprobación y el
     aviso de qué va a pasar al enviar (con y sin fecha; «{cuando}» lo reemplaza la web por la fecha legible)."""
     out = {}
     for c in canales.de_disenar():
         modo_real = r.get(c.clave, "apagado")
-        modo = modo_real if rol.get("publica") or modo_real == "apagado" else "simulado"
+        modo = modo_real if modo_real == "apagado" else "simulado"     # (5/11) nadie publica directo: lo que ve cada persona es simulado
         out[c.clave] = {"nombre": c.nombre, "texto_canal": c.texto, "detalle": c.detalle, "modo_real": modo_real, "modo": modo,
                         "texto": MODO_TXT.get(modo, modo), "a_aprobar": c.puede_proponer(modo_real), "acepta_aprobacion": c.acepta_aprobacion,
                         "requiere_titulo": c.requiere_titulo, "formato": c.formato, "va_a_la_cola": c.va_a_la_cola(modo),
@@ -315,7 +315,7 @@ def enviar_a_aprobacion(p: Pieza, s=Depends(auth.sesion)):
     r = modos()
     if not _puede_proponer(canal, r):
         if canal == "youtube":
-            raise HTTPException(400, "YouTube no pasa por aprobación: el recorte lo publica quien aprueba desde Mis recortes → Publicar.")
+            raise HTTPException(400, f"YouTube está en modo {r.get('youtube', 'apagado')}: no hay a dónde mandar el video cuando lo aprueben. Guardalo como borrador.")
         raise HTTPException(400, f"{CANALES[canal]} está en modo {r.get(canal, 'apagado')}: no hay a dónde mandar la pieza cuando la aprueben. Guardala como borrador.")
     fecha_iso = _fecha_iso(p)
     texto = p.texto if canal == "wordpress" else _texto_plano(p.texto)

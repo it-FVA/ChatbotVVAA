@@ -118,8 +118,8 @@ def test_modos_y_banco(logueado, monkeypatch):
     monkeypatch.setattr(cr, "modos", lambda: {"wordpress": "borrador", "instagram": "real", "facebook": "apagado", "youtube": "privado"})
     d = logueado.get("/publicaciones/modos").json()
     assert d["canales"]["instagram"]["a_aprobar"] is True and d["canales"]["facebook"]["a_aprobar"] is False
-    assert d["canales"]["youtube"]["a_aprobar"] is False and d["canales"]["wordpress"]["modo"] == "borrador"
-    assert d["publica"] is True and "franco" in d["aprobadores"]
+    assert d["canales"]["youtube"]["a_aprobar"] is True and d["canales"]["wordpress"]["modo"] == "borrador" and d["canales"]["wordpress"]["modo_visto"] == "simulado"   # (5/11) todos ven simulado
+    assert d["publica"] is False and "franco" in d["aprobadores"]
     # sin WordPress configurado, el banco devuelve lista vacía (no error)
     assert logueado.get("/banco?consulta=amanecer").json() == []
 
@@ -163,8 +163,10 @@ def test_enviar_a_aprobacion(logueado, monkeypatch):
     assert logueado.post("/publicaciones/a-aprobar", json={"canal": "wordpress", "texto": "x"}).status_code == 400
     r = logueado.post("/publicaciones/a-aprobar", json={"canal": "wordpress", "titulo": "T", "texto": "**x**"})
     assert r.status_code == 200 and propuesto["texto"] == "**x**" and propuesto["modo"] == "borrador"
-    # canal apagado, YouTube, sin texto, sin canal
+    # (5/11) YouTube pasa por aprobación (en privado), con su video
+    r = logueado.post("/publicaciones/a-aprobar", json={"canal": "youtube", "titulo": "T", "texto": "d", "video_url": "https://wp/c.mp4"})
+    assert r.status_code == 200 and propuesto["canal"] == "youtube" and propuesto["modo"] == "privado" and propuesto["extra"]["video_url"] == "https://wp/c.mp4"
+    # canal apagado, sin texto, sin canal
     assert logueado.post("/publicaciones/a-aprobar", json={"canal": "facebook", "texto": "x"}).status_code == 400
-    assert logueado.post("/publicaciones/a-aprobar", json={"canal": "youtube", "titulo": "T", "texto": "x"}).status_code == 400
     assert logueado.post("/publicaciones/a-aprobar", json={"canal": "instagram", "texto": "  "}).status_code == 400
     assert logueado.post("/publicaciones/a-aprobar", json={"canal": "newsletter", "texto": "x"}).status_code == 400

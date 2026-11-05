@@ -31,7 +31,7 @@ function canal(nombre: string, extra: Partial<CanalOpcion> = {}): CanalOpcion {
 
 const OPCIONES: OpcionesPublicar = {
   canales: { facebook: canal("Facebook"), instagram: canal("Instagram"), wordpress: canal("Blogpost", { requiere_titulo: true, formato: null }) },
-  publica: true,
+  publica: false, // (5/11) nadie publica directo, tampoco el admin
   aprueba: true,
   rol: "admin",
   aprobadores: ["ana"],
@@ -114,6 +114,20 @@ describe("Diseñar", () => {
     // el panel de resultado trae el título y el aviso de la API (la vista previa repite el título: por eso «todos»)
     expect((await screen.findAllByRole("heading", { name: "Así quedaría en Facebook" })).length).toBeGreaterThan(0);
     expect(screen.getByText("Así quedaría el posteo.")).toBeInTheDocument();
+  });
+
+  // (5/11, Franco) nadie publica directo: un aprobador (o admin) ve «Enviar a aprobación» y nunca «Publicar en <canal>»
+  it("un aprobador no ve «Publicar en»: manda a aprobación como todos", async () => {
+    const u = userEvent.setup();
+    const api = pantalla("/publicar?canal=facebook");
+    await u.type(await screen.findByLabelText(/^Título/), "Gratitud de noviembre");
+    await u.type(screen.getByLabelText(/Texto de la pieza/), "Hoy agradezco el día.");
+    await u.click(screen.getByRole("button", { name: /Siguiente: foto y diseño/ }));
+    await u.click(await screen.findByRole("button", { name: /Siguiente: cuándo y enviar/ }));
+    expect(await screen.findByRole("button", { name: /Enviar a aprobación/ })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: /Publicar en/ })).toBeNull();
+    expect(screen.getByText(/Vos también lo aprobás desde Aprobación/)).toBeInTheDocument();
+    expect(api.de("POST", "/publicar/enviar")).toHaveLength(0);
   });
 
   // (4/11, Franco) una rechazada vuelve al circuito: se corrige en el mismo lugar, con la nota del rechazo a la vista

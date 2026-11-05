@@ -49,7 +49,7 @@ def test_aprobador_no_admin(cliente, tabla_usuarios):
     """(21/10) Julián: aprobador pero no admin; un admin es también aprobador. El rol sale de la tabla `usuarios` (3/11)."""
     tabla_usuarios.poner_rol("lizzie", "aprobador")
     r = cliente.post("/login", json={"usuario": "lizzie", "clave": "clave-lizzie"}).json()["rol"]
-    assert r["aprueba"] is True and r["admin"] is False and r["nombre"] == "aprobador" and r["publica"] is True
+    assert r["aprueba"] is True and r["admin"] is False and r["nombre"] == "aprobador" and r["publica"] is False   # (5/11) nadie publica directo
     assert cliente.put("/recortes/estilo-defecto", json={"estilo": {"color": "crema"}}).status_code == 403
     tabla_usuarios.poner_rol("lizzie", "admin")
     r = cliente.post("/login", json={"usuario": "lizzie", "clave": "clave-lizzie"}).json()["rol"]

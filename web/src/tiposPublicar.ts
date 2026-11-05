@@ -7,7 +7,7 @@ export interface CanalOpcion {
   texto_canal: string; // Blogpost, Instagram… (nombre visible)
   detalle: string; // la línea de la tarjeta
   modo_real: string; // apagado | simulado | borrador | privado | real
-  modo: string; // el que ve esta persona (quien no publica en real ve todo simulado)
+  modo: string; // el que ve esta persona (desde el 5/11 todos ven simulado: nadie publica directo)
   texto: string;
   a_aprobar: boolean; // hoy se puede mandar a aprobación (el canal lo admite y está en real/borrador)
   acepta_aprobacion: boolean; // el canal pasa por aprobación (YouTube no)
