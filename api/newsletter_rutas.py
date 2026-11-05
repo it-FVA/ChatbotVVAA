@@ -26,7 +26,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from . import auth, roles as _roles
+from . import auth, roles as _roles, presencia_rutas as _presencia
 import db            # noqa: E402  (api/__init__ pone la raíz del repo en sys.path)
 import newsletter    # noqa: E402
 
@@ -45,6 +45,7 @@ class Redaccion(Contenido):
 
 class Guardar(Contenido):
     borrador_id: Optional[str] = None
+    version: Optional[str] = None      # (5/11) la que la pantalla cargó (resultado.guardado_en): si otra persona guardó después, 409
 
 
 class Cabecera(BaseModel):
@@ -181,7 +182,8 @@ def borrador(pid: str, s=Depends(auth.sesion)):
     plantilla, datos = _contenido_de(p)
     rechazo = {"por": res.get("rechazada_por"), "en": res.get("rechazada_en"), "nota": res.get("nota")} if res.get("rechazada_por") else None
     return {"id": p["id"], "titulo": p.get("titulo"), "plantilla": plantilla, "datos": datos, "creado": p.get("creado"),
-            "estado": p.get("estado"), "duena": duena, "propia": duena == usuario, "rechazo": rechazo, "editada_por": res.get("editada_por")}
+            "estado": p.get("estado"), "duena": duena, "propia": duena == usuario, "rechazo": rechazo, "editada_por": res.get("editada_por"),
+            "version": res.get("guardado_en")}
 
 
 @router.post("/borrador")
@@ -197,6 +199,9 @@ def guardar_borrador(g: Guardar, s=Depends(auth.sesion)):
     duena, conservar = usuario, None
     if g.borrador_id:
         fila, duena = _editable(g.borrador_id, usuario, auth.rol_sesion(s))
+        c409 = _presencia.conflicto(g.version, *_presencia.version_de_fila(fila), usuario, que="newsletter")   # (5/11) ¿alguien guardó mientras editabas?
+        if c409:
+            return c409
         conservar = db.historial_de(fila.get("resultado"))
         if conservar.get("rechazada_por"):
             conservar.update(corregida_por=usuario, corregida_en=datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"))
@@ -210,7 +215,11 @@ def guardar_borrador(g: Guardar, s=Depends(auth.sesion)):
         mensaje = f"Cambios guardados. El newsletter sigue siendo de {duena} y queda en la misma carpeta."
     else:
         mensaje = "Cambios guardados en el mismo borrador."
-    return {"ok": True, "id": pid, "estado": "borrador", "mensaje": mensaje}
+    try:
+        version = _presencia.version_de_fila(db.obtener_publicacion(pid))[0]
+    except Exception:
+        version = None
+    return {"ok": True, "id": pid, "estado": "borrador", "version": version, "mensaje": mensaje}
 
 
 @router.post("/a-aprobar")

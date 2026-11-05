@@ -98,6 +98,8 @@ from . import newsletter_rutas as _newsletter   # noqa: E402  (22/10: el editor 
 app.include_router(_newsletter.router)
 from . import frases as _frases                 # noqa: E402  (22/10: el calendario de la Frase del día en la web; 3/11: paquete api/frases/)
 app.include_router(_frases.router)
+from . import presencia_rutas as _presencia   # noqa: E402  (5/11: quién está mirando o editando una pieza o un recorte)
+app.include_router(_presencia.router)
 
 
 # ---------------- Modelos de entrada ----------------

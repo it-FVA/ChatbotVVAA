@@ -1488,6 +1488,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/presencia/{tipo}/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Latir */
+        post: operations["latir_presencia__tipo___item_id__post"];
+        /** Salir */
+        delete: operations["salir_presencia__tipo___item_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/proyectos": {
         parameters: {
             query?: never;
@@ -2424,6 +2442,8 @@ export interface components {
              * @default mensual
              */
             plantilla: string;
+            /** Version */
+            version?: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -2447,6 +2467,14 @@ export interface components {
             item_id: string;
             /** Tipo */
             tipo: string;
+        };
+        /** Latido */
+        Latido: {
+            /**
+             * Modo
+             * @default mira
+             */
+            modo: string;
         };
         /** Linea */
         Linea: {
@@ -2599,6 +2627,62 @@ export interface components {
              * @default true
              */
             usar_compuesta: boolean;
+            /** Vfmt */
+            vfmt?: string | null;
+            /** Video Formato */
+            video_formato?: string | null;
+            /** Video Url */
+            video_url?: string | null;
+        };
+        /** PiezaBorrador */
+        PiezaBorrador: {
+            /** Alineacion */
+            alineacion?: string | null;
+            /** Borrador Id */
+            borrador_id?: string | null;
+            /** Canal */
+            canal: string;
+            /** Fecha */
+            fecha?: string | null;
+            /** Firma */
+            firma?: string | null;
+            /** Formato */
+            formato?: string | null;
+            /** Hora */
+            hora?: string | null;
+            /** Imagen Busqueda */
+            imagen_busqueda?: string | null;
+            /** Imagen Url */
+            imagen_url?: string | null;
+            /** Logo */
+            logo?: string | null;
+            /** Peso */
+            peso?: string | null;
+            /** Posicion */
+            posicion?: string | null;
+            /** Posicion Logo */
+            posicion_logo?: string | null;
+            /**
+             * Texto
+             * @default
+             */
+            texto: string;
+            /** Texto Imagen */
+            texto_imagen?: string | null;
+            /** Tipografia */
+            tipografia?: string | null;
+            /**
+             * Titulo
+             * @default
+             */
+            titulo: string;
+            /**
+             * Usar Compuesta
+             * @default true
+             */
+            usar_compuesta: boolean;
+            /** Version */
+            version?: string | null;
             /** Vfmt */
             vfmt?: string | null;
             /** Video Formato */
@@ -2844,6 +2928,8 @@ export interface components {
             segmentos?: number[][] | null;
             /** Srt */
             srt?: string | null;
+            /** Version */
+            version?: string | null;
         };
     };
     responses: never;
@@ -5346,6 +5432,74 @@ export interface operations {
             };
         };
     };
+    latir_presencia__tipo___item_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tipo: string;
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Latido"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    salir_presencia__tipo___item_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tipo: string;
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     listar_proyectos_get: {
         parameters: {
             query?: never;
@@ -5856,7 +6010,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Pieza"];
+                "application/json": components["schemas"]["PiezaBorrador"];
             };
         };
         responses: {

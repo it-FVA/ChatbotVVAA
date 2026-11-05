@@ -30,3 +30,4 @@ from .salud import *            # noqa: F401,F403
 from .vectores import *         # noqa: F401,F403
 from .banco import *            # noqa: F401,F403
 from . import proyectos         # noqa: F401
+from .presencia import *        # noqa: F401,F403   (5/11: quién está mirando o editando una pieza o un recorte)

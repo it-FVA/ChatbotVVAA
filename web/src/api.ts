@@ -6,22 +6,27 @@ export const BASE = (import.meta.env.VITE_API_URL as string | undefined) || "/ap
 
 export class ErrorApi extends Error {
   status: number;
-  constructor(status: number, mensaje: string) {
+  /** El cuerpo JSON de la respuesta, si lo había (un 409 de versión trae {version_actual, editada_por}). */
+  datos: Record<string, unknown> | null;
+  constructor(status: number, mensaje: string, datos: Record<string, unknown> | null = null) {
     super(mensaje);
     this.status = status;
+    this.datos = datos;
   }
 }
 
 /** El error que la API devolvió en el cuerpo ({detail}), o el texto del estado HTTP si no hay cuerpo. */
 export async function errorDe(r: Response): Promise<ErrorApi> {
   let detalle = r.statusText || `Error ${r.status}`;
+  let datos: Record<string, unknown> | null = null;
   try {
     const j = await r.json();
     detalle = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail ?? j);
+    if (j && typeof j === "object") datos = j;
   } catch {
     /* sin cuerpo */
   }
-  return new ErrorApi(r.status, detalle);
+  return new ErrorApi(r.status, detalle, datos);
 }
 
 // ---------- ¿la API está despierta? (Render plan free se duerme a los 15 min; arrancar tarda ~1 min) ----------
@@ -49,6 +54,21 @@ export async function pedir<T>(ruta: string, init: RequestInit = {}): Promise<T>
   const r = await pedirCrudo(ruta, { ...init, headers: { "Content-Type": "application/json", ...(init.headers || {}) } });
   return (await r.json()) as T;
 }
+
+/** (5/11) Quién más está mirando o editando una pieza o un recorte (api/presencia_rutas.py). */
+export interface Presente {
+  usuario: string;
+  nombre: string;
+  modo: "mira" | "edita";
+  hace_seg: number;
+}
+
+export const apiPresencia = {
+  latir: (tipo: "pieza" | "recorte", id: string, modo: "mira" | "edita") =>
+    pedir<{ presentes: Presente[] }>(`/presencia/${tipo}/${encodeURIComponent(id)}`, { method: "POST", body: JSON.stringify({ modo }) }),
+  /** keepalive: sale aunque la pestaña se esté cerrando. */
+  salir: (tipo: "pieza" | "recorte", id: string) => pedirCrudo(`/presencia/${tipo}/${encodeURIComponent(id)}`, { method: "DELETE", keepalive: true }),
+};
 
 export const api = {
   salud: () => pedir<{ ok: boolean; supabase: boolean; login_google: boolean; google_client_id: string | null }>("/salud"),

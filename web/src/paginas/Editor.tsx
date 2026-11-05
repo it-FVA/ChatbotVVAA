@@ -15,6 +15,9 @@ import { Icono } from "../componentes/Iconos";
 import Modal from "../componentes/Modal";
 import { EditorEsqueleto, Migas, Tecla } from "../componentes/Comunes";
 import { useToast } from "../componentes/Toasts";
+import Presencia from "../componentes/Presencia";
+import ConflictoGuardado, { esConflictoDeVersion } from "../componentes/ConflictoGuardado";
+import { usePresencia } from "../util/usePresencia";
 import { mmss, tramoAVideo, videoATramo } from "../util/tiempo";
 import * as pz from "../util/piezas";
 import RecorteVer from "./RecorteVer";
@@ -28,6 +31,7 @@ export default function Editor() {
   const [det, setDet] = useState<Detalle | null>(null);
   const [opciones, setOpciones] = useState<Opciones | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [recarga, setRecarga] = useState(0); // (5/11) «Recargar y ver sus cambios» del aviso de conflicto: vuelve a pedir el recorte
 
   useEffect(() => {
     if (!id) return;
@@ -37,7 +41,7 @@ export default function Editor() {
         setOpciones(o);
       })
       .catch((e) => setError(e instanceof ErrorApi ? e.message : "No pude cargar el recorte."));
-  }, [id]);
+  }, [id, recarga]);
 
   if (error)
     return (
@@ -52,7 +56,7 @@ export default function Editor() {
   if (!det || !opciones) return <EditorEsqueleto />;
   // (4/11) de otra persona o todavía en proceso: se ve, se baja y se usa en una pieza (antes era un cartel sin salida)
   if (!det.puede_editar) return <RecorteVer det={det} />;
-  return <EditorCargado det={det} opciones={opciones} />;
+  return <EditorCargado key={`${det.id}:${recarga}`} det={det} opciones={opciones} onRecargar={() => setRecarga((n) => n + 1)} />;
 }
 
 const ATAJOS: [string[], string][] = [
@@ -71,7 +75,7 @@ const ATAJOS: [string[], string][] = [
   [["?"], "Esta ayuda"],
 ];
 
-function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) {
+function EditorCargado({ det, opciones, onRecargar }: { det: Detalle; opciones: Opciones; onRecargar: () => void }) {
   const vertical = det.formato === "vertical";
   const ini0 = det.inicio_ms, fin0 = det.fin_ms;
   const { avisar } = useToast();
@@ -95,6 +99,10 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
   const [altoVideo, setAltoVideo] = useState(0);
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<RespuestaEdicion | null>(null);
+  // (5/11) presencia y aviso de conflicto: la versión que cargó esta pantalla se manda al guardar; si otra persona guardó antes, la API contesta 409
+  const [version, setVersion] = useState<string | null>(det.version ?? null);
+  const [conflicto, setConflicto] = useState<string | null>(null);
+  const presentes = usePresencia("recorte", det.id, "edita");
   const [ayuda, setAyuda] = useState(false);
   const video = useRef<HTMLVideoElement>(null);
   const timeline = det.timeline;
@@ -298,9 +306,9 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
     return () => window.removeEventListener("keydown", tecla);
   });
 
-  async function regenerar() {
+  async function regenerar(pisar = false) {
     setEnviando(true);
-    const datos: Record<string, unknown> = { segmentos, quitar_pausas: quitarPausas, descartar_srt: descartarSrt };
+    const datos: Record<string, unknown> = { segmentos, quitar_pausas: quitarPausas, descartar_srt: descartarSrt, version: pisar ? null : version };
     if (tramoCambio) {
       datos.inicio_ms = ini;
       datos.fin_ms = fin;
@@ -311,10 +319,12 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
     }
     try {
       const r = await api.editar(det.id, datos);
+      setVersion(r.version ?? null);
       setResultado(r);
       avisar("Listo: el recorte se está regenerando.");
     } catch (e) {
-      avisar(e instanceof ErrorApi ? e.message : "No pude mandar los cambios.", "error");
+      if (esConflictoDeVersion(e)) setConflicto(e.message); // (5/11) otra persona guardó antes: se pregunta qué hacer
+      else avisar(e instanceof ErrorApi ? e.message : "No pude mandar los cambios.", "error");
     } finally {
       setEnviando(false);
     }
@@ -368,7 +378,7 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
             <span className="suave">Todavía no cambiaste nada.</span>
           )}
         </div>
-        <button type="button" className="boton primario grande" disabled={!hayCambios || !!problema || enviando} onClick={regenerar}>
+        <button type="button" className="boton primario grande" disabled={!hayCambios || !!problema || enviando} onClick={() => regenerar()}>
           <Icono nombre="regenerar" /> {enviando ? "Mandando…" : "Regenerar el recorte"}
         </button>
       </div>
@@ -403,7 +413,20 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
             </span>
           )}
         </p>
+        <Presencia presentes={presentes} />
       </header>
+      {conflicto && (
+        <ConflictoGuardado
+          mensaje={conflicto}
+          ocupado={enviando}
+          onCerrar={() => setConflicto(null)}
+          onRecargar={onRecargar}
+          onPisar={() => {
+            setConflicto(null);
+            void regenerar(true);
+          }}
+        />
+      )}
 
       <div className="editor-grilla">
         {/* ---------- reproductor + vista previa ---------- */}

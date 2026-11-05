@@ -88,6 +88,11 @@ ni listas de roles en secrets ni en el entorno.
 - Agregar otra carpeta: hoy hay una sola (`banco_drive_carpeta`). Para sumar otra, cambiar la clave a una lista o correr `banco.sincronizar_banco(cfg, svc, carpeta_id, registro)` con su id desde `procesar_cola.py`; el registro es por id de archivo de Drive, así que no se pisan.
 - La cola necesita `DRIVE_TOKEN_JSON` como secret del repo (el mismo de `recortar-pendientes`) y el rol acotado `cola` con permisos sobre `banco_imagenes` (`api/migraciones/manual_cola_rol.sql`, idempotente: volver a correrlo después de aplicar la migración).
 
+## Proyectos compartidos: presencia y aviso de conflicto (5/11)
+- Presencia: Diseñar, Newsletter, el editor de recortes y las vistas de pieza/recorte muestran quién más está ahí («Julián está editando», «Pato está mirando»). La web late a `POST /presencia/{pieza|recorte}/{id}` cada 20 s (`web/src/util/usePresencia.ts`; no late con la pestaña oculta y avisa con `DELETE` al salir) y la API devuelve a los demás con latido en el último minuto. Tabla `presencia` (migración `20261105_1500_presencia`); la cola borra los latidos de más de 10 minutos. Sin Realtime ni websockets, y no es edición simultánea.
+- Aviso de conflicto: cada pantalla manda al guardar la `version` que cargó (`resultado.guardado_en` de la pieza, `edicion.guardado_en` del recorte). Si otra persona guardó después, la API contesta 409 con `{detail, version_actual, editada_por}` y la web ofrece «Recargar y ver sus cambios» o «Guardar igual, pisando» (reintenta sin `version`). Sin `version` se guarda como siempre.
+- Para sumar otra pantalla: `usePresencia(tipo, id, modo)` + `<Presencia presentes={…} />` en la cabecera; si guarda, mandar la `version` y mostrar `<ConflictoGuardado />` ante `esConflictoDeVersion(e)`.
+
 ## Token de Instagram (se renueva solo, 5/11)
 - El token de Instagram Login dura 60 días. Vive en la tabla `config`, clave `meta_ig_token` (`{"token", "vence", "renovado"}`); la API y la cola leen ese mismo, sin redeploy (`meta_token.py`, usado por `publicar.Config`).
 - `META_IG_TOKEN` del entorno es solo la **semilla**: se usa si no hay nada guardado o Supabase no está.

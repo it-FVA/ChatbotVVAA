@@ -76,6 +76,7 @@ export interface RespuestaBorrador {
   id: string;
   estado: "borrador";
   mensaje: string;
+  version?: string | null; // (5/11) la versión recién guardada
 }
 
 export interface RespuestaAprobacion {
@@ -118,6 +119,7 @@ export interface SubidaBanco {
 
 /** Una fila de `publicaciones` decorada (api/publicar_rutas.decorar). */
 export interface Publicacion {
+  version?: string | null; // (5/11) resultado.guardado_en: se manda al guardar para avisar si otra persona guardó antes
   id: string;
   creado: string;
   usuario?: string;

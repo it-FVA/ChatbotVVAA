@@ -351,3 +351,29 @@ def test_subir_video_tipo_invalido(cliente, tabla, subidas):
                      files={"archivo": ("foto.png", b"0" * 10, "image/png")})
     assert r.status_code == 415
     assert subidas["subidas"] == []
+
+
+# ---------------- (5/11) Aviso de conflicto: control de versión ----------------
+def test_editar_con_version_vieja_da_409_y_sin_version_guarda(logueado, tabla):
+    d = logueado.get("/recortes/c1").json()
+    assert d["version"] is None
+    r = logueado.post("/recortes/c1/edicion", json={"quitar_pausas": True, "version": None})
+    assert r.status_code == 200 and r.json()["version"]
+    v1 = r.json()["version"]
+    assert tabla["filas"][0]["edicion"]["guardado_en"] == v1 and tabla["filas"][0]["edicion"]["guardado_por"] == "franco"
+    assert "guardado_en" not in r.json()["edicion"]
+    tabla["filas"][0]["estado"] = "listo"                       # la cola terminó
+    assert logueado.get("/recortes/c1").json()["version"] == v1
+    # otra persona guardó después de que esta pantalla cargó: la pantalla manda la versión que tenía (ninguna / una vieja)
+    tabla["filas"][0]["edicion"].update(guardado_en="2026-11-05T12:00:00+00:00", guardado_por="lizzie")
+    r = logueado.post("/recortes/c1/edicion", json={"inicio_ms": 12000, "version": v1})
+    assert r.status_code == 409
+    j = r.json()
+    assert j["version_actual"] == "2026-11-05T12:00:00+00:00" and j["editada_por"] == "lizzie"
+    assert "Otra persona guardó este recorte hace" in j["detail"] and "Recargá" in j["detail"]
+    assert tabla["filas"][0]["edicion"].get("inicio_ms") != 12000
+    # con la versión vigente guarda; sin versión (cliente viejo) también
+    r = logueado.post("/recortes/c1/edicion", json={"inicio_ms": 12000, "version": "2026-11-05T12:00:00+00:00"})
+    assert r.status_code == 200, r.text
+    tabla["filas"][0]["estado"] = "listo"
+    assert logueado.post("/recortes/c1/edicion", json={"inicio_ms": 13000}).status_code == 200

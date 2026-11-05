@@ -14,6 +14,8 @@ import { fechaCreacion, fechaLegible } from "../util/fechas";
 import { Icono, type NombreIcono } from "../componentes/Iconos";
 import { Hueso, Migas } from "../componentes/Comunes";
 import { useToast } from "../componentes/Toasts";
+import Presencia from "../componentes/Presencia";
+import { usePresencia } from "../util/usePresencia";
 import { etiqueta, useProyectos } from "../componentes/proyectos/ProyectosContexto";
 import { descargarHtml } from "./Publicaciones";
 import "../publicar.css";
@@ -44,6 +46,7 @@ export default function PiezaVer() {
   const [p, setP] = useState<Publicacion | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sinImagen, setSinImagen] = useState(false); // la URL de la imagen no carga (sacada del banco, por ejemplo)
+  const presentes = usePresencia("pieza", id, "mira"); // (5/11) quién más la está mirando o editando
 
   useEffect(() => {
     let vivo = true;
@@ -136,6 +139,7 @@ export default function PiezaVer() {
               </span>
             )}
           </div>
+          <Presencia presentes={presentes} />
         </div>
       </header>
 

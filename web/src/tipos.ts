@@ -155,6 +155,7 @@ export interface Detalle extends Recorte {
   srt_corregido: boolean;
   estilo_actual: Estilo;
   estilo_propio: boolean;
+  version?: string | null; // (5/11) edicion.guardado_en: se manda al guardar para avisar si otra persona guardó antes
 }
 
 export interface Uso {
@@ -171,4 +172,5 @@ export interface RespuestaEdicion {
   partes: string[];
   avisos: string[];
   mensaje: string;
+  version?: string | null;
 }

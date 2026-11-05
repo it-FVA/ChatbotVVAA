@@ -80,6 +80,7 @@ export interface Respuesta {
   id: string;
   estado: "borrador" | "a_aprobar";
   mensaje: string;
+  version?: string | null; // (5/11)
 }
 
 /** (4/11) Lo que se retoma: un borrador o una rechazada, propio o de otra persona con permiso «editar» por una carpeta. */
@@ -94,6 +95,7 @@ export interface BorradorAbierto {
   propia?: boolean;
   rechazo?: { por: string; en: string | null; nota: string | null } | null;
   editada_por?: string | null;
+  version?: string | null; // (5/11) resultado.guardado_en
 }
 
 export const apiNewsletter = {
@@ -109,6 +111,7 @@ export const apiNewsletter = {
   redactar: (plantilla: Plantilla, tema: string, datos: Datos) => pedir<{ datos: Datos; materiales: Material[]; html: string }>("/newsletter/redactar", { method: "POST", body: JSON.stringify({ plantilla, tema, datos }) }),
   borradores: () => pedir<BorradorResumen[]>("/newsletter/borradores"),
   borrador: (id: string) => pedir<BorradorAbierto>(`/newsletter/borradores/${encodeURIComponent(id)}`),
-  guardarBorrador: (plantilla: Plantilla, datos: Datos, borrador_id: string | null) => pedir<Respuesta>("/newsletter/borrador", { method: "POST", body: JSON.stringify({ plantilla, datos, borrador_id }) }),
+  guardarBorrador: (plantilla: Plantilla, datos: Datos, borrador_id: string | null, version?: string | null) =>
+    pedir<Respuesta>("/newsletter/borrador", { method: "POST", body: JSON.stringify({ plantilla, datos, borrador_id, version: version ?? null }) }),
   aAprobar: (plantilla: Plantilla, datos: Datos, borrador_id: string | null) => pedir<Respuesta>("/newsletter/a-aprobar", { method: "POST", body: JSON.stringify({ plantilla, datos, borrador_id }) }),
 };

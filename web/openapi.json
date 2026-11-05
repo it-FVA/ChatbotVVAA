@@ -622,6 +622,17 @@
       "default": "mensual",
       "title": "Plantilla",
       "type": "string"
+     },
+     "version": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Version"
      }
     },
     "title": "Guardar",
@@ -686,6 +697,17 @@
      "item_id"
     ],
     "title": "ItemNuevo",
+    "type": "object"
+   },
+   "Latido": {
+    "properties": {
+     "modo": {
+      "default": "mira",
+      "title": "Modo",
+      "type": "string"
+     }
+    },
+    "title": "Latido",
     "type": "object"
    },
    "Linea": {
@@ -1131,6 +1153,232 @@
      "canal"
     ],
     "title": "Pieza",
+    "type": "object"
+   },
+   "PiezaBorrador": {
+    "properties": {
+     "alineacion": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Alineacion"
+     },
+     "borrador_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Borrador Id"
+     },
+     "canal": {
+      "title": "Canal",
+      "type": "string"
+     },
+     "fecha": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Fecha"
+     },
+     "firma": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Firma"
+     },
+     "formato": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Formato"
+     },
+     "hora": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Hora"
+     },
+     "imagen_busqueda": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Imagen Busqueda"
+     },
+     "imagen_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Imagen Url"
+     },
+     "logo": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Logo"
+     },
+     "peso": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Peso"
+     },
+     "posicion": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Posicion"
+     },
+     "posicion_logo": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Posicion Logo"
+     },
+     "texto": {
+      "default": "",
+      "title": "Texto",
+      "type": "string"
+     },
+     "texto_imagen": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Texto Imagen"
+     },
+     "tipografia": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Tipografia"
+     },
+     "titulo": {
+      "default": "",
+      "title": "Titulo",
+      "type": "string"
+     },
+     "usar_compuesta": {
+      "default": true,
+      "title": "Usar Compuesta",
+      "type": "boolean"
+     },
+     "version": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Version"
+     },
+     "vfmt": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Vfmt"
+     },
+     "video_formato": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Video Formato"
+     },
+     "video_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Video Url"
+     }
+    },
+    "required": [
+     "canal"
+    ],
+    "title": "PiezaBorrador",
     "type": "object"
    },
    "PrimeraVez": {
@@ -1856,6 +2104,17 @@
        }
       ],
       "title": "Srt"
+     },
+     "version": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Version"
      }
     },
     "title": "Edicion",
@@ -5022,6 +5281,112 @@
     ]
    }
   },
+  "/presencia/{tipo}/{item_id}": {
+   "delete": {
+    "operationId": "salir_presencia__tipo___item_id__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "tipo",
+      "required": true,
+      "schema": {
+       "title": "Tipo",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "item_id",
+      "required": true,
+      "schema": {
+       "title": "Item Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Salir",
+    "tags": [
+     "presencia"
+    ]
+   },
+   "post": {
+    "operationId": "latir_presencia__tipo___item_id__post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "tipo",
+      "required": true,
+      "schema": {
+       "title": "Tipo",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "item_id",
+      "required": true,
+      "schema": {
+       "title": "Item Id",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Latido"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Latir",
+    "tags": [
+     "presencia"
+    ]
+   }
+  },
   "/proyectos": {
    "get": {
     "description": "Lista plana (padre_id arma el árbol): los míos, y los compartidos conmigo con sus subcarpetas (permiso heredado).\n`ubicaciones`: {tipo: {item_id: proyecto_id}} de todo lo que está en esos proyectos (para el chip de la barra).",
@@ -5692,7 +6057,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/Pieza"
+        "$ref": "#/components/schemas/PiezaBorrador"
        }
       }
      },
