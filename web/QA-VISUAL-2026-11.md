@@ -125,16 +125,22 @@ Verificación local: `npx tsc --noEmit -p .`, `npm test -- --run` (47 pruebas, s
    tarjetas hay cinco botones amarillos. Propongo un solo primario por vista («Subir un video»).
 5. **WhatsApp · pronto en la barra** (T32). Es una promesa visible desde hace semanas. Propongo dejarla pero sin el tooltip largo.
 
-## Para verificar en producción (después del deploy)
+## Para verificar en producción (segunda pasada, 5/11, deploy de main con los cinco commits)
 
-- [ ] Diseñar: sin «SIMULADO» en canales ni en la vista previa; una sola línea «Este canal está en modo de prueba…» arriba del formulario mientras el canal no esté en real; con `?canal=blogpost` se ve el canal fijo, no el selector.
-- [ ] Diseñar: botón «Ver cómo quedaría» y toast «Así quedaría la pieza.».
-- [ ] Mis publicaciones: chips con la paleta nueva; «prueba» en vez de «simulada/simulado»; «Instagram · Historia» sin repetir.
-- [ ] Aprobación: subtítulo nuevo, solapa «Programadas», sin chips vacíos en las tarjetas.
-- [ ] Pieza (detalle) y Recorte (detalle): chip de estado con color.
-- [ ] Mis recortes: «Diseñar» secundario, «Subir un video» primario, solapas «Míos / Del equipo / Todos».
-- [ ] Editor de recortes a 375 px: sin scroll horizontal (migas cortadas con «…»).
-- [ ] Administración a 1366 px: sin scroll horizontal.
-- [ ] Chat: mensaje de «asistente arrancando» sin la palabra API (probar con la API dormida).
-- [ ] Frase del día: leyenda sin «simulada»; mail con «prueba (no manda)».
-- [ ] Guía interactiva de cada pantalla: los pasos siguen apuntando a sus elementos (los `data-ayuda` no cambiaron).
+Recorrida con el Chrome de Franco (Browser 1, logueado como franco; Browser 2 seguía mostrando el login).
+
+- [x] Diseñar: sin «SIMULADO» en canales ni en la vista previa. Con `?canal=wordpress` (el valor real del menú; `blogpost` no es una clave) se ve el canal fijo «Blogpost», no el selector. Instagram · Historia idem.
+- [x] Diseñar: la línea «Este canal está en modo de prueba…» no aparece porque hoy los cuatro canales están en real (`modo_real: real`), que es el comportamiento pedido.
+- [x] Diseñar: paso 3 con «Enviar a aprobación», «Ver cómo quedaría» y «Guardar borrador»; nota «“Ver cómo quedaría” arma la pieza sin mandarla».
+- [x] Mis publicaciones: chips con la paleta nueva, «prueba» en vez de «simulada/simulado», horas en 24 h («creada 2/11 16:08»), un solo primario («Diseñar una pieza»).
+- [x] Aprobación: subtítulo nuevo, solapa «Programadas», sin chips vacíos; «Instagram · Historia» sin repetir. Registro: espera / programada / listo / error / neutro según el estado.
+- [x] Pieza (detalle): cabecera nueva con migas y chip de estado. Recorte: `/recortes/:id` abre el editor con la cabecera nueva.
+- [x] Mis recortes: «Subir un video» único primario, solapas «Míos / Del equipo / Todos», fila «editado» en vez de los números de pausas y pedazos.
+- [x] Editor de recortes a 375 px: sin scroll horizontal (antes 423 px).
+- [ ] Administración a 1366 px: seguía midiendo 1415 px. La causa no eran los gráficos sino la tabla «Costo de OpenAI por mes», más ancha que su tarjeta. Arreglado en la rama `claude/qa-visual-produccion` (commit 46d37b1): las tablas chicas del Dashboard van en `.tabla-scroll`. Verificar después de mergear.
+- [x] Chat: el bundle ya no tiene «La API está despertando» ni «en cola»; «La API arrancó …» queda solo en Administración → Salud.
+- [x] Frase del día: leyenda «programada · publicada · prueba · salteada»; tarjeta Mañana sin modo ni «en la API».
+- [ ] Frase del día: el panel seguía titulado «Backlog» mientras el subtítulo decía «Sin día». En la misma rama pasa a «Frases sin día» y los textos que lo nombraban dicen lo mismo. Verificar después de mergear.
+- [x] Guía interactiva: los `data-ayuda` no cambiaron; el script de verificación y `registro.test.tsx` pasan en el merge.
+
+Pendiente de verificar tras el próximo deploy: los dos ítems sin tilde.
