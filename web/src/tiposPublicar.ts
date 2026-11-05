@@ -69,8 +69,7 @@ export interface PiezaForm {
 
 /** (3/11) La pieza tal como la define la API (api/pieza.py → OpenAPI → tiposApi.d.ts, `npm run tipos`). Es lo que se manda a
  *  /publicar/borrador, /a-aprobar y /enviar, y lo que devuelve GET /publicaciones/{id} en `pieza` (con borrador_id = el id de la fila). */
-// (5/11, Franco) `imagenes` (carrusel) lo suma la API en paralelo: hasta que se regeneren los tipos (`npm run tipos`) se declara acá.
-export type PiezaApi = components["schemas"]["Pieza"] & { imagenes?: string[] | null };
+export type PiezaApi = components["schemas"]["Pieza"];
 export type PiezaGuardada = Partial<PiezaApi>;
 
 export interface RespuestaBorrador {

@@ -2380,6 +2380,8 @@ export interface components {
             imagen_busqueda?: string | null;
             /** Imagen Url */
             imagen_url?: string | null;
+            /** Imagenes */
+            imagenes?: string[] | null;
             /** Logo */
             logo?: string | null;
             /**
@@ -2600,6 +2602,8 @@ export interface components {
             imagen_busqueda?: string | null;
             /** Imagen Url */
             imagen_url?: string | null;
+            /** Imagenes */
+            imagenes?: string[] | null;
             /** Logo */
             logo?: string | null;
             /** Peso */
@@ -2654,6 +2658,8 @@ export interface components {
             imagen_busqueda?: string | null;
             /** Imagen Url */
             imagen_url?: string | null;
+            /** Imagenes */
+            imagenes?: string[] | null;
             /** Logo */
             logo?: string | null;
             /** Peso */
