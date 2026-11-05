@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { ErrorApi } from "../api";
 import { apiPublicar } from "../apiPublicar";
-import type { Publicacion } from "../tiposPublicar";
+import { etiquetaCanal, tipoInstagram, type Publicacion } from "../tiposPublicar";
 import { useSesion } from "../App";
 import { fechaCreacion, fechaLegible } from "../util/fechas";
 import { Icono, type NombreIcono } from "../componentes/Iconos";
@@ -123,8 +123,8 @@ export default function PiezaVer() {
           <h1>{titulo}</h1>
           <div className="publicacion-meta">
             <span>
-              <Icono nombre={icono} tam={14} /> {p.canal_texto}
-              {p.formato && p.formato !== "cuadrado" ? ` · ${p.formato}` : ""}
+              <Icono nombre={icono} tam={14} /> {etiquetaCanal(p)}
+              {p.formato && p.formato !== "cuadrado" && (!tipoInstagram(p) || tipoInstagram(p) === "posteo") ? ` · ${p.formato}` : ""}
             </span>
             <span className="estado neutro">{p.estado_texto}</span>
             <span className="suave">creada {fechaCreacion(p.creado)}</span>

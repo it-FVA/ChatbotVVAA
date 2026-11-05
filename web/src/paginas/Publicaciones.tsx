@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ErrorApi } from "../api";
 import { apiPublicar } from "../apiPublicar";
-import type { MisPublicaciones, Publicacion } from "../tiposPublicar";
+import { etiquetaCanal, NOMBRE_TIPO_INSTAGRAM, tipoInstagram, type MisPublicaciones, type Publicacion, type TipoInstagram } from "../tiposPublicar";
 import type { CanalInfo } from "../tipos";
 import { useSesion } from "../App";
 import { nombreCanal } from "../util/publicar";
@@ -25,13 +25,13 @@ const ORDEN = ["Todas", "Pendientes", "Aprobadas", "Publicadas", "Borradores", "
 // (2/11, Franco) filtro por tipo de pieza: canal + formato (historia / posteo de Instagram, Facebook, blogpost, YouTube, newsletter…).
 // (3/11) Los nombres salen del registro de la API (yo.canales); el formato de Instagram se agrega acá.
 function tipoDe(p: Publicacion): string {
-  if (p.canal === "instagram" && (p.formato === "historia" || p.formato === "reel")) return `instagram:${p.formato}`;
-  return p.canal;
+  const t = tipoInstagram(p);
+  return t ? `instagram:${t}` : p.canal; // (5/11) Instagram es Posteo, Reel o Historia
 }
 function nombreTipo(canales: CanalInfo[], t: string): string {
   const [canal, formato] = t.split(":");
   const nombre = nombreCanal(canales, canal);
-  if (canal === "instagram") return `${nombre} · ${formato || "posteo"}`;
+  if (canal === "instagram") return `${nombre} · ${NOMBRE_TIPO_INSTAGRAM[(formato as TipoInstagram) || "posteo"] ?? formato}`;
   return nombre;
 }
 
@@ -166,7 +166,7 @@ export default function Publicaciones() {
             <strong>{aEliminar.titulo || (aEliminar.texto || "").slice(0, 80) || aEliminar.canal_texto}</strong>
             <br />
             <span className="suave">
-              {aEliminar.canal_texto} · {aEliminar.estado_texto}
+              {etiquetaCanal(aEliminar)} · {aEliminar.estado_texto}
             </span>
           </p>
           <p className="suave">Se borra del registro. No se puede deshacer.</p>
@@ -233,7 +233,7 @@ export function TarjetaPublicacion({ p, mostrarUsuario = false, onEliminar, onCa
             <Icono nombre={ICONO_ESTADO[p.estado] || "info"} tam={14} /> {p.estado_texto}
           </span>
           <span>
-            <Icono nombre={(canales.find((c) => c.clave === p.canal)?.icono as NombreIcono) || "megafono"} tam={14} /> {p.canal_texto}
+            <Icono nombre={(canales.find((c) => c.clave === p.canal)?.icono as NombreIcono) || "megafono"} tam={14} /> {etiquetaCanal(p)}
             {p.formato && p.formato !== "cuadrado" ? ` · ${p.formato}` : ""}
           </span>
           <span className="suave">creada {fechaCreacion(p.creado)}</span>

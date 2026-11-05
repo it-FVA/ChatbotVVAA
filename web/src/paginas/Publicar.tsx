@@ -14,7 +14,7 @@ import type { Recorte } from "../tipos";
 import { apiChat } from "../apiChat";
 import { apiPublicar } from "../apiPublicar";
 import type { FotoBanco, Pieza } from "../tiposChat";
-import type { OpcionesPublicar, PiezaForm, RespuestaAprobacion, RespuestaEnvio } from "../tiposPublicar";
+import { NOMBRE_TIPO_INSTAGRAM, tipoInstagram, tipoInstagramValido, type OpcionesPublicar, type PiezaForm, type RespuestaAprobacion, type RespuestaEnvio, type TipoInstagram } from "../tiposPublicar";
 import { aviso as textoAviso, desdeGuardada, desdePropuesta, desdeRecorte, formularioVacio } from "../util/publicar";
 import VistaPrevia, { type DatosPrevia } from "../componentes/VistaPrevia";
 import { Icono } from "../componentes/Iconos";
@@ -28,11 +28,24 @@ import "../publicar.css";
 
 // (2/11) qué se diseña en cada canal, en una línea (Alberto: cada canal con su particularidad)
 const AYUDA_CANAL: Record<string, string> = {
-  instagram: "Una foto con la frase encima, un reel o una historia. El caption va debajo. Lo publica quien aprueba.",
   facebook: "Un posteo en la página: foto con la frase y el texto. Lo publica quien aprueba, y se puede programar.",
   wordpress: "Una entrada del blog en viviragradecidos.org: título, texto (puede ser largo) y foto destacada. La publica quien aprueba, o la programa para un día.",
   youtube: "Un recorte de video de Mis recortes, con título y descripción. Sube como privado y se revisa en YouTube Studio.",
 };
+
+// (5/11, Franco) Instagram son tres entradas del menú, cada una con su formulario acotado
+const AYUDA_INSTAGRAM: Record<TipoInstagram, string> = {
+  posteo: "Una foto cuadrada o vertical con la frase encima, y su caption. Lo publica quien aprueba, y se puede programar.",
+  reel: "Un video (un recorte de Mis recortes o uno que subas) con su caption. Sale como reel. Lo publica quien aprueba.",
+  historia: "Una foto vertical con la frase encima, o un video vertical. No lleva caption y dura 24 horas. Lo publica quien aprueba.",
+};
+
+/** El `?tipo=` del menú se traduce a lo que ya existe en la pieza (formato, vfmt y si hay video): `tipo` no es un campo nuevo. */
+function aplicarTipo(x: PiezaForm, t: TipoInstagram): PiezaForm {
+  if (t === "posteo") return { ...x, video_url: null, video_formato: null, vfmt: "reel", formato: x.formato === "vertical" ? "vertical" : "cuadrado" };
+  if (t === "reel") return { ...x, formato: "vertical", vfmt: "reel" };
+  return x.video_url ? { ...x, vfmt: "historia", formato: "historia" } : { ...x, formato: "historia", vfmt: "reel" };
+}
 
 /** (4/11) El rechazo de la pieza que se está corrigiendo, para mostrarlo arriba del formulario. */
 type Rechazo = { por: string; en: string | null; nota: string | null };
@@ -42,12 +55,14 @@ type Resultado = { tipo: "aprobacion"; r: RespuestaAprobacion } | { tipo: "envio
 // (5/11, Franco) Ayuda de esta pantalla: de acá salen la página /ayuda y la guía interactiva. Cada id es un data-ayuda="disenar.<id>" en el JSX.
 definirAyuda("disenar", {
   titulo: "Diseñar",
-  que: "Armás la pieza de un canal: foto con frase, texto, fecha. Diseñar no publica: toda pieza va a aprobación, también la de aprobadores. Por canal:",
+  que: "Armás la pieza de un canal. Diseñar no publica: toda pieza va a aprobación, también la de aprobadores. Por canal:",
   lista: [
-    "Instagram: foto cuadrada o vertical, historia (24 horas, sin texto) o reel.",
+    "Instagram · Posteo: foto con la frase y caption.",
+    "Instagram · Reel: un video, con caption.",
+    "Instagram · Historia: foto o video, sin texto, 24 horas.",
     "Facebook: foto con la frase y el texto.",
-    "Blogpost: entrada de la web, con título, texto largo y foto destacada.",
-    "YouTube: un recorte, con título. Sube privado hasta que Google audite el proyecto.",
+    "Blogpost: título, texto largo y foto destacada.",
+    "YouTube: un recorte, con título. Sube privado.",
     "Email: es el Newsletter.",
   ],
   pasos: [
@@ -213,6 +228,18 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
     if (canalMenu && op.canales[canalMenu]) setF((x) => (x.canal === canalMenu ? x : { ...x, canal: canalMenu }));
   }, [canalMenu, op.canales]);
   const canal = f.canal;
+  // (5/11) tipo de Instagram: el del menú (?tipo=; sin tipo, Posteo) o, al retomar un borrador o venir del chat, el que se deduce de la pieza
+  const tipoUrl = desdeMenu && canalMenu === "instagram" ? tipoInstagramValido(paramsMenu.get("tipo")) ?? "posteo" : null;
+  const [tipoElegido, setTipoElegido] = useState<TipoInstagram | null>(tipoUrl);
+  const tipoIG: TipoInstagram | null = canal === "instagram" ? tipoElegido ?? tipoInstagram(f) : null;
+  const esReel = tipoIG === "reel";
+  const esHistoria = tipoIG === "historia";
+  // al cambiar de tipo en el menú se conserva el texto escrito (el formulario es el mismo): solo se ajusta formato y video
+  useEffect(() => {
+    if (!tipoUrl) return;
+    setTipoElegido(tipoUrl);
+    setF((x) => aplicarTipo(x, tipoUrl));
+  }, [tipoUrl]);
   const info = canal ? op.canales[canal] : null;
   const modo = info?.modo ?? "apagado";
   const esRed = canal === "instagram" || canal === "facebook";
@@ -221,9 +248,11 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
   const conLogo = f.logo !== "Sin logo";
   const seCompone = esRed && !conVideo && !!f.imagen_url && (conFrase || conLogo) && f.usar_compuesta;
   const fechaIso = fechaIsoDe(f);
-  const faltaTexto = !f.texto.trim();
+  const faltaTexto = !f.texto.trim() && !esHistoria; // la historia no lleva caption
+
   const faltaTitulo = (canal === "wordpress" || canal === "youtube") && !f.titulo.trim();
-  const faltaVideoYT = canal === "youtube" && !conVideo;
+  const faltaVideoYT = (canal === "youtube" || esReel) && !conVideo;
+  const faltaFotoIG = (tipoIG === "posteo" || esHistoria) && !conVideo && !f.imagen_url;
 
   // Banco: busca sola al entrar si hay una sugerencia del bot o el canal es de redes
   const buscarFotos = useCallback(
@@ -242,14 +271,14 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
     [canal, op.formato_por_canal, set],
   );
   useEffect(() => {
-    if (conVideo || canal === "youtube") return;
+    if (conVideo || canal === "youtube" || esReel) return;
     if (fotos === null && (f.imagen_busqueda || esRed)) buscarFotos(f.imagen_busqueda, !!f.imagen_busqueda && !f.imagen_url);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canal]);
+  }, [canal, esReel]);
 
   // Al cambiar el canal, el formato de la foto arranca en el del canal si no se tocó
   useEffect(() => {
-    if (!canal || conVideo) return;
+    if (!canal || conVideo || tipoUrl) return; // en Instagram el formato lo manda el tipo del menú
     const sugerido = op.formato_por_canal[canal];
     if (sugerido && origen !== "borrador" && origen !== "copia") set("formato", sugerido);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -328,26 +357,32 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
   // ---- botones
   const puedeProponer = !!info?.a_aprobar;
   const motivoNoProponer = !canal ? "Elegí el canal." : info && !info.acepta_aprobacion ? `${info.texto_canal} no pasa por aprobación.` : info && !info.a_aprobar ? `${info.texto_canal} está en modo ${info.modo_real}: no hay a dónde mandarla cuando la aprueben. Guardala como borrador.` : null;
-  const faltas = [faltaTexto && "falta el texto", faltaTitulo && "falta el título", faltaVideoYT && "falta el video (un recorte)"].filter(Boolean) as string[];
+  const faltas = [faltaTexto && "falta el texto", faltaTitulo && "falta el título", faltaVideoYT && "falta el video (un recorte)", faltaFotoIG && "falta la foto"].filter(Boolean) as string[];
   const etiquetaPrincipal = !canal ? "Elegí el canal" : "Enviar a aprobación"; // (5/11) nadie publica directo: todo pasa por aprobación
 
   async function mandar(que: "aprobar" | "simulado" | "borrador", pisar = false) {
     setError(null);
     setEnviando(que);
+    // (5/11) lo que viaja es la pieza de siempre: el tipo se traduce a formato y vfmt. La historia no lleva caption, pero la API pide
+    // texto: si no hay, va la frase (o el título) y la API igual la manda sin texto.
+    let pz: PiezaForm = f;
+    if (esReel) pz = { ...pz, formato: "vertical", vfmt: "reel" };
+    if (esHistoria) pz = pz.video_url ? { ...pz, vfmt: "historia", formato: "historia" } : { ...pz, formato: "historia" };
+    if (esHistoria && que !== "borrador" && !pz.texto.trim()) pz = { ...pz, texto: pz.texto_imagen.trim() || pz.titulo.trim() || "Historia de Instagram" };
     try {
       if (que === "borrador") {
-        const r = await apiPublicar.borrador(f, pisar ? null : version);
+        const r = await apiPublicar.borrador(pz, pisar ? null : version);
         const yaEstaba = !!f.borrador_id; // (4/11) sobre un borrador que ya existía: «Cambios guardados»
         setVersion(r.version ?? null);
         set("borrador_id", r.id);
         avisar(yaEstaba ? "Cambios guardados." : "Borrador guardado.");
         setResultado({ tipo: "borrador", id: r.id, mensaje: r.mensaje, cambios: yaEstaba });
       } else if (que === "aprobar") {
-        const r = await apiPublicar.aAprobar(f);
+        const r = await apiPublicar.aAprobar(pz);
         avisar("Pieza enviada a aprobación.");
         setResultado({ tipo: "aprobacion", r });
       } else {
-        const r = await apiPublicar.enviar(f, que);
+        const r = await apiPublicar.enviar(pz, que);
         if (r.ok) avisar(que === "simulado" ? "Pieza simulada: así quedaría." : r.encolada ? "Quedó en la cola." : "Enviada.");
         else avisar(r.aviso || "No se pudo.", "error");
         setResultado({ tipo: "envio", r, modo: que });
@@ -369,19 +404,23 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
       : canal === "youtube"
         ? "Sin video"
         : "Sin imagen";
+  const titulo2 = esReel ? "Video" : esHistoria ? "Foto o video" : conVideo ? "Formato del video" : canal === "youtube" ? "Video" : "Foto y diseño";
+  // el video elegido (un recorte o uno subido): en Instagram lo manda el tipo (reel o historia); en YouTube sigue como antes
+  const elegirVideo = (r: Recorte) =>
+    setF((x) => ({ ...x, titulo: x.titulo || (r.titulo || "").slice(0, 100), video_url: r.url, video_formato: r.formato, vfmt: esHistoria ? "historia" : "reel", formato: esHistoria ? "historia" : esReel ? "vertical" : x.formato }));
   const resumen3 = fechaIso ? `Programada: ${fechaLegible(fechaIso)}` : "Cuanto antes";
 
-  if (resultado) return <ResultadoPanel resultado={resultado} previa={previa} canal={canal} info={info} ajena={!!duenaDe} onVolver={() => setResultado(null)} onNueva={() => nav("/publicar", { replace: true, state: null })} />;
+  if (resultado) return <ResultadoPanel resultado={resultado} previa={previa} canal={canal} info={info && tipoIG ? { ...info, texto_canal: `${info.texto_canal} · ${NOMBRE_TIPO_INSTAGRAM[tipoIG]}` } : info} ajena={!!duenaDe} onVolver={() => setResultado(null)} onNueva={() => nav("/publicar", { replace: true, state: null })} />;
 
   return (
     <div className="pagina publicar">
       <header className="pagina-cabecera">
         <div>
           <h1>
-            Diseñar{desdeMenu && canal ? <span className="pub-titulo-canal"> · {info?.texto_canal || canal}</span> : null}
+            Diseñar{desdeMenu && canal ? <span className="pub-titulo-canal"> · {info?.texto_canal || canal}{tipoIG ? ` · ${NOMBRE_TIPO_INSTAGRAM[tipoIG]}` : ""}</span> : null}
           </h1>
           <p className="suave">
-            {desdeMenu && canal && (AYUDA_CANAL[canal] ?? "Acá se diseña la pieza: foto, frase, texto y fecha. Publicarla es el paso siguiente, desde Aprobación.")}
+            {desdeMenu && canal && (tipoIG ? AYUDA_INSTAGRAM[tipoIG] : AYUDA_CANAL[canal] ?? "Acá se diseña la pieza: foto, frase, texto y fecha. Publicarla es el paso siguiente, desde Aprobación.")}
             {desdeMenu && canal === "youtube" && (
               /* (5/11) Lo exige la política de desarrolladores de YouTube (III.A.1 y III.A.2): el cliente de la API muestra el link a los
                  Términos de YouTube y a la Política de privacidad de Google, y la nuestra cuenta cómo se usan los datos. */
@@ -480,6 +519,11 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
               Título <span className="suave">{canal === "wordpress" || canal === "youtube" ? "(obligatorio)" : "(opcional, para el registro)"}</span>
               <input value={f.titulo} onChange={(e) => set("titulo", e.target.value)} maxLength={150} />
             </label>
+            {esHistoria ? (
+              <div className="aviso" role="note" data-ayuda="disenar.texto">
+                <Icono nombre="info" tam={16} /> <span>La historia dura 24 horas y no lleva caption: la frase va escrita en la foto. No hace falta escribir el texto de la pieza.</span>
+              </div>
+            ) : (
             <label data-ayuda="disenar.texto">
               Texto de la pieza <span className="suave">{esRed ? "(el caption)" : canal === "youtube" ? "(la descripción del video)" : canal === "wordpress" ? "(el cuerpo; se puede usar HTML simple o markdown)" : ""}</span>
               <textarea value={f.texto} onChange={(e) => set("texto", e.target.value)} rows={9} placeholder="Escribí la pieza o pedísela al bot en el chat." />
@@ -487,35 +531,34 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
                 {f.texto.length} caracteres{esRed && f.texto.length > 2200 ? " · Instagram corta el caption en 2200" : ""}
               </span>
             </label>
+            )}
             <div className="acciones">
               <button type="button" className="boton primario" onClick={() => setPaso(2)} disabled={!canal}>
-                Siguiente: {conVideo ? "formato del video" : canal === "youtube" ? "el video" : "foto y diseño"} <Icono nombre="chevron" tam={16} />
+                Siguiente: {titulo2.toLowerCase()} <Icono nombre="chevron" tam={16} />
               </button>
             </div>
           </Paso>
 
           {/* ---------- Paso 2: foto y diseño / formato del video ---------- */}
-          <Paso data-ayuda="disenar.foto" n={2} titulo={conVideo ? "Formato del video" : canal === "youtube" ? "Video" : "Foto y diseño"} resumen={resumen2} abierto={paso === 2} hecho={paso > 2} onAbrir={() => canal && setPaso(2)} deshabilitado={!canal}>
-            {conVideo ? (
+          <Paso data-ayuda="disenar.foto" n={2} titulo={titulo2} resumen={resumen2} abierto={paso === 2} hecho={paso > 2} onAbrir={() => canal && setPaso(2)} deshabilitado={!canal}>
+            {esReel || (esHistoria && conVideo) ? (
               <>
-                {canal === "instagram" && (
-                  <fieldset className="opciones">
-                    <legend>Formato en Instagram</legend>
-                    <label className="radio">
-                      <input type="radio" name="vfmt" checked={f.vfmt === "reel"} onChange={() => set("vfmt", "reel")} />
-                      <span>
-                        <strong>Reel</strong> <span className="suave">sale en el feed y en Reels, con caption</span>
-                      </span>
-                    </label>
-                    <label className="radio">
-                      <input type="radio" name="vfmt" checked={f.vfmt === "historia"} onChange={() => set("vfmt", "historia")} />
-                      <span>
-                        <strong>Historia</strong> <span className="suave">dura 24 h y no lleva caption (Instagram no lo permite por API)</span>
-                      </span>
-                    </label>
-                    {f.video_formato === "horizontal" && <p className="suave chico">Este recorte es horizontal. En Instagram se ve mejor el vertical (pedilo desde la misma tarjeta del chat).</p>}
-                  </fieldset>
+                {conVideo ? (
+                  <div className="pub-video-chip">
+                    <Icono nombre="pelicula" tam={16} /> {esHistoria ? "Video de la historia" : "Video del reel"}{f.video_formato ? ` · ${f.video_formato}` : ""}.{" "}
+                    <button type="button" className="boton sutil chico" onClick={() => setF((x) => ({ ...x, video_url: null, video_formato: null }))}>
+                      Elegir otro
+                    </button>
+                  </div>
+                ) : (
+                  <ElegirRecorte onElegir={elegirVideo} />
                 )}
+                {conVideo && f.video_formato === "horizontal" && <p className="suave chico">Este video es horizontal. En Instagram se ve mejor el vertical (pedilo desde la misma tarjeta del chat).</p>}
+                {esHistoria && <p className="suave chico">Historia de Instagram: dura 24 h y no lleva caption.</p>}
+                {esReel && <p className="suave chico">El reel sale con el caption que escribiste en el paso 1.</p>}
+              </>
+            ) : conVideo ? (
+              <>
                 {canal === "youtube" && <p className="suave">Va al canal como video{f.video_formato === "vertical" ? " corto (short)" : ""}. Título obligatorio.</p>}
                 {canal === "wordpress" && <p className="suave">Blogpost: el recorte va al principio de la entrada y el texto es el cuerpo. Título obligatorio.</p>}
                 {canal === "facebook" && <p className="suave">Va como video en la página de Facebook, con el texto como descripción.</p>}
@@ -525,7 +568,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
                 {canal === "youtube" ? (
                   // (2/11, Franco) el video se elige acá mismo: los recortes listos, con link al editor
                   <ElegirRecorte
-                    onElegir={(r) => setF((x) => ({ ...x, titulo: x.titulo || (r.titulo || "").slice(0, 100), video_url: r.url, video_formato: r.formato, vfmt: "reel" }))}
+                    onElegir={elegirVideo}
                   />
                 ) : (
                   <>
@@ -534,6 +577,12 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
                         Texto sobre la imagen <span className="suave">(la frase que va encima de la foto; no se publica como caption)</span>
                         <input value={f.texto_imagen} onChange={(e) => set("texto_imagen", e.target.value)} maxLength={400} placeholder="ej. La gratitud es la llave de la alegría" />
                       </label>
+                    )}
+                    {esHistoria && (
+                      <details className="pub-otra">
+                        <summary>O usá un video vertical</summary>
+                        <ElegirRecorte onElegir={elegirVideo} />
+                      </details>
                     )}
                     <div className="pub-banco">
                       <label htmlFor="pub-busq">Imagen {canal === "wordpress" ? "(la destacada de la entrada)" : ""}</label>
@@ -582,16 +631,18 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
                       <div className="pub-diseno">
                         <h3>{conFrase ? "Con la frase encima" : "Formato y logo"}</h3>
                         <div className="pub-fila">
+                          {!esHistoria && (
                           <label>
                             Formato
                             <select value={f.formato} onChange={(e) => set("formato", e.target.value)}>
-                              {Object.entries(op.formatos).map(([k, [w, h]]) => (
+                              {Object.entries(op.formatos).filter(([k]) => canal !== "instagram" || k === "cuadrado" || k === "vertical").map(([k, [w, h]]) => (
                                 <option key={k} value={k}>
                                   {k} ({w}×{h})
                                 </option>
                               ))}
                             </select>
                           </label>
+                          )}
                           <label>
                             Logo
                             <select value={f.logo} onChange={(e) => set("logo", e.target.value)}>
@@ -654,7 +705,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
                             <input type="checkbox" checked={f.usar_compuesta} onChange={(e) => set("usar_compuesta", e.target.checked)} /> Publicar así (la foto con {conFrase ? "la frase" : "el logo"} encima). Si lo destildás, se publica la foto sola y el texto queda solo en el registro.
                           </label>
                         )}
-                        {canal === "instagram" && f.formato === "historia" && <p className="suave chico">Historia de Instagram: dura 24 h y no lleva caption. El texto de la pieza queda solo en el registro.{!(conFrase || conLogo) || !f.usar_compuesta ? " La foto sale tal cual; si no es vertical 9:16, Instagram la recorta." : ""}</p>}
+                        {esHistoria && <p className="suave chico">Historia de Instagram: dura 24 h y no lleva caption. El texto de la pieza queda solo en el registro.{!(conFrase || conLogo) || !f.usar_compuesta ? " La foto sale tal cual; si no es vertical 9:16, Instagram la recorta." : ""}</p>}
                         {errorCompuesta && <div className="aviso error chico">{errorCompuesta}</div>}
                       </div>
                     )}
@@ -694,7 +745,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
               <button type="button" className="boton primario grande" onClick={() => mandar("aprobar")} disabled={enviando !== null || !puedeProponer || faltas.length > 0} title={motivoNoProponer || undefined}>
                 <Icono nombre="check" /> {enviando === "aprobar" ? "Enviando…" : etiquetaPrincipal}
               </button>
-              <button type="button" className="boton" onClick={() => mandar("simulado")} disabled={enviando !== null || !canal || modo === "apagado" || faltaTexto || faltaTitulo} title="Arma la pieza tal cual saldría y la muestra. No manda nada; queda como prueba en el registro.">
+              <button type="button" className="boton" onClick={() => mandar("simulado")} disabled={enviando !== null || !canal || modo === "apagado" || faltaTexto || faltaTitulo || (esReel && !conVideo) || faltaFotoIG} title="Arma la pieza tal cual saldría y la muestra. No manda nada; queda como prueba en el registro.">
                 <Icono nombre="ojo" /> {enviando === "simulado" ? "Armando…" : "Ver simulado"}
               </button>
               <button type="button" className="boton" onClick={() => mandar("borrador")} disabled={enviando !== null || !canal} title="Guarda todo sin mandar nada; se retoma desde Mis publicaciones.">
