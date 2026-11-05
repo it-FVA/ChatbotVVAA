@@ -57,31 +57,6 @@
 .pub-canal.apagado {
   opacity: 0.55;
 }
-.pub-modo {
-  display: inline-block;
-  border-radius: 999px;
-  padding: 1px 8px;
-  font-weight: 700;
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  background: var(--borde);
-  color: var(--suave);
-  justify-self: start;
-}
-.pub-modo.real {
-  background: var(--rojo-claro);
-  color: var(--rojo);
-}
-.pub-modo.simulado {
-  background: var(--amarillo-suave);
-  color: var(--amarillo-oscuro);
-}
-.pub-modo.borrador,
-.pub-modo.privado {
-  background: #ffe9cc;
-  color: #a35a00;
-}
 .pub-banco > label {
   font-weight: 600;
   font-size: 0.9rem;

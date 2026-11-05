@@ -187,9 +187,6 @@
 .pub-canal-detalle {
   color: var(--suave);
 }
-.pub-modo-texto {
-  margin-top: -4px;
-}
 /* foto y diseño */
 .pub-banco {
   display: grid;

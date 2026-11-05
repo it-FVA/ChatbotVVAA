@@ -1,10 +1,4 @@
 /* Frase del día (22/10): calendario por mes con arrastrar y soltar, próximas, backlog y detalle del día. */
-.fd-cabecera {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 12px;
-}
 .fd-conteos {
   display: flex;
   flex-wrap: wrap;
@@ -17,12 +11,6 @@
 }
 .fd-conteo.suave strong {
   color: var(--suave);
-}
-.fd-activa {
-  font-weight: 500;
-}
-.fd-activa.solo-lectura {
-  cursor: default;
 }
 /* (2/11 tarde, Franco) la tarjeta «Mañana» */
 .fd-manana-card {
@@ -102,9 +90,6 @@
 .fd-canales-tabla tr.apagado td:first-child {
   color: var(--suave);
 }
-.fd-canales-tabla td:first-child .pub-modo {
-  margin-left: 6px;
-}
 .fd-canales-tabla td:last-child {
   white-space: nowrap;
 }
@@ -135,38 +120,6 @@
   }
 }
 /* (2/11) checklist de canales en la cabecera y botones de «mañana» */
-.fd-canales {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin: 2px 0 6px;
-}
-.fd-canal {
-  cursor: pointer;
-  user-select: none;
-}
-.fd-canal input {
-  margin: 0 2px 0 0;
-  vertical-align: -1px;
-}
-.fd-canal.on {
-  background: var(--amarillo-suave);
-  color: var(--amarillo-oscuro);
-  border-color: var(--amarillo-oscuro);
-}
-.fd-manana-botones {
-  display: inline-flex;
-  gap: 4px;
-  margin-left: 6px;
-  flex-wrap: wrap;
-  vertical-align: middle;
-}
-.fd-lineas {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
 .frases .aviso.chico {
   margin: 0;
   padding: 7px 10px;
@@ -622,11 +575,6 @@
   align-items: center;
   gap: 8px 14px;
 }
-.fd-mail-resultados {
-  margin: 4px 0 0;
-  padding-left: 18px;
-}
-
 
 /* (2/11) ver el mail de un día */
 /* (2/11 tarde) prototipo WhatsApp: el mensaje dibujado como un chat */
