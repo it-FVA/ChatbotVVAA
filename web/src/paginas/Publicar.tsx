@@ -4,7 +4,7 @@
 // borrador». Entra desde «Nueva pieza», desde el chat (la pieza propuesta llega en location.state), desde un recorte (?recorte=<id>)
 // y desde un borrador (?borrador=<id>). Las reglas de negocio están en la API (api/publicar_rutas.py); acá solo se repiten para
 // deshabilitar botones a tiempo.
-import { fechaIsoDe, fechaLegible, manana } from "../util/fechas";
+import { fechaCreacion, fechaIsoDe, fechaLegible, manana } from "../util/fechas";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { api, ErrorApi } from "../api";
@@ -28,6 +28,9 @@ const AYUDA_CANAL: Record<string, string> = {
   youtube: "Un recorte de video de Mis recortes, con título y descripción. Sube como privado y se revisa en YouTube Studio.",
 };
 
+/** (4/11) El rechazo de la pieza que se está corrigiendo, para mostrarlo arriba del formulario. */
+type Rechazo = { por: string; en: string | null; nota: string | null };
+
 type Resultado = { tipo: "aprobacion"; r: RespuestaAprobacion } | { tipo: "envio"; r: RespuestaEnvio; modo: "real" | "simulado" } | { tipo: "borrador"; id: string; mensaje: string };
 
 export default function Publicar() {
@@ -39,6 +42,7 @@ export default function Publicar() {
   const [origen, setOrigen] = useState<"chat" | "recorte" | "borrador" | "copia" | "nueva">("nueva");
   const [copiaDe, setCopiaDe] = useState<string | null>(null); // (4/11) de quién es la pieza que se usa como base
   const [duenaDe, setDuenaDe] = useState<string | null>(null); // (4/11) de quién es el borrador ajeno que se edita en colaboración
+  const [rechazo, setRechazo] = useState<Rechazo | null>(null); // (4/11) la pieza que se corrige fue rechazada: quién y con qué nota
   const [error, setError] = useState<string | null>(null);
 
   // 1) opciones; 2) el formulario según de dónde se entra
@@ -61,11 +65,13 @@ export default function Publicar() {
           // (4/11) una pieza ajena con permiso «editar» (por una carpeta compartida) se retoma igual que una propia: es la misma
           const colabora = !base && p.propia === false && p.permiso === "editar";
           setDuenaDe(colabora ? p.usuario || "otra persona" : null);
+          // (4/11) una rechazada se corrige en el mismo lugar: la nota del rechazo queda a la vista mientras se corrige
+          setRechazo(!base && (p.propia !== false || colabora) && p.rechazada_por && (p.estado === "rechazada" || p.estado === "borrador") ? { por: p.rechazada_por, en: p.rechazada_en, nota: p.nota } : null);
           if (base || (p.propia === false && !colabora)) {
             setCopiaDe(p.propia === false ? p.propuesta_por || p.usuario || "otra persona" : null);
             setForm({ ...desdeGuardada(p.pieza || {}, o), borrador_id: null });
             setOrigen("copia");
-          } else if (p.estado !== "borrador" || !p.pieza) {
+          } else if ((p.estado !== "borrador" && p.estado !== "rechazada") || !p.pieza) {
             setError(p.estado === "prueba" ? "Esto fue una prueba (Ver simulado), no un borrador: se abre el formulario con sus datos; si lo guardás, queda como borrador nuevo." : "Esa pieza ya no es un borrador: se abre el formulario con sus datos, pero al guardar se crea una pieza nueva.");
             setForm({ ...desdeGuardada(p.pieza || {}, o), borrador_id: null });
           } else setForm(desdeGuardada(p.pieza, o));
@@ -134,11 +140,11 @@ export default function Publicar() {
       </div>
     );
   }
-  return <Formulario key={form.borrador_id || origen} inicial={form} op={op} origen={origen} copiaDe={copiaDe} duenaDe={duenaDe} avisoInicial={error} avisar={avisar} />;
+  return <Formulario key={form.borrador_id || origen} inicial={form} op={op} origen={origen} copiaDe={copiaDe} duenaDe={duenaDe} rechazo={rechazo} avisoInicial={error} avisar={avisar} />;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, avisoInicial, avisar }: { inicial: PiezaForm; op: OpcionesPublicar; origen: string; copiaDe?: string | null; duenaDe?: string | null; avisoInicial: string | null; avisar: (t: string, tipo?: "ok" | "error" | "info") => void }) {
+function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, rechazo = null, avisoInicial, avisar }: { inicial: PiezaForm; op: OpcionesPublicar; origen: string; copiaDe?: string | null; duenaDe?: string | null; rechazo?: Rechazo | null; avisoInicial: string | null; avisar: (t: string, tipo?: "ok" | "error" | "info") => void }) {
   // (2/11, reunión: Alberto) desde «Canales · Diseñar» se entra con el canal ya elegido: la pantalla se centra en ese canal
   // (título, texto de ayuda, el canal fijo en una línea: para otro canal se vuelve al menú)
   const [paramsMenu] = useSearchParams();
@@ -346,8 +352,9 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, aviso
             {!desdeMenu && origen === "chat" && "La pieza que propuso el bot, lista para ajustar y mandar."}
             {origen === "recorte" && "Un recorte listo para publicar: elegí el canal y escribí el texto."}
             {origen === "copia" && (copiaDe ? `Una copia de una pieza de ${copiaDe}: ajustala y guardala como tuya. La original no cambia.` : "Una copia de la pieza: al guardar se crea una nueva y la original no cambia.")}
-            {origen === "borrador" && !duenaDe && "Retomando un borrador: al guardar se actualiza el mismo; al enviarlo o mandarlo a aprobación, el borrador se elimina."}
-            {origen === "borrador" && duenaDe && `Editando un borrador de ${duenaDe}, compartido con vos para editar. Al guardar se actualiza el mismo y sigue siendo de ${duenaDe}. Si lo mandás a aprobación, va a su nombre y queda en la misma carpeta.`}
+            {origen === "borrador" && rechazo && `Corrigiendo una pieza rechazada${duenaDe ? ` de ${duenaDe}` : ""}. Al guardar queda como borrador en el mismo lugar, con el rechazo en su historial. Al mandarla a aprobación vuelve a la cola${duenaDe ? ` a nombre de ${duenaDe}` : ""}, en la misma carpeta.`}
+            {origen === "borrador" && !rechazo && !duenaDe && "Retomando un borrador: al guardar se actualiza el mismo. Al mandarlo a aprobación pasa a la cola en el mismo lugar; al enviarlo directo, el borrador se elimina."}
+            {origen === "borrador" && !rechazo && duenaDe && `Editando un borrador de ${duenaDe}, compartido con vos para editar. Al guardar se actualiza el mismo y sigue siendo de ${duenaDe}. Si lo mandás a aprobación, va a su nombre y queda en la misma carpeta.`}
             {!desdeMenu && origen === "nueva" && "Acá se diseña la pieza: foto, frase, texto y fecha. Publicarla es el paso siguiente, desde Aprobación. También se puede diseñar desde el chat, debajo de la respuesta del bot."}
           </p>
         </div>
@@ -355,6 +362,16 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, aviso
           <Icono nombre="lista" tam={16} /> Mis publicaciones
         </Link>
       </header>
+      {rechazo && (
+        <div className="aviso rechazo-nota" role="note">
+          <Icono nombre="cruz" tam={16} />{" "}
+          <span>
+            <strong>La rechazó {rechazo.por}</strong>
+            {rechazo.en ? ` (${fechaCreacion(rechazo.en)})` : ""}
+            {rechazo.nota ? <>: «{rechazo.nota}»</> : ". No dejó nota."}
+          </span>
+        </div>
+      )}
       {error && (
         <div className="aviso error" role="alert">
           <Icono nombre="alerta" tam={16} /> <span>{error}</span>

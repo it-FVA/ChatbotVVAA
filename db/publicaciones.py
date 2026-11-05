@@ -132,10 +132,39 @@ def aprobar_publicacion(pid, usuario, fecha_programada, modo, resultado_previo=N
 def rechazar_publicacion(pid, usuario, nota, resultado_previo=None):
     if resultado_previo is None:
         resultado_previo = _db._resultado_actual(pid)
+    previo = dict(resultado_previo or {})
+    if previo.get("rechazada_por"):      # (4/11) una pieza corregida que se vuelve a rechazar: el rechazo anterior queda en la lista
+        previo["rechazos"] = list(previo.get("rechazos") or []) + [
+            {"por": previo.get("rechazada_por"), "en": previo.get("rechazada_en"), "nota": previo.get("nota") or ""}]
     return _db.actualizar_publicacion(pid, {"estado": "rechazada",
                                         "procesado_en": datetime.now(timezone.utc).isoformat(),
-                                        "resultado": dict(resultado_previo or {}, rechazada_por=usuario, nota=nota or "",
+                                        "resultado": dict(previo, rechazada_por=usuario, nota=nota or "",
                                                           rechazada_en=datetime.now(timezone.utc).isoformat(timespec="seconds"))})
+
+
+# (4/11) Una pieza rechazada vuelve al circuito: se corrige en la misma fila y se reenvía. Estas claves de `resultado` son su
+# historial y pasan de una versión a la siguiente (guardar la corrección, reenviar a aprobación).
+HISTORIAL = ("rechazada_por", "rechazada_en", "nota", "rechazos", "corregida_por", "corregida_en")
+
+
+def historial_de(resultado):
+    return {k: v for k, v in (resultado or {}).items() if k in HISTORIAL}
+
+
+def reproponer_publicacion(pid, usuario, canal, modo, titulo, texto, imagen_url, fecha_programada, extra=None, por=None, previo=None):
+    """(4/11) «Enviar a aprobación» desde un borrador o una rechazada que se está corrigiendo: la MISMA fila pasa a 'a_aprobar'
+    (mismo id: la carpeta y el historial no se pierden). `usuario` es la dueña, `por` quien la manda."""
+    if not _db.disponible():
+        return None
+    ahora = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    resultado = dict(historial_de(previo), **(extra or {}))
+    resultado.update(propuesta_por=por or usuario, propuesta_en=ahora)
+    if (previo or {}).get("rechazada_por"):
+        resultado["reenviada_en"] = ahora
+    fila = {"usuario": usuario, "canal": canal, "modo": modo, "titulo": titulo, "texto": texto, "imagen_url": imagen_url,
+            "fecha_programada": fecha_programada, "estado": "a_aprobar", "procesado_en": None, "resultado": resultado}
+    r = _db._req("PATCH", f"?id=eq.{_q(pid)}", fila, tabla="publicaciones")
+    return pid if r is not None else None
 
 
 def listar_mias(usuario, limite=50):
@@ -163,13 +192,13 @@ def listar_compartidas(usuario, limite=50):
 ELIMINABLES = ("borrador", "prueba", "simulada", "simulado", "rechazada", "cancelada", "error")
 
 
-def guardar_borrador(usuario, canal, titulo, texto, imagen_url, fecha_programada, pieza, pid=None, por=None):
+def guardar_borrador(usuario, canal, titulo, texto, imagen_url, fecha_programada, pieza, pid=None, por=None, conservar=None):
     """`usuario` es la dueña. `por` (4/11): quien lo guardó, si es otra persona con permiso de edición por un proyecto
     (queda en resultado.editada_por; la dueña no cambia)."""
     if not _db.disponible():
         return None
     ahora = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    resultado = {"pieza": pieza, "guardado_en": ahora}
+    resultado = dict(conservar or {}, pieza=pieza, guardado_en=ahora)   # conservar: el historial de un rechazo (4/11)
     if por and por != usuario:
         resultado.update(editada_por=por, editada_en=ahora)
     fila = {"usuario": usuario, "canal": canal, "modo": "borrador", "titulo": titulo, "texto": texto,
@@ -245,10 +274,11 @@ def obtener_borrador(pid, usuario, canal=None):
 
 
 def borrar_borrador(pid, usuario):
-    """(3/11) Al enviar o mandar a aprobación, el borrador que se estaba retomando se elimina (solo si sigue siendo borrador y propio)."""
+    """(3/11) Al enviar, el borrador que se estaba retomando se elimina (solo si sigue siendo borrador, o una rechazada que se
+    corrigió (4/11), y es de esa persona)."""
     if not pid:
         return
-    _db.borrar("publicaciones", {"id": ("eq", pid), "estado": ("eq", "borrador"), "usuario": ("eq", usuario)})
+    _db.borrar("publicaciones", {"id": ("eq", pid), "estado": ("in", ["borrador", "rechazada"]), "usuario": ("eq", usuario)})
 
 
 # ---------------- Frase del día por mail (26/10): tabla frase_envios ----------------

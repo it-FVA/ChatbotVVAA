@@ -197,6 +197,12 @@ export default function PiezaVer() {
                 </dd>
               </>
             )}
+            {p.corregida_por && (
+              <>
+                <dt>Corrigió</dt>
+                <dd>{p.corregida_por === yo?.usuario ? "vos" : p.corregida_por}</dd>
+              </>
+            )}
             {p.nota && (
               <>
                 <dt>Nota</dt>
@@ -216,7 +222,7 @@ export default function PiezaVer() {
           <div className="acciones">
             {edita && p.retomable && (propia || !esNewsletter) && (
               <Link className="boton primario" to={esNewsletter ? `/newsletter?borrador=${encodeURIComponent(p.id)}` : `/publicar?borrador=${encodeURIComponent(p.id)}`}>
-                <Icono nombre="lapiz" /> {propia ? "Retomar" : "Editar"}
+                <Icono nombre="lapiz" /> {p.estado === "rechazada" ? (propia ? "Corregir y reenviar" : "Editar y reenviar") : propia ? "Retomar" : "Editar"}
               </Link>
             )}
             {!esNewsletter && (

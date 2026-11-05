@@ -282,6 +282,7 @@ def decorar(p):
     p["propuesta_por"] = res.get("propuesta_por")
     p["aprobada_por"], p["aprobada_en"] = res.get("aprobada_por"), res.get("aprobada_en")
     p["rechazada_por"], p["rechazada_en"] = res.get("rechazada_por"), res.get("rechazada_en")
+    p["corregida_por"] = res.get("corregida_por")       # (4/11) quién corrigió una rechazada
     p["cancelada_por"] = res.get("cancelada_por")
     p["plantilla"] = (res.get("pieza") or {}).get("plantilla") or res.get("plantilla") if p.get("canal") == "newsletter" else None
     # «ver publicación ↗»: el permalink (IG/FB) o el link (WP/YT) de lo que efectivamente salió
@@ -291,7 +292,9 @@ def decorar(p):
     p["eliminable"] = est in db.ELIMINABLES
     p["compartido"] = bool(p.get("compartido"))      # (2/11) compartida con el equipo (publicaciones.compartido)
     # (2/11) también una prueba («Ver simulado»): Julián diseñó una historia, la probó sin guardar borrador y no podía retomarla
-    p["retomable"] = est in ("borrador", "prueba")
+    # (4/11) y una rechazada: deja de ser final, se corrige en la misma fila y se reenvía (el newsletter tiene su propio editor)
+    p["retomable"] = est in ("borrador", "prueba") or (est == "rechazada" and p.get("canal") != "newsletter")
+    p["corregible"] = est == "rechazada" and p.get("canal") != "newsletter"
     return p
 
 
@@ -316,9 +319,13 @@ def _borrador_ajeno(borrador_id, usuario, rol):
     if not borrador_id or not db.disponible():
         return None
     fila = db.obtener_publicacion(borrador_id)
-    if not fila or fila.get("estado") != "borrador":
+    if not fila or fila.get("estado") not in CORREGIBLES:
         return None
     return fila.get("usuario") if permiso_pieza(fila, usuario, rol) in ("dueño", "editar") else None
+
+
+# (4/11) lo que se retoma en la misma fila: un borrador y una rechazada que se corrige
+CORREGIBLES = ("borrador", "rechazada")
 
 
 def _cerrar_borrador(borrador_id, duena, nuevo_pid):
@@ -415,15 +422,21 @@ def guardar_borrador(p: PiezaCompleta, request: Request):
         raise HTTPException(400, "Elegí el canal para guardar el borrador.")
     fecha_iso = _fecha_iso(p.fecha, p.hora)
     duena = usuario
+    conservar = None
     if p.borrador_id:
         fila = _fila(p.borrador_id)
-        if fila.get("estado") != "borrador":
+        if fila.get("estado") not in CORREGIBLES:
             raise HTTPException(409, "Ese borrador ya no existe: se guarda uno nuevo si volvés a intentar sin el id.")
         duena = _borrador_ajeno(p.borrador_id, usuario, rol)
         if not duena:
             raise HTTPException(409, "Ese borrador es de otra persona y no tenés permiso para editarlo: se guarda uno nuevo, tuyo, si volvés a intentar sin el id.")
+        # (4/11) una rechazada que se corrige pasa a borrador en la misma fila y conserva el rechazo (quién, cuándo, la nota)
+        conservar = db.historial_de(fila.get("resultado"))
+        if fila.get("estado") == "rechazada" or conservar.get("rechazada_por"):
+            conservar.update(corregida_por=usuario, corregida_en=datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"))
     pid = db.guardar_borrador(duena, canal, p.titulo or "", p.texto or "", (p.imagen_url or "").strip() or None,
-                              (fecha_iso + ZONA_HORARIA) if fecha_iso else None, _datos_borrador(p, canal, fecha_iso), pid=p.borrador_id, por=usuario)
+                              (fecha_iso + ZONA_HORARIA) if fecha_iso else None, _datos_borrador(p, canal, fecha_iso), pid=p.borrador_id, por=usuario,
+                              conservar=conservar)
     if not pid:
         raise HTTPException(503, "No pude guardar el borrador.")
     if duena != usuario:
@@ -469,16 +482,23 @@ def enviar_a_aprobacion(p: PiezaCompleta, request: Request):
     finally:
         _contexto.reset(token)
     formato = (p.vfmt if p.video_url else (diseno or {}).get("formato")) if canal in ("instagram", "facebook") else None
+    # (4/11) el formulario completo (foto original y diseño) queda guardado: si la rechazan, se corrige desde ahí y no desde la
+    # imagen ya compuesta
+    extra = {"texto_imagen": (p.texto_imagen or None), "formato": formato or None, "video_url": (p.video_url or None), "origen": "web",
+             "pieza": _datos_borrador(p, canal, fecha_iso)}
     try:
-        pid = db.proponer_publicacion(duena or usuario, canal, r.get(canal), p.titulo or "", texto, imagen_url,
-                                      (fecha_iso + ZONA_HORARIA) if fecha_iso else None,
-                                      extra={"texto_imagen": (p.texto_imagen or None), "formato": formato or None,
-                                             "video_url": (p.video_url or None), "origen": "web"}, por=usuario)
+        if duena:     # (4/11) un borrador o una rechazada que se corrige: la misma fila pasa a a_aprobar (mismo id, misma carpeta)
+            previa = db.obtener_publicacion(p.borrador_id) or {}
+            pid = db.reproponer_publicacion(p.borrador_id, duena, canal, r.get(canal), p.titulo or "", texto, imagen_url,
+                                            (fecha_iso + ZONA_HORARIA) if fecha_iso else None, extra=extra, por=usuario,
+                                            previo=previa.get("resultado"))
+        else:
+            pid = db.proponer_publicacion(usuario, canal, r.get(canal), p.titulo or "", texto, imagen_url,
+                                          (fecha_iso + ZONA_HORARIA) if fecha_iso else None, extra=extra, por=usuario)
     except Exception as e:
         raise HTTPException(503, f"No pude guardar la pieza para aprobación: {e}")
     if not pid:
         raise HTTPException(503, "No pude guardar la pieza para aprobación.")
-    _cerrar_borrador(p.borrador_id, duena, pid)
     import avisos as _avisos
     _avisos.pieza_a_aprobar(db, pid, usuario, canal, p.titulo, texto, formato)   # (2/11) Slack / mail a los aprobadores, en un hilo
     quien = ", ".join(rol.get("aprobadores") or []) or "un aprobador"
@@ -525,7 +545,8 @@ def enviar(p: Envio, request: Request):
         if fecha_iso and _va_a_la_cola(canal, modo):
             try:
                 pid = db.encolar_publicacion(duena or usuario, canal, modo, titulo, texto, imagen_url, fecha_iso + ZONA_HORARIA,
-                                             extra={"texto_imagen": p.texto_imagen or None, "formato": formato or None, "video_url": video_url, "origen": "web"},
+                                             extra={"texto_imagen": p.texto_imagen or None, "formato": formato or None, "video_url": video_url, "origen": "web",
+                                                    **({"viene_de": p.borrador_id} if duena else {})},
                                              por=usuario)
             except Exception as e:
                 raise HTTPException(503, f"No pude guardar la pieza en la cola: {e}")

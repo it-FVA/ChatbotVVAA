@@ -269,8 +269,8 @@ export function TarjetaPublicacion({ p, mostrarUsuario = false, onEliminar, onCa
                 <Icono nombre="lapiz" /> Retomar
               </Link>
             ) : (
-              <Link className="boton primario" to={`/publicar?borrador=${encodeURIComponent(p.id)}`}>
-                <Icono nombre="lapiz" /> Retomar
+              <Link className="boton primario" to={`/publicar?borrador=${encodeURIComponent(p.id)}`} title={p.estado === "rechazada" ? "Abre la pieza con la nota del rechazo arriba: corregila y mandala otra vez a aprobación" : undefined}>
+                <Icono nombre="lapiz" /> {p.estado === "rechazada" ? "Corregir y reenviar" : "Retomar"}
               </Link>
             ))}
           {p.ver_url && (

@@ -112,7 +112,7 @@ def test_componer(logueado, base, monkeypatch):
 def test_borrador_completo(logueado, base, monkeypatch):
     guardado = {}
 
-    def _guardar(usuario, canal, titulo, texto, imagen_url, fecha, pieza, pid=None, por=None):
+    def _guardar(usuario, canal, titulo, texto, imagen_url, fecha, pieza, pid=None, por=None, conservar=None):
         guardado.update(usuario=usuario, canal=canal, titulo=titulo, imagen_url=imagen_url, fecha=fecha, pieza=pieza, pid=pid)
         return pid or "b1"
     monkeypatch.setattr(db, "guardar_borrador", _guardar)
@@ -146,6 +146,9 @@ def test_a_aprobar_con_compuesta(lizzie, base, monkeypatch):
         propuesto.update(usuario=usuario, canal=canal, modo=modo, titulo=titulo, texto=texto, imagen_url=imagen_url, fecha=fecha, extra=extra)
         return "p1"
     monkeypatch.setattr(db, "proponer_publicacion", _proponer)
+    # (4/11) retomando un borrador, la MISMA fila pasa a a_aprobar (mismo id, la carpeta no se pierde)
+    monkeypatch.setattr(db, "reproponer_publicacion", lambda pid, usuario, canal, modo, titulo, texto, imagen_url, fecha, extra=None, por=None, previo=None:
+                        propuesto.update(pid=pid, usuario=usuario, canal=canal, modo=modo, titulo=titulo, texto=texto, imagen_url=imagen_url, fecha=fecha, extra=extra) or pid)
 
     def _subir(cfg, datos, nombre, titulo="", etiquetas=None, quien="", pieza=""):
         subidas.append((cfg.modo_wp, nombre, etiquetas, datos))
@@ -161,8 +164,10 @@ def test_a_aprobar_con_compuesta(lizzie, base, monkeypatch):
     assert subidas[0][0] == "borrador" and subidas[0][1].startswith("pieza-") and subidas[0][2] == ["pieza-compuesta"] and subidas[0][3].startswith(JPG)
     assert propuesto["imagen_url"] == "https://wp/compuesta.jpg" and propuesto["modo"] == "real" and propuesto["texto"] == "Hola link"
     assert propuesto["fecha"] == "2026-11-03T09:15:00-03:00"
-    assert propuesto["extra"] == {"texto_imagen": "La gratitud es la llave", "formato": "vertical", "video_url": None, "origen": "web"}
-    assert "b7" not in base["filas"]                       # el borrador retomado se eliminó
+    extra = dict(propuesto["extra"]); pz = extra.pop("pieza")
+    assert extra == {"texto_imagen": "La gratitud es la llave", "formato": "vertical", "video_url": None, "origen": "web"}
+    assert pz["url"] == "https://wp/f.jpg"         # el formulario guarda la foto original, no la compuesta
+    assert propuesto["pid"] == "b7" and r.json()["id"] == "b7"     # el mismo id del borrador retomado
     # sin frase ni logo: no se compone ni se sube nada; «Publicar así» destildado tampoco
     subidas.clear()
     lizzie.post("/publicar/a-aprobar", json={"canal": "instagram", "texto": "x", "imagen_url": "https://wp/f.jpg", "logo": "Sin logo"})

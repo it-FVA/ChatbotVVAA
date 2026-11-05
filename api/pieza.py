@@ -112,4 +112,8 @@ class Pieza(BaseModel):
         datos["borrador_id"] = fila.get("id")
         limpio = {k: v for k, v in datos.items() if k in cls.model_fields}
         limpio["usar_compuesta"] = bool(limpio.get("usar_compuesta", True)) if limpio.get("usar_compuesta") is not None else True
+        # (4/11) una pieza mandada a aprobación antes del 4/11 no guardaba el formulario y su imagen_url ya es la compuesta (la frase
+        # está dentro de la foto): al corregirla no se vuelve a poner la frase encima, va la imagen tal cual
+        if not g and res.get("texto_imagen") and fila.get("estado") not in ("borrador", "prueba"):
+            limpio["usar_compuesta"] = False
         return cls(**{k: (str(v) if v is not None and k not in ("usar_compuesta",) else v) for k, v in limpio.items()})

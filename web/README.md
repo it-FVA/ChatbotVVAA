@@ -78,6 +78,24 @@ permisos de edición». Ahora el permiso de la carpeta manda:
   `api/publicar_rutas.py`, `_edita_por_proyecto` en `api/recortes.py`).
 - Capturas 45 a 47.
 
+## Una rechazada vuelve al circuito (4/11)
+
+Franco abrió una pieza rechazada con la nota «se retorna para colaborar» y solo podía «Usar como base». Ahora el circuito es borrador,
+a aprobación, rechazada, a aprobación otra vez, pendiente y publicada. Quedan cerradas solo la publicada, la cancelada y las que
+están en la cola.
+
+- **Quién corrige:** la dueña, un aprobador o quien tiene «editar» por una carpeta. En Mis publicaciones la dueña ve «Corregir y
+  reenviar», y en la pieza el botón principal es «Corregir y reenviar» o «Editar y reenviar».
+- **Diseñar** muestra arriba del formulario quién la rechazó, cuándo y la nota.
+- **Al guardar** la misma fila pasa a borrador y conserva el rechazo, más quién la corrigió (`corregida_por`).
+- **Al mandarla a aprobación** la misma fila pasa a «a aprobar», con el mismo id y en la misma carpeta, y llega el aviso de siempre a
+  los aprobadores. Esto vale también para un borrador común: ya no se crea una fila nueva.
+- **Si la vuelven a rechazar** el rechazo anterior queda en `resultado.rechazos`.
+- **Con «ver»** o en una publicada o cancelada solo queda «Usar como base». Guardar sobre ella da 409.
+- Desde ahora la propuesta guarda el formulario completo, con la foto original. Las rechazadas anteriores no lo tienen y su imagen
+  ya trae la frase, así que al corregirlas «Publicar así» arranca destildado para no ponerle la frase dos veces.
+- Capturas 48 a 50.
+
 ## El chat (fase 2, 22/10)
 
 `/chat` y `/chat/<id>` (`src/paginas/Chat.tsx`, estilos en `src/chat.css`). Detalle:

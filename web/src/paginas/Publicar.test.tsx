@@ -116,6 +116,40 @@ describe("Diseñar", () => {
     expect(screen.getByText("Así quedaría el posteo.")).toBeInTheDocument();
   });
 
+  // (4/11, Franco) una rechazada vuelve al circuito: se corrige en el mismo lugar, con la nota del rechazo a la vista
+  const RECHAZADA = {
+    id: "r1", usuario: "patricio", canal: "facebook", estado: "rechazada", titulo: "Al mismo nivel", texto: "Texto de Patricio",
+    rechazada_por: "julian", rechazada_en: "2026-11-04T20:00:00+00:00", nota: "se retorna para colaborar",
+    propia: false, retomable: true, corregible: true,
+    pieza: { canal: "facebook", titulo: "Al mismo nivel", texto: "Texto de Patricio", imagen_url: "", borrador_id: "r1" },
+  };
+
+  it("una rechazada ajena con permiso editar se corrige en el mismo lugar y se reenvía con el mismo id", async () => {
+    const u = userEvent.setup();
+    const api = instalarApi({
+      "GET /publicar/opciones": { ...OPCIONES, publica: false, aprueba: false, rol: "creador" },   // quien no publica directo manda a aprobación
+      "GET /banco": [],
+      "GET /publicaciones/r1": { ...RECHAZADA, permiso: "editar" },
+      "POST /publicar/a-aprobar": { ok: true, id: "r1", estado: "a_aprobar", modo: "aprobacion", imagen_url: null, avisos: [], mensaje: "Quedó pendiente de aprobación (ana)." },
+    });
+    montar("/publicar?borrador=r1");
+    expect(await screen.findByRole("note")).toHaveTextContent("La rechazó julian");
+    expect(screen.getByRole("note")).toHaveTextContent("«se retorna para colaborar»");
+    expect(screen.getByText(/Corrigiendo una pieza rechazada de patricio/)).toBeInTheDocument();
+    // al retomar, el formulario arranca con el paso 1 hecho
+    await u.click(await screen.findByRole("button", { name: /Siguiente: cuándo y enviar/ }));
+    await u.click(await screen.findByRole("button", { name: /Enviar a aprobación/ }));
+    await waitFor(() => expect(api.de("POST", "/publicar/a-aprobar")).toHaveLength(1));
+    expect(api.de("POST", "/publicar/a-aprobar")[0].cuerpo).toMatchObject({ borrador_id: "r1", canal: "facebook", texto: "Texto de Patricio" });
+  });
+
+  it("una rechazada ajena con permiso ver se abre como copia, sin la nota ni el id", async () => {
+    instalarApi({ "GET /publicar/opciones": OPCIONES, "GET /banco": [], "GET /publicaciones/r1": { ...RECHAZADA, permiso: "ver", retomable: false } });
+    montar("/publicar?borrador=r1");
+    expect(await screen.findByText(/Una copia de una pieza de/)).toBeInTheDocument();
+    expect(screen.queryByRole("note")).not.toBeInTheDocument();
+  });
+
   it("si la API falla al abrir muestra el error y deja reintentar", async () => {
     instalarApi({});
     montar("/publicar?canal=facebook");

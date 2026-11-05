@@ -343,7 +343,10 @@ def _sin_envio_real(monkeypatch):
     monkeypatch.setattr(pub.cr, "modos", lambda: {"facebook": "real"})
     monkeypatch.setattr(pub.cr, "_puede_proponer", lambda canal, r: True)
     monkeypatch.setattr(pub, "_compuesta_de", lambda p, canal, av: (None, None))
-    monkeypatch.setattr(avisos, "pieza_a_aprobar", lambda *a, **k: None)
+    avisados = []
+    monkeypatch.setattr(avisos, "pieza_a_aprobar", lambda *a, **k: avisados.append(a[1]))
+    monkeypatch.setattr(avisos, "pieza_resuelta", lambda *a, **k: None)
+    return avisados
 
 
 def test_pieza_ajena_se_edita_en_colaboracion(logueado, base, cliente, monkeypatch):
@@ -376,15 +379,14 @@ def test_pieza_ajena_se_edita_en_colaboracion(logueado, base, cliente, monkeypat
     assert cliente.get("/publicaciones/p1").json()["editada_por"] == "lizzie"
     assert cliente.delete("/publicaciones/p1").status_code in (403, 404, 409)      # borrar sigue siendo de la dueña
 
-    # mandarlo a aprobación: la pieza nueva es de Franco, la propuso Lizzie, y sigue en la subcarpeta
+    # mandarlo a aprobación: la misma fila (mismo id) pasa a a_aprobar, sigue siendo de Franco, la propuso Lizzie, y sigue en la subcarpeta
     r = cliente.post("/publicar/a-aprobar", json={"canal": "facebook", "texto": "Listo para aprobar", "borrador_id": "p1"})
-    assert r.status_code == 200, r.text
-    nuevo = r.json()["id"]
-    fila = next(p for p in base.t["publicaciones"] if p["id"] == nuevo)
+    assert r.status_code == 200 and r.json()["id"] == "p1", r.text
+    fila = next(p for p in base.t["publicaciones"] if p["id"] == "p1")
     assert fila["usuario"] == "franco" and fila["resultado"]["propuesta_por"] == "lizzie" and fila["estado"] == "a_aprobar"
-    assert not any(p["id"] == "p1" for p in base.t["publicaciones"])                # el borrador se cerró
+    assert len(base.t["publicaciones"]) == 1
     items = [i for i in base.t["proyecto_items"] if i["tipo"] == "pieza"]
-    assert [(i["proyecto_id"], i["item_id"]) for i in items] == [(sub["id"], nuevo)]
+    assert [(i["proyecto_id"], i["item_id"]) for i in items] == [(sub["id"], "p1")]
 
 
 def test_borrador_ajeno_sin_permiso_no_se_toca(logueado, base, cliente, monkeypatch):
@@ -417,3 +419,84 @@ def test_recorte_ajeno_se_edita_por_proyecto(logueado, base, cliente):
     r = cliente.post("/recortes/k1/edicion", json={"inicio_ms": 0, "fin_ms": 5000})
     assert r.status_code == 200, r.text
     assert base.t["clips"][0]["estado"] == "pedido" and "lizzie" in base.t["clips"][0]["nota"]
+
+
+def _rechazada(base):
+    p1 = base.t["publicaciones"][0]
+    p1.update(estado="rechazada", resultado={"rechazada_por": "julian", "rechazada_en": "2026-11-04T20:00:00+00:00",
+                                             "nota": "se retorna para colaborar", "propuesta_por": "franco"})
+    return p1
+
+
+def test_rechazada_se_corrige_y_se_reenvia(logueado, base, cliente, monkeypatch):
+    """(4/11, Franco) Una rechazada deja de ser final: se corrige en la misma fila (la dueña, un aprobador o quien tiene «editar» por
+    una carpeta) y se reenvía a aprobación con el mismo id, sin perder el rechazo ni la carpeta. Con «ver», 409."""
+    avisados = _sin_envio_real(monkeypatch)
+    p1 = _rechazada(base)
+    _como(logueado, "franco")
+    d = logueado.get("/publicaciones/p1").json()
+    assert d["retomable"] is True and d["corregible"] is True and d["pieza"]["borrador_id"] == "p1"
+    a = logueado.post("/proyectos", json={"nombre": "De Julián"}).json()
+    logueado.post(f"/proyectos/{a['id']}/items", json={"tipo": "pieza", "item_id": "p1"})
+    logueado.put(f"/compartidos/proyecto/{a['id']}", json={"usuario": "lizzie", "permiso": "ver"})
+
+    _lizzie(cliente)
+    d = cliente.get("/publicaciones/p1").json()
+    assert d["permiso"] == "ver" and d["retomable"] is False and d["nota"] == "se retorna para colaborar"
+    assert cliente.post("/publicar/borrador", json={"canal": "facebook", "texto": "Corregido", "borrador_id": "p1"}).status_code == 409
+    assert p1["estado"] == "rechazada"
+
+    _como(logueado, "franco")
+    logueado.put(f"/compartidos/proyecto/{a['id']}", json={"usuario": "lizzie", "permiso": "editar"})
+    _lizzie(cliente)
+    assert cliente.get("/publicaciones/p1").json()["retomable"] is True
+    # guardar la corrección: misma fila, pasa a borrador, conserva el rechazo y anota quién corrigió
+    r = cliente.post("/publicar/borrador", json={"canal": "facebook", "texto": "Corregido", "borrador_id": "p1"})
+    assert r.status_code == 200 and r.json()["id"] == "p1", r.text
+    assert p1["estado"] == "borrador" and p1["usuario"] == "franco" and p1["texto"] == "Corregido"
+    res = p1["resultado"]
+    assert res["rechazada_por"] == "julian" and res["nota"] == "se retorna para colaborar" and res["corregida_por"] == "lizzie"
+    assert res["editada_por"] == "lizzie" and res["pieza"]["texto"] == "Corregido"
+    # guardar otra vez no pierde el historial
+    cliente.post("/publicar/borrador", json={"canal": "facebook", "texto": "Corregido 2", "borrador_id": "p1"})
+    assert p1["resultado"]["rechazada_por"] == "julian"
+    # reenviar: la misma fila vuelve a a_aprobar, con el aviso de siempre a los aprobadores
+    r = cliente.post("/publicar/a-aprobar", json={"canal": "facebook", "texto": "Corregido final", "borrador_id": "p1"})
+    assert r.status_code == 200 and r.json()["id"] == "p1", r.text
+    assert p1["estado"] == "a_aprobar" and p1["usuario"] == "franco" and p1["texto"] == "Corregido final"
+    res = p1["resultado"]
+    assert res["propuesta_por"] == "lizzie" and res["rechazada_por"] == "julian" and res["corregida_por"] == "lizzie" and res["reenviada_en"]
+    assert res["pieza"]["texto"] == "Corregido final" and avisados == ["p1"] and len(base.t["publicaciones"]) == 1
+    assert [i["item_id"] for i in base.t["proyecto_items"] if i["tipo"] == "pieza"] == ["p1"]
+    # si la vuelven a rechazar, el rechazo anterior queda en la lista
+    _como(logueado, "franco")
+    assert logueado.post("/aprobacion/p1/rechazar", json={"nota": "falta la firma"}).status_code == 200
+    res = p1["resultado"]
+    assert p1["estado"] == "rechazada" and res["nota"] == "falta la firma" and res["rechazada_por"] == "franco"
+    assert res["rechazos"] == [{"por": "julian", "en": "2026-11-04T20:00:00+00:00", "nota": "se retorna para colaborar"}]
+
+
+def test_rechazada_se_reenvia_directo_y_publicada_no_se_retoma(logueado, base, cliente, monkeypatch):
+    """La dueña reenvía una rechazada sin guardar antes. Una publicada o cancelada sigue cerrada: solo «Usar como base»."""
+    _sin_envio_real(monkeypatch)
+    p1 = _rechazada(base)
+    _como(logueado, "franco")
+    r = logueado.post("/publicar/a-aprobar", json={"canal": "facebook", "texto": "Arreglado", "borrador_id": "p1"})
+    assert r.status_code == 200 and r.json()["id"] == "p1" and p1["estado"] == "a_aprobar" and p1["resultado"]["nota"] == "se retorna para colaborar"
+    for est in ("publicada", "cancelada", "a_aprobar", "pendiente"):
+        p1["estado"] = est
+        d = logueado.get("/publicaciones/p1").json()
+        assert d["retomable"] is False and d["corregible"] is False, est
+        assert logueado.post("/publicar/borrador", json={"canal": "facebook", "texto": "x", "borrador_id": "p1"}).status_code == 409, est
+
+
+def test_rechazada_vieja_no_compone_la_frase_dos_veces(logueado, base):
+    """Una pieza mandada a aprobación antes del 4/11 no guardaba el formulario: su imagen ya trae la frase. Al corregirla,
+    «Publicar así» arranca destildado para no ponerle la frase encima otra vez."""
+    p1 = _rechazada(base)
+    p1["resultado"]["texto_imagen"] = "La gratitud es la llave"
+    _como(logueado, "franco")
+    pz = logueado.get("/publicaciones/p1").json()["pieza"]
+    assert pz["texto_imagen"] == "La gratitud es la llave" and pz["usar_compuesta"] is False
+    p1["resultado"]["pieza"] = {"txt": "x", "url": "https://x/original.jpg"}     # una nueva sí guarda el formulario: se compone normal
+    assert logueado.get("/publicaciones/p1").json()["pieza"]["usar_compuesta"] is True
