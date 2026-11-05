@@ -19,6 +19,22 @@ def _cfg():
     return url, os.environ.get("SUPABASE_KEY_COLA", "").strip() or os.environ.get("SUPABASE_KEY", "")
 
 
+# (5/11) Clave pública «anon» del proyecto (publishable: está en cualquier cliente del navegador, no es un secreto). El gateway de
+# Supabase exige en la cabecera `apikey` una clave CONOCIDA (anon o service_role); un JWT propio como el de la cola ahí da
+# «Invalid API key». Por eso con SUPABASE_KEY_COLA el `apikey` es la anon y el rol va solo en `Authorization: Bearer`.
+ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtoZ2Zxa2xpZXByY3B4cnlxaHR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNTY1MTIsImV4cCI6MjEwMzkzMjUxMn0.0rTFai5tTQaImYlHDGw51_NU6VlwhD8FNon0kKG9M5Y"
+
+
+def _cabeceras(key, extra=None):
+    """apikey + Authorization para una clave: service_role o anon van en las dos; la clave acotada de la cola solo en Bearer."""
+    apikey = key
+    if key and key == os.environ.get("SUPABASE_KEY_COLA", "").strip():
+        apikey = os.environ.get("SUPABASE_ANON_KEY", "").strip() or ANON_KEY
+    h = {"apikey": apikey, "Authorization": "Bearer " + key}
+    h.update(extra or {})
+    return h
+
+
 def disponible():
     url, key = _db._cfg()
     return bool(url and key)
@@ -39,9 +55,8 @@ def _req(method, params="", body=None, tabla="conversaciones", prefer=None, time
     url, key = _db._cfg()
     full = f"{url}/rest/v1/{tabla}{params}"
     data = json.dumps(body, ensure_ascii=False).encode("utf-8") if body is not None else None
-    req = urllib.request.Request(full, data=data, method=method, headers={
-        "apikey": key, "Authorization": "Bearer " + key,
-        "Content-Type": "application/json", "Prefer": prefer or "return=representation"})
+    req = urllib.request.Request(full, data=data, method=method, headers=_cabeceras(key, {
+        "Content-Type": "application/json", "Prefer": prefer or "return=representation"}))
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
             txt = r.read().decode("utf-8")
@@ -112,7 +127,7 @@ def ping():
 def _rpc(nombre, body, timeout=30):
     url, key = _db._cfg()
     req = urllib.request.Request(f"{url}/rest/v1/rpc/{nombre}", data=json.dumps(body).encode("utf-8"), method="POST",
-                                 headers={"apikey": key, "Authorization": "Bearer " + key, "Content-Type": "application/json"})
+                                 headers=_db._cabeceras(key, {"Content-Type": "application/json"}))
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
             txt = r.read().decode("utf-8")

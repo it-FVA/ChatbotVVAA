@@ -10,7 +10,7 @@
 -- NO está aplicada. Pasos (en este orden; nada se corta si algo falla: la cola sigue con SUPABASE_KEY hasta que exista el secret):
 --
 --  1. Supabase → SQL Editor → pegar ESTE archivo y correrlo. Es idempotente (se puede correr dos veces).
---  2. Supabase → Project Settings → API → «JWT Secret» (el secreto legado de firma). Copiarlo SOLO a una variable de entorno de
+--  2. Supabase → Project Settings → JWT Keys → solapa «Legacy JWT Secret» → Reveal (el secreto HS256 que sigue verificando JWTs). Copiarlo SOLO a una variable de entorno de
 --     tu terminal, nunca a un archivo del repo:
 --         set SUPABASE_JWT_SECRET=...            (PowerShell: $env:SUPABASE_JWT_SECRET = "...")
 --     Si el panel solo ofrece «JWT Signing Keys» (el sistema nuevo) y no muestra el secreto legado, hay que pasar el proyecto a
@@ -18,9 +18,10 @@
 --  3. Generar la clave (un JWT con role = cola, vence a los 5 años):
 --         python api/generar_clave_cola.py
 --     Imprime la clave una sola vez. No queda guardada en ningún lado.
---  4. Probarla antes de usarla (reemplazar URL y CLAVE):
---         curl -s -H "apikey: CLAVE" -H "Authorization: Bearer CLAVE" "URL/rest/v1/config?select=clave&limit=1"   → 200 con filas
---         curl -s -H "apikey: CLAVE" -H "Authorization: Bearer CLAVE" "URL/rest/v1/usuarios?select=usuario&limit=1" → 401/403 «permission denied»
+--  4. Probarla antes de usarla: generar_clave_cola.py ya lo hace solo. A mano (reemplazar URL, ANON = clave pública anon del
+--     proyecto, CLAVE = la generada). OJO (5/11): el gateway de Supabase exige en `apikey` una clave conocida (anon); la CLAVE va solo en Bearer:
+--         curl -s -H "apikey: ANON" -H "Authorization: Bearer CLAVE" "URL/rest/v1/config?select=clave&limit=1"   → 200 con filas
+--         curl -s -H "apikey: ANON" -H "Authorization: Bearer CLAVE" "URL/rest/v1/usuarios?select=usuario&limit=1" → 401/403 «permission denied»
 --  5. GitHub → el repo → Settings → Secrets and variables → Actions → New repository secret:  SUPABASE_KEY_COLA = la clave.
 --     (cola.yml y db/_cliente.py ya la usan cuando existe: ver variables_entorno.py.)
 --  6. Actions → cola-de-publicacion → Run workflow, y mirar el log: tiene que listar «pendientes vencidas» sin errores 401/403.
