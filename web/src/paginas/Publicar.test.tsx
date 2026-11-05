@@ -2,7 +2,7 @@
 // y apretar «Ver simulado» (revisión 3/11, 5.3 punto 19).
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { Link, MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { ToastProvider } from "../componentes/Toasts";
 import { instalarApi } from "../pruebas/apiSimulada";
@@ -44,7 +44,7 @@ const OPCIONES: OpcionesPublicar = {
   pesos: ["Normal"],
   posiciones: ["Centro"],
   alineaciones: ["Centro"],
-  formatos: { cuadrado: [1080, 1080] },
+  formatos: { cuadrado: [1080, 1080], vertical: [1080, 1350], historia: [1080, 1920] },
   formato_por_canal: { facebook: "cuadrado", instagram: "cuadrado" },
   firma_defecto: "Vivir Agradecidos",
   zona: "America/Argentina/Buenos_Aires",
@@ -164,6 +164,95 @@ describe("Diseñar", () => {
     montar("/publicar?borrador=r1");
     expect(await screen.findByText(/Una copia de una pieza de/)).toBeInTheDocument();
     expect(screen.queryByRole("note")).not.toBeInTheDocument();
+  });
+
+  // (5/11, Franco) Instagram son tres entradas del menú: Posteo, Reel e Historia, cada una con su formulario acotado
+  describe("Instagram por tipo", () => {
+    const RECORTE = { id: "c1", titulo: "Un corte", estado: "listo", url: "https://v/c1.mp4", miniatura: null, formato: "vertical", inicio_ms: 0, fin_ms: 30000, propio: true, subido: false };
+    function pantallaIG(ruta: string) {
+      const api = instalarApi({
+        "GET /publicar/opciones": OPCIONES,
+        "GET /banco": [],
+        "GET /recortes": [RECORTE],
+        "POST /publicar/a-aprobar": { ok: true, id: "p1", estado: "a_aprobar", modo: "aprobacion", imagen_url: null, avisos: [], mensaje: "Quedó pendiente de aprobación (ana)." },
+      });
+      montar(ruta);
+      return api;
+    }
+
+    it("posteo: foto con la frase y caption, sin video", async () => {
+      const u = userEvent.setup();
+      pantallaIG("/publicar?canal=instagram&tipo=posteo");
+      expect(await screen.findByRole("heading", { level: 1, name: "Diseñar · Instagram · Posteo" })).toBeInTheDocument();
+      expect(screen.getByLabelText(/Texto de la pieza/)).toBeInTheDocument();
+      await u.click(screen.getByRole("button", { name: /Siguiente: foto y diseño/ }));
+      expect(await screen.findByLabelText(/Texto sobre la imagen/)).toBeInTheDocument();
+      expect(screen.queryByText(/O usá un video vertical/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Usar este/)).not.toBeInTheDocument();
+    });
+
+    it("reel: sin video no deja enviar; con un recorte, sí, y manda formato vertical", async () => {
+      const u = userEvent.setup();
+      const api = pantallaIG("/publicar?canal=instagram&tipo=reel");
+      expect(await screen.findByRole("heading", { level: 1, name: "Diseñar · Instagram · Reel" })).toBeInTheDocument();
+      await u.type(screen.getByLabelText(/Texto de la pieza/), "Un caption");
+      await u.click(screen.getByRole("button", { name: /Siguiente: video/ }));
+      // el paso 2 es el video: no hay foto ni frase
+      expect(screen.queryByLabelText(/Texto sobre la imagen/)).not.toBeInTheDocument();
+      expect(screen.queryByRole("radiogroup", { name: "Elegí una foto" })).not.toBeInTheDocument();
+      await u.click(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ }));
+      expect(await screen.findByRole("button", { name: /Enviar a aprobación/ })).toBeDisabled();
+      expect(screen.getByText(/falta el video/)).toBeInTheDocument();
+      // se elige un recorte
+      await u.click(screen.getByRole("button", { name: /Video/ }));
+      await u.click(await screen.findByRole("button", { name: "Usar este" }));
+      await u.click(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ }));
+      const enviar = await screen.findByRole("button", { name: /Enviar a aprobación/ });
+      expect(enviar).toBeEnabled();
+      await u.click(enviar);
+      await waitFor(() => expect(api.de("POST", "/publicar/a-aprobar")).toHaveLength(1));
+      expect(api.de("POST", "/publicar/a-aprobar")[0].cuerpo).toMatchObject({ canal: "instagram", texto: "Un caption", video_url: "https://v/c1.mp4", formato: "vertical", vfmt: "reel" });
+    });
+
+    it("historia: sin caption, con el aviso de 24 horas; manda formato historia", async () => {
+      const u = userEvent.setup();
+      const api = pantallaIG("/publicar?canal=instagram&tipo=historia");
+      expect(await screen.findByRole("heading", { level: 1, name: "Diseñar · Instagram · Historia" })).toBeInTheDocument();
+      expect(screen.queryByLabelText(/Texto de la pieza/)).not.toBeInTheDocument();
+      expect(screen.getByText(/dura 24 horas y no lleva caption/)).toBeInTheDocument();
+      // sin foto ni video todavía no se puede enviar
+      await u.click(screen.getByRole("button", { name: /Siguiente: foto o video/ }));
+      expect(screen.getByText(/O usá un video vertical/)).toBeInTheDocument();
+      expect(screen.queryByLabelText(/^Formato/)).not.toBeInTheDocument();
+      await u.click(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ }));
+      expect(await screen.findByRole("button", { name: /Enviar a aprobación/ })).toBeDisabled();
+      expect(screen.getByText(/falta la foto/)).toBeInTheDocument();
+      expect(api.de("POST", "/publicar/a-aprobar")).toHaveLength(0);
+    });
+
+    it("al cambiar de tipo desde el menú se conserva el texto escrito", async () => {
+      const u = userEvent.setup();
+      instalarApi({ "GET /publicar/opciones": OPCIONES, "GET /banco": [], "GET /recortes": [RECORTE] });
+      render(
+        <MemoryRouter initialEntries={["/publicar?canal=instagram&tipo=posteo"]}>
+          <ToastProvider>
+            <Link to="/publicar?canal=instagram&tipo=reel">ir al reel</Link>
+            <Link to="/publicar?canal=instagram&tipo=historia">ir a la historia</Link>
+            <Publicar />
+          </ToastProvider>
+        </MemoryRouter>,
+      );
+      await u.type(await screen.findByLabelText(/Texto de la pieza/), "Mi caption");
+      await u.click(screen.getByText("ir al reel"));
+      expect(await screen.findByRole("heading", { level: 1, name: "Diseñar · Instagram · Reel" })).toBeInTheDocument();
+      expect(screen.getByLabelText(/Texto de la pieza/)).toHaveValue("Mi caption");
+      // la historia no lleva caption: el campo se oculta, pero el texto no se pierde al volver
+      await u.click(screen.getByText("ir a la historia"));
+      expect(await screen.findByRole("heading", { level: 1, name: "Diseñar · Instagram · Historia" })).toBeInTheDocument();
+      expect(screen.queryByLabelText(/Texto de la pieza/)).not.toBeInTheDocument();
+      await u.click(screen.getByText("ir al reel"));
+      expect(await screen.findByLabelText(/Texto de la pieza/)).toHaveValue("Mi caption");
+    });
   });
 
   it("si la API falla al abrir muestra el error y deja reintentar", async () => {

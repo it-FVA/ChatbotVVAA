@@ -185,3 +185,31 @@ export interface ConversacionBorrada {
   actualizado: string | null;
   borrada: string;
 }
+
+// (5/11, Franco) Instagram se diseña como tres cosas distintas: Posteo, Reel e Historia. «tipo» NO es un campo de la pieza: se deduce de
+// lo que ya existe (el formato y si hay video). Un solo lugar para eso, usado por Diseñar, Mis publicaciones, Aprobación y la pieza.
+export type TipoInstagram = "posteo" | "reel" | "historia";
+export const TIPOS_INSTAGRAM: TipoInstagram[] = ["posteo", "reel", "historia"];
+export const NOMBRE_TIPO_INSTAGRAM: Record<TipoInstagram, string> = { posteo: "Posteo", reel: "Reel", historia: "Historia" };
+
+/** ¿Es un tipo válido (por ejemplo el `?tipo=` de la URL)? */
+export function tipoInstagramValido(t: string | null | undefined): TipoInstagram | null {
+  return TIPOS_INSTAGRAM.find((x) => x === t) ?? null;
+}
+
+/** El tipo de una pieza de Instagram, o null si no es de Instagram. Sirve para el formulario (formato + vfmt + video_url) y para una
+ *  fila guardada (formato 'reel' | 'historia' | cuadrado | vertical, y video_url): historia = formato historia (con foto o con video);
+ *  si no, con video es reel; si no, posteo. */
+export function tipoInstagram(p: { canal?: string | null; formato?: string | null; video_url?: string | null; vfmt?: string | null }): TipoInstagram | null {
+  if ((p.canal || "").toLowerCase() !== "instagram") return null;
+  if (p.video_url) return (p.vfmt || p.formato) === "historia" ? "historia" : "reel";
+  if (p.formato === "historia") return "historia";
+  if (p.formato === "reel") return "reel";
+  return "posteo";
+}
+
+/** «Instagram · Reel» para una pieza de Instagram; el nombre del canal para las demás. */
+export function etiquetaCanal(p: { canal?: string | null; canal_texto?: string | null; formato?: string | null; video_url?: string | null }): string {
+  const t = tipoInstagram(p);
+  return t ? `${p.canal_texto || "Instagram"} · ${NOMBRE_TIPO_INSTAGRAM[t]}` : p.canal_texto || p.canal || "";
+}

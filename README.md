@@ -47,6 +47,7 @@ Frase del día y circuito de aprobación. Desde el 2/11/2026 es **solo la web + 
 4. Una prueba en `api/tests/test_canales.py` pasa sola por el canal nuevo (`enviar_pieza` en simulado); `--simular` también lo cubre.
 No se toca la cola, ni las rutas, ni la web: `publicar.enviar_pieza` despacha con el registro y la web recibe el canal por `GET /yo`,
 `GET /publicar/opciones` y `GET /publicaciones/modos` (nombres, formato, avisos).
+Instagram en el menú son tres entradas (Posteo, Reel, Historia): `?canal=instagram&tipo=…` acota el formulario de Diseñar y se traduce a `formato`, `vfmt` y `video_url` (no hay campo `tipo`); `tipoInstagram()` / `etiquetaCanal()` en `web/src/tiposPublicar.ts` dan «Instagram · Reel» en Mis publicaciones, Aprobación y la pieza.
 
 **Un campo nuevo en la pieza** (p. ej. hashtags):
 1. `api/pieza.py`: el campo en `Pieza` (y en `CLAVES_CORTAS` si se guarda con clave corta). `a_borrador()` y `desde_fila()` lo recorren solos.

@@ -4,9 +4,10 @@ import { api } from "../api";
 import { useSesion } from "../App";
 import { Icono, type NombreIcono } from "./Iconos";
 import { useProyectos } from "./proyectos/ProyectosContexto";
+import { NOMBRE_TIPO_INSTAGRAM, TIPOS_INSTAGRAM, tipoInstagramValido } from "../tiposPublicar";
 
 // Barra lateral. Rediseñada el 2/11 a pedido de Alberto (reunión del 2/11): de lo general a lo particular.
-//   Chat · Canales (Diseñar: Instagram, Facebook, Blogpost, YouTube, Email; WhatsApp pronto) · Campañas (Frase del día,
+//   Chat · Canales (Diseñar: Instagram · Posteo / Reel / Historia, Facebook, Blogpost, YouTube, Email; WhatsApp pronto) · Campañas (Frase del día,
 //   Newsletter) · Proyectos (míos, compartidos conmigo) · Herramientas (Mis publicaciones, Mis recortes) · Gestión (Aprobación,
 //   Administración; se llamó «Equipo» hasta el 3/11). «Publicar» pasó a llamarse «Diseñar»: una cosa es diseñar la pieza y otra publicarla (eso lo hace el aprobador).
 // Abajo, el usuario lleva a «Mi cuenta» (cambiar la contraseña).
@@ -58,6 +59,8 @@ export default function Barra() {
   const subSinCarpeta = ({ isActive }: { isActive: boolean }) => sub({ isActive: isActive && !desdeId });
   // los canales de Diseñar comparten la página /publicar: el activo es el del ?canal= (ninguno si se entra con un borrador o un recorte)
   const canalActivo = loc.pathname === "/publicar" ? new URLSearchParams(loc.search).get("canal") : null;
+  // (5/11) Instagram son tres entradas (Posteo, Reel, Historia): el activo es el del ?tipo= (sin tipo, el viejo ?canal=instagram, es Posteo)
+  const tipoActivo = tipoInstagramValido(loc.pathname === "/publicar" ? new URLSearchParams(loc.search).get("tipo") : null) ?? "posteo";
 
   return (
     <aside className={"barra" + (abierto ? " abierta" : "")}>
@@ -81,11 +84,19 @@ export default function Barra() {
         <div className="barra-grupo" title="Diseñar una pieza para cada canal. Publicarla es otro paso: lo hace quien aprueba.">
           Canales · Diseñar
         </div>
-        {canalesMenu.map((c) => (
-          <NavLink key={c.clave} to={`/publicar?canal=${c.clave}`} className={"barra-link sub" + (canalActivo === c.clave ? " activo" : "")} title={`Diseñar una pieza para ${c.texto}`}>
-            <Icono nombre={c.icono as NombreIcono} /> {c.texto}
-          </NavLink>
-        ))}
+        {canalesMenu.map((c) =>
+          c.clave === "instagram" ? (
+            TIPOS_INSTAGRAM.map((t) => (
+              <NavLink key={t} to={`/publicar?canal=instagram&tipo=${t}`} className={"barra-link sub" + (canalActivo === "instagram" && tipoActivo === t ? " activo" : "")} title={`Diseñar ${t === "historia" ? "una historia" : t === "reel" ? "un reel" : "un posteo"} de Instagram`}>
+                <Icono nombre={c.icono as NombreIcono} /> {c.texto} · {NOMBRE_TIPO_INSTAGRAM[t]}
+              </NavLink>
+            ))
+          ) : (
+            <NavLink key={c.clave} to={`/publicar?canal=${c.clave}`} className={"barra-link sub" + (canalActivo === c.clave ? " activo" : "")} title={`Diseñar una pieza para ${c.texto}`}>
+              <Icono nombre={c.icono as NombreIcono} /> {c.texto}
+            </NavLink>
+          ),
+        )}
         <NavLink to="/newsletter" className={sub} title="Diseñar un email (el editor del newsletter)">
           <Icono nombre="sobre" /> Email
         </NavLink>

@@ -10,7 +10,7 @@ import { api, ErrorApi } from "../api";
 import { apiPublicar } from "../apiPublicar";
 import { useSesion } from "../App";
 import type { Estilo, Opciones } from "../tipos";
-import type { ConversacionBorrada, Publicacion } from "../tiposPublicar";
+import { etiquetaCanal, tipoInstagram, type ConversacionBorrada, type Publicacion } from "../tiposPublicar";
 
 import { ControlesEstilo } from "../componentes/Estilo";
 import { Icono } from "../componentes/Iconos";
@@ -155,10 +155,10 @@ function PiezaParaAprobar({ p, modo, onHecho }: { p: Publicacion; modo: string; 
   return (
     <article className="tarjeta aprobar">
       <div className="aprobar-cabecera">
-        <strong>{p.canal_texto}</strong>
+        <strong>{etiquetaCanal(p)}</strong>
         <span className="suave">
           · propuso <strong>{p.propuesta_por || p.usuario}</strong> · {fechaCreacion(p.creado)}
-          {p.formato ? ` · formato ${p.formato}` : ""}
+          {p.formato && (!tipoInstagram(p) || tipoInstagram(p) === "posteo") ? ` · formato ${p.formato}` : ""}
         </span>
       </div>
       <div className="aprobar-grilla">
@@ -287,7 +287,7 @@ export function Registro() {
       });
   }, []);
   const b = buscar.trim().toLowerCase();
-  const filtradas = piezas?.filter((p) => !b || [p.titulo, p.texto, p.usuario, p.propuesta_por, p.canal_texto, p.estado_texto].some((x) => (x || "").toLowerCase().includes(b)));
+  const filtradas = piezas?.filter((p) => !b || [p.titulo, p.texto, p.usuario, p.propuesta_por, etiquetaCanal(p), p.estado_texto].some((x) => (x || "").toLowerCase().includes(b)));
   return (
     <section>
       <div className="seccion-cabecera">
