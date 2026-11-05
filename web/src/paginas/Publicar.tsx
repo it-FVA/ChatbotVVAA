@@ -4,7 +4,7 @@
 // borrador». Entra desde «Nueva pieza», desde el chat (la pieza propuesta llega en location.state), desde un recorte (?recorte=<id>)
 // y desde un borrador (?borrador=<id>). Las reglas de negocio están en la API (api/publicar_rutas.py); acá solo se repiten para
 // deshabilitar botones a tiempo.
-import LinkAyuda from "../componentes/LinkAyuda";
+import Cabecera from "../componentes/Cabecera";
 import { definirAyuda } from "../ayuda/registro";
 import { fechaCreacion, fechaIsoDe, fechaLegible, manana } from "../util/fechas";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -156,9 +156,7 @@ export default function Publicar() {
     if (error)
       return (
         <div className="pagina publicar">
-          <header className="pagina-cabecera">
-            <h1>Diseñar</h1>
-          </header>
+          <Cabecera titulo="Diseñar" />
           <div className="aviso error" role="alert">
             <Icono nombre="alerta" tam={16} /> <span>{error}</span>
           </div>
@@ -174,9 +172,7 @@ export default function Publicar() {
       );
     return (
       <div className="pagina publicar" aria-busy="true">
-        <header className="pagina-cabecera">
-          <h1>Diseñar</h1>
-        </header>
+        <Cabecera titulo="Diseñar" />
         <div className="pub-grilla">
           <div>
             <Hueso ancho="100%" alto={120} radio={12} />
@@ -414,12 +410,20 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
 
   return (
     <div className="pagina publicar">
-      <header className="pagina-cabecera">
-        <div>
-          <h1>
+      <Cabecera
+        titulo={
+          <>
             Diseñar{desdeMenu && canal ? <span className="pub-titulo-canal"> · {info?.texto_canal || canal}{tipoIG ? ` · ${NOMBRE_TIPO_INSTAGRAM[tipoIG]}` : ""}</span> : null}
-          </h1>
-          <p className="suave">
+          </>
+        }
+        ayuda="disenar"
+        acciones={
+          <Link to="/publicaciones" className="boton sutil">
+            <Icono nombre="lista" tam={16} /> Mis publicaciones
+          </Link>
+        }
+        subtitulo={
+          <>
             {desdeMenu && canal && (tipoIG ? AYUDA_INSTAGRAM[tipoIG] : AYUDA_CANAL[canal] ?? "Acá se diseña la pieza: foto, frase, texto y fecha. Publicarla es el paso siguiente, desde Aprobación.")}
             {desdeMenu && canal === "youtube" && (
               /* (5/11) Lo exige la política de desarrolladores de YouTube (III.A.1 y III.A.2): el cliente de la API muestra el link a los
@@ -439,15 +443,13 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
             {origen === "borrador" && !rechazo && !duenaDe && "Retomando un borrador: al guardar se actualiza el mismo. Al mandarlo a aprobación queda en el mismo lugar."}
             {origen === "borrador" && !rechazo && duenaDe && `Editando un borrador de ${duenaDe}, compartido con vos para editar. Al guardar se actualiza el mismo y sigue siendo de ${duenaDe}. Si lo mandás a aprobación, va a su nombre y queda en la misma carpeta.`}
             {!desdeMenu && origen === "nueva" && "Acá se diseña la pieza: foto, frase, texto y fecha. Publicarla es el paso siguiente, desde Aprobación. También se puede diseñar desde el chat, debajo de la respuesta del bot."}
-            <LinkAyuda pantalla="disenar" /></p>
-          <div data-ayuda="disenar.presencia">
-            <Presencia presentes={presentes} vacio={f.borrador_id ? "Nadie más está en esta pieza ahora." : "Cuando la guardes como borrador, acá ves si otra persona la mira o la edita."} />
-          </div>
+          </>
+        }
+      >
+        <div data-ayuda="disenar.presencia">
+          <Presencia presentes={presentes} vacio={f.borrador_id ? "Nadie más está en esta pieza ahora." : "Cuando la guardes como borrador, acá ves si otra persona la mira o la edita."} />
         </div>
-        <Link to="/publicaciones" className="boton sutil">
-          <Icono nombre="lista" tam={16} /> Mis publicaciones
-        </Link>
-      </header>
+      </Cabecera>
       {conflicto && f.borrador_id && (
         <ConflictoGuardado
           mensaje={conflicto}
@@ -945,9 +947,7 @@ function ResultadoPanel({ resultado, previa, canal, info, ajena = false, onVolve
   }
   return (
     <div className="pagina publicar">
-      <header className="pagina-cabecera">
-        <h1>Diseñar</h1>
-      </header>
+      <Cabecera titulo="Diseñar" />
       <div className={"pub-resultado" + (ok ? "" : " error")} role="status">
         <div className="pub-resultado-cabecera">
           <Icono nombre={ok ? "check" : "alerta"} tam={22} />

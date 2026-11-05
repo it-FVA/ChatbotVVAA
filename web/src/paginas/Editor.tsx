@@ -14,6 +14,7 @@ import { ControlesEstilo, cssSubtitulo } from "../componentes/Estilo";
 import { Icono } from "../componentes/Iconos";
 import Modal from "../componentes/Modal";
 import { EditorEsqueleto, Migas, Tecla } from "../componentes/Comunes";
+import Cabecera from "../componentes/Cabecera";
 import { useToast } from "../componentes/Toasts";
 import Presencia from "../componentes/Presencia";
 import ConflictoGuardado, { esConflictoDeVersion } from "../componentes/ConflictoGuardado";
@@ -387,9 +388,7 @@ function EditorCargado({ det, opciones, onRecargar }: { det: Detalle; opciones: 
 
   return (
     <div className="pagina editor">
-      <header className="pagina-cabecera">
-        <Migas pasos={[{ texto: "Recortes", a: "/recortes" }, { texto: titulo }]} />
-        <h1>{titulo}</h1>
+      <Cabecera arriba={<Migas pasos={[{ texto: "Recortes", a: "/recortes" }, { texto: titulo }]} />} titulo={titulo}>
         <p className="suave chico meta">
           <span>
             <Icono nombre={vertical ? "celular" : "pelicula"} tam={14} /> {vertical ? "vertical" : "horizontal"}
@@ -414,7 +413,7 @@ function EditorCargado({ det, opciones, onRecargar }: { det: Detalle; opciones: 
           )}
         </p>
         <Presencia presentes={presentes} />
-      </header>
+      </Cabecera>
       {conflicto && (
         <ConflictoGuardado
           mensaje={conflicto}

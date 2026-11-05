@@ -1,7 +1,7 @@
 // Aprobación (22/10, fase 3) sección aparte para aprobadores: Para aprobar (vista previa completa,
 // aprobar con fecha y hora editables, rechazar con nota), En cola (cancelar), Registro, Papelera de conversaciones (restaurar) y
 // Clips de todo el equipo (la pantalla de recortes con la solapa «Todos» fija; los admins además fijan el estilo por defecto).
-import LinkAyuda from "../componentes/LinkAyuda";
+import Cabecera from "../componentes/Cabecera";
 import { definirAyuda } from "../ayuda/registro";
 import { fechaCreacion, fechaLegible } from "../util/fechas";
 import { useCallback, useEffect, useState } from "react";
@@ -14,7 +14,7 @@ import { etiquetaCanal, tipoInstagram, type ConversacionBorrada, type Publicacio
 
 import { ControlesEstilo } from "../componentes/Estilo";
 import { Icono } from "../componentes/Iconos";
-import { EstadoVacio, Hueso } from "../componentes/Comunes";
+import { EstadoVacio, PublicacionEsqueleto } from "../componentes/Comunes";
 import { useToast } from "../componentes/Toasts";
 import VistaPrevia from "../componentes/VistaPrevia";
 import Recortes from "./Recortes";
@@ -61,12 +61,7 @@ export default function Aprobacion() {
   if (!yo?.rol.aprueba) return <Navigate to="/recortes" replace />;
   return (
     <div className="pagina admin aprobacion">
-      <header className="pagina-cabecera">
-        <div>
-          <h1>Aprobación</h1>
-          <p className="suave">Lo que el equipo mandó: revisás, aprobás y seguís qué salió.  <LinkAyuda pantalla="aprobacion" /></p>
-        </div>
-      </header>
+      <Cabecera titulo="Aprobación" subtitulo="Lo que el equipo mandó: revisás, aprobás y seguís qué salió." ayuda="aprobacion" />
       <div className="admin-grilla">
         <nav className="admin-menu" data-ayuda="aprobacion.menu" aria-label="Aprobación">
           {MENU.map((m) => (
@@ -124,7 +119,7 @@ export function ParaAprobar() {
         </button>
       </div>
       {error && <div className="aviso error">{error}</div>}
-      {piezas === null && <Hueso ancho="100%" alto={220} radio={12} />}
+      {piezas === null && <PublicacionEsqueleto />}
       {piezas && piezas.length === 0 && !error && <EstadoVacio titulo="No hay piezas esperando aprobación" texto="Cuando alguien mande una pieza a aprobación desde el chat o desde Diseñar, aparece acá con su vista previa." />}
       {piezas?.map((p) => <PiezaParaAprobar key={p.id} p={p} modo={modos[p.canal] || "?"} onHecho={hecho} />)}
     </section>
@@ -253,7 +248,7 @@ export function Cola() {
         <p className="suave chico">Las piezas aprobadas esperan acá y salen solas en su fecha (se revisa cada 15 minutos).</p>
       </div>
       {error && <div className="aviso error">{error}</div>}
-      {piezas === null && <Hueso ancho="100%" alto={160} radio={12} />}
+      {piezas === null && <PublicacionEsqueleto />}
       {piezas && piezas.length === 0 && !error && <EstadoVacio titulo="No hay piezas programadas" texto="Las piezas aprobadas con fecha, y las programadas para Instagram o Facebook, esperan acá hasta su día." />}
       <div className="lista">
         {piezas?.map((p) => (
@@ -301,7 +296,7 @@ export function Registro() {
       </div>
       <p className="suave chico">Quién creó cada pieza, quién la aprobó o rechazó, y qué pasó. Las últimas 60 (sin borradores, pruebas ni subidas de imágenes).</p>
       {error && <div className="aviso error">{error}</div>}
-      {piezas === null && <Hueso ancho="100%" alto={160} radio={12} />}
+      {piezas === null && <PublicacionEsqueleto />}
       {filtradas && filtradas.length === 0 && !error && <EstadoVacio titulo={b ? "Nada coincide con la búsqueda" : "El registro está vacío"} />}
       <div className="lista">{filtradas?.map((p) => <TarjetaPublicacion key={p.id} p={p} mostrarUsuario />)}</div>
     </section>
@@ -346,7 +341,7 @@ export function Papelera() {
       </div>
       <p className="suave chico">Conversaciones que alguien borró. Se restauran desde acá durante {datos?.dias ?? 30} días; después se borran de verdad.</p>
       {error && <div className="aviso error">{error}</div>}
-      {datos === null && <Hueso ancho="100%" alto={120} radio={12} />}
+      {datos === null && <PublicacionEsqueleto />}
       {datos && datos.conversaciones.length === 0 && !error && <EstadoVacio titulo="La papelera está vacía" />}
       {datos && datos.conversaciones.length > 0 && (
         <div className="tarjeta tabla-caja">

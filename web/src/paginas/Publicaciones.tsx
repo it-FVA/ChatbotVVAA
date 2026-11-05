@@ -1,7 +1,8 @@
 // Mis publicaciones (22/10, fase 3) : solapas por estado con conteos, tarjetas con canal, estado,
 // fechas, miniatura, quién aprobó/rechazó y la nota, y las acciones Retomar (borradores), Eliminar (lo eliminable), Ver resultado
 // (el posteo, la entrada o el borrador de WordPress) y Descargar HTML (newsletter).
-import LinkAyuda from "../componentes/LinkAyuda";
+import Cabecera from "../componentes/Cabecera";
+import ChipEstado, { textoEstado } from "../componentes/ChipEstado";
 import { definirAyuda } from "../ayuda/registro";
 import { fechaCreacion, fechaLegible } from "../util/fechas";
 import { useCallback, useEffect, useState } from "react";
@@ -14,7 +15,7 @@ import { useSesion } from "../App";
 import { nombreCanal } from "../util/publicar";
 import { Icono, type NombreIcono } from "../componentes/Iconos";
 import Modal from "../componentes/Modal";
-import { EstadoVacio, Hueso } from "../componentes/Comunes";
+import { EstadoVacio, PublicacionEsqueleto } from "../componentes/Comunes";
 import { useToast } from "../componentes/Toasts";
 import MoverA from "../componentes/proyectos/MoverA";
 import { apiProyectos } from "../apiProyectos";
@@ -91,15 +92,16 @@ export default function Publicaciones() {
 
   return (
     <div className="pagina publicaciones">
-      <header className="pagina-cabecera">
-        <div>
-          <h1>Mis publicaciones</h1>
-          <p className="suave">Todo lo que diseñaste: en revisión, programado, publicado, borradores y pruebas.  <LinkAyuda pantalla="publicaciones" /></p>
-        </div>
-        <Link to="/publicar" className="boton primario" data-ayuda="publicaciones.nueva">
-          <Icono nombre="mas" tam={16} /> Diseñar una pieza
-        </Link>
-      </header>
+      <Cabecera
+        titulo="Mis publicaciones"
+        subtitulo="Todo lo que diseñaste: en revisión, programado, publicado, borradores y pruebas."
+        ayuda="publicaciones"
+        acciones={
+          <Link to="/publicar" className="boton primario" data-ayuda="publicaciones.nueva">
+            <Icono nombre="mas" tam={16} /> Diseñar una pieza
+          </Link>
+        }
+      />
       <div className="solapas pub-solapas" data-ayuda="publicaciones.solapas" role="tablist" aria-label="Estado de las piezas">
         {ORDEN.map((n) => {
           const cant = n === "Del equipo" ? (equipo ? equipo.piezas.length : null) : datos ? (n === "Todas" ? datos.piezas.length : (datos.solapas[n] || []).length) : null;
@@ -135,14 +137,7 @@ export default function Publicaciones() {
       {piezas === null && (
         <div className="lista" aria-busy="true">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="tarjeta publicacion esqueleto">
-              <Hueso ancho={120} alto={120} radio={10} />
-              <div style={{ flex: 1 }}>
-                <Hueso ancho="40%" alto={16} />
-                <Hueso ancho="70%" style={{ marginTop: 10 }} />
-                <Hueso ancho="55%" style={{ marginTop: 8 }} />
-              </div>
-            </div>
+            <PublicacionEsqueleto key={i} />
           ))}
         </div>
       )}
@@ -166,7 +161,7 @@ export default function Publicaciones() {
             <strong>{aEliminar.titulo || (aEliminar.texto || "").slice(0, 80) || aEliminar.canal_texto}</strong>
             <br />
             <span className="suave">
-              {etiquetaCanal(aEliminar)} · {aEliminar.estado_texto}
+              {etiquetaCanal(aEliminar)} · {textoEstado(aEliminar.estado, aEliminar.estado_texto)}
             </span>
           </p>
           <p className="suave">Se borra del registro. No se puede deshacer.</p>
@@ -183,9 +178,6 @@ export default function Publicaciones() {
     </div>
   );
 }
-
-const ICONO_ESTADO: Record<string, NombreIcono> = { a_aprobar: "reloj", pendiente: "calendario", programada: "calendario", publicada: "check", PUBLICADO: "check", draft: "lapiz", lista: "check", borrador: "lapiz", rechazada: "cruz", cancelada: "cruz", error: "alerta", prueba: "ojo", simulada: "ojo", simulado: "ojo" };
-const CLASE_ESTADO: Record<string, string> = { a_aprobar: "proceso", pendiente: "ok", programada: "ok", publicada: "listo", PUBLICADO: "listo", draft: "ok", lista: "listo", borrador: "neutro", rechazada: "error", cancelada: "neutro", error: "error", prueba: "neutro", simulada: "neutro", simulado: "neutro" };
 
 export function descargarHtml(p: Publicacion) {
   const blob = new Blob([p.texto || ""], { type: "text/html;charset=utf-8" });
@@ -229,9 +221,7 @@ export function TarjetaPublicacion({ p, mostrarUsuario = false, onEliminar, onCa
       </div>
       <div className="publicacion-cuerpo">
         <div className="publicacion-meta">
-          <span className={"estado " + (CLASE_ESTADO[p.estado] || "neutro")}>
-            <Icono nombre={ICONO_ESTADO[p.estado] || "info"} tam={14} /> {p.estado_texto}
-          </span>
+          <ChipEstado estado={p.estado} texto={p.estado_texto} />
           <span>
             <Icono nombre={(canales.find((c) => c.clave === p.canal)?.icono as NombreIcono) || "megafono"} tam={14} /> {etiquetaCanal(p)}
             {p.formato && p.formato !== "cuadrado" && (!tipoInstagram(p) || tipoInstagram(p) === "posteo") ? ` · ${p.formato}` : ""}
@@ -279,11 +269,11 @@ export function TarjetaPublicacion({ p, mostrarUsuario = false, onEliminar, onCa
         <div className="acciones">
           {p.retomable &&
             (esNewsletter ? (
-              <Link className="boton primario" data-ayuda="publicaciones.retomar" to={`/newsletter?borrador=${encodeURIComponent(p.id)}`} title={p.estado === "rechazada" ? "Abre el newsletter con la nota del rechazo arriba: corregilo y mandalo otra vez a aprobación" : undefined}>
+              <Link className="boton" data-ayuda="publicaciones.retomar" to={`/newsletter?borrador=${encodeURIComponent(p.id)}`} title={p.estado === "rechazada" ? "Abre el newsletter con la nota del rechazo arriba: corregilo y mandalo otra vez a aprobación" : undefined}>
                 <Icono nombre="lapiz" /> {p.estado === "rechazada" ? "Editar" : "Retomar"}
               </Link>
             ) : (
-              <Link className="boton primario" data-ayuda="publicaciones.retomar" to={`/publicar?borrador=${encodeURIComponent(p.id)}`} title={p.estado === "rechazada" ? "Abre la pieza con la nota del rechazo arriba: corregila y mandala otra vez a aprobación" : undefined}>
+              <Link className="boton" data-ayuda="publicaciones.retomar" to={`/publicar?borrador=${encodeURIComponent(p.id)}`} title={p.estado === "rechazada" ? "Abre la pieza con la nota del rechazo arriba: corregila y mandala otra vez a aprobación" : undefined}>
                 <Icono nombre="lapiz" /> {p.estado === "rechazada" ? "Editar" : "Retomar"}
               </Link>
             ))}

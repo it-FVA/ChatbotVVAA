@@ -1,4 +1,5 @@
-import LinkAyuda from "../componentes/LinkAyuda";
+import Cabecera from "../componentes/Cabecera";
+import ChipEstado from "../componentes/ChipEstado";
 import { definirAyuda } from "../ayuda/registro";
 import { fechaHora } from "../util/fechas";
 import { useCallback, useEffect, useState } from "react";
@@ -70,15 +71,16 @@ export default function Recortes({ vistaFija }: { vistaFija?: Vista } = {}) {
   return (
     <div className={vistaFija ? "recortes-embebidos" : "pagina"}>
       {!vistaFija && (
-        <header className="pagina-cabecera">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <h1>Mis recortes</h1>
+        <Cabecera
+          titulo="Mis recortes"
+          subtitulo="Tus pedazos de video, listos para diseñar una pieza. Tardan unos 15 minutos. Borrá los que no vayas a usar: ocupan lugar."
+          ayuda="recortes"
+          acciones={
             <button className="boton primario" data-ayuda="recortes.subir" onClick={() => setSubiendo(true)}>
               <Icono nombre="enviar" /> Subir un video
             </button>
-          </div>
-          <p className="suave">Tus pedazos de video, listos para diseñar una pieza. Tardan unos 15 minutos. Borrá los que no vayas a usar: ocupan lugar.  <LinkAyuda pantalla="recortes" /></p>
-        </header>
+          }
+        />
       )}
 
       {subiendo && (
@@ -186,7 +188,6 @@ function Tarjeta({ c, mostrarQuien, aprueba, onBorrar, onCambio }: { c: Recorte;
   const [reintentando, setReintentando] = useState(false);
   const [compartiendo, setCompartiendo] = useState(false);
   const [descargando, setDescargando] = useState(false);
-  const clase = c.regenerando ? "proceso" : c.estado;
   // (22/10, proyectos) «Guardar en un proyecto»: la carpeta donde está, y el modal para elegir otra
   const proyectos = useProyectos();
   const carpeta = proyectos.carpetaDe("recorte", c.id);
@@ -252,9 +253,7 @@ function Tarjeta({ c, mostrarQuien, aprueba, onBorrar, onCambio }: { c: Recorte;
           <span>
             {c.subido ? `${(c.duracion_ms / 1000).toFixed(0)} s` : `${mmss(c.inicio_ms)}–${mmss(c.fin_ms)} · ${(c.duracion_ms / 1000).toFixed(0)} s`}
           </span>
-          <span className={"estado " + clase}>
-            <Icono nombre={c.estado === "listo" ? "check" : c.estado === "error" ? "alerta" : "reloj"} tam={14} /> {c.estado_texto}
-          </span>
+          <ChipEstado estado={c.regenerando ? "regenerando" : c.estado} texto={c.estado_texto} />
           {(c.sin_pausas || c.segmentos_hechos) && (
             <span title={c.sin_pausas ? `${c.sin_pausas.pausas} pausas sacadas` : undefined}>
               <Icono nombre="tijera" tam={13} /> editado
@@ -275,7 +274,7 @@ function Tarjeta({ c, mostrarQuien, aprueba, onBorrar, onCambio }: { c: Recorte;
         {c.estado === "error" && c.error && <p className="aviso error chico">{c.error.slice(0, 200)}</p>}
         <div className="acciones">
           {listo && (
-            <Link className="boton primario" data-ayuda="recortes.diseniar" to={`/publicar?recorte=${encodeURIComponent(c.id)}`} title="Diseñar una pieza con este recorte para Instagram, Facebook, YouTube o como blogpost">
+            <Link className="boton" data-ayuda="recortes.diseniar" to={`/publicar?recorte=${encodeURIComponent(c.id)}`} title="Diseñar una pieza con este recorte para Instagram, Facebook, YouTube o como blogpost">
               <Icono nombre="enviar" /> Diseñar
             </Link>
           )}

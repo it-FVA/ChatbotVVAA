@@ -1,7 +1,7 @@
 // «Compartidos conmigo» (22/10): las carpetas y las conversaciones sueltas que otras personas compartieron con esta cuenta.
 // Una carpeta abre la vista grande; una conversación abre el chat (en modo lectura o edición según el permiso).
 // «Dejar de ver» saca a la persona de la lista de compartidos (api DELETE /compartidos/{tipo}/{id}/{yo}).
-import LinkAyuda from "../componentes/LinkAyuda";
+import Cabecera from "../componentes/Cabecera";
 import { definirAyuda } from "../ayuda/registro";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -10,7 +10,7 @@ import { apiProyectos } from "../apiProyectos";
 import { useSesion } from "../App";
 import type { CompartidosConmigo } from "../tiposProyectos";
 import { Icono } from "../componentes/Iconos";
-import { Hueso } from "../componentes/Comunes";
+import { EstadoVacio, FichaEsqueleto } from "../componentes/Comunes";
 import { useToast } from "../componentes/Toasts";
 import { etiqueta, useProyectos } from "../componentes/proyectos/ProyectosContexto";
 import { relativa } from "../util/fechas";
@@ -62,32 +62,26 @@ export default function Compartidos() {
   const vacio = datos && datos.proyectos.length === 0 && datos.conversaciones.length === 0;
   return (
     <div className="pagina">
-      <header className="pagina-cabecera">
-        <h1>Compartidos conmigo</h1>
-        <p className="suave">Carpetas y conversaciones que otras personas del equipo compartieron con vos. Lo que te compartieron «para ver» lo abrís sin poder cambiarlo.  <LinkAyuda pantalla="compartidos" /></p>
-      </header>
+      <Cabecera titulo="Compartidos conmigo" subtitulo="Carpetas y conversaciones que otras personas del equipo compartieron con vos. Lo que te compartieron «para ver» lo abrís sin poder cambiarlo." ayuda="compartidos" />
       {error && <div className="aviso error">{error}</div>}
       {datos === null && (
         <div className="drive-grilla" aria-busy="true">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="ficha esqueleto">
-              <Hueso ancho="100%" alto={90} radio={8} />
-              <Hueso ancho="70%" alto={14} style={{ marginTop: 10 }} />
-            </div>
+            <FichaEsqueleto key={i} />
           ))}
         </div>
       )}
       {vacio && (
-        <div className="vacio drive-vacio" role="status">
-          <Icono nombre="compartir" tam={42} style={{ color: "var(--amarillo-oscuro)" }} />
-          <h3>Todavía nadie compartió nada con vos</h3>
-          <p className="suave">Cuando alguien comparta una carpeta o una conversación, aparece acá y en el árbol de proyectos del chat.</p>
-          <div className="acciones" style={{ justifyContent: "center" }}>
+        <EstadoVacio
+          icono="compartir"
+          titulo="Todavía nadie compartió nada con vos"
+          texto="Cuando alguien comparta una carpeta o una conversación, aparece acá y en el árbol de proyectos del chat."
+          accion={
             <Link className="boton" to="/proyectos">
               <Icono nombre="carpeta" /> Ir a mis proyectos
             </Link>
-          </div>
-        </div>
+          }
+        />
       )}
       {datos && datos.proyectos.length > 0 && (
         <section aria-label="Carpetas compartidas" data-ayuda="compartidos.carpetas">

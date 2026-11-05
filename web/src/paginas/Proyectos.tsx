@@ -15,7 +15,7 @@ import { useSesion } from "../App";
 import type { ContenidoProyecto, ItemProyecto, Proyecto, TipoItem } from "../tiposProyectos";
 import { Icono, type NombreIcono } from "../componentes/Iconos";
 import Modal from "../componentes/Modal";
-import { Hueso } from "../componentes/Comunes";
+import { FichaEsqueleto } from "../componentes/Comunes";
 import { useToast } from "../componentes/Toasts";
 import MoverA from "../componentes/proyectos/MoverA";
 import CompartirModal from "../componentes/proyectos/CompartirModal";
@@ -503,10 +503,7 @@ export default function Proyectos() {
           {(cargando || (!id && proyectos.proyectos === null)) && !error && (
             <div className={"drive-" + vista} aria-hidden="true">
               {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i} className="ficha esqueleto">
-                  <Hueso ancho="100%" alto={vista === "grilla" ? 110 : 22} radio={8} />
-                  {vista === "grilla" && <Hueso ancho="70%" alto={14} style={{ marginTop: 10 }} />}
-                </div>
+                <FichaEsqueleto key={i} lista={vista !== "grilla"} />
               ))}
             </div>
           )}

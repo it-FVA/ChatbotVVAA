@@ -1,14 +1,4 @@
 /* Newsletter (22/10): editor por bloques + vista previa del mail al lado. Mismos colores y piezas que estilos.css. */
-.newsletter .pagina-cabecera {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-.newsletter .pagina-cabecera .acciones {
-  margin-top: 4px;
-}
 .nl-arriba {
   display: grid;
   grid-template-columns: minmax(220px, 300px) 1fr;

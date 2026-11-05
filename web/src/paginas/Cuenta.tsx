@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api, ErrorApi } from "../api";
 import { useSesion } from "../App";
 import { Icono } from "../componentes/Iconos";
+import Cabecera from "../componentes/Cabecera";
 import { useToast } from "../componentes/Toasts";
 import "../cuenta.css";
 
@@ -43,12 +44,7 @@ export default function Cuenta() {
 
   return (
     <div className="pagina estrecha">
-      <header className="pagina-cabecera">
-        <div>
-          <h1>Mi cuenta</h1>
-          <p className="suave">Tus datos y tu contraseña.</p>
-        </div>
-      </header>
+      <Cabecera titulo="Mi cuenta" subtitulo="Tus datos y tu contraseña." />
       {yo.debe_cambiar_clave && (
         <div className="aviso" role="alert">
           <Icono nombre="alerta" tam={18} /> Entraste con una contraseña temporal. Elegí una propia para seguir.

@@ -1,14 +1,4 @@
 /* Frase del día (22/10): calendario por mes con arrastrar y soltar, próximas, backlog y detalle del día. */
-.frases .pagina-cabecera {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-.frases .pagina-cabecera .acciones {
-  margin-top: 4px;
-}
 .fd-cabecera {
   display: flex;
   flex-direction: column;
@@ -613,10 +603,6 @@
   }
   .fd-previa img {
     width: 200px;
-  }
-  .frases .pagina-cabecera .acciones .boton {
-    flex: 1 1 auto;
-    justify-content: center;
   }
 }
 

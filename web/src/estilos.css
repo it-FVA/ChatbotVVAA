@@ -211,6 +211,28 @@ button:focus-visible,
 .pagina-cabecera {
   margin-bottom: 14px;
 }
+.pagina-cabecera-fila {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px 20px;
+  flex-wrap: wrap;
+}
+.pagina-cabecera-texto {
+  min-width: 0;
+  flex: 1 1 320px;
+}
+.pagina-cabecera-texto h1 {
+  margin-bottom: 4px;
+}
+.pagina-cabecera .pagina-subtitulo {
+  margin: 0;
+  max-width: 72ch;
+}
+.pagina-cabecera-acciones {
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
 .pagina-cabecera .meta {
   display: flex;
   flex-wrap: wrap;
@@ -476,6 +498,11 @@ input[type="number"] {
   max-width: 460px;
   margin: 10px auto;
 }
+.vacio .vacio-icono {
+  display: block;
+  color: var(--amarillo-oscuro);
+  margin-bottom: 6px;
+}
 .vacio h3 {
   margin-top: 10px;
 }
@@ -630,18 +657,35 @@ input[type="number"] {
   flex: 1;
   min-width: 0;
 }
+/* chip de estado (ChipEstado): un solo sistema para piezas y recortes */
 .estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.76rem;
   font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+  background: var(--borde);
+  color: var(--suave);
+}
+.estado.espera {
+  background: var(--amarillo-suave);
+  color: var(--amarillo-oscuro);
+}
+.estado.programada {
+  background: var(--verde-claro);
+  color: var(--verde-oscuro);
 }
 .estado.listo {
-  color: var(--verde);
+  background: var(--verde);
+  color: #fff;
 }
 .estado.error {
+  background: var(--rojo-claro);
   color: var(--rojo);
-}
-.estado.pedido,
-.estado.proceso {
-  color: var(--amarillo-oscuro);
 }
 /* modal */
 .fondo-modal {
@@ -947,6 +991,13 @@ input[type="number"] {
   }
 .pagina {
     padding: 14px 12px 50px;
+  }
+.pagina-cabecera-acciones {
+    width: 100%;
+  }
+.pagina-cabecera-acciones .boton {
+    flex: 1 1 auto;
+    justify-content: center;
   }
 .recorte {
     flex-direction: column;

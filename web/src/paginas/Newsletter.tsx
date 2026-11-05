@@ -4,7 +4,7 @@
 // (GET /banco) y el bloque «Un recorte para ver» se carga desde un recorte (?recorte=<id> o el selector). «Descargar HTML» para pegar
 // en Perfit, «Guardar borrador» (se retoma desde acá o desde Mis publicaciones: ?borrador=<id>) y «Enviar a aprobación» (tabla
 // publicaciones, canal newsletter, mismos estados que las demás piezas). El email NO sale de acá.
-import LinkAyuda from "../componentes/LinkAyuda";
+import Cabecera from "../componentes/Cabecera";
 import { definirAyuda } from "../ayuda/registro";
 import { fechaCreacion, fechaHora } from "../util/fechas";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -323,23 +323,23 @@ export default function Newsletter() {
 
   return (
     <div className="pagina newsletter">
-      <header className="pagina-cabecera">
-        <div>
-          <h1>Newsletter</h1>
-          <p className="suave">
-            El email a la comunidad, bloque por bloque. El bot redacta los textos; la agenda, las fotos y los links los cargás vos. Una vez aprobado, el HTML se pega en Perfit.
-            <LinkAyuda pantalla="newsletter" /></p>
-          <Presencia presentes={presentes} />
-        </div>
-        <div className="acciones">
-          <button type="button" className="boton" data-ayuda="newsletter.retomar" onClick={() => setAbrirBorradores(true)}>
-            <Icono nombre="lapiz" tam={16} /> Retomar un borrador
-          </button>
-          <button type="button" className="boton sutil" onClick={() => (vacioTotal ? reiniciar() : setConfirmarReinicio(true))} title="Vaciar el editor y empezar un newsletter nuevo">
-            <Icono nombre="tacho" tam={16} /> Empezar de nuevo
-          </button>
-        </div>
-      </header>
+      <Cabecera
+        titulo="Newsletter"
+        subtitulo="El email a la comunidad, bloque por bloque. El bot redacta los textos; la agenda, las fotos y los links los cargás vos. Una vez aprobado, el HTML se pega en Perfit."
+        ayuda="newsletter"
+        acciones={
+          <>
+            <button type="button" className="boton" data-ayuda="newsletter.retomar" onClick={() => setAbrirBorradores(true)}>
+              <Icono nombre="lapiz" tam={16} /> Retomar un borrador
+            </button>
+            <button type="button" className="boton sutil" onClick={() => (vacioTotal ? reiniciar() : setConfirmarReinicio(true))} title="Vaciar el editor y empezar un newsletter nuevo">
+              <Icono nombre="tacho" tam={16} /> Empezar de nuevo
+            </button>
+          </>
+        }
+      >
+        <Presencia presentes={presentes} />
+      </Cabecera>
 
       {conflicto && borradorId && (
         <ConflictoGuardado
@@ -386,7 +386,7 @@ export default function Newsletter() {
           </label>
           <div className="campo-con-boton">
             <input id="nl-tema" value={tema} onChange={(e) => setTema(e.target.value)} placeholder="ej. la confianza en la vida · los vínculos familiares" onKeyDown={(e) => e.key === "Enter" && redactar()} />
-            <button type="button" className="boton primario" onClick={redactar} disabled={!tema.trim() || redactando}>
+            <button type="button" className="boton" onClick={redactar} disabled={!tema.trim() || redactando}>
               {redactando ? <span className="girando" aria-hidden="true" /> : <Icono nombre="chat" tam={16} />} {redactando ? "Buscando material y redactando…" : "Redactar"}
             </button>
           </div>
@@ -576,7 +576,7 @@ function EditorMensual({ d, cambiar, tipos }: { d: Datos; cambiar: (f: (x: Datos
           <Campo etiqueta="Mes" valor={d.mes ?? ""} onChange={(v) => cambiar((x) => (x.mes = v))} placeholder="Noviembre" />
           <Campo etiqueta="Asunto del email" valor={d.asunto} onChange={(v) => cambiar((x) => (x.asunto = v))} placeholder="Noviembre: una invitación a…" />
         </div>
-        <Cabecera d={d} cambiar={cambiar} />
+        <CabeceraMail d={d} cambiar={cambiar} />
         <Campo etiqueta="Reflexión del mes" ayuda="2 párrafos; el segundo arranca con «Brother David nos enseña que…»" valor={d.reflexion ?? ""} onChange={(v) => cambiar((x) => (x.reflexion = v))} filas={7} />
         <label>Preguntas para la reflexión personal</label>
         {[0, 1, 2].map((i) => (
@@ -714,7 +714,7 @@ function EditorRevivi({ d, cambiar }: { d: Datos; cambiar: (f: (x: Datos) => voi
 /** (23/10, prueba de Julián) La cabecera se arma sola: la foto elegida recortada a 1600×500 con el título encima, letra blanca
  * sobre fondo oscuro o azul de la Fundación sobre fondo claro (se puede forzar). «Usar esta cabecera» la sube a WordPress y
  * deja la URL en cabecera_url, que es lo que va en el mail. También se puede pegar una URL ya armada. */
-function Cabecera({ d, cambiar }: { d: Datos; cambiar: (f: (x: Datos) => void) => void }) {
+function CabeceraMail({ d, cambiar }: { d: Datos; cambiar: (f: (x: Datos) => void) => void }) {
   const { avisar } = useToast();
   const foto = d.cabecera_foto ?? "";
   const tituloCab = d.cabecera_titulo ?? "";

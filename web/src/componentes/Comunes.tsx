@@ -1,7 +1,7 @@
 // Piezas chicas compartidas: skeletons de carga, estado vacío con ilustración, migas de pan, tecla (kbd).
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Icono } from "./Iconos";
+import { Icono, type NombreIcono } from "./Iconos";
 
 /** Bloque gris animado del tamaño que se le pida. */
 export function Hueso({ ancho = "100%", alto = 14, radio = 6, style }: { ancho?: number | string; alto?: number | string; radio?: number; style?: React.CSSProperties }) {
@@ -24,6 +24,30 @@ export function TarjetaEsqueleto({ vertical = false }: { vertical?: boolean }) {
           <Hueso ancho={84} alto={38} radio={10} />
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Tarjeta de publicación «en esqueleto» (Mis publicaciones, Aprobación). */
+export function PublicacionEsqueleto() {
+  return (
+    <div className="tarjeta publicacion esqueleto" aria-hidden="true">
+      <Hueso ancho={120} alto={120} radio={10} />
+      <div style={{ flex: 1 }}>
+        <Hueso ancho="40%" alto={16} />
+        <Hueso ancho="70%" style={{ marginTop: 10 }} />
+        <Hueso ancho="55%" style={{ marginTop: 8 }} />
+      </div>
+    </div>
+  );
+}
+
+/** Ficha de carpeta o archivo «en esqueleto» (Proyectos, Compartidos). En lista, una sola línea. */
+export function FichaEsqueleto({ lista = false }: { lista?: boolean }) {
+  return (
+    <div className="ficha esqueleto" aria-hidden="true">
+      <Hueso ancho="100%" alto={lista ? 22 : 100} radio={8} />
+      {!lista && <Hueso ancho="70%" alto={14} style={{ marginTop: 10 }} />}
     </div>
   );
 }
@@ -68,10 +92,11 @@ function Ilustracion() {
   );
 }
 
-export function EstadoVacio({ titulo, texto, accion }: { titulo: string; texto?: ReactNode; accion?: ReactNode }) {
+/** Estado vacío de toda la web: ilustración (o un ícono grande si se pasa `icono`), título, texto y una acción opcional. */
+export function EstadoVacio({ titulo, texto, accion, icono }: { titulo: string; texto?: ReactNode; accion?: ReactNode; icono?: NombreIcono }) {
   return (
     <div className="vacio" role="status">
-      <Ilustracion />
+      {icono ? <span className="vacio-icono"><Icono nombre={icono} tam={42} /></span> : <Ilustracion />}
       <h3>{titulo}</h3>
       {texto && <p className="suave">{texto}</p>}
       {accion && <div className="acciones" style={{ justifyContent: "center" }}>{accion}</div>}

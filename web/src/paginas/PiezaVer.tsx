@@ -13,6 +13,8 @@ import { useSesion } from "../App";
 import { fechaCreacion, fechaLegible } from "../util/fechas";
 import { Icono, type NombreIcono } from "../componentes/Iconos";
 import { Hueso, Migas } from "../componentes/Comunes";
+import Cabecera from "../componentes/Cabecera";
+import ChipEstado from "../componentes/ChipEstado";
 import { useToast } from "../componentes/Toasts";
 import Presencia from "../componentes/Presencia";
 import { usePresencia } from "../util/usePresencia";
@@ -117,16 +119,13 @@ export default function PiezaVer() {
 
   return (
     <div className="pagina pieza-ver">
-      <Migas pasos={migas} />
-      <header className="pieza-ver-cabecera">
-        <div>
-          <h1>{titulo}</h1>
+      <Cabecera arriba={<Migas pasos={migas} />} titulo={titulo} className="pieza-ver-cabecera">
           <div className="publicacion-meta">
             <span>
               <Icono nombre={icono} tam={14} /> {etiquetaCanal(p)}
               {p.formato && p.formato !== "cuadrado" && (!tipoInstagram(p) || tipoInstagram(p) === "posteo") ? ` · ${p.formato}` : ""}
             </span>
-            <span className="estado neutro">{p.estado_texto}</span>
+            <ChipEstado estado={p.estado} texto={p.estado_texto} />
             <span className="suave">creada {fechaCreacion(p.creado)}</span>
             {!propia && !edita && (
               <span className="chip suave" title="Es de otra persona: la podés ver y usar como base, no cambiarla.">
@@ -140,8 +139,7 @@ export default function PiezaVer() {
             )}
           </div>
           <Presencia presentes={presentes} />
-        </div>
-      </header>
+      </Cabecera>
 
       <div className="pieza-ver-grilla">
         <div className={"pieza-ver-medio" + (p.formato === "historia" || p.formato === "vertical" || p.formato === "reel" ? " vertical" : "")}>

@@ -55,7 +55,7 @@ export function fechaHora(iso: string | null | undefined, o: OpcionesFechaHora =
   const d = new Date(crudo);
   if (Number.isNaN(d.getTime())) return o.invalido === "vacio" ? "" : iso;
   const dia = d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", ...(o.anio ? { year: "2-digit" } : {}) });
-  return o.hora === false ? dia : dia + " " + d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+  return o.hora === false ? dia : dia + " " + d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 /** Con año y «—» si falta: las tablas de Administración. */

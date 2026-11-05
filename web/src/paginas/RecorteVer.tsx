@@ -10,6 +10,8 @@ import { mmss } from "../util/tiempo";
 import { fechaCreacion } from "../util/fechas";
 import { Icono } from "../componentes/Iconos";
 import { Migas } from "../componentes/Comunes";
+import Cabecera from "../componentes/Cabecera";
+import ChipEstado from "../componentes/ChipEstado";
 import { useToast } from "../componentes/Toasts";
 import Presencia from "../componentes/Presencia";
 import { usePresencia } from "../util/usePresencia";
@@ -54,10 +56,7 @@ export default function RecorteVer({ det }: { det: Detalle }) {
 
   return (
     <div className="pagina pieza-ver">
-      <Migas pasos={migas} />
-      <header className="pieza-ver-cabecera">
-        <div>
-          <h1>{titulo}</h1>
+      <Cabecera arriba={<Migas pasos={migas} />} titulo={titulo} className="pieza-ver-cabecera">
           <div className="publicacion-meta">
             <span>
               <Icono nombre={det.formato === "vertical" ? "celular" : "pelicula"} tam={14} /> Recorte {det.formato}
@@ -65,7 +64,7 @@ export default function RecorteVer({ det }: { det: Detalle }) {
             <span>
               {mmss(det.inicio_ms)}–{mmss(det.fin_ms)} · {(det.duracion_ms / 1000).toFixed(0)} s
             </span>
-            <span className="suave">{det.estado_texto}</span>
+            <ChipEstado estado={det.estado} texto={det.estado_texto} />
             {!det.propio && (
               <span className="chip suave" title="Lo pidió otra persona: lo podés ver, bajar y usar en una pieza, no editarlo.">
                 <Icono nombre="compartir" tam={12} /> de {det.pedido_por || "otra persona"} · solo lectura
@@ -73,8 +72,7 @@ export default function RecorteVer({ det }: { det: Detalle }) {
             )}
           </div>
           <Presencia presentes={presentes} />
-        </div>
-      </header>
+      </Cabecera>
 
       <div className="pieza-ver-grilla">
         <div className={"pieza-ver-medio" + (det.formato === "vertical" ? " vertical" : "")}>

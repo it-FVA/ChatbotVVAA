@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import "../ayuda.css";
 import { todasLasAyudas } from "../ayuda";
+import Cabecera from "../componentes/Cabecera";
 
 // (5/11, Franco) Instructivo corto, una sección por pantalla. No se escribe acá: cada pantalla declara su ayuda con definirAyuda
 // (ayuda/registro.ts) al lado de su código, y esta página las lee. Máximo 120 palabras por sección (lo verifica Ayuda.test.tsx).
@@ -29,12 +30,7 @@ export default function Ayuda() {
 
   return (
     <div className="pagina ayuda">
-      <header className="pagina-cabecera">
-        <div>
-          <h1>Ayuda</h1>
-          <p className="suave">Cómo se usa cada pantalla, en pocos pasos.</p>
-        </div>
-      </header>
+      <Cabecera titulo="Ayuda" subtitulo="Cómo se usa cada pantalla, en pocos pasos." />
 
       <nav className="ayuda-indice" aria-label="Índice de la ayuda">
         {[...secciones.map(([id, d]) => ({ id, titulo: d.titulo })), SI_ALGO_FALLA].map((s) => (

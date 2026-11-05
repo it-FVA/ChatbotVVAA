@@ -64,7 +64,7 @@ export default function Dashboard() {
         </h2>
         <div className="acciones periodo" role="group" aria-label="Período">
           {[7, 28, 90].map((d) => (
-            <button key={d} className={"boton chico" + (periodo.dias === d ? " primario" : "")} onClick={() => setPeriodo({ dias: d })} aria-pressed={periodo.dias === d}>
+            <button key={d} className={"boton chico" + (periodo.dias === d ? " activo" : "")} onClick={() => setPeriodo({ dias: d })} aria-pressed={periodo.dias === d}>
               {d} días
             </button>
           ))}

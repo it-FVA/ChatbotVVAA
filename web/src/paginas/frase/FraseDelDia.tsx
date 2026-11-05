@@ -10,7 +10,7 @@
 // ver el mail de un día como lo arma la plantilla (reproducción de la de Perfit) con «Ver el mail».
 // (3/11, revisión 5.2 punto 13) Partida en paginas/frase/: el estado en useFraseDelDia.ts, un archivo por panel en paneles/ y una
 // solapa del detalle del día por archivo en solapas/ (la lista de solapas se registra en solapas/index.ts). Acá queda solo el armado.
-import LinkAyuda from "../../componentes/LinkAyuda";
+import Cabecera from "../../componentes/Cabecera";
 import { definirAyuda } from "../../ayuda/registro";
 import { diaIso, fechaLarga } from "../../util/fechas";
 import { Link } from "react-router-dom";
@@ -51,35 +51,36 @@ export default function FraseDelDia() {
   const { avisar, resumen, proximas, diaSel, setDiaSel, error, arrastre, setArrastre, setSobre, deshacer, setDeshacer, modal, setModal, verMail, setVerMail, verWa, setVerWa, verMailDetalles, setVerMailDetalles, solapaPedida, setSolapaPedida, ocupado, version, recargar, ofrecerDeshacer, correr, cambiarCanales, alternarActiva, aprueba, c } = s;
   return (
     <div className="pagina frases">
-      <header className="pagina-cabecera">
-        <div>
-          <h1>Frase del día</h1>
-          <p className="suave">
-            {aprueba
-              ? "Una frase por día, que sale sola cada mañana por mail y redes con una foto de fondo. Solo entran las validadas del Sheet. Arrastrá una frase a otro día para moverla o intercambiarla; desde «Sin día», para asignarla."
-              : "Una frase por día, que sale sola cada mañana por mail y redes con una foto de fondo. Acá ves qué sale cada día. Si querés que un día salga otra frase, abrí ese día y pedí el cambio: lo revisa quien aprueba."}
-            {" "}
-            <LinkAyuda pantalla="frase-del-dia" />
-          </p>
-        </div>
-        <div className="acciones">
-          {aprueba && (
+      <Cabecera
+        titulo="Frase del día"
+        subtitulo={
+          aprueba
+            ? "Una frase por día, que sale sola cada mañana por mail y redes con una foto de fondo. Solo entran las validadas del Sheet. Arrastrá una frase a otro día para moverla o intercambiarla; desde «Sin día», para asignarla."
+            : "Una frase por día, que sale sola cada mañana por mail y redes con una foto de fondo. Acá ves qué sale cada día. Si querés que un día salga otra frase, abrí ese día y pedí el cambio: lo revisa quien aprueba."
+        }
+        ayuda="frase-del-dia"
+        acciones={
+          (aprueba || resumen?.admin) && (
             <>
-              <button type="button" className="boton primario" onClick={() => setModal("repartir")} disabled={!resumen?.disponible}>
-                <Icono nombre="calendario" tam={16} /> Repartir en el año
-              </button>
-              <button type="button" className="boton" onClick={() => setModal("nueva")} disabled={!resumen?.disponible}>
-                <Icono nombre="mas" tam={16} /> Agregar una frase
-              </button>
+              {aprueba && (
+                <>
+                  <button type="button" className="boton primario" onClick={() => setModal("repartir")} disabled={!resumen?.disponible}>
+                    <Icono nombre="calendario" tam={16} /> Repartir en el año
+                  </button>
+                  <button type="button" className="boton" onClick={() => setModal("nueva")} disabled={!resumen?.disponible}>
+                    <Icono nombre="mas" tam={16} /> Agregar una frase
+                  </button>
+                </>
+              )}
+              {resumen?.admin && (
+                <Link className="boton sutil" to="/administracion/configuracion" title="Hora de salida, canales, foto por defecto, estilo y pie del posteo">
+                  <Icono nombre="ajustar" tam={16} /> Configuración
+                </Link>
+              )}
             </>
-          )}
-          {resumen?.admin && (
-            <Link className="boton sutil" to="/administracion/configuracion" title="Hora de salida, canales, foto por defecto, estilo y pie del posteo">
-              <Icono nombre="ajustar" tam={16} /> Configuración
-            </Link>
-          )}
-        </div>
-      </header>
+          )
+        }
+      />
 
       {error && (
         <div className="aviso error" role="alert">

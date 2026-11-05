@@ -1,4 +1,4 @@
-import LinkAyuda from "../../componentes/LinkAyuda";
+import Cabecera from "../../componentes/Cabecera";
 import { definirAyuda } from "../../ayuda/registro";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { NavLink, Navigate, Outlet } from "react-router-dom";
@@ -66,12 +66,7 @@ export default function Administracion() {
   return (
     <Ctx.Provider value={valor}>
       <div className="pagina admin">
-        <header className="pagina-cabecera">
-          <div>
-            <h1>Administración</h1>
-            <p className="suave">¿Funciona la app? ¿Cuánto cuesta? Quién la usa, los servicios, las cuentas y la configuración.  <LinkAyuda pantalla="administracion" /></p>
-          </div>
-        </header>
+        <Cabecera titulo="Administración" subtitulo="¿Funciona la app? ¿Cuánto cuesta? Quién la usa, los servicios, las cuentas y la configuración." ayuda="administracion" />
         <div className="admin-grilla">
           <nav className="admin-menu" data-ayuda="administracion.menu" aria-label="Administración">
             {MENU.map((m) => (
