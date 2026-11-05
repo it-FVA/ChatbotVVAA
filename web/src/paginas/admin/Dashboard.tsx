@@ -311,86 +311,90 @@ function UsoDetalle({ uso, costos }: { uso: Uso; costos: Costos }) {
         <div className="tarjeta">
           <h3>Costo de OpenAI por mes (últimos 6)</h3>
           <BarrasApiladas titulo="Costo por mes" columnas={[...costos.meses].reverse().map((m) => ({ etiqueta: m.texto.split(" ")[0].slice(0, 3), titulo: m.texto + ` · ${miles(m.llamadas)} llamadas`, valores: m.por_persona }))} series={personasMes} formato={(n) => usd(n).replace("US$ ", "$")} />
-          <table className="tabla chica">
-            <thead>
-              <tr>
-                <th>Mes</th>
-                <th className="num">Costo</th>
-                <th className="num">Llamadas</th>
-                <th className="num">Personas</th>
-                <th>Quién más gastó</th>
-              </tr>
-            </thead>
-            <tbody>
-              {costos.meses
-                .filter((m) => m.llamadas > 0)
-                .map((m) => (
-                  <tr key={m.mes}>
-                    <td data-col="Mes">{m.texto}</td>
-                    <td data-col="Costo" className="num">
-                      {usd(m.usd)}
-                    </td>
-                    <td data-col="Llamadas" className="num">
-                      {miles(m.llamadas)}
-                    </td>
-                    <td data-col="Personas" className="num">
-                      {m.personas}
-                    </td>
-                    <td data-col="Quién más">{m.quien_mas ? `${m.quien_mas.usuario} (${usd(m.quien_mas.usd)})` : "—"}</td>
-                  </tr>
-                ))}
-              {costos.meses.every((m) => !m.llamadas) && (
+          <div className="tabla-scroll">
+            <table className="tabla chica">
+              <thead>
                 <tr>
-                  <td colSpan={5} className="suave">
-                    Todavía no hay meses con registro (empezó el {fechaCompleta(costos.registro_desde + "T12:00:00Z", false)}).
-                  </td>
+                  <th>Mes</th>
+                  <th className="num">Costo</th>
+                  <th className="num">Llamadas</th>
+                  <th className="num">Personas</th>
+                  <th>Quién más gastó</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {costos.meses
+                  .filter((m) => m.llamadas > 0)
+                  .map((m) => (
+                    <tr key={m.mes}>
+                      <td data-col="Mes">{m.texto}</td>
+                      <td data-col="Costo" className="num">
+                        {usd(m.usd)}
+                      </td>
+                      <td data-col="Llamadas" className="num">
+                        {miles(m.llamadas)}
+                      </td>
+                      <td data-col="Personas" className="num">
+                        {m.personas}
+                      </td>
+                      <td data-col="Quién más">{m.quien_mas ? `${m.quien_mas.usuario} (${usd(m.quien_mas.usd)})` : "—"}</td>
+                    </tr>
+                  ))}
+                {costos.meses.every((m) => !m.llamadas) && (
+                  <tr>
+                    <td colSpan={5} className="suave">
+                      Todavía no hay meses con registro (empezó el {fechaCompleta(costos.registro_desde + "T12:00:00Z", false)}).
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
       <Plegable titulo="Consumo por modelo y para qué se usó" resumen={costos.por_modelo.length ? `${costos.por_modelo.length} combinaciones` : "sin llamadas"}>
-        <table className="tabla chica">
-          <thead>
-            <tr>
-              <th>Modelo</th>
-              <th>Para qué</th>
-              <th className="num">Llamadas</th>
-              <th className="num">Tokens entrada</th>
-              <th className="num">En caché</th>
-              <th className="num">Tokens salida</th>
-              <th className="num">Costo</th>
-            </tr>
-          </thead>
-          <tbody>
-            {costos.por_modelo.map((m) => (
-              <tr key={m.modelo + m.que}>
-                <td data-col="Modelo">
-                  <code>{m.modelo}</code>
-                  {!m.con_precio && <span className="chip chico amarillo">sin precio</span>}
-                </td>
-                <td data-col="Para qué">{m.que_texto}</td>
-                <td data-col="Llamadas" className="num">
-                  {miles(m.llamadas)}
-                </td>
-                <td data-col="Entrada" className="num">
-                  {miles(m.tokens_entrada)}
-                </td>
-                <td data-col="En caché" className="num">
-                  {miles(m.tokens_cache)}
-                </td>
-                <td data-col="Salida" className="num">
-                  {miles(m.tokens_salida)}
-                </td>
-                <td data-col="Costo" className="num">
-                  {m.con_precio ? usd(m.usd) : "—"}
-                </td>
+        <div className="tabla-scroll">
+          <table className="tabla chica">
+            <thead>
+              <tr>
+                <th>Modelo</th>
+                <th>Para qué</th>
+                <th className="num">Llamadas</th>
+                <th className="num">Tokens entrada</th>
+                <th className="num">En caché</th>
+                <th className="num">Tokens salida</th>
+                <th className="num">Costo</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {costos.por_modelo.map((m) => (
+                <tr key={m.modelo + m.que}>
+                  <td data-col="Modelo">
+                    <code>{m.modelo}</code>
+                    {!m.con_precio && <span className="chip chico amarillo">sin precio</span>}
+                  </td>
+                  <td data-col="Para qué">{m.que_texto}</td>
+                  <td data-col="Llamadas" className="num">
+                    {miles(m.llamadas)}
+                  </td>
+                  <td data-col="Entrada" className="num">
+                    {miles(m.tokens_entrada)}
+                  </td>
+                  <td data-col="En caché" className="num">
+                    {miles(m.tokens_cache)}
+                  </td>
+                  <td data-col="Salida" className="num">
+                    {miles(m.tokens_salida)}
+                  </td>
+                  <td data-col="Costo" className="num">
+                    {m.con_precio ? usd(m.usd) : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         <p className="suave chico">«En caché» son tokens de entrada que OpenAI ya tenía (el system message repetido): se cobran al precio de caché. {costos.nota}</p>
         {Object.keys(costos.precios).length > 0 && (
           <p className="suave chico">

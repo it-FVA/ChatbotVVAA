@@ -541,6 +541,11 @@ h2 .estado-chip {
 .graficos > * {
   min-width: 0;
 }
+/* una tabla más ancha que su tarjeta se desplaza sola en vez de empujar la página */
+.tabla-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
 .grafico svg {
   width: 100%;
   max-width: 100%;

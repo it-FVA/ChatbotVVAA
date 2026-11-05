@@ -23,7 +23,7 @@ export function NuevaFrase({ onCerrar, onHecha }: { onCerrar: () => void; onHech
   }
   return (
     <Modal titulo="Agregar una frase" onCerrar={onCerrar} ancho={520}>
-      <p className="suave chico">Queda validada y sin día; después la asignás desde el backlog o un día libre.</p>
+      <p className="suave chico">Queda validada y sin día; después la asignás desde «Frases sin día» o soltándola en un día libre.</p>
       <div className="fd-form">
         <label>
           Frase

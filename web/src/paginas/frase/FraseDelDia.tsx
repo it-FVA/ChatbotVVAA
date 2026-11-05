@@ -55,7 +55,7 @@ export default function FraseDelDia() {
         titulo="Frase del día"
         subtitulo={
           aprueba
-            ? "Una frase por día, que sale sola cada mañana por mail y redes con una foto de fondo. Solo entran las validadas del Sheet. Arrastrá una frase a otro día para moverla o intercambiarla; desde «Sin día», para asignarla."
+            ? "Una frase por día, que sale sola cada mañana por mail y redes con una foto de fondo. Solo entran las validadas del Sheet. Arrastrá una frase a otro día para moverla o intercambiarla; desde «Frases sin día», para asignarla."
             : "Una frase por día, que sale sola cada mañana por mail y redes con una foto de fondo. Acá ves qué sale cada día. Si querés que un día salga otra frase, abrí ese día y pedí el cambio: lo revisa quien aprueba."
         }
         ayuda="frase-del-dia"
@@ -121,7 +121,7 @@ export default function FraseDelDia() {
             }
           />
           <div className="fd-conteos chico">
-            <Conteo n={c.sin_fecha_validadas} texto="en el backlog" ayuda="validadas sin día" />
+            <Conteo n={c.sin_fecha_validadas} texto="sin día" ayuda="validadas que todavía no tienen día" />
             <Conteo n={c.programadas} texto="programadas" ayuda="desde hoy" />
             <Conteo n={c.publicadas} texto="publicadas" />
             <Conteo n={c.pendientes_validar} texto="pendientes de validar" ayuda="esperan el OK de Pato" suave />
@@ -237,7 +237,7 @@ export default function FraseDelDia() {
           onCerrar={() => setModal(null)}
           onHecha={() => {
             setModal(null);
-            avisar("Agregada: quedó validada y sin día. Asignala desde el backlog o un día libre.");
+            avisar("Agregada: quedó validada y sin día. Asignala desde «Frases sin día» o soltándola en un día libre.");
             recargar();
           }}
         />

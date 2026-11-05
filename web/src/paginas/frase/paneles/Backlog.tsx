@@ -17,7 +17,7 @@ export function BacklogPanel({ version, arrastrando, soloLectura, onArrastrar, o
   return (
     <details className={"tarjeta fd-panel fd-backlog" + (arrastrando ? " arrastrando" : "")} open>
       <summary>
-        <Icono nombre="chevron" tam={16} /> <Icono nombre="pelicula" tam={16} /> Backlog
+        <Icono nombre="chevron" tam={16} /> <Icono nombre="pelicula" tam={16} /> Frases sin día
         {datos && (
           <span className="suave chico">
             {" "}
