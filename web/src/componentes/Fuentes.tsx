@@ -128,7 +128,7 @@ function BotonesRecorte({ x, onPedirRecorte }: { x: Tarjeta; onPedirRecorte: Pro
           );
         if (c && c.estado === "pedido")
           return (
-            <span key={f} className="estado proceso recorte-estado" title="La cola lo corta en unos 15 minutos; esta tarjeta se actualiza sola.">
+            <span key={f} className="estado proceso recorte-estado" title="Se corta solo en unos 15 minutos; esta tarjeta se actualiza sola.">
               <Icono nombre="reloj" tam={14} /> {f === "vertical" ? "vertical" : "recorte"} en proceso
             </span>
           );

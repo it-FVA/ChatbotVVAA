@@ -108,7 +108,7 @@ describe("Diseñar", () => {
     await u.click(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ }));
 
     // paso 3: «Ver simulado» manda la pieza tal cual con modo simulado
-    await u.click(await screen.findByRole("button", { name: /Ver simulado/ }));
+    await u.click(await screen.findByRole("button", { name: /Ver cómo quedaría/ }));
     await waitFor(() => expect(api.de("POST", "/publicar/enviar")).toHaveLength(1));
     expect(api.de("POST", "/publicar/enviar")[0].cuerpo).toMatchObject({ canal: "facebook", titulo: "Gratitud de noviembre", texto: "Hoy agradezco el día.", modo: "simulado" });
     // el panel de resultado trae el título y el aviso de la API (la vista previa repite el título: por eso «todos»)

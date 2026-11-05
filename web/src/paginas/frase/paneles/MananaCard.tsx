@@ -34,16 +34,16 @@ export function MananaCard({ resumen, version = 0, aprueba, ocupado, onActiva, o
 
   function estadoDe(x: CanalManana): { texto: string; clase: string } {
     if (!x.prendido) return { texto: "apagado", clase: "suave" };
-    if (x.modo === "apagado") return { texto: "el canal está apagado en la API", clase: "suave" };
+    if (x.modo === "apagado") return { texto: "el canal está apagado", clase: "suave" };
     const p = x.pieza;
-    if (p?.estado === "pendiente") return { texto: x.canal === "mail" ? `en cola · arranca ${horaArgentina(p.fecha_programada)}` : `en cola · sale ${horaArgentina(p.fecha_programada)}`, clase: "verde" };
+    if (p?.estado === "pendiente") return { texto: x.canal === "mail" ? `programada · arranca ${horaArgentina(p.fecha_programada)}` : `programada · sale ${horaArgentina(p.fecha_programada)}`, clase: "verde" };
     if (p?.estado === "enviando") return { texto: "enviándose", clase: "verde" };
     if (p?.estado === "publicada") return { texto: "ya salió", clase: "verde" };
-    if (p?.estado === "simulada") return { texto: "simulada (no salió)", clase: "suave" };
+    if (p?.estado === "simulada") return { texto: "prueba (no salió)", clase: "suave" };
     if (p?.estado === "cancelada") return { texto: "cancelada", clase: "rojo" };
-    if (p?.estado === "error") return { texto: "falló: ver Aprobación → En cola", clase: "rojo" };
+    if (p?.estado === "error") return { texto: "falló: ver Aprobación → Programadas", clase: "rojo" };
     if (!f) return { texto: "sin frase", clase: "suave" };
-    return resumen.activa ? { texto: `se encola en la próxima pasada (sale ${hora})`, clase: "suave" } : { texto: "se encola al prender la Frase del día", clase: "suave" };
+    return resumen.activa ? { texto: `se programa sola (sale ${hora})`, clase: "suave" } : { texto: "se programa al prender la Frase del día", clase: "suave" };
   }
 
   return (
@@ -95,11 +95,11 @@ export function MananaCard({ resumen, version = 0, aprueba, ocupado, onActiva, o
                     <Icono nombre="imagen" tam={14} /> Cambiar la foto
                   </button>
                   {m.en_cola ? (
-                    <button type="button" className="boton chico" onClick={onFrenar} disabled={ocupado} title="Cancela las piezas de mañana que están en la cola; la frase queda en el día">
+                    <button type="button" className="boton chico" onClick={onFrenar} disabled={ocupado} title="Cancela las piezas de mañana ya programadas; la frase queda en el día">
                       <Icono nombre="cruz" tam={14} /> Frenar mañana
                     </button>
                   ) : (
-                    <button type="button" className="boton primario chico" onClick={onEncolar} disabled={ocupado || !resumen.activa || !prendidos.length} title={resumen.activa ? "Pone la frase de mañana en la cola por los canales prendidos" : "Primero prendé la Frase del día"}>
+                    <button type="button" className="boton primario chico" onClick={onEncolar} disabled={ocupado || !resumen.activa || !prendidos.length} title={resumen.activa ? "Programa la frase de mañana por los canales prendidos" : "Primero prendé la Frase del día"}>
                       <Icono nombre="enviar" tam={14} /> Encolar mañana
                     </button>
                   )}
@@ -136,7 +136,7 @@ export function MananaCard({ resumen, version = 0, aprueba, ocupado, onActiva, o
               <tr key={x.canal} className={x.prendido ? "" : "apagado"}>
                 <td>
                   <span title={x.nombre}>{corto}</span>
-                  <span className={"pub-modo chico " + x.modo} title="Modo del canal en la API">{x.modo}</span>
+                  {x.modo !== "real" && <span className="chip chico suave" title="Cómo está el canal: en prueba no sale nada de verdad">{x.modo === "simulado" ? "prueba" : x.modo}</span>}
                 </td>
                 <td>
                   {aprueba ? (

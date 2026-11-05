@@ -128,7 +128,7 @@ export default function Login() {
               type="button"
               className="boton"
               disabled
-              title={clientId ? "Cargando el login de Google…" : "Todavía no está configurado: falta GOOGLE_CLIENT_ID en la API."}
+              title={clientId ? "Cargando el login de Google…" : "Entrar con Google todavía no está habilitado."}
             >
               <GoogleIcono /> Entrar con Google
             </button>
@@ -137,7 +137,7 @@ export default function Login() {
         {clientId ? (
           <p className="suave chico">Entran las cuentas @viviragradecidos.org y las que un admin haya habilitado.</p>
         ) : (
-          <p className="suave chico">El login con Google se habilita cuando la API tenga el proyecto de Google Cloud.</p>
+          <p className="suave chico">Entrar con Google todavía no está habilitado.</p>
         )}
         <p className="chico primera-vez">
           ¿Primera vez? <Link to="/primera-vez">Creá tu cuenta</Link>

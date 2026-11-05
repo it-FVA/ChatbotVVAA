@@ -77,7 +77,7 @@ export default function Recortes({ vistaFija }: { vistaFija?: Vista } = {}) {
               <Icono nombre="enviar" /> Subir un video
             </button>
           </div>
-          <p className="suave">Los recortes tardan unos 15 minutos. Cuando están listos aparece el video y los botones «Diseñar», «Editar» y «Abrir». Borrá los que no vayas a usar: cada uno ocupa entre 5 y 50 MB en WordPress.  <LinkAyuda pantalla="recortes" /></p>
+          <p className="suave">Tus pedazos de video, listos para diseñar una pieza. Tardan unos 15 minutos. Borrá los que no vayas a usar: ocupan lugar.  <LinkAyuda pantalla="recortes" /></p>
         </header>
       )}
 
@@ -95,7 +95,7 @@ export default function Recortes({ vistaFija }: { vistaFija?: Vista } = {}) {
       <div className="filtros">
         <div className="solapas" role="tablist" aria-label="Qué recortes ver" hidden={!!vistaFija}>
           <button role="tab" aria-selected={vista === "mios"} className={"solapa" + (vista === "mios" ? " activa" : "")} onClick={() => setVista("mios")}>
-            Mis recortes
+            Míos
           </button>
           <button role="tab" aria-selected={vista === "equipo"} className={"solapa" + (vista === "equipo" ? " activa" : "")} onClick={() => setVista("equipo")}>
             <Icono nombre="usuarios" tam={15} /> Del equipo
@@ -196,7 +196,7 @@ function Tarjeta({ c, mostrarQuien, aprueba, onBorrar, onCambio }: { c: Recorte;
     setReintentando(true);
     try {
       await api.reintentar(c.id);
-      avisar("Vuelto a poner en la cola.");
+      avisar("Se vuelve a cortar: tarda unos 15 minutos.");
       onCambio();
     } catch (e) {
       avisar(e instanceof ErrorApi ? e.message : "No pude reintentar.", "error");
@@ -255,14 +255,9 @@ function Tarjeta({ c, mostrarQuien, aprueba, onBorrar, onCambio }: { c: Recorte;
           <span className={"estado " + clase}>
             <Icono nombre={c.estado === "listo" ? "check" : c.estado === "error" ? "alerta" : "reloj"} tam={14} /> {c.estado_texto}
           </span>
-          {c.sin_pausas && (
-            <span title={`${c.sin_pausas.pausas} pausas sacadas`}>
-              <Icono nombre="tijera" tam={13} /> sin pausas ({c.sin_pausas.antes.toFixed(0)} s → {c.sin_pausas.despues.toFixed(0)} s)
-            </span>
-          )}
-          {c.segmentos_hechos && (
-            <span>
-              <Icono nombre="tijera" tam={13} /> {c.segmentos_hechos.length === 1 ? "1 pedazo conservado" : `${c.segmentos_hechos.length} pedazos conservados`}
+          {(c.sin_pausas || c.segmentos_hechos) && (
+            <span title={c.sin_pausas ? `${c.sin_pausas.pausas} pausas sacadas` : undefined}>
+              <Icono nombre="tijera" tam={13} /> editado
             </span>
           )}
           {mostrarQuien && (

@@ -98,7 +98,7 @@ export function useFraseDelDia() {
     if (!a || !mes || a.desde === fecha) return;
     const destino = mes.frases[fecha];
     if (destino?.cerrada) {
-      avisar("La frase de ese día ya está en la cola o ya salió: no se puede cambiar.", "error");
+      avisar("La frase de ese día ya está programada o ya salió: no se puede cambiar.", "error");
       return;
     }
     if (!destino) {

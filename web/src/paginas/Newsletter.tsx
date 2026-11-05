@@ -327,7 +327,7 @@ export default function Newsletter() {
         <div>
           <h1>Newsletter</h1>
           <p className="suave">
-            El email a la comunidad, bloque por bloque, con las plantillas reales de la Fundación. El bot redacta los textos desde el material; la agenda, las fotos y los links los cargás vos. El email no sale de acá: el HTML aprobado se pega en Perfit. (Una entrada de la web es un «blogpost» y se diseña en Canales → Blogpost.)
+            El email a la comunidad, bloque por bloque. El bot redacta los textos; la agenda, las fotos y los links los cargás vos. Una vez aprobado, el HTML se pega en Perfit.
             <LinkAyuda pantalla="newsletter" /></p>
           <Presencia presentes={presentes} />
         </div>
@@ -431,8 +431,8 @@ export default function Newsletter() {
           {abierto && abierto.propia === false
             ? `Estás editando un newsletter de ${abierto.duena}, compartido con vos para editar. Al guardar se actualiza el mismo y sigue siendo de ${abierto.duena}. Si lo mandás a aprobación, va a su nombre y queda en la misma carpeta.`
             : abierto?.rechazo
-              ? "Estás corrigiendo un newsletter rechazado: al guardar queda como borrador en el mismo lugar. Al mandarlo a aprobación vuelve a la cola con el mismo historial."
-              : "Estás retomando un borrador: al guardar se actualiza el mismo. Al mandarlo a aprobación pasa a la cola en el mismo lugar."}
+              ? "Estás corrigiendo un newsletter rechazado: al guardar queda como borrador en el mismo lugar. Al mandarlo a aprobación vuelve a revisarse con el mismo historial."
+              : "Estás retomando un borrador: al guardar se actualiza el mismo. Al mandarlo a aprobación queda en el mismo lugar."}
         </p>
       )}
       {error && (
@@ -876,7 +876,7 @@ function Fotos({ destinos, onUsar }: { destinos: Destino[]; onUsar: (destino: De
           </label>
         </div>
         <AvisoBanco fotos={fotos} />
-        {fotos && fotos.length === 0 && !buscando && <p className="suave chico">Nada con esas palabras (o la API no tiene acceso a WordPress). Probá otras, o pegá la URL en el campo del bloque.</p>}
+        {fotos && fotos.length === 0 && !buscando && <p className="suave chico">Nada con esas palabras. Probá otras, o pegá la URL en el campo del bloque.</p>}
         {fotos && fotos.length > 0 && (
           <div className="pieza-fotos nl-banco">
             {fotos.map((f) => (

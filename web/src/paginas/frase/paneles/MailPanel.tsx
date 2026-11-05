@@ -28,7 +28,7 @@ export function MailPanel({ admin }: { admin: boolean }) {
     cargar();
   }, [cargar]);
 
-  const modoTxt = est ? { apagado: "apagado", simulado: "simulado (registra, no manda)", real: "real" }[est.modo] : "";
+  const modoTxt = est ? { apagado: "apagado", simulado: "prueba (no manda)", real: "real" }[est.modo] : "";
   // solo los envíos con movimiento (en curso o con conteo): el estado de mañana está en la tarjeta de arriba
   const dias = est ? Object.entries(est.envios).filter(([, d]) => d.pieza && (d.estado === "enviando" || (d.conteo && d.conteo.total))) : [];
   return (
@@ -60,7 +60,7 @@ export function MailPanel({ admin }: { admin: boolean }) {
             </p>
             {est.faltan.length > 0 && (
               <div className="aviso chico">
-                <Icono nombre="alerta" tam={16} /> Faltan variables en el servidor: {est.faltan.join(", ")}. Hasta que estén, el modo real no manda nada.
+                <Icono nombre="alerta" tam={16} /> Falta configurar el envío ({est.faltan.join(", ")}): hasta entonces no sale ningún mail. Lo resuelve quien administra.
               </div>
             )}
             {est.error && (
@@ -81,7 +81,7 @@ export function MailPanel({ admin }: { admin: boolean }) {
                   {!d.frase ? (
                     <span className="suave">sin frase asignada</span>
                   ) : !d.pieza ? (
-                    <span className="suave">«{recortar(d.frase.texto, 60)}» · {est.canal_prendido ? "todavía no está en la cola" : "el canal mail está apagado"}</span>
+                    <span className="suave">«{recortar(d.frase.texto, 60)}» · {est.canal_prendido ? "todavía no está programada" : "el canal mail está apagado"}</span>
                   ) : (
                     <span>
                       «{recortar(d.frase.texto, 60)}» · {d.estado}

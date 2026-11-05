@@ -25,7 +25,7 @@ export function Calendario({ s }: { s: EstadoFrase }) {
           <Icono nombre="chevron" tam={16} />
         </button>
         <span className="suave chico fd-leyenda">
-          <Icono nombre="calendario" tam={13} /> programada · <Icono nombre="megafono" tam={13} /> publicada · <Icono nombre="ojo" tam={13} /> simulada · ⏭ salteada · ↻ ya salió antes
+          <Icono nombre="calendario" tam={13} /> programada · <Icono nombre="megafono" tam={13} /> publicada · <Icono nombre="ojo" tam={13} /> prueba · ⏭ salteada · ↻ ya salió antes
         </span>
       </div>
       {mes === null ? (
@@ -87,7 +87,7 @@ export function Calendario({ s }: { s: EstadoFrase }) {
                     draggable={aprueba && !fr.cerrada && !pasado}
                     onDragStart={(e) => aprueba && empezarArrastre(e, { id: fr.id, desde: f, texto: fr.texto }, setArrastre)}
                     onDragEnd={() => (setArrastre(null), setSobre(null))}
-                    title={!aprueba ? "Abrí el día para ver la frase o pedir un cambio" : fr.cerrada ? "En la cola o ya salió: no se mueve" : "Arrastrá a otro día para mover o intercambiar"}
+                    title={!aprueba ? "Abrí el día para ver la frase o pedir un cambio" : fr.cerrada ? "Ya programada o ya salió: no se mueve" : "Arrastrá a otro día para mover o intercambiar"}
                   >
                     <span className="fd-texto">{recortar(fr.texto, 70)}</span>
                     {fr.autor && <span className="fd-autor suave chico">{fr.autor}</span>}

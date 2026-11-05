@@ -34,7 +34,7 @@ export function MoverIntercambiar({ f, fecha, ocupado, correr }: { f: Frase; fec
         {otraFrase?.frase ? (
           <p className="suave chico">
             Ese día tiene: «{recortar(otraFrase.frase.texto, 80)}» — {otraFrase.frase.autor}
-            {otraFrase.frase.cerrada && " ⚠ ya está en la cola o ya salió: no se puede intercambiar."}
+            {otraFrase.frase.cerrada && " ⚠ ya está programada o ya salió: no se puede intercambiar."}
           </p>
         ) : otra && otra !== fecha ? (
           <p className="suave chico">Ese día no tiene frase: usá «Mover».</p>

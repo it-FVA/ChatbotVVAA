@@ -12,7 +12,7 @@ export const SI_ALGO_FALLA = {
   titulo: "Si algo falla",
   pasos: [
     "Refrescá la página.",
-    "Si la primera vez tarda, esperá: la API se despierta sola en un minuto si estuvo dormida.",
+    "Si la primera vez tarda, esperá: el asistente arranca solo en un minuto.",
     "Si sigue sin andar, avisale a Franco con lo que estabas haciendo.",
   ],
 };

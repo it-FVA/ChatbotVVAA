@@ -26,7 +26,7 @@ export default function Saltar({ f, fecha, ocupado, correr }: PropsSolapa) {
         )}
       </div>
       <div>
-        <p className="suave chico">Sacar del calendario: la frase vuelve a «sin día» y el día queda libre (lo llena «Repartir», una asignación a mano o la rotación de la cola).</p>
+        <p className="suave chico">Sacar del calendario: la frase vuelve a «sin día» y el día queda libre (lo llena «Repartir», una asignación a mano o la rotación automática).</p>
         <button
           type="button"
           className="boton peligro sutil"

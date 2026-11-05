@@ -56,7 +56,7 @@ export default function FraseDelDia() {
           <h1>Frase del día</h1>
           <p className="suave">
             {aprueba
-              ? "Una frase por día, que sale sola cada mañana por mail y redes con una foto de fondo. Solo entran las validadas del Sheet. Arrastrá una frase a otro día para moverla o intercambiarla; desde el backlog, para asignarla."
+              ? "Una frase por día, que sale sola cada mañana por mail y redes con una foto de fondo. Solo entran las validadas del Sheet. Arrastrá una frase a otro día para moverla o intercambiarla; desde «Sin día», para asignarla."
               : "Una frase por día, que sale sola cada mañana por mail y redes con una foto de fondo. Acá ves qué sale cada día. Si querés que un día salga otra frase, abrí ese día y pedí el cambio: lo revisa quien aprueba."}
             {" "}
             <LinkAyuda pantalla="frase-del-dia" />
@@ -220,7 +220,7 @@ export default function FraseDelDia() {
       )}
       {modal === "vaciar" && (
         <Modal titulo="¿Vaciar el calendario?" onCerrar={() => setModal(null)} peligro>
-          <p className="suave">Saca TODAS las frases del calendario que todavía no salieron (vuelven a «sin día»). Las que ya están en la cola o ya salieron quedan.</p>
+          <p className="suave">Saca TODAS las frases del calendario que todavía no salieron (vuelven a «sin día»). Las que ya están programadas o ya salieron quedan.</p>
           <div className="acciones" style={{ justifyContent: "flex-end" }}>
             <button type="button" className="boton" onClick={() => setModal(null)}>
               Cancelar

@@ -23,7 +23,7 @@ import "../publicar.css";
 
 const MENU: { a: string; texto: string; icono: string; fin?: boolean }[] = [
   { a: "/aprobacion", texto: "Para aprobar", icono: "reloj", fin: true },
-  { a: "/aprobacion/cola", texto: "En cola", icono: "calendario" },
+  { a: "/aprobacion/cola", texto: "Programadas", icono: "calendario" },
   { a: "/aprobacion/registro", texto: "Registro", icono: "info" },
   { a: "/aprobacion/papelera", texto: "Papelera", icono: "tacho" },
   { a: "/aprobacion/clips", texto: "Clips", icono: "pelicula" },
@@ -39,7 +39,7 @@ definirAyuda("aprobacion", {
   titulo: "Aprobación",
   que: "Solo la ve quien tiene el rol de aprobar. Acá se revisa lo que mandó el equipo y se publica.",
   pasos: [
-    { id: "menu", texto: "«Para aprobar» tiene lo pendiente. «En cola» muestra lo que está por salir; el resto es el registro, la papelera y los clips." },
+    { id: "menu", texto: "«Para aprobar» tiene lo pendiente. «Programadas» muestra lo que está por salir; el resto es el registro, la papelera y los clips." },
     { texto: "En «Para aprobar», mirá la vista previa y ajustá la fecha y hora si hace falta.", titulo: "Revisar" },
     { id: "aprobar", texto: "«Aprobar y programar» la aprueba con la fecha y hora elegidas." },
     { id: "rechazar", texto: "«Rechazar», con una nota que explique por qué." },
@@ -64,7 +64,7 @@ export default function Aprobacion() {
       <header className="pagina-cabecera">
         <div>
           <h1>Aprobación</h1>
-          <p className="suave">Piezas para aprobar, la cola, el registro, la papelera y los clips del equipo. La Frase del día está en Campañas; el Dashboard, en Administración.  <LinkAyuda pantalla="aprobacion" /></p>
+          <p className="suave">Lo que el equipo mandó: revisás, aprobás y seguís qué salió.  <LinkAyuda pantalla="aprobacion" /></p>
         </div>
       </header>
       <div className="admin-grilla">
@@ -225,7 +225,7 @@ export function Cola() {
       setPiezas(await apiPublicar.cola());
       setError(null);
     } catch (e) {
-      setError(e instanceof ErrorApi ? e.message : "No pude leer la cola.");
+      setError(e instanceof ErrorApi ? e.message : "No pude leer las piezas programadas.");
       setPiezas([]);
     }
   }, []);
@@ -248,13 +248,13 @@ export function Cola() {
     <section>
       <div className="seccion-cabecera">
         <h2>
-          <Icono nombre="calendario" /> En cola {piezas && <span className="chip">{piezas.length}</span>}
+          <Icono nombre="calendario" /> Programadas {piezas && <span className="chip">{piezas.length}</span>}
         </h2>
-        <p className="suave chico">La cola corre cada 15 minutos (GitHub Actions) y saca cada pieza en su fecha, con el modo que tenga el canal en ese momento.</p>
+        <p className="suave chico">Las piezas aprobadas esperan acá y salen solas en su fecha (se revisa cada 15 minutos).</p>
       </div>
       {error && <div className="aviso error">{error}</div>}
       {piezas === null && <Hueso ancho="100%" alto={160} radio={12} />}
-      {piezas && piezas.length === 0 && !error && <EstadoVacio titulo="No hay piezas en cola" texto="Las piezas aprobadas con fecha, y las programadas para Instagram o Facebook, esperan acá hasta su día." />}
+      {piezas && piezas.length === 0 && !error && <EstadoVacio titulo="No hay piezas programadas" texto="Las piezas aprobadas con fecha, y las programadas para Instagram o Facebook, esperan acá hasta su día." />}
       <div className="lista">
         {piezas?.map((p) => (
           <TarjetaPublicacion

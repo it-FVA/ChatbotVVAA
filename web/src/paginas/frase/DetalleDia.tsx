@@ -59,7 +59,7 @@ export function DetalleDia({ fecha, version, aprueba, solapaPedida, estiloOpcion
       {!d && !error && <p className="suave">Cargando…</p>}
       {d && !f && !aprueba && (
         <>
-          <p className="suave">Este día no tiene frase{d.pasado ? " y ya pasó." : " todavía: la cola le asigna la siguiente de la rotación. Si querés que salga una en particular, pedila:"}</p>
+          <p className="suave">Este día no tiene frase{d.pasado ? " y ya pasó." : " todavía: se asigna sola la siguiente de la rotación. Si querés que salga una en particular, pedila:"}</p>
           {!d.pasado && <SolicitarCambio fecha={fecha} actual={null} onHecho={() => onCambio()} />}
         </>
       )}
@@ -94,7 +94,7 @@ export function DetalleDia({ fecha, version, aprueba, solapaPedida, estiloOpcion
             </p>
             {d.cola && (
               <p className="suave chico">
-                En la cola: estado <strong>{d.cola.estado}</strong>, sale el {horaArgentina(d.cola.fecha_programada)}
+                Programada: estado <strong>{d.cola.estado}</strong>, sale el {horaArgentina(d.cola.fecha_programada)}
                 {d.cola.permalink && (
                   <>
                     {" "}
@@ -108,7 +108,7 @@ export function DetalleDia({ fecha, version, aprueba, solapaPedida, estiloOpcion
             )}
             {f.cerrada ? (
               <div className="aviso chico">
-                <Icono nombre="info" tam={16} /> Esta frase ya está en la cola o ya salió: {aprueba ? "no se mueve ni se edita desde acá. Para frenarla, cancelá la pieza en la cola (Aprobación → En cola)." : "ese día ya no se puede cambiar."}
+                <Icono nombre="info" tam={16} /> Esta frase ya está programada o ya salió: {aprueba ? "no se mueve ni se edita desde acá. Para frenarla, cancelá la pieza en Aprobación → Programadas." : "ese día ya no se puede cambiar."}
               </div>
             ) : d.pasado ? (
               <div className="aviso chico">

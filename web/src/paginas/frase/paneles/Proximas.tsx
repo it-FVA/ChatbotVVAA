@@ -30,7 +30,7 @@ export function Proximas({ lista, onElegir }: { lista: Proxima[] | null; onElegi
                 </span>
               ) : (
                 <span className="fd-prox-texto suave">
-                  <em>sin frase (la cola asigna la siguiente de la rotación)</em>
+                  <em>sin frase (se asigna sola la siguiente de la rotación)</em>
                 </span>
               )}
             </button>

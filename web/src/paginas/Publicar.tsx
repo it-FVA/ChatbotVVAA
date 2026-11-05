@@ -117,7 +117,7 @@ export default function Publicar() {
             setForm({ ...desdeGuardada(p.pieza || {}, o), borrador_id: null });
             setOrigen("copia");
           } else if ((p.estado !== "borrador" && p.estado !== "rechazada") || !p.pieza) {
-            setError(p.estado === "prueba" ? "Esto fue una prueba (Ver simulado), no un borrador: se abre el formulario con sus datos; si lo guardás, queda como borrador nuevo." : "Esa pieza ya no es un borrador: se abre el formulario con sus datos, pero al guardar se crea una pieza nueva.");
+            setError(p.estado === "prueba" ? "Esto fue una prueba, no un borrador: se abre el formulario con sus datos; si lo guardás, queda como borrador nuevo." : "Esa pieza ya no es un borrador: se abre el formulario con sus datos, pero al guardar se crea una pieza nueva.");
             setForm({ ...desdeGuardada(p.pieza || {}, o), borrador_id: null });
           } else {
             setForm(desdeGuardada(p.pieza, o));
@@ -356,7 +356,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
 
   // ---- botones
   const puedeProponer = !!info?.a_aprobar;
-  const motivoNoProponer = !canal ? "Elegí el canal." : info && !info.acepta_aprobacion ? `${info.texto_canal} no pasa por aprobación.` : info && !info.a_aprobar ? `${info.texto_canal} está en modo ${info.modo_real}: no hay a dónde mandarla cuando la aprueben. Guardala como borrador.` : null;
+  const motivoNoProponer = !canal ? "Elegí el canal." : info && !info.acepta_aprobacion ? `${info.texto_canal} no pasa por aprobación.` : info && !info.a_aprobar ? `${info.texto_canal} todavía no está habilitado: guardala como borrador.` : null;
   const faltas = [faltaTexto && "falta el texto", faltaTitulo && "falta el título", faltaVideoYT && "falta el video (un recorte)", faltaFotoIG && "falta la foto"].filter(Boolean) as string[];
   const etiquetaPrincipal = !canal ? "Elegí el canal" : "Enviar a aprobación"; // (5/11) nadie publica directo: todo pasa por aprobación
 
@@ -383,7 +383,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
         setResultado({ tipo: "aprobacion", r });
       } else {
         const r = await apiPublicar.enviar(pz, que);
-        if (r.ok) avisar(que === "simulado" ? "Pieza simulada: así quedaría." : r.encolada ? "Quedó en la cola." : "Enviada.");
+        if (r.ok) avisar(que === "simulado" ? "Así quedaría la pieza." : r.encolada ? "Quedó programada: sale en su fecha." : "Enviada.");
         else avisar(r.aviso || "No se pudo.", "error");
         setResultado({ tipo: "envio", r, modo: que });
       }
@@ -435,8 +435,8 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
             {!desdeMenu && origen === "chat" && "La pieza que propuso el bot, lista para ajustar y mandar."}
             {origen === "recorte" && "Un recorte listo para publicar: elegí el canal y escribí el texto."}
             {origen === "copia" && (copiaDe ? `Una copia de una pieza de ${copiaDe}: ajustala y guardala como tuya. La original no cambia.` : "Una copia de la pieza: al guardar se crea una nueva y la original no cambia.")}
-            {origen === "borrador" && rechazo && `Corrigiendo una pieza rechazada${duenaDe ? ` de ${duenaDe}` : ""}. Al guardar queda como borrador en el mismo lugar, con el rechazo en su historial. Al mandarla a aprobación vuelve a la cola${duenaDe ? ` a nombre de ${duenaDe}` : ""}, en la misma carpeta.`}
-            {origen === "borrador" && !rechazo && !duenaDe && "Retomando un borrador: al guardar se actualiza el mismo. Al mandarlo a aprobación pasa a la cola en el mismo lugar; al enviarlo directo, el borrador se elimina."}
+            {origen === "borrador" && rechazo && `Corrigiendo una pieza rechazada${duenaDe ? ` de ${duenaDe}` : ""}. Al guardar queda como borrador en el mismo lugar, con el rechazo en su historial. Al mandarla a aprobación vuelve a revisarse${duenaDe ? ` a nombre de ${duenaDe}` : ""}, en la misma carpeta.`}
+            {origen === "borrador" && !rechazo && !duenaDe && "Retomando un borrador: al guardar se actualiza el mismo. Al mandarlo a aprobación queda en el mismo lugar."}
             {origen === "borrador" && !rechazo && duenaDe && `Editando un borrador de ${duenaDe}, compartido con vos para editar. Al guardar se actualiza el mismo y sigue siendo de ${duenaDe}. Si lo mandás a aprobación, va a su nombre y queda en la misma carpeta.`}
             {!desdeMenu && origen === "nueva" && "Acá se diseña la pieza: foto, frase, texto y fecha. Publicarla es el paso siguiente, desde Aprobación. También se puede diseñar desde el chat, debajo de la respuesta del bot."}
             <LinkAyuda pantalla="disenar" /></p>
@@ -492,7 +492,6 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
               <div className="pub-canal-fijo" data-ayuda="disenar.canal">
                 <span>
                   <strong>{info?.texto_canal || canal}</strong> <span className="suave chico">{info?.detalle}</span>
-                  {op.canales[canal] && <span className={"pub-modo chico " + op.canales[canal].modo}> {op.canales[canal].modo}</span>}
                 </span>
               </div>
             ) : (
@@ -503,16 +502,9 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
                   <input type="radio" name="canal" value={clave} checked={canal === clave} onChange={() => set("canal", clave)} />
                   <span className="pub-canal-nombre">{i.texto_canal}</span>
                   <span className="pub-canal-detalle chico">{i.detalle}</span>
-                  <span className={"pub-modo chico " + i.modo}>{i.modo}</span>
                 </label>
               ))}
             </fieldset>
-            )}
-            {info && (
-              <p className={"suave chico pub-modo-texto"}>
-                {info.texto_canal} en modo <strong>{info.modo}</strong>: {info.texto.split(":").slice(1).join(":").trim()}
-                {info.modo_real !== info.modo && <> (el canal real está en {info.modo_real}: lo que mandes a aprobación sale con ese modo).</>}
-              </p>
             )}
             {!desdeMenu && <p className="suave chico">Para el email a la comunidad usá «Email» (o «Newsletter») en el menú: tiene sus plantillas y su vista previa.</p>}
             <label>
@@ -733,7 +725,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
               </div>
             )}
             <p className="suave chico">
-              Lo revisa {op.aprobadores.join(", ") || "un aprobador"}. «Ver simulado» solo muestra cómo quedaría.
+              Lo revisa {op.aprobadores.join(", ") || "un aprobador"}. «Ver cómo quedaría» arma la pieza sin mandarla.
               {op.aprueba && " Vos también lo aprobás desde Aprobación."}
             </p>
             {faltas.length > 0 && canal && (
@@ -745,8 +737,8 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
               <button type="button" className="boton primario grande" onClick={() => mandar("aprobar")} disabled={enviando !== null || !puedeProponer || faltas.length > 0} title={motivoNoProponer || undefined}>
                 <Icono nombre="check" /> {enviando === "aprobar" ? "Enviando…" : etiquetaPrincipal}
               </button>
-              <button type="button" className="boton" onClick={() => mandar("simulado")} disabled={enviando !== null || !canal || modo === "apagado" || faltaTexto || faltaTitulo || (esReel && !conVideo) || faltaFotoIG} title="Arma la pieza tal cual saldría y la muestra. No manda nada; queda como prueba en el registro.">
-                <Icono nombre="ojo" /> {enviando === "simulado" ? "Armando…" : "Ver simulado"}
+              <button type="button" className="boton" onClick={() => mandar("simulado")} disabled={enviando !== null || !canal || modo === "apagado" || faltaTexto || faltaTitulo || (esReel && !conVideo) || faltaFotoIG} title="Arma la pieza tal cual saldría y la muestra. No manda nada; queda como prueba en Mis publicaciones.">
+                <Icono nombre="ojo" /> {enviando === "simulado" ? "Armando…" : "Ver cómo quedaría"}
               </button>
               <button type="button" className="boton" onClick={() => mandar("borrador")} disabled={enviando !== null || !canal} title="Guarda todo sin mandar nada; se retoma desde Mis publicaciones.">
                 <Icono nombre="lapiz" /> {enviando === "borrador" ? "Guardando…" : f.borrador_id ? "Guardar cambios" : "Guardar borrador"}
@@ -761,7 +753,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
             <h2>
               <Icono nombre="ojo" tam={16} /> Así se vería
             </h2>
-            {info && <span className={"pub-modo " + modo}>{info.texto_canal} · {modo}</span>}
+            {info && <span className="chip suave">{info.texto_canal}</span>}
           </div>
           <VistaPrevia d={previa} />
           {seCompone && !f.usar_compuesta && <p className="suave chico">Se publica la foto sola.</p>}
@@ -941,7 +933,7 @@ function ResultadoPanel({ resultado, previa, canal, info, ajena = false, onVolve
   } else {
     const r = resultado.r;
     ok = r.ok;
-    titulo = !r.ok ? "No se pudo" : r.encolada ? "Quedó en la cola" : r.simulado ? `Así quedaría en ${nombre}` : r.modo === "borrador" ? "Borrador creado en WordPress" : `Enviada a ${nombre}`;
+    titulo = !r.ok ? "No se pudo" : r.encolada ? "Quedó programada" : r.simulado ? `Así quedaría en ${nombre}` : r.modo === "borrador" ? "Borrador creado en WordPress" : `Enviada a ${nombre}`;
     detalle = r.aviso;
     avisos = r.avisos;
     imagenFinal = r.imagen_url;

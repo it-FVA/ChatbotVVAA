@@ -63,7 +63,7 @@ export default function Cuenta() {
           <dt>Email</dt>
           <dd>{yo.email || <span className="suave">sin cargar</span>}</dd>
           <dt>Rol</dt>
-          <dd>{yo.rol.nombre}</dd>
+          <dd>{yo.rol.admin ? "Administra la app (y aprueba)" : yo.rol.aprueba ? "Aprueba y publica" : "Crea contenido"}</dd>
         </dl>
         {!yo.en_tabla && <p className="suave chico">Tu usuario todavía está en la lista vieja de la app: cuando un admin corra la importación vas a poder cambiar la contraseña desde acá.</p>}
       </section>

@@ -94,7 +94,7 @@ export default function Publicaciones() {
       <header className="pagina-cabecera">
         <div>
           <h1>Mis publicaciones</h1>
-          <p className="suave">Todas las piezas que mandaste: pendientes, aprobadas, rechazadas, publicadas, borradores y pruebas.  <LinkAyuda pantalla="publicaciones" /></p>
+          <p className="suave">Todo lo que diseñaste: en revisión, programado, publicado, borradores y pruebas.  <LinkAyuda pantalla="publicaciones" /></p>
         </div>
         <Link to="/publicar" className="boton primario" data-ayuda="publicaciones.nueva">
           <Icono nombre="mas" tam={16} /> Diseñar una pieza
@@ -234,7 +234,7 @@ export function TarjetaPublicacion({ p, mostrarUsuario = false, onEliminar, onCa
           </span>
           <span>
             <Icono nombre={(canales.find((c) => c.clave === p.canal)?.icono as NombreIcono) || "megafono"} tam={14} /> {etiquetaCanal(p)}
-            {p.formato && p.formato !== "cuadrado" ? ` · ${p.formato}` : ""}
+            {p.formato && p.formato !== "cuadrado" && (!tipoInstagram(p) || tipoInstagram(p) === "posteo") ? ` · ${p.formato}` : ""}
           </span>
           <span className="suave">creada {fechaCreacion(p.creado)}</span>
           {mostrarUsuario && (

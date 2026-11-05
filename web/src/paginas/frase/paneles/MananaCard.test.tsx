@@ -63,10 +63,10 @@ describe("Tarjeta Mañana", () => {
     expect(screen.getByRole("heading", { name: "Mañana, miércoles 4 de noviembre" })).toBeInTheDocument();
     expect(screen.getByText(/La gratitud es la llave de la alegría/)).toBeInTheDocument();
     // la cola guarda en UTC y la pantalla lo muestra en hora Argentina: 10:00 UTC = 07:00 (el cero del día depende del navegador)
-    expect(within(fila("Facebook")).getByText(/^en cola · sale 0?4\/11 07:00$/)).toBeInTheDocument();
+    expect(within(fila("Facebook")).getByText(/^programada · sale 0?4\/11 07:00$/)).toBeInTheDocument();
     expect(within(fila("Posteo de Instagram")).getByText("apagado", { selector: "td" })).toBeInTheDocument();
-    expect(within(fila("WhatsApp")).getByText("se encola en la próxima pasada (sale 07:00)")).toBeInTheDocument();
-    expect(within(fila("Mail")).getByText("el canal está apagado en la API")).toBeInTheDocument();
+    expect(within(fila("WhatsApp")).getByText("se programa sola (sale 07:00)")).toBeInTheDocument();
+    expect(within(fila("Mail")).getByText("el canal está apagado")).toBeInTheDocument();
   });
 
   it("quien aprueba puede encolar mañana y prender o apagar canales", async () => {
