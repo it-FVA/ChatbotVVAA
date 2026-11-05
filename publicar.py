@@ -318,7 +318,7 @@ def subir_imagen_wordpress(cfg, ruta_o_bytes, nombre, titulo="", etiquetas=None,
     if modo in ("apagado", "simulado"):
         _registrar({**base, "resultado": "no se subió (modo " + modo + ")"})
         return {"ok": modo == "simulado", "modo": modo, "url": None, "id": None,
-                "aviso": "Simulado: la imagen no se subió." if modo == "simulado" else "WordPress está apagado."}
+                "aviso": "Prueba: la imagen no se subió." if modo == "simulado" else "WordPress está apagado."}
     if not (cfg.wp_site and cfg.wp_user and cfg.wp_pass):
         return {"ok": False, "modo": modo, "aviso": "Faltan las claves de WordPress."}
     h = _wp_headers(cfg, {"Content-Type": tipo,
@@ -346,7 +346,7 @@ def subir_video_wordpress(cfg, ruta, nombre, titulo="", quien=""):
         _registrar({**base, "resultado": "no se subió (modo " + modo + ")"})
         return {"ok": modo == "simulado", "modo": modo, "id": None,
                 "url": f"https://simulado.invalid/wp-content/uploads/{urllib.parse.quote(nombre)}" if modo == "simulado" else None,
-                "aviso": "Simulado: el video no se subió." if modo == "simulado" else "WordPress está apagado."}
+                "aviso": "Prueba: el video no se subió." if modo == "simulado" else "WordPress está apagado."}
     if not (cfg.wp_site and cfg.wp_user and cfg.wp_pass):
         return {"ok": False, "modo": modo, "aviso": "Faltan las claves de WordPress."}
     h = _wp_headers(cfg, {"Content-Type": tipo, "Content-Length": str(tam),
@@ -431,7 +431,7 @@ def publicar_wordpress(cfg, titulo, contenido_html, imagen_id=None, categorias=N
     if modo == "simulado":
         _registrar({**base, "resultado": "simulado", "pieza": pieza})
         return {"ok": True, "modo": modo, "estado": "simulado", "pieza": pieza,
-                "aviso": "Simulado: así quedaría la entrada. No se mandó nada a WordPress."}
+                "aviso": "Prueba: así quedaría la entrada. No se mandó nada a WordPress."}
     if not (cfg.wp_site and cfg.wp_user and cfg.wp_pass):
         return {"ok": False, "modo": modo, "aviso": "Faltan las claves de WordPress.", "pieza": pieza}
     # --- de acá para abajo se llama a la API. status sale de "draft" SOLO si modo == "real" (ver arriba).
@@ -480,7 +480,7 @@ def publicar_frase_home(cfg, texto, autor, fecha=None, quien=""):
     if modo == "simulado":
         _registrar({**base, "resultado": "simulado", "pieza": pieza})
         return {"ok": True, "modo": modo, "estado": "simulado", "pieza": pieza,
-                "aviso": "Simulado: así quedaría la frase en la home. No se mandó nada a WordPress."}
+                "aviso": "Prueba: así quedaría la frase en la home. No se mandó nada a WordPress."}
     if not (cfg.wp_site and cfg.wp_user and cfg.wp_pass):
         return {"ok": False, "modo": modo, "aviso": "Faltan las claves de WordPress.", "pieza": pieza}
     assert pieza["status"] in (("publish", "future") if modo == "real" else ("draft",))
@@ -529,7 +529,7 @@ def publicar_whatsapp(cfg, imagen_url, texto, quien="", grupo=None):
     if modo == "simulado":
         _registrar({**base, "resultado": "simulado"})
         return {"ok": True, "modo": modo, "estado": "simulado", "pieza": pieza,
-                "aviso": "Simulado: así saldría en el grupo de WhatsApp. No se mandó nada: todavía no hay forma de mandar desde la cuenta común."}
+                "aviso": "Prueba: así saldría en el grupo de WhatsApp. No se mandó nada: todavía no hay forma de mandar desde la cuenta común."}
     _registrar({**base, "resultado": "no se hizo nada (apagado)"})
     return {"ok": False, "modo": modo, "aviso": "WhatsApp está apagado (y todavía no tiene modo real: no hay endpoint para la cuenta común).", "pieza": pieza}
 
@@ -555,8 +555,8 @@ def publicar_instagram(cfg, imagen_url, texto, quien="", historia=False):
     if modo == "simulado":
         _registrar({**base, "resultado": "simulado"})
         return {"ok": True, "modo": modo, "pieza": pieza,
-                "aviso": ("Simulado: así quedaría la historia. No se mandó nada a Instagram." if historia else
-                          "Simulado: así quedaría el posteo. No se mandó nada a Instagram. "
+                "aviso": ("Prueba: así quedaría la historia. No se mandó nada a Instagram." if historia else
+                          "Prueba: así quedaría el posteo. No se mandó nada a Instagram. "
                           "Para publicarlo hoy: bajar la imagen, copiar el texto y subirlo desde el teléfono.")}
     if modo != "real":                     # regla dura: no hay otro camino a la API
         return {"ok": False, "modo": modo, "aviso": "Modo desconocido; no se publica.", "pieza": pieza}
@@ -616,7 +616,7 @@ def publicar_instagram_carrusel(cfg, imagenes, texto, quien=""):
     if modo == "simulado":
         _registrar({**base, "resultado": "simulado"})
         return {"ok": True, "modo": modo, "pieza": pieza,
-                "aviso": f"Simulado: así quedaría el carrusel de {len(imagenes)} fotos. No se mandó nada a Instagram."}
+                "aviso": f"Prueba: así quedaría el carrusel de {len(imagenes)} fotos. No se mandó nada a Instagram."}
     if modo != "real":
         return {"ok": False, "modo": modo, "aviso": "Modo desconocido; no se publica.", "pieza": pieza}
     if not (cfg.ig_token and cfg.ig_id):
@@ -699,7 +699,7 @@ def publicar_facebook(cfg, imagen_url, texto, quien="", fecha=None):
     if modo == "simulado":
         _registrar({**base, "resultado": "simulado"})
         return {"ok": True, "modo": modo, "pieza": pieza,
-                "aviso": "Simulado: así quedaría el posteo en Facebook. No se mandó nada. "
+                "aviso": "Prueba: así quedaría el posteo en Facebook. No se mandó nada. "
                          "Para publicarlo hoy: copiá el texto y subilo desde la página."}
     if modo != "real":                     # regla dura
         return {"ok": False, "modo": modo, "aviso": "Modo desconocido; no se publica.", "pieza": pieza}
@@ -752,7 +752,7 @@ def publicar_facebook_fotos(cfg, imagenes, texto, quien="", fecha=None):
     if modo == "simulado":
         _registrar({**base, "resultado": "simulado"})
         return {"ok": True, "modo": modo, "pieza": pieza,
-                "aviso": f"Simulado: así quedaría el posteo con {len(imagenes)} fotos en Facebook. No se mandó nada."}
+                "aviso": f"Prueba: así quedaría el posteo con {len(imagenes)} fotos en Facebook. No se mandó nada."}
     if modo != "real":
         return {"ok": False, "modo": modo, "aviso": "Modo desconocido; no se publica.", "pieza": pieza}
     if not (cfg.fb_page_id and cfg.fb_token):
@@ -838,7 +838,7 @@ def publicar_youtube(cfg, video_bytes, titulo, descripcion, quien="", fecha=None
     if modo == "simulado":
         _registrar({**base, "resultado": "simulado", "pieza": pieza})
         return {"ok": True, "modo": modo, "pieza": pieza,
-                "aviso": "Simulado: así quedaría la ficha del video en YouTube. No se subió nada."}
+                "aviso": "Prueba: así quedaría la ficha del video en YouTube. No se subió nada."}
     if modo not in ("privado", "real"):
         return {"ok": False, "modo": modo, "aviso": "Modo desconocido; no se sube.", "pieza": pieza}
     if not cfg.yt_token_json:
@@ -923,8 +923,8 @@ def publicar_instagram_video(cfg, video_url, texto, quien="", historia=False):
     if modo == "simulado":
         _registrar({**base, "resultado": "simulado"})
         return {"ok": True, "modo": modo, "pieza": pieza,
-                "aviso": ("Simulado: así quedaría la historia con el video. No se mandó nada a Instagram." if historia else
-                          "Simulado: así quedaría el reel. No se mandó nada a Instagram.")}
+                "aviso": ("Prueba: así quedaría la historia con el video. No se mandó nada a Instagram." if historia else
+                          "Prueba: así quedaría el reel. No se mandó nada a Instagram.")}
     if modo != "real":
         return {"ok": False, "modo": modo, "aviso": "Modo desconocido; no se publica.", "pieza": pieza}
     if not (cfg.ig_token and cfg.ig_id):
@@ -983,7 +983,7 @@ def publicar_facebook_video(cfg, video_url, texto, quien="", fecha=None, titulo=
     if modo == "simulado":
         _registrar({**base, "resultado": "simulado"})
         return {"ok": True, "modo": modo, "pieza": pieza,
-                "aviso": "Simulado: así quedaría el video en Facebook. No se mandó nada."}
+                "aviso": "Prueba: así quedaría el video en Facebook. No se mandó nada."}
     if modo != "real":
         return {"ok": False, "modo": modo, "aviso": "Modo desconocido; no se publica.", "pieza": pieza}
     if not (cfg.fb_page_id and cfg.fb_token):
