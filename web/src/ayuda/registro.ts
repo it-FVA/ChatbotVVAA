@@ -1,5 +1,5 @@
 // (5/11, Franco) Registro único de la ayuda. Cada pantalla declara su ayuda arriba de su componente con `definirAyuda` y marca en el
-// JSX cada elemento que explica con data-ayuda="<pantalla>.<id>". De acá salen dos cosas: la página /ayuda y la guía interactiva.
+// JSX cada elemento que explica con data-ayuda="<pantalla>.<id>". De acá sale la guía interactiva («¿Cómo se usa?»); la página /ayuda se fue el 5/11.
 // El orden de los pasos es el orden del recorrido. Un paso sin `id` no apunta a un elemento (p. ej. «tardan 15 minutos»): en la
 // página es un texto más y en la guía es un cartelito general.
 // Lo vigilan src/ayuda/registro.test.tsx (contra el DOM de cada pantalla) y scripts/verificar-ayuda.mjs (contra el código).

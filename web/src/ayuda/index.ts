@@ -1,4 +1,4 @@
-// Importar las pantallas hace que cada una registre su ayuda (definirAyuda). El orden de acá es el orden de la página /ayuda.
+// Importar las pantallas hace que cada una registre su ayuda (definirAyuda). El orden de acá es el orden en que se registran (5/11: ya no hay página /ayuda, solo la guía interactiva).
 import "../paginas/Chat";
 import "../paginas/Publicar";
 import "../paginas/Publicaciones";
