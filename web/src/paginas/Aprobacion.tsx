@@ -20,6 +20,7 @@ import VistaPrevia from "../componentes/VistaPrevia";
 import Recortes from "./Recortes";
 import { TarjetaPublicacion, descargarHtml } from "./Publicaciones";
 import "../publicar.css";
+import "../admin.css"; // (5/11) el menú lateral con íconos y badge es el de Administración
 
 const MENU: { a: string; texto: string; icono: string; fin?: boolean }[] = [
   { a: "/aprobacion", texto: "Para aprobar", icono: "reloj", fin: true },
@@ -65,9 +66,11 @@ export default function Aprobacion() {
       <div className="admin-grilla">
         <nav className="admin-menu" data-ayuda="aprobacion.menu" aria-label="Aprobación">
           {MENU.map((m) => (
-            <NavLink key={m.a} to={m.a} end={m.fin} className={({ isActive }) => "admin-link" + (isActive ? " activo" : "")}>
+            // (5/11, Franco) mismo menú que Administración: en notebook con el panel abierto se ve solo el ícono, el contador va al
+            // ángulo (clase badge) y el texto aparece como tooltip (data-texto); antes el «3» quedaba pegado al ícono.
+            <NavLink key={m.a} to={m.a} end={m.fin} data-texto={m.texto} title={m.texto} className={({ isActive }) => "admin-link" + (isActive ? " activo" : "")}>
               <Icono nombre={m.icono} tam={16} /> {m.texto}
-              {m.a === "/aprobacion" && pendientes !== null && pendientes > 0 && <span className="conteo-pendientes">{pendientes}</span>}
+              {m.a === "/aprobacion" && pendientes !== null && pendientes > 0 && <span className="badge e-error">{pendientes}</span>}
             </NavLink>
           ))}
         </nav>

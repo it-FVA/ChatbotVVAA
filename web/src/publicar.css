@@ -505,14 +505,6 @@
   gap: 4px;
 }
 /* ---------- Aprobación ---------- */
-.conteo-pendientes {
-  margin-left: auto;
-  background: var(--rojo);
-  color: #fff;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  padding: 1px 7px;
-}
 .aprobar-cabecera {
   margin-bottom: 10px;
   font-size: 0.95rem;

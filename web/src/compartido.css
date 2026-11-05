@@ -308,10 +308,6 @@
 .publicacion-cuerpo h3 {
   margin: 6px 0 2px;
 }
-.admin-link.activo .conteo-pendientes {
-  background: #fff;
-  color: var(--rojo);
-}
 .aprobar {
   margin-bottom: 14px;
 }
