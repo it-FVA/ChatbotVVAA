@@ -105,8 +105,9 @@ def _hook_registro(entrada):
     if entrada.get("accion") in ("subir_imagen", "borrar_media") and entrada.get("resultado") != "subida":
         return
     pieza = entrada.get("pieza") or {}
-    db.registrar_publicacion(
-        usuario=ctx["usuario"], canal=entrada.get("canal", ""), modo=entrada.get("modo", ""),
+    extra = {"editada_por": ctx["por"]} if ctx.get("por") else {}
+    ctx["pid"] = db.registrar_publicacion(
+        usuario=ctx.get("duena") or ctx["usuario"], canal=entrada.get("canal", ""), modo=entrada.get("modo", ""),
         titulo=(pieza.get("title") or entrada.get("titulo") or ctx.get("titulo") or "")[:200],
         texto=(pieza.get("content") or pieza.get("caption") or pieza.get("message") or pieza.get("description") or "")[:5000],
         imagen_url=pieza.get("image_url") or entrada.get("url"),
@@ -115,7 +116,7 @@ def _hook_registro(entrada):
         resultado=dict({k: v for k, v in entrada.items() if k not in ("pieza",)},
                        texto_imagen=ctx.get("texto_imagen") or None, origen="web",
                        # (2/11, bug que encontró Julián) la prueba guarda el formulario completo, como un borrador, para «Retomar»
-                       pieza=ctx.get("pieza_form") or None))
+                       pieza=ctx.get("pieza_form") or None, **extra))
 
 
 publicar.REGISTRAR_EXTRA = _hook_registro
@@ -294,6 +295,42 @@ def decorar(p):
     return p
 
 
+def permiso_pieza(p, usuario, rol):
+    """(4/11) 'dueño' | 'editar' | 'ver' | None. Editan la dueña, un aprobador y quien la tiene en un proyecto con permiso
+    «editar» (directo o heredado de la carpeta de arriba). Ven además quien la tiene con «ver» y cualquiera si está
+    compartida con el equipo."""
+    if p.get("usuario") == usuario:
+        return "dueño"
+    if rol.get("aprueba"):
+        return "editar"
+    from .proyectos import permiso_por_proyectos
+    perm = permiso_por_proyectos("pieza", p.get("id"), usuario)
+    if perm:
+        return perm
+    return "ver" if p.get("compartido") else None
+
+
+def _borrador_ajeno(borrador_id, usuario, rol):
+    """(4/11) Para guardar / enviar un borrador retomado: devuelve la dueña si quien edita puede tocarlo (ella misma o alguien
+    con permiso «editar»), None si no hay borrador, no es un borrador o no hay permiso. La pieza sigue siendo de su dueña."""
+    if not borrador_id or not db.disponible():
+        return None
+    fila = db.obtener_publicacion(borrador_id)
+    if not fila or fila.get("estado") != "borrador":
+        return None
+    return fila.get("usuario") if permiso_pieza(fila, usuario, rol) in ("dueño", "editar") else None
+
+
+def _cerrar_borrador(borrador_id, duena, nuevo_pid):
+    """Al enviar o mandar a aprobación: las carpetas que tenían el borrador pasan a la pieza nueva, y el borrador se borra."""
+    if not borrador_id or not duena:
+        return
+    if nuevo_pid:
+        from .proyectos import reasignar_en_proyectos
+        reasignar_en_proyectos("pieza", borrador_id, nuevo_pid)
+    _borrar_borrador(borrador_id, duena)
+
+
 def _fila(pid):
     if not db.disponible():
         raise HTTPException(503, "Sin Supabase: no hay publicaciones.")
@@ -366,23 +403,31 @@ def componer(datos: Componer, usuario=Depends(auth.usuario_actual)):
 
 # ---------------- Guardar borrador · Enviar a aprobación · Enviar / Ver simulado ----------------
 @router.post("/publicar/borrador")
-def guardar_borrador(p: PiezaCompleta, usuario=Depends(auth.usuario_actual)):
+def guardar_borrador(p: PiezaCompleta, request: Request):
     """= «💾 Guardar borrador»: guarda todo (diseño incluido) sin mandar nada; se retoma desde «Mis publicaciones» → Borradores.
-    Con borrador_id actualiza el mismo («al guardar se actualiza el mismo»)."""
+    Con borrador_id actualiza el mismo («al guardar se actualiza el mismo»). (4/11) También el de otra persona si quien guarda
+    tiene permiso «editar» por un proyecto: sigue siendo de su dueña y queda quién lo editó por última vez."""
+    usuario, rol = _rol(request)
     if not db.disponible():
         raise HTTPException(503, "No pude guardar el borrador (falta la base de datos).")
     canal = (p.canal or "").strip().lower()
     if canal not in CANALES:
         raise HTTPException(400, "Elegí el canal para guardar el borrador.")
     fecha_iso = _fecha_iso(p.fecha, p.hora)
+    duena = usuario
     if p.borrador_id:
         fila = _fila(p.borrador_id)
-        if fila.get("usuario") != usuario or fila.get("estado") != "borrador":
-            raise HTTPException(409, "Ese borrador ya no existe (o no es tuyo): se guarda uno nuevo si volvés a intentar sin el id.")
-    pid = db.guardar_borrador(usuario, canal, p.titulo or "", p.texto or "", (p.imagen_url or "").strip() or None,
-                              (fecha_iso + ZONA_HORARIA) if fecha_iso else None, _datos_borrador(p, canal, fecha_iso), pid=p.borrador_id)
+        if fila.get("estado") != "borrador":
+            raise HTTPException(409, "Ese borrador ya no existe: se guarda uno nuevo si volvés a intentar sin el id.")
+        duena = _borrador_ajeno(p.borrador_id, usuario, rol)
+        if not duena:
+            raise HTTPException(409, "Ese borrador es de otra persona y no tenés permiso para editarlo: se guarda uno nuevo, tuyo, si volvés a intentar sin el id.")
+    pid = db.guardar_borrador(duena, canal, p.titulo or "", p.texto or "", (p.imagen_url or "").strip() or None,
+                              (fecha_iso + ZONA_HORARIA) if fecha_iso else None, _datos_borrador(p, canal, fecha_iso), pid=p.borrador_id, por=usuario)
     if not pid:
         raise HTTPException(503, "No pude guardar el borrador.")
+    if duena != usuario:
+        return {"ok": True, "id": pid, "estado": "borrador", "mensaje": f"Guardado. El borrador sigue siendo de {duena} y queda en la misma carpeta."}
     return {"ok": True, "id": pid, "estado": "borrador", "mensaje": "Guardado como borrador. Lo retomás desde «Mis publicaciones», filtro Borradores."}
 
 
@@ -413,6 +458,7 @@ def enviar_a_aprobacion(p: PiezaCompleta, request: Request):
     avisos = []
     imagen_url = (p.imagen_url or "").strip() or None
     compuesta, diseno = _compuesta_de(p, canal, avisos)
+    duena = _borrador_ajeno(p.borrador_id, usuario, rol)     # (4/11) un borrador ajeno con permiso «editar» sigue siendo de su dueña
     token = _contexto.set({"usuario": usuario, "titulo": p.titulo, "texto_imagen": p.texto_imagen, "fecha": fecha_iso,
                            "pieza_form": _datos_borrador(p, canal, fecha_iso)})
     try:
@@ -424,15 +470,15 @@ def enviar_a_aprobacion(p: PiezaCompleta, request: Request):
         _contexto.reset(token)
     formato = (p.vfmt if p.video_url else (diseno or {}).get("formato")) if canal in ("instagram", "facebook") else None
     try:
-        pid = db.proponer_publicacion(usuario, canal, r.get(canal), p.titulo or "", texto, imagen_url,
+        pid = db.proponer_publicacion(duena or usuario, canal, r.get(canal), p.titulo or "", texto, imagen_url,
                                       (fecha_iso + ZONA_HORARIA) if fecha_iso else None,
                                       extra={"texto_imagen": (p.texto_imagen or None), "formato": formato or None,
-                                             "video_url": (p.video_url or None), "origen": "web"})
+                                             "video_url": (p.video_url or None), "origen": "web"}, por=usuario)
     except Exception as e:
         raise HTTPException(503, f"No pude guardar la pieza para aprobación: {e}")
     if not pid:
         raise HTTPException(503, "No pude guardar la pieza para aprobación.")
-    _borrar_borrador(p.borrador_id, usuario)
+    _cerrar_borrador(p.borrador_id, duena, pid)
     import avisos as _avisos
     _avisos.pieza_a_aprobar(db, pid, usuario, canal, p.titulo, texto, formato)   # (2/11) Slack / mail a los aprobadores, en un hilo
     quien = ", ".join(rol.get("aprobadores") or []) or "un aprobador"
@@ -465,8 +511,11 @@ def enviar(p: Envio, request: Request):
     compuesta, diseno = _compuesta_de(p, canal, avisos)
     formato = (p.vfmt if p.video_url else (diseno or {}).get("formato")) if canal in ("instagram", "facebook") else None
     video_url = (p.video_url or "").strip() or None
-    token = _contexto.set({"usuario": usuario, "titulo": titulo, "texto_imagen": p.texto_imagen, "fecha": fecha_iso,
-                           "pieza_form": _datos_borrador(p, canal, fecha_iso)})
+    duena = _borrador_ajeno(p.borrador_id, usuario, rol)     # (4/11) un borrador ajeno con permiso «editar» sigue siendo de su dueña
+    ctx = {"usuario": usuario, "titulo": titulo, "texto_imagen": p.texto_imagen, "fecha": fecha_iso,
+           "pieza_form": _datos_borrador(p, canal, fecha_iso), "duena": duena or usuario,
+           "por": usuario if duena and duena != usuario else None}
+    token = _contexto.set(ctx)
     try:
         if compuesta is not None:
             # En «Ver simulado» la cfg es la simulada: no sube nada y avisa
@@ -475,13 +524,14 @@ def enviar(p: Envio, request: Request):
                 imagen_url = url
         if fecha_iso and _va_a_la_cola(canal, modo):
             try:
-                pid = db.encolar_publicacion(usuario, canal, modo, titulo, texto, imagen_url, fecha_iso + ZONA_HORARIA,
-                                             extra={"texto_imagen": p.texto_imagen or None, "formato": formato or None, "video_url": video_url, "origen": "web"})
+                pid = db.encolar_publicacion(duena or usuario, canal, modo, titulo, texto, imagen_url, fecha_iso + ZONA_HORARIA,
+                                             extra={"texto_imagen": p.texto_imagen or None, "formato": formato or None, "video_url": video_url, "origen": "web"},
+                                             por=usuario)
             except Exception as e:
                 raise HTTPException(503, f"No pude guardar la pieza en la cola: {e}")
             if not pid:
                 raise HTTPException(503, "No pude guardar la pieza en la cola (¿falta Supabase?).")
-            _borrar_borrador(p.borrador_id, usuario)
+            _cerrar_borrador(p.borrador_id, duena, pid)
             cuando = fecha_iso[:16].replace("T", " ")
             return {"ok": True, "modo": modo, "encolada": True, "id": pid, "estado": "pendiente", "imagen_url": imagen_url, "avisos": avisos,
                     "aviso": f"Quedó en la cola para el {cuando}. Ese día sale sola por {nombre}, con el modo que tenga el canal en ese momento (hoy: {modo}). "
@@ -499,7 +549,7 @@ def enviar(p: Envio, request: Request):
     finally:
         _contexto.reset(token)
     if res.get("ok"):
-        _borrar_borrador(p.borrador_id, usuario)
+        _cerrar_borrador(p.borrador_id, duena, ctx.get("pid"))
     salida = {k: v for k, v in res.items() if k in ("ok", "modo", "aviso", "estado", "id", "link", "link_editar", "permalink", "privacidad", "pieza")}
     salida.update(encolada=False, imagen_url=imagen_url, avisos=avisos, simulado=(modo == "simulado"),
                   texto_final=texto, formato=formato, video_url=video_url)
@@ -511,18 +561,23 @@ def enviar(p: Envio, request: Request):
 def una_publicacion(pid: str, request: Request):
     """La pieza decorada, más `pieza`: el dict con que el formulario se precarga («✏️ Retomar» o «Usar como base»).
     (4/11) La ve su dueña, un aprobador, cualquiera si la dueña la compartió con el equipo, y quien la tiene en un proyecto
-    propio o compartido. `propia` dice si es de quien la mira: si no, la web la muestra en solo lectura y no la retoma."""
-    from .proyectos import permiso_por_proyectos
+    propio o compartido. `propia` dice si es de quien la mira. `permiso` (dueño, editar, ver): con «editar» la web la retoma
+    (edición en colaboración), con «ver» la muestra en solo lectura."""
     usuario, rol = _rol(request)
     p = _fila(pid)
-    propia = p.get("usuario") == usuario
-    if not (propia or rol.get("aprueba") or p.get("compartido") or permiso_por_proyectos("pieza", pid, usuario)):
+    permiso = permiso_pieza(p, usuario, rol)
+    if not permiso:
         raise HTTPException(403, "Esa pieza es de otra persona y no está compartida con vos.")
+    propia = permiso == "dueño"
     p = decorar(p)
     p["pieza"] = pieza_de_fila(p)
     p["propia"] = propia
-    if not propia:                       # lo que solo hace la dueña
-        p["retomable"] = p["eliminable"] = False
+    p["permiso"] = permiso               # (4/11) con «editar» se retoma la misma pieza: edición en colaboración
+    p["editada_por"] = (p.get("resultado") or {}).get("editada_por")
+    if permiso == "ver":
+        p["retomable"] = False
+    if not propia:                       # borrar sigue siendo solo de la dueña
+        p["eliminable"] = False
     return p
 
 

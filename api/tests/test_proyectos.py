@@ -334,3 +334,86 @@ def test_pieza_ajena_compartida_con_el_equipo_entra_a_un_proyecto(logueado, base
     base.t["publicaciones"][-1]["compartido"] = True
     assert cliente.post(f"/proyectos/{a['id']}/items", json={"tipo": "pieza", "item_id": "p2"}).status_code == 200
     assert cliente.get("/publicaciones/p2").json()["propia"] is False
+
+
+def _sin_envio_real(monkeypatch):
+    """Para «Enviar a aprobación» sin red: el canal acepta propuestas, no hay imagen compuesta y no se avisa a nadie."""
+    import api.publicar_rutas as pub
+    import avisos
+    monkeypatch.setattr(pub.cr, "modos", lambda: {"facebook": "real"})
+    monkeypatch.setattr(pub.cr, "_puede_proponer", lambda canal, r: True)
+    monkeypatch.setattr(pub, "_compuesta_de", lambda p, canal, av: (None, None))
+    monkeypatch.setattr(avisos, "pieza_a_aprobar", lambda *a, **k: None)
+
+
+def test_pieza_ajena_se_edita_en_colaboracion(logueado, base, cliente, monkeypatch):
+    """(4/11, Franco) «poder abrir una pieza que te comparten y seguir editándola de manera colaborativa no está funcionando,
+    incluso aunque tengas permisos de edición». Con «editar» por la carpeta (o la de arriba) se guarda el mismo borrador, que
+    sigue siendo de su dueña; al mandarlo a aprobación va a su nombre y la carpeta pasa a tener la pieza nueva. Con «ver», no."""
+    _sin_envio_real(monkeypatch)
+    _como(logueado, "franco")
+    a = logueado.post("/proyectos", json={"nombre": "Campaña"}).json()
+    sub = logueado.post("/proyectos", json={"nombre": "Noviembre", "padre_id": a["id"]}).json()
+    assert logueado.post(f"/proyectos/{sub['id']}/items", json={"tipo": "pieza", "item_id": "p1"}).status_code == 200
+    logueado.put(f"/compartidos/proyecto/{a['id']}", json={"usuario": "lizzie", "permiso": "ver"})
+    guardar = {"canal": "instagram", "texto": "Cambiado por Lizzie", "borrador_id": "p1"}
+
+    _lizzie(cliente)
+    d = cliente.get("/publicaciones/p1").json()
+    assert d["permiso"] == "ver" and d["retomable"] is False
+    assert cliente.post("/publicar/borrador", json=guardar).status_code == 409      # con «ver» no lo cambia
+    assert base.t["publicaciones"][0]["texto"].startswith("Un texto")
+
+    _como(logueado, "franco")
+    logueado.put(f"/compartidos/proyecto/{a['id']}", json={"usuario": "lizzie", "permiso": "editar"})
+    _lizzie(cliente)
+    d = cliente.get("/publicaciones/p1").json()           # heredado de la carpeta de arriba
+    assert d["permiso"] == "editar" and d["retomable"] is True and d["eliminable"] is False and d["propia"] is False
+    r = cliente.post("/publicar/borrador", json=guardar)
+    assert r.status_code == 200 and r.json()["id"] == "p1", r.text
+    fila = next(p for p in base.t["publicaciones"] if p["id"] == "p1")
+    assert fila["usuario"] == "franco" and fila["texto"] == "Cambiado por Lizzie" and fila["resultado"]["editada_por"] == "lizzie"
+    assert cliente.get("/publicaciones/p1").json()["editada_por"] == "lizzie"
+    assert cliente.delete("/publicaciones/p1").status_code in (403, 404, 409)      # borrar sigue siendo de la dueña
+
+    # mandarlo a aprobación: la pieza nueva es de Franco, la propuso Lizzie, y sigue en la subcarpeta
+    r = cliente.post("/publicar/a-aprobar", json={"canal": "facebook", "texto": "Listo para aprobar", "borrador_id": "p1"})
+    assert r.status_code == 200, r.text
+    nuevo = r.json()["id"]
+    fila = next(p for p in base.t["publicaciones"] if p["id"] == nuevo)
+    assert fila["usuario"] == "franco" and fila["resultado"]["propuesta_por"] == "lizzie" and fila["estado"] == "a_aprobar"
+    assert not any(p["id"] == "p1" for p in base.t["publicaciones"])                # el borrador se cerró
+    items = [i for i in base.t["proyecto_items"] if i["tipo"] == "pieza"]
+    assert [(i["proyecto_id"], i["item_id"]) for i in items] == [(sub["id"], nuevo)]
+
+
+def test_borrador_ajeno_sin_permiso_no_se_toca(logueado, base, cliente, monkeypatch):
+    """Sin permiso de edición, mandar a aprobación con el id de un borrador ajeno crea una pieza propia y no borra el ajeno."""
+    _sin_envio_real(monkeypatch)
+    _lizzie(cliente)
+    r = cliente.post("/publicar/a-aprobar", json={"canal": "facebook", "texto": "Mío", "borrador_id": "p1"})
+    assert r.status_code == 200, r.text
+    fila = next(p for p in base.t["publicaciones"] if p["id"] == r.json()["id"])
+    assert fila["usuario"] == "lizzie"
+    assert any(p["id"] == "p1" and p["usuario"] == "franco" for p in base.t["publicaciones"])
+
+
+def test_recorte_ajeno_se_edita_por_proyecto(logueado, base, cliente):
+    """(4/11) Un recorte en una carpeta compartida con «editar» abre el editor y acepta la edición; con «ver», no."""
+    base.t["clips"][0].update(inicio_ms=0, fin_ms=30000)
+    _como(logueado, "franco")
+    a = logueado.post("/proyectos", json={"nombre": "Videos"}).json()
+    assert logueado.post(f"/proyectos/{a['id']}/items", json={"tipo": "recorte", "item_id": "k1"}).status_code == 200
+    logueado.put(f"/compartidos/proyecto/{a['id']}", json={"usuario": "lizzie", "permiso": "ver"})
+    _lizzie(cliente)
+    d = cliente.get("/recortes/k1").json()
+    assert d["puede_editar"] is False and d["permiso"] == "ver"
+    assert cliente.post("/recortes/k1/edicion", json={"inicio_ms": 0, "fin_ms": 5000}).status_code == 403
+    _como(logueado, "franco")
+    logueado.put(f"/compartidos/proyecto/{a['id']}", json={"usuario": "lizzie", "permiso": "editar"})
+    _lizzie(cliente)
+    d = cliente.get("/recortes/k1").json()
+    assert d["puede_editar"] is True and d["permiso"] == "editar" and d["puede_borrar"] is False
+    r = cliente.post("/recortes/k1/edicion", json={"inicio_ms": 0, "fin_ms": 5000})
+    assert r.status_code == 200, r.text
+    assert base.t["clips"][0]["estado"] == "pedido" and "lizzie" in base.t["clips"][0]["nota"]

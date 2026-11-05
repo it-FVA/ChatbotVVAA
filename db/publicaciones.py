@@ -28,12 +28,13 @@ def registrar_publicacion(usuario, canal, modo, titulo, texto, imagen_url, fecha
 # se guarda con estado 'pendiente'. procesar_cola.py la publica cuando vence y la deja en
 # 'publicada' / 'simulada' / 'error'. Desde la app se puede cancelar ('cancelada').
 
-def encolar_publicacion(usuario, canal, modo, titulo, texto, imagen_url, fecha_programada, extra=None):
+def encolar_publicacion(usuario, canal, modo, titulo, texto, imagen_url, fecha_programada, extra=None, por=None):
+    """`usuario` es la dueña de la pieza. `por` (4/11): quien la encoló, si es otra persona que la editaba por un proyecto compartido."""
     if not _db.disponible():
         return None
     fila = {"usuario": usuario, "canal": canal, "modo": modo, "titulo": titulo, "texto": texto,
             "imagen_url": imagen_url, "fecha_programada": fecha_programada, "estado": "pendiente",
-            "resultado": dict(extra or {}, encolada_por=usuario)}
+            "resultado": dict(extra or {}, encolada_por=por or usuario)}
     r = _db._req("POST", "", fila, tabla="publicaciones")
     return r[0]["id"] if r else None
 
@@ -95,12 +96,13 @@ def cancelar_publicacion(pid, usuario):
 # la aprueba (pasa a 'pendiente' en la cola, con fecha) o la rechaza ('rechazada', con nota).
 # Todo queda en la misma tabla con quién hizo qué y cuándo.
 
-def proponer_publicacion(usuario, canal, modo, titulo, texto, imagen_url, fecha_programada, extra=None):
+def proponer_publicacion(usuario, canal, modo, titulo, texto, imagen_url, fecha_programada, extra=None, por=None):
+    """`usuario` es la dueña de la pieza. `por` (4/11): quien la mandó a aprobación, si es otra persona con permiso de edición."""
     if not _db.disponible():
         return None
     fila = {"usuario": usuario, "canal": canal, "modo": modo, "titulo": titulo, "texto": texto,
             "imagen_url": imagen_url, "fecha_programada": fecha_programada, "estado": "a_aprobar",
-            "resultado": dict(extra or {}, propuesta_por=usuario,
+            "resultado": dict(extra or {}, propuesta_por=por or usuario,
                               propuesta_en=datetime.now(timezone.utc).isoformat(timespec="seconds"))}
     r = _db._req("POST", "", fila, tabla="publicaciones")
     return r[0]["id"] if r else None
@@ -161,12 +163,18 @@ def listar_compartidas(usuario, limite=50):
 ELIMINABLES = ("borrador", "prueba", "simulada", "simulado", "rechazada", "cancelada", "error")
 
 
-def guardar_borrador(usuario, canal, titulo, texto, imagen_url, fecha_programada, pieza, pid=None):
+def guardar_borrador(usuario, canal, titulo, texto, imagen_url, fecha_programada, pieza, pid=None, por=None):
+    """`usuario` es la dueña. `por` (4/11): quien lo guardó, si es otra persona con permiso de edición por un proyecto
+    (queda en resultado.editada_por; la dueña no cambia)."""
     if not _db.disponible():
         return None
+    ahora = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    resultado = {"pieza": pieza, "guardado_en": ahora}
+    if por and por != usuario:
+        resultado.update(editada_por=por, editada_en=ahora)
     fila = {"usuario": usuario, "canal": canal, "modo": "borrador", "titulo": titulo, "texto": texto,
             "imagen_url": imagen_url, "fecha_programada": fecha_programada, "estado": "borrador",
-            "resultado": {"pieza": pieza, "guardado_en": datetime.now(timezone.utc).isoformat(timespec="seconds")}}
+            "resultado": resultado}
     if pid:
         r = _db._req("PATCH", f"?id=eq.{_q(pid)}", fila, tabla="publicaciones")
         return pid if r is not None else None

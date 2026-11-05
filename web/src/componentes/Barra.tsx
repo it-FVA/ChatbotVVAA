@@ -34,7 +34,11 @@ export default function Barra() {
   }, [abierto]);
 
   // ¿se está mirando algo de una carpeta? (la vista de Proyectos manda {desde: {id}} al abrir un ítem)
-  const desdeId = (loc.state as { desde?: { id: string } } | null)?.desde?.id || null;
+  // (4/11) una pieza o un recorte de otra persona abierto por su link (sin pasar por la carpeta): la carpeta compartida donde está
+  const abiertoSuelto = /^\/(publicaciones|recortes)\/([^/]+)/.exec(loc.pathname);
+  const carpetaDelItem = abiertoSuelto ? proyectos.carpetaDe(abiertoSuelto[1] === "publicaciones" ? "pieza" : "recorte", abiertoSuelto[2]) : null;
+  const ajenaDelItem = carpetaDelItem && proyectos.porId.get(carpetaDelItem.id)?.permiso !== "dueño" ? carpetaDelItem.id : null;
+  const desdeId = (loc.state as { desde?: { id: string } } | null)?.desde?.id || ajenaDelItem || null;
   const carpetaId = desdeId || (loc.pathname.startsWith("/proyectos/") ? loc.pathname.split("/")[2] : null);
   const carpeta = carpetaId ? proyectos.porId.get(carpetaId) : undefined;
   const carpetaAjena = !!carpeta && carpeta.permiso !== "dueño";

@@ -158,6 +158,8 @@ export interface Publicacion {
   // solo en /publicaciones/{id}
   pieza?: PiezaGuardada;
   propia?: boolean; // (4/11) false si es de otra persona (llegó por un proyecto compartido o por «Del equipo»)
+  permiso?: "dueño" | "editar" | "ver"; // (4/11) con «editar» se retoma la misma pieza (edición en colaboración)
+  editada_por?: string | null; // (4/11) quién la guardó por última vez, si no fue la dueña
 }
 
 export interface MisPublicaciones {

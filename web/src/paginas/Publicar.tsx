@@ -38,6 +38,7 @@ export default function Publicar() {
   const [form, setForm] = useState<PiezaForm | null>(null);
   const [origen, setOrigen] = useState<"chat" | "recorte" | "borrador" | "copia" | "nueva">("nueva");
   const [copiaDe, setCopiaDe] = useState<string | null>(null); // (4/11) de quién es la pieza que se usa como base
+  const [duenaDe, setDuenaDe] = useState<string | null>(null); // (4/11) de quién es el borrador ajeno que se edita en colaboración
   const [error, setError] = useState<string | null>(null);
 
   // 1) opciones; 2) el formulario según de dónde se entra
@@ -57,7 +58,10 @@ export default function Publicar() {
         if (borrador) {
           const p = await apiPublicar.una(borrador);
           if (!vivo) return;
-          if (base || p.propia === false) {
+          // (4/11) una pieza ajena con permiso «editar» (por una carpeta compartida) se retoma igual que una propia: es la misma
+          const colabora = !base && p.propia === false && p.permiso === "editar";
+          setDuenaDe(colabora ? p.usuario || "otra persona" : null);
+          if (base || (p.propia === false && !colabora)) {
             setCopiaDe(p.propia === false ? p.propuesta_por || p.usuario || "otra persona" : null);
             setForm({ ...desdeGuardada(p.pieza || {}, o), borrador_id: null });
             setOrigen("copia");
@@ -65,7 +69,7 @@ export default function Publicar() {
             setError(p.estado === "prueba" ? "Esto fue una prueba (Ver simulado), no un borrador: se abre el formulario con sus datos; si lo guardás, queda como borrador nuevo." : "Esa pieza ya no es un borrador: se abre el formulario con sus datos, pero al guardar se crea una pieza nueva.");
             setForm({ ...desdeGuardada(p.pieza || {}, o), borrador_id: null });
           } else setForm(desdeGuardada(p.pieza, o));
-          if (!(base || p.propia === false)) setOrigen("borrador");
+          if (!(base || (p.propia === false && !colabora))) setOrigen("borrador");
         } else if (recorte) {
           const r = await api.recorte(recorte);
           if (!vivo) return;
@@ -130,11 +134,11 @@ export default function Publicar() {
       </div>
     );
   }
-  return <Formulario key={form.borrador_id || origen} inicial={form} op={op} origen={origen} copiaDe={copiaDe} avisoInicial={error} avisar={avisar} />;
+  return <Formulario key={form.borrador_id || origen} inicial={form} op={op} origen={origen} copiaDe={copiaDe} duenaDe={duenaDe} avisoInicial={error} avisar={avisar} />;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-function Formulario({ inicial, op, origen, copiaDe = null, avisoInicial, avisar }: { inicial: PiezaForm; op: OpcionesPublicar; origen: string; copiaDe?: string | null; avisoInicial: string | null; avisar: (t: string, tipo?: "ok" | "error" | "info") => void }) {
+function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, avisoInicial, avisar }: { inicial: PiezaForm; op: OpcionesPublicar; origen: string; copiaDe?: string | null; duenaDe?: string | null; avisoInicial: string | null; avisar: (t: string, tipo?: "ok" | "error" | "info") => void }) {
   // (2/11, reunión: Alberto) desde «Canales · Diseñar» se entra con el canal ya elegido: la pantalla se centra en ese canal
   // (título, texto de ayuda, el canal fijo en una línea: para otro canal se vuelve al menú)
   const [paramsMenu] = useSearchParams();
@@ -328,7 +332,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, avisoInicial, avisar 
         : "Sin imagen";
   const resumen3 = fechaIso ? `Programada: ${fechaLegible(fechaIso)}` : "Cuanto antes";
 
-  if (resultado) return <ResultadoPanel resultado={resultado} previa={previa} canal={canal} info={info} onVolver={() => setResultado(null)} onNueva={() => nav("/publicar", { replace: true, state: null })} />;
+  if (resultado) return <ResultadoPanel resultado={resultado} previa={previa} canal={canal} info={info} ajena={!!duenaDe} onVolver={() => setResultado(null)} onNueva={() => nav("/publicar", { replace: true, state: null })} />;
 
   return (
     <div className="pagina publicar">
@@ -342,7 +346,8 @@ function Formulario({ inicial, op, origen, copiaDe = null, avisoInicial, avisar 
             {!desdeMenu && origen === "chat" && "La pieza que propuso el bot, lista para ajustar y mandar."}
             {origen === "recorte" && "Un recorte listo para publicar: elegí el canal y escribí el texto."}
             {origen === "copia" && (copiaDe ? `Una copia de una pieza de ${copiaDe}: ajustala y guardala como tuya. La original no cambia.` : "Una copia de la pieza: al guardar se crea una nueva y la original no cambia.")}
-            {origen === "borrador" && "Retomando un borrador: al guardar se actualiza el mismo; al enviarlo o mandarlo a aprobación, el borrador se elimina."}
+            {origen === "borrador" && !duenaDe && "Retomando un borrador: al guardar se actualiza el mismo; al enviarlo o mandarlo a aprobación, el borrador se elimina."}
+            {origen === "borrador" && duenaDe && `Editando un borrador de ${duenaDe}, compartido con vos para editar. Al guardar se actualiza el mismo y sigue siendo de ${duenaDe}. Si lo mandás a aprobación, va a su nombre y queda en la misma carpeta.`}
             {!desdeMenu && origen === "nueva" && "Acá se diseña la pieza: foto, frase, texto y fecha. Publicarla es el paso siguiente, desde Aprobación. También se puede diseñar desde el chat, debajo de la respuesta del bot."}
           </p>
         </div>
@@ -776,7 +781,9 @@ function Programar({ f, set }: { f: PiezaForm; set: <K extends keyof PiezaForm>(
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-function ResultadoPanel({ resultado, previa, canal, info, onVolver, onNueva }: { resultado: Resultado; previa: DatosPrevia; canal: string; info: { texto_canal: string } | null; onVolver: () => void; onNueva: () => void }) {
+function ResultadoPanel({ resultado, previa, canal, info, ajena = false, onVolver, onNueva }: { resultado: Resultado; previa: DatosPrevia; canal: string; info: { texto_canal: string } | null; ajena?: boolean; onVolver: () => void; onNueva: () => void }) {
+  // (4/11) la pieza de otra persona editada en colaboración no está en «Mis publicaciones» de quien la editó: se abre la pieza
+  const idPieza = resultado.tipo === "borrador" ? resultado.id : (resultado.r as { id?: string | null }).id;
   const nombre = info?.texto_canal || canal;
   let ok = true;
   let titulo = "";
@@ -833,9 +840,15 @@ function ResultadoPanel({ resultado, previa, canal, info, onVolver, onNueva }: {
           </div>
         )}
         <div className="acciones">
-          <Link className="boton primario" to="/publicaciones">
-            <Icono nombre="lista" tam={16} /> Ver en Mis publicaciones
-          </Link>
+          {ajena ? (
+            <Link className="boton primario" to={idPieza ? `/publicaciones/${encodeURIComponent(idPieza)}` : "/compartidos"}>
+              <Icono nombre="lista" tam={16} /> {idPieza ? "Ver la pieza" : "Volver a Compartidos conmigo"}
+            </Link>
+          ) : (
+            <Link className="boton primario" to="/publicaciones">
+              <Icono nombre="lista" tam={16} /> Ver en Mis publicaciones
+            </Link>
+          )}
           {resultado.tipo === "borrador" || !ok ? (
             <button type="button" className="boton" onClick={onVolver}>
               <Icono nombre="lapiz" tam={16} /> Seguir editando

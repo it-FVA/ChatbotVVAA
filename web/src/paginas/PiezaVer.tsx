@@ -2,6 +2,8 @@
 // ahí»). /publicaciones/:id muestra la pieza en grande: la imagen o el video, el texto entero, el canal, el estado y quién la hizo.
 // Si es de otra persona (llegó por un proyecto compartido o por «Del equipo») es solo lectura: se puede copiar el texto, bajar la
 // imagen o «Usar como base», que abre Diseñar con una copia (la original no cambia). Si es propia, además «Retomar».
+// (4/11) Con permiso «editar» (carpeta compartida para editar, o aprobador) aparece «Editar»: retoma la misma pieza, que sigue
+// siendo de su dueña.
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { ErrorApi } from "../api";
@@ -36,7 +38,8 @@ export default function PiezaVer() {
   const nav = useNavigate();
   const loc = useLocation();
   const { avisar } = useToast();
-  const canales = useSesion().yo?.canales || [];
+  const { yo } = useSesion();
+  const canales = yo?.canales || [];
   const proyectos = useProyectos();
   const [p, setP] = useState<Publicacion | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -94,6 +97,8 @@ export default function PiezaVer() {
     );
 
   const propia = p.propia !== false;
+  // (4/11) con permiso «editar» (carpeta compartida para editar, o aprobador) se edita la misma pieza, como la dueña
+  const edita = propia || p.permiso === "editar";
   const esNewsletter = p.canal === "newsletter";
   const autor = p.propuesta_por || p.usuario || "otra persona";
   const icono = (canales.find((c) => c.clave === p.canal)?.icono as NombreIcono) || "megafono";
@@ -120,9 +125,14 @@ export default function PiezaVer() {
             </span>
             <span className="estado neutro">{p.estado_texto}</span>
             <span className="suave">creada {fechaCreacion(p.creado)}</span>
-            {!propia && (
+            {!propia && !edita && (
               <span className="chip suave" title="Es de otra persona: la podés ver y usar como base, no cambiarla.">
                 <Icono nombre="compartir" tam={12} /> de {autor} · solo lectura
+              </span>
+            )}
+            {!propia && edita && (
+              <span className="chip suave" title="Es de otra persona y la compartieron con vos para editar: los cambios quedan en la misma pieza, que sigue siendo suya.">
+                <Icono nombre="compartir" tam={12} /> de {p.usuario || autor} · podés editarla
               </span>
             )}
           </div>
@@ -159,6 +169,12 @@ export default function PiezaVer() {
           <dl className="detalle-datos">
             <dt>De</dt>
             <dd>{propia ? "vos" : autor}</dd>
+            {p.editada_por && (
+              <>
+                <dt>Editó</dt>
+                <dd>{p.editada_por === yo?.usuario ? "vos" : p.editada_por}</dd>
+              </>
+            )}
             {p.fecha_programada && (
               <>
                 <dt>Sale</dt>
@@ -198,13 +214,13 @@ export default function PiezaVer() {
           </dl>
 
           <div className="acciones">
-            {propia && p.retomable && (
+            {edita && p.retomable && (propia || !esNewsletter) && (
               <Link className="boton primario" to={esNewsletter ? `/newsletter?borrador=${encodeURIComponent(p.id)}` : `/publicar?borrador=${encodeURIComponent(p.id)}`}>
-                <Icono nombre="lapiz" /> Retomar
+                <Icono nombre="lapiz" /> {propia ? "Retomar" : "Editar"}
               </Link>
             )}
             {!esNewsletter && (
-              <button type="button" className={"boton" + (propia && p.retomable ? "" : " primario")} onClick={() => nav(`/publicar?base=${encodeURIComponent(p.id)}`)} title="Abre Diseñar con una copia de esta pieza: la original no cambia">
+              <button type="button" className={"boton" + (edita && p.retomable ? "" : " primario")} onClick={() => nav(`/publicar?base=${encodeURIComponent(p.id)}`)} title="Abre Diseñar con una copia de esta pieza: la original no cambia">
                 <Icono nombre="mas" /> Usar como base
               </button>
             )}

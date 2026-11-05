@@ -1607,7 +1607,8 @@ export interface paths {
          * Una Publicacion
          * @description La pieza decorada, más `pieza`: el dict con que el formulario se precarga («✏️ Retomar» o «Usar como base»).
          *     (4/11) La ve su dueña, un aprobador, cualquiera si la dueña la compartió con el equipo, y quien la tiene en un proyecto
-         *     propio o compartido. `propia` dice si es de quien la mira: si no, la web la muestra en solo lectura y no la retoma.
+         *     propio o compartido. `propia` dice si es de quien la mira. `permiso` (dueño, editar, ver): con «editar» la web la retoma
+         *     (edición en colaboración), con «ver» la muestra en solo lectura.
          */
         get: operations["una_publicacion_publicaciones__pid__get"];
         put?: never;
@@ -1676,7 +1677,8 @@ export interface paths {
         /**
          * Guardar Borrador
          * @description = «💾 Guardar borrador»: guarda todo (diseño incluido) sin mandar nada; se retoma desde «Mis publicaciones» → Borradores.
-         *     Con borrador_id actualiza el mismo («al guardar se actualiza el mismo»).
+         *     Con borrador_id actualiza el mismo («al guardar se actualiza el mismo»). (4/11) También el de otra persona si quien guarda
+         *     tiene permiso «editar» por un proyecto: sigue siendo de su dueña y queda quién lo editó por última vez.
          */
         post: operations["guardar_borrador_publicar_borrador_post"];
         delete?: never;

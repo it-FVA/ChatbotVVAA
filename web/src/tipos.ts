@@ -128,6 +128,7 @@ export interface Recorte {
   // derivados (api/recortes._decorar)
   propio: boolean;
   puede_editar: boolean;
+  permiso?: "dueño" | "editar" | "ver"; // (4/11) solo en GET /recortes/{id}: «editar» también por una carpeta compartida
   puede_borrar: boolean;
   compartido: boolean; // (2/11) lo compartió su dueño con el equipo
   puede_compartir: boolean;

@@ -514,6 +514,17 @@ def quitar_de_todos_los_proyectos(tipo, item_id):
         pass
 
 
+def reasignar_en_proyectos(tipo, viejo, nuevo):
+    """(4/11) Al enviar o mandar a aprobación un borrador se crea otra fila y el borrador se borra: las carpetas que lo tenían
+    pasan a tener la pieza nueva, en vez de quedarse con un «(ya no existe)»."""
+    if not viejo or not nuevo or str(viejo) == str(nuevo):
+        return
+    try:
+        _con(dbp.reasignar_item, tipo, viejo, nuevo)
+    except Exception as e:
+        log.warning("reasignar_en_proyectos: %s", e)
+
+
 def _sacar_de_otros(tipo, item_id, usuario, salvo_pid):
     """Un ítem vive en un solo proyecto: lo saca de los demás que la persona pueda editar."""
     for u in ubicaciones_de(tipo, item_id):

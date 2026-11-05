@@ -112,7 +112,7 @@ def test_componer(logueado, base, monkeypatch):
 def test_borrador_completo(logueado, base, monkeypatch):
     guardado = {}
 
-    def _guardar(usuario, canal, titulo, texto, imagen_url, fecha, pieza, pid=None):
+    def _guardar(usuario, canal, titulo, texto, imagen_url, fecha, pieza, pid=None, por=None):
         guardado.update(usuario=usuario, canal=canal, titulo=titulo, imagen_url=imagen_url, fecha=fecha, pieza=pieza, pid=pid)
         return pid or "b1"
     monkeypatch.setattr(db, "guardar_borrador", _guardar)
@@ -128,7 +128,11 @@ def test_borrador_completo(logueado, base, monkeypatch):
     base["filas"]["b1"] = {"id": "b1", "usuario": "franco", "estado": "borrador", "canal": "instagram", "resultado": {}}
     r = logueado.post("/publicar/borrador", json={"canal": "instagram", "texto": "y", "borrador_id": "b1"})
     assert r.status_code == 200 and guardado["pid"] == "b1"
+    # (4/11) un aprobador edita el borrador de otra persona y sigue siendo de ella (sin permiso: 409, en test_proyectos)
     base["filas"]["b1"]["usuario"] = "lizzie"
+    r = logueado.post("/publicar/borrador", json={"canal": "instagram", "texto": "y", "borrador_id": "b1"})
+    assert r.status_code == 200 and guardado["usuario"] == "lizzie" and "lizzie" in r.json()["mensaje"]
+    base["filas"]["b1"]["estado"] = "a_aprobar"
     assert logueado.post("/publicar/borrador", json={"canal": "instagram", "texto": "y", "borrador_id": "b1"}).status_code == 409
     assert logueado.post("/publicar/borrador", json={"canal": "instagram", "texto": "y", "borrador_id": "nope"}).status_code == 404
     assert logueado.post("/publicar/borrador", json={"canal": "", "texto": "y"}).status_code == 400
@@ -138,7 +142,7 @@ def test_borrador_completo(logueado, base, monkeypatch):
 def test_a_aprobar_con_compuesta(lizzie, base, monkeypatch):
     propuesto, subidas = {}, []
 
-    def _proponer(usuario, canal, modo, titulo, texto, imagen_url, fecha, extra=None):
+    def _proponer(usuario, canal, modo, titulo, texto, imagen_url, fecha, extra=None, por=None):
         propuesto.update(usuario=usuario, canal=canal, modo=modo, titulo=titulo, texto=texto, imagen_url=imagen_url, fecha=fecha, extra=extra)
         return "p1"
     monkeypatch.setattr(db, "proponer_publicacion", _proponer)
@@ -219,7 +223,7 @@ def test_enviar_real_instagram(logueado, base, monkeypatch):
     assert subidas == ["borrador"] and r.json()["permalink"] == "https://instagram.com/p/x" and r.json()["simulado"] is False
     assert "b3" not in base["filas"]
     # con fecha, Instagram va a la cola (la API de Instagram no programa)
-    monkeypatch.setattr(db, "encolar_publicacion", lambda usuario, canal, modo, titulo, texto, imagen_url, fecha, extra=None: publicado.update(cola=(canal, modo, fecha, extra)) or "q2")
+    monkeypatch.setattr(db, "encolar_publicacion", lambda usuario, canal, modo, titulo, texto, imagen_url, fecha, extra=None, por=None: publicado.update(cola=(canal, modo, fecha, extra)) or "q2")
     r = logueado.post("/publicar/enviar", json={"modo": "real", "canal": "instagram", "texto": "Hola", "fecha": "2026-12-24", "hora": "18:00", "video_url": "https://wp/c.mp4", "vfmt": "reel"})
     assert r.json()["encolada"] is True and publicado["cola"] == ("instagram", "real", "2026-12-24T18:00:00-03:00", {"texto_imagen": None, "formato": "reel", "video_url": "https://wp/c.mp4", "origen": "web"})
 

@@ -62,6 +62,22 @@ ajeno mostraba solo «no se puede editar desde acá». Ahora cada uno tiene su p
   dueña, a un aprobador, a cualquiera si la dueña la compartió con el equipo, y a quien la tiene en un proyecto propio o compartido
   (`permiso_por_proyectos` en `api/proyectos.py`).
 
+## Editar en colaboración lo que te comparten (4/11)
+
+Franco: «poder abrir una pieza que te comparten y seguir editándola de manera colaborativa no está funcionando, incluso aunque tengas
+permisos de edición». Ahora el permiso de la carpeta manda:
+
+- **Con «editar»** (directo o heredado de la carpeta de arriba, o siendo aprobador) la pieza muestra **Editar** como botón principal
+  y «Usar como base» al lado. Editar abre Diseñar con el mismo borrador, que sigue siendo de su dueña. Al guardar queda quién lo
+  editó por última vez (`resultado.editada_por`, se ve como «Editó» en la pieza). Si se manda a aprobación o se envía, la pieza nueva
+  es de la dueña, la propuso quien la editó, y la carpeta pasa a tener la pieza nueva (antes quedaba un «(ya no existe)»).
+- **Con «ver»** queda como antes: solo lectura, «Usar como base» hace una copia propia. Guardar sobre el borrador ajeno da 409.
+- **Recortes**: con «editar» abre directo el editor, con un aviso de que es de otra persona. Borrar sigue siendo solo de quien lo
+  pidió o de un aprobador.
+- La API devuelve `permiso` («dueño», «editar» o «ver») en `GET /publicaciones/{id}` y `GET /recortes/{id}` (`permiso_pieza` en
+  `api/publicar_rutas.py`, `_edita_por_proyecto` en `api/recortes.py`).
+- Capturas 45 a 47.
+
 ## El chat (fase 2, 22/10)
 
 `/chat` y `/chat/<id>` (`src/paginas/Chat.tsx`, estilos en `src/chat.css`). Detalle:

@@ -397,6 +397,11 @@ function EditorCargado({ det, opciones }: { det: Detalle; opciones: Opciones }) 
               {det.segmentos_hechos.length} pedazos conservados{pz.reordenada(det.segmentos_hechos) ? " (en otro orden)" : ""}
             </span>
           )}
+          {!det.propio && (
+            <span className="chip suave" title="Lo pidió otra persona y lo podés editar (por una carpeta compartida con permiso de edición, o porque aprobás). Sigue siendo suyo.">
+              <Icono nombre="compartir" tam={12} /> de {det.pedido_por || "otra persona"} · lo editás en colaboración
+            </span>
+          )}
         </p>
       </header>
 

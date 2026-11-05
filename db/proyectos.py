@@ -86,6 +86,11 @@ def mover_item(iid, proyecto_id):
     return r[0] if r else None
 
 
+def reasignar_item(tipo, viejo, nuevo):
+    """(4/11) Un borrador que se envía pasa a ser otra fila: las carpetas que lo tenían ahora apuntan a la nueva."""
+    _db.actualizar("proyecto_items", {"tipo": ("eq", tipo), "item_id": ("eq", str(viejo))}, {"item_id": str(nuevo)})
+
+
 def quitar_item_de_todos(tipo, item_id):
     _db.borrar("proyecto_items", {"tipo": ("eq", tipo), "item_id": ("eq", str(item_id))})
 

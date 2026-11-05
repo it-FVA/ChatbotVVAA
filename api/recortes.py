@@ -83,6 +83,13 @@ def _propio(c, usuario):
     return c.get("pedido_por") in (usuario, "bot")
 
 
+def _edita_por_proyecto(c, usuario):
+    """(4/11, Franco: «seguir editándola de manera colaborativa no está funcionando, incluso aunque tengas permisos de edición»)
+    Quien tiene el recorte en un proyecto con permiso «editar» (directo o heredado) también lo edita."""
+    from .proyectos import permiso_por_proyectos
+    return permiso_por_proyectos("recorte", c.get("id"), usuario) == "editar"
+
+
 def _estilo_defecto_equipo():
     try:
         return db.obtener_config("clips_estilo")
@@ -182,6 +189,11 @@ def guardar_estilo_defecto(datos: EstiloDefecto, usuario=Depends(auth.admin)):
 def uno(cid: str, request: Request):
     usuario, aprueba = _sesion_y_rol(request)
     c = _decorar(_cargar(cid), usuario, aprueba)
+    if not c["puede_editar"] and not c["propio"] and c.get("estado") == "listo" and c.get("url") and _edita_por_proyecto(c, usuario):
+        c["puede_editar"] = True
+        c["permiso"] = "editar"
+    else:
+        c["permiso"] = "dueño" if c["propio"] else ("editar" if aprueba else "ver")
     e = c.get("edicion") or {}
     srt = e.get("srt") or c.get("srt") or ""
     c["srt_actual"] = srt
@@ -199,8 +211,8 @@ def editar(cid: str, datos: Edicion, request: Request):
     nube lo aplica en ~15 min. Devuelve {ok, edicion, partes, avisos, mensaje}."""
     usuario, aprueba = _sesion_y_rol(request)
     c = _cargar(cid)
-    if not (_propio(c, usuario) or aprueba):
-        raise HTTPException(403, "Este recorte lo pidió otra persona: solo quien lo pidió o un aprobador pueden cambiarlo.")
+    if not (_propio(c, usuario) or aprueba or _edita_por_proyecto(c, usuario)):
+        raise HTTPException(403, "Este recorte lo pidió otra persona: solo quien lo pidió, un aprobador o quien lo tiene en una carpeta con permiso de edición pueden cambiarlo.")
     if c.get("estado") != "listo":
         raise HTTPException(409, "Solo se edita un recorte que ya está listo." + (" Este está en proceso." if c.get("estado") == "pedido" else ""))
     edicion = dict(c.get("edicion") or {})

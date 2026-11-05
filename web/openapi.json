@@ -5468,7 +5468,7 @@
     ]
    },
    "get": {
-    "description": "La pieza decorada, más `pieza`: el dict con que el formulario se precarga («✏️ Retomar» o «Usar como base»).\n(4/11) La ve su dueña, un aprobador, cualquiera si la dueña la compartió con el equipo, y quien la tiene en un proyecto\npropio o compartido. `propia` dice si es de quien la mira: si no, la web la muestra en solo lectura y no la retoma.",
+    "description": "La pieza decorada, más `pieza`: el dict con que el formulario se precarga («✏️ Retomar» o «Usar como base»).\n(4/11) La ve su dueña, un aprobador, cualquiera si la dueña la compartió con el equipo, y quien la tiene en un proyecto\npropio o compartido. `propia` dice si es de quien la mira. `permiso` (dueño, editar, ver): con «editar» la web la retoma\n(edición en colaboración), con «ver» la muestra en solo lectura.",
     "operationId": "una_publicacion_publicaciones__pid__get",
     "parameters": [
      {
@@ -5600,7 +5600,7 @@
   },
   "/publicar/borrador": {
    "post": {
-    "description": "= «💾 Guardar borrador»: guarda todo (diseño incluido) sin mandar nada; se retoma desde «Mis publicaciones» → Borradores.\nCon borrador_id actualiza el mismo («al guardar se actualiza el mismo»).",
+    "description": "= «💾 Guardar borrador»: guarda todo (diseño incluido) sin mandar nada; se retoma desde «Mis publicaciones» → Borradores.\nCon borrador_id actualiza el mismo («al guardar se actualiza el mismo»). (4/11) También el de otra persona si quien guarda\ntiene permiso «editar» por un proyecto: sigue siendo de su dueña y queda quién lo editó por última vez.",
     "operationId": "guardar_borrador_publicar_borrador_post",
     "requestBody": {
      "content": {

@@ -1,6 +1,7 @@
 // Un recorte que no se puede editar desde acá (4/11): de otra persona (llegó por un proyecto compartido o por «Del equipo») o todavía
 // en proceso. Antes la pantalla decía solo «no se puede editar desde acá» y no dejaba hacer nada. Ahora muestra el video con los
-// datos, y deja bajarlo o usarlo en una pieza. Editar sigue siendo solo para quien lo pidió (o un aprobador).
+// datos, y deja bajarlo o usarlo en una pieza. Editar: quien lo pidió, un aprobador o (4/11) quien lo tiene en una carpeta con
+// permiso de edición (esos van directo al editor).
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { api, ErrorApi } from "../api";
