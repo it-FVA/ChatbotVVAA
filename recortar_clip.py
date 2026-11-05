@@ -18,7 +18,7 @@ El corte re-encodea (x264 veryfast) para que empiece y termine exactamente donde
 sin depender de los keyframes del original. 720p máximo.
 
 Subtítulos quemados (15/10): si en la misma carpeta de Drive está <id>.palabras.json (lo exporta
-fva-transcripcion/conectores/exportar_palabras.py desde las transcripciones de AssemblyAI, con tiempos por
+herramientas/exportar_palabras.py desde las transcripciones de AssemblyAI, con tiempos por
 palabra), el clip sale con subtítulos quemados en Raleway (fuentes/). Por defecto van en el vertical
 (shorts, reels, historias) y no en el horizontal; --subtitulos si/no lo fuerza.
 

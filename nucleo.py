@@ -85,7 +85,7 @@ def _sims_supabase(textos):
 #
 # Por qué: el vectorial difumina el vocabulario propio de Br. David (gratuidad,
 # Stop-Look-Go, esperanza ≠ expectativa). BM25 rescata la palabra exacta.
-# Medido con banco_de_pruebas.py (repo fva-transcripcion) antes de prender.
+# Medido con banco_de_pruebas.py (repo fva-transcripcion, archivo/scripts/) antes de prender.
 # ---------------------------------------------------------------------------
 _BM25 = None
 _RRF_K = 60
@@ -122,7 +122,7 @@ def _bm25():
 
 # ---------------------------------------------------------------------------
 # Limpieza extra (LIMPIEZA_EXTRA=1, apagada por defecto). Dos cosas, medidas
-# sobre el corpus real (fva-transcripcion/medir_basura_y_duplicados.py):
+# sobre el corpus real (fva-transcripcion/archivo/scripts/medir_basura_y_duplicados.py):
 #   1. No repetir un fragmento cuyo texto ya se mostró aunque venga de otro
 #      documento. 348 fragmentos (1,4%) están duplicados entre documentos: una
 #      charla y su "momentos destacados", artículos con el mismo párrafo.

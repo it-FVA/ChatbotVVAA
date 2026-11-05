@@ -1,7 +1,7 @@
 """
 MEDIR CON EL SET DORADO — la regla con la que se mide si un cambio del buscador mejora o empeora.
 
-Lee el borrador del set dorado (fva-transcripcion/analisis/Set-dorado-BORRADOR.xlsx - Borrador.csv):
+Lee el borrador del set dorado (herramientas/set-dorado.csv):
 cada consulta tiene uno o más "Título del contenido" esperados (las filas siguientes sin N°
 pertenecen a la misma consulta). Para cada modo del buscador corre todas las consultas y cuenta
 en cuántas aparece al menos un título esperado entre los primeros N resultados (acierto@N),
@@ -30,7 +30,7 @@ from comparar_busqueda import _cargar_secrets, MODOS_EXPANSION, poner_modo  # no
 
 _cargar_secrets()
 
-SET = os.path.join(HERE, "..", "fva-transcripcion", "analisis", "Set-dorado-BORRADOR.xlsx - Borrador.csv")
+SET = os.path.join(HERE, "herramientas", "set-dorado.csv")
 
 
 def _norm(s):

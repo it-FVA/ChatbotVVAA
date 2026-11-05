@@ -104,10 +104,7 @@ def _norm(s):
 
 def consultas_dificiles():
     """Las consultas marcadas 'difícil' en el set dorado del repo fva-transcripcion."""
-    p = os.path.join(HERE, "..", "fva-transcripcion", "analisis", "Set-dorado-BORRADOR.xlsx - Borrador.csv")
-    if not os.path.exists(p):
-        p = os.path.join(os.path.expanduser("~"), "Downloads", "fva-transcripcion", "analisis",
-                         "Set-dorado-BORRADOR.xlsx - Borrador.csv")
+    p = os.path.join(HERE, "herramientas", "set-dorado.csv")
     if not os.path.exists(p):
         print("No encuentro el set dorado; uso las consultas por defecto.")
         return CONSULTAS_DEFAULT

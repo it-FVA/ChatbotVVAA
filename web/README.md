@@ -4,6 +4,8 @@ La aplicación del equipo: chat, recortes con editor visual, Publicar / Mis publ
 proyectos y compartidos, cuenta y Administración. Habla con la API de `api/` por cookie de sesión. La app de Streamlit se dio de baja
 el 2/11/2026. Las secciones de abajo conservan el detalle de cada pantalla tal como se construyó (las «fases» son el orden en que se hicieron).
 
+Las imágenes de las capturas (`capturas/NN-….png`, que se citan abajo) se archivaron el 5/11/2026 en el repo hermano: `fva-transcripcion/archivo/capturas-web/`. En `web/capturas/` quedan solo los scripts `.mjs` que las generan.
+
 ## Publicar, Mis publicaciones y Aprobación (fase 3, 22/10)
 
 Las tres pantallas de publicación, con la lógica de negocio en la API (`api/publicar_rutas.py`).
@@ -37,7 +39,7 @@ Capturas `capturas/30`–`34` (escritorio y celular).
   para admins.
 - Fuera de esta fase: subir un archivo de video para YouTube (solo recortes).
 Plan original: `fva-transcripcion/analisis/plan-interfaz-propia-2026-10.md`. Habla con la API de `api/` y
-no toca el cerebro (`nucleo.py`, `db.py`). Las capturas de cómo se ve están en `capturas/` (escritorio 1366 px y celular 375 px):
+no toca el cerebro (`nucleo.py`, `db.py`). Las capturas de cómo se ve están en `fva-transcripcion/archivo/capturas-web/` (escritorio 1366 px y celular 375 px):
 `00`–`11` la fase 1 (login, lista, editor de recortes), `20`–`24` el chat (vacío, respuesta con fuentes, tarjeta de video con el
 recorte en proceso, pieza propuesta, cajón de conversaciones en celular). La revisión de UX/UI de los recortes está en `UX-REVISION.md`.
 
@@ -150,7 +152,7 @@ Capturas del chat: `node capturas/capturas-chat.mjs <token> <id-conversacion> [e
 `capturas.mjs`; solo mira, no manda mensajes ni pide recortes).
 ## Mis recortes (editor visual)
 
-Las capturas de cómo se ve están en `capturas/`
+Las capturas de cómo se ve están en `fva-transcripcion/archivo/capturas-web/`
 (escritorio 1366 px y celular 375 px): login, lista (cargando, vacía, normal), editor antes y después de editar, zoom de la
 línea de tiempo, atajos de teclado, confirmación de borrado, pantalla de «regenerando», barra inferior en celular y (22/10) la
 secuencia de salida con tres pedazos (12), un bloque arrastrándose con la marca de inserción (13) y «Ver secuencia» andando (14).
