@@ -9,6 +9,7 @@ import { Icono } from "../componentes/Iconos";
 import Modal from "../componentes/Modal";
 import { EstadoVacio, TarjetaEsqueleto } from "../componentes/Comunes";
 import { useToast } from "../componentes/Toasts";
+import SubirVideo from "../componentes/SubirVideo";
 import MoverA from "../componentes/proyectos/MoverA";
 import { apiProyectos } from "../apiProyectos";
 import { etiqueta, useProyectos } from "../componentes/proyectos/ProyectosContexto";
@@ -26,6 +27,7 @@ export default function Recortes({ vistaFija }: { vistaFija?: Vista } = {}) {
   const [filas, setFilas] = useState<Recorte[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [aBorrar, setABorrar] = useState<Recorte | null>(null);
+  const [subiendo, setSubiendo] = useState(false);
 
   const cargar = useCallback(async () => {
     try {
@@ -54,9 +56,25 @@ export default function Recortes({ vistaFija }: { vistaFija?: Vista } = {}) {
     <div className={vistaFija ? "recortes-embebidos" : "pagina"}>
       {!vistaFija && (
         <header className="pagina-cabecera">
-          <h1>Mis recortes</h1>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <h1>Mis recortes</h1>
+            <button className="boton primario" onClick={() => setSubiendo(true)}>
+              <Icono nombre="enviar" /> Subir un video
+            </button>
+          </div>
           <p className="suave">Los recortes tardan unos 15 minutos. Cuando están listos aparece el video y los botones «Diseñar», «Editar» y «Abrir». Borrá los que no vayas a usar: cada uno ocupa entre 5 y 50 MB en WordPress.</p>
         </header>
+      )}
+
+      {subiendo && (
+        <SubirVideo
+          onCerrar={() => setSubiendo(false)}
+          onSubido={() => {
+            setSubiendo(false);
+            avisar("Video subido: ya está en tus recortes.");
+            cargar();
+          }}
+        />
       )}
 
       <div className="filtros">
@@ -208,7 +226,7 @@ function Tarjeta({ c, mostrarQuien, aprueba, onBorrar, onCambio }: { c: Recorte;
 
   return (
     <article className={"tarjeta recorte " + c.formato} aria-label={c.titulo || c.video_id}>
-      <div className="recorte-mini">{listo ? <video src={c.url!} poster={c.miniatura ?? undefined} preload="metadata" controls muted playsInline /> : c.miniatura ? <img src={c.miniatura} alt="" /> : <div className="mini-vacia" />}</div>
+      <div className="recorte-mini">{listo ? <video src={c.url!} poster={c.miniatura ?? undefined} preload="metadata" controls muted playsInline /> : c.miniatura ? <img src={c.miniatura} alt="" /> : <div className="mini-vacia">{c.subido ? "subido" : null}</div>}</div>
       <div className="recorte-cuerpo">
         <h3>{(c.titulo || c.video_id).slice(0, 90)}</h3>
         <div className="recorte-meta">
@@ -217,7 +235,7 @@ function Tarjeta({ c, mostrarQuien, aprueba, onBorrar, onCambio }: { c: Recorte;
             <Icono nombre={c.formato === "vertical" ? "celular" : "pelicula"} tam={14} /> {c.formato}
           </span>
           <span>
-            {mmss(c.inicio_ms)}–{mmss(c.fin_ms)} · {(c.duracion_ms / 1000).toFixed(0)} s
+            {c.subido ? `${(c.duracion_ms / 1000).toFixed(0)} s` : `${mmss(c.inicio_ms)}–${mmss(c.fin_ms)} · ${(c.duracion_ms / 1000).toFixed(0)} s`}
           </span>
           <span className={"estado " + clase}>
             <Icono nombre={c.estado === "listo" ? "check" : c.estado === "error" ? "alerta" : "reloj"} tam={14} /> {c.estado_texto}
@@ -234,7 +252,7 @@ function Tarjeta({ c, mostrarQuien, aprueba, onBorrar, onCambio }: { c: Recorte;
           )}
           {mostrarQuien && (
             <span>
-              pidió <strong>{c.pedido_por || "—"}</strong>
+              {c.subido ? "subió" : "pidió"} <strong>{c.pedido_por || "—"}</strong>
             </span>
           )}
           {c.compartido && (

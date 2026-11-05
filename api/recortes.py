@@ -18,12 +18,13 @@ Rutas (todas con sesión):
   DELETE /recortes/{id}                borra el archivo de WordPress y la fila (= «🗑 Borrar»)
   GET    /recortes/{id}/usos           piezas que usan ese video (aviso antes de borrar)
   POST   /recortes/{id}/reintentar     (aprobadores) un recorte en error vuelve a 'pedido' (= «↻ Reintentar»)
+  POST   /recortes/subir               (5/11, Julián) un video propio (mp4/mov, hasta 200 MB) entra como un recorte más
   GET    /recortes/{id}/descargar      (3/11, pedido de Julián) el mp4 del recorte como archivo para bajar (se edita afuera, p. ej. Premiere)
 """
-import os, datetime, logging
+import os, datetime, logging, re, tempfile, uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 
@@ -37,6 +38,9 @@ router = APIRouter(prefix="/recortes", tags=["recortes"])
 
 MIN_MS, MAX_MS = 2000, 180000          # el tramo tiene que durar entre 2 s y 3 min
 MIN_PEDAZO_MS = 500                    # (22/10) cada pedazo conservado dura al menos medio segundo
+MAX_SUBIDA_MB = 200                    # (5/11) tope de «Subir un video»
+TIPOS_VIDEO = {"video/mp4": ".mp4", "video/quicktime": ".mov"}
+PREFIJO_SUBIDO = "subido:"
 ESTADOS = {"listo": "listo", "pedido": "en proceso", "error": "error"}
 
 
@@ -110,7 +114,11 @@ def _decorar(c, usuario, aprueba):
     c["puede_compartir"] = propio and listo                   # solo el dueño, y solo un recorte listo
     c["regenerando"] = c.get("estado") == "pedido" and bool(e) and bool(c.get("url"))
     c["estado_texto"] = "regenerando con los cambios" if c["regenerando"] else ESTADOS.get(c.get("estado"), c.get("estado"))
-    c["miniatura"] = f"https://img.youtube.com/vi/{c['video_id']}/hqdefault.jpg" if c.get("video_id") else None
+    c["subido"] = str(c.get("video_id") or "").startswith(PREFIJO_SUBIDO)   # (5/11) video propio: no hay video de YouTube detrás
+    if c["subido"]:
+        c["puede_editar"] = False                              # el editor de tramos y subtítulos es para recortes de YouTube
+        c["estado_texto"] = "subido"
+    c["miniatura"] = None if c["subido"] else (f"https://img.youtube.com/vi/{c['video_id']}/hqdefault.jpg" if c.get("video_id") else None)
     c["duracion_ms"] = int(c.get("fin_ms") or 0) - int(c.get("inicio_ms") or 0)
     c["sin_pausas"] = e.get("sin_pausas") if listo else None
     c["segmentos_hechos"] = e.get("segmentos_hechos") if listo else None
@@ -185,6 +193,63 @@ def guardar_estilo_defecto(datos: EstiloDefecto, usuario=Depends(auth.admin)):
     return {"ok": True, "estilo": estilo}
 
 
+@router.post("/subir")
+def subir(request: Request, archivo: UploadFile = File(...), titulo: str = Form(""), formato: str = Form("horizontal")):
+    """(5/11, Julián edita afuera, p. ej. en Premiere) «Subir un video»: mp4/mov de hasta 200 MB. Se baja a un archivo temporal de a
+    pedazos (la API tiene 512 MB), se sube a la biblioteca de WordPress y queda una fila de clips ya 'listo' con video_id «subido:<uuid>»
+    (así se distingue sin migración). Desde ahí es un recorte más: Diseñar, Abrir, Descargar, compartir, carpeta, borrar."""
+    usuario, _ = _sesion_y_rol(request)
+    if not db.disponible():
+        raise HTTPException(503, "Sin Supabase: no puedo guardar el recorte.")
+    if formato not in ("horizontal", "vertical"):
+        raise HTTPException(400, "El formato es horizontal o vertical.")
+    titulo = (titulo or "").strip()
+    if not titulo:
+        raise HTTPException(400, "Poné un título para el video.")
+    tipo = (archivo.content_type or "").lower()
+    if tipo not in TIPOS_VIDEO:
+        raise HTTPException(415, "Solo se aceptan videos mp4 o mov.")
+    tope = MAX_SUBIDA_MB * 1024 * 1024
+    ext = TIPOS_VIDEO[tipo]
+    nombre = re.sub(r"[^a-z0-9]+", "-", titulo.lower()).strip("-")[:50] or "video"
+    nombre = f"subido-{nombre}-{uuid.uuid4().hex[:6]}{ext}"
+    fd, ruta = tempfile.mkstemp(suffix=ext)
+    try:
+        total = 0
+        with os.fdopen(fd, "wb") as out:
+            while True:
+                trozo = archivo.file.read(1024 * 1024)
+                if not trozo:
+                    break
+                total += len(trozo)
+                if total > tope:
+                    # se sigue contando (sin guardar) solo para decir de cuánto se pasó
+                    while True:
+                        mas = archivo.file.read(1024 * 1024)
+                        if not mas:
+                            break
+                        total += len(mas)
+                    raise HTTPException(413, f"El video pesa {total / 1024 / 1024:.0f} MB; el máximo es {MAX_SUBIDA_MB} MB.")
+                out.write(trozo)
+        if total == 0:
+            raise HTTPException(400, "El archivo está vacío.")
+        dur_s = None
+        try:
+            dur_s = rc.duracion_video(ruta)
+        except Exception as e:                      # sin ffmpeg: la duración queda en 0
+            log.info("No pude leer la duración del video subido: %s", e)
+        r = publicar.subir_video_wordpress(publicar.Config(os.environ), ruta, nombre, titulo=titulo, quien=usuario)
+    finally:
+        try:
+            os.remove(ruta)
+        except OSError:
+            pass
+    if not r.get("ok") or not r.get("url"):
+        raise HTTPException(502, r.get("aviso") or "WordPress no aceptó el video.")
+    cid = db.crear_clip_subido(PREFIJO_SUBIDO + uuid.uuid4().hex, int((dur_s or 0) * 1000), formato, titulo, usuario, r["url"])
+    return {"ok": True, "id": cid, "url": r["url"], "aviso": r.get("aviso")}
+
+
 @router.get("/{cid}")
 def uno(cid: str, request: Request):
     usuario, aprueba = _sesion_y_rol(request)
@@ -213,6 +278,8 @@ def editar(cid: str, datos: Edicion, request: Request):
     c = _cargar(cid)
     if not (_propio(c, usuario) or aprueba or _edita_por_proyecto(c, usuario)):
         raise HTTPException(403, "Este recorte lo pidió otra persona: solo quien lo pidió, un aprobador o quien lo tiene en una carpeta con permiso de edición pueden cambiarlo.")
+    if str(c.get("video_id") or "").startswith(PREFIJO_SUBIDO):
+        raise HTTPException(409, "Un video subido no se edita acá: se edita afuera y se vuelve a subir.")
     if c.get("estado") != "listo":
         raise HTTPException(409, "Solo se edita un recorte que ya está listo." + (" Este está en proceso." if c.get("estado") == "pedido" else ""))
     edicion = dict(c.get("edicion") or {})

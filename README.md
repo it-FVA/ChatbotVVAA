@@ -14,6 +14,7 @@ Frase del día y circuito de aprobación. Desde el 2/11/2026 es **solo la web + 
 - `db/` — Supabase (REST), un módulo por tabla; el esquema completo en `api/migraciones/000_esquema_base.sql` (`python api/migrar.py`). `publicar.py` — conectores (WordPress, Instagram, Facebook, YouTube, WhatsApp prototipo).
   `imagen.py` — la foto con la frase encima. `programar_frases.py` + `frase_mail.py` + `perfit.py` — la Frase del día.
   `newsletter.py` — las plantillas del newsletter. `recortar_clip.py` / `procesar_clips.py` — recortes de video.
+  **Videos subidos** (5/11): en Mis recortes, «Subir un video» (o «o subí un video» en Diseñar → YouTube) sube un mp4/mov propio, hasta 200 MB, editado afuera. `POST /recortes/subir` lo manda a WordPress y crea una fila de `clips` ya `listo` con `video_id = "subido:<uuid>"` (sin migración): desde ahí se diseña, publica, comparte y borra como cualquier recorte, pero no se edita (tramo y subtítulos son de YouTube).
 - `procesar_cola.py` — la cola de publicación: corre en **GitHub Actions** cada 15 minutos (`.github/workflows/cola.yml`).
 - `distribucion/` — plantillas que se copian a otros lados (el mail de la frase, el snippet de WordPress de la home).
 
