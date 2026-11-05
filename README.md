@@ -78,6 +78,13 @@ No se toca la cola, ni las rutas, ni la web: `publicar.enviar_pieza` despacha co
 **Una persona con cualquier permiso**: Administración → Usuarios (rol creador / aprobador / admin en la tabla `usuarios`). Ya no hay contraseñas
 ni listas de roles en secrets ni en el entorno.
 
+## Token de Instagram (se renueva solo, 5/11)
+- El token de Instagram Login dura 60 días. Vive en la tabla `config`, clave `meta_ig_token` (`{"token", "vence", "renovado"}`); la API y la cola leen ese mismo, sin redeploy (`meta_token.py`, usado por `publicar.Config`).
+- `META_IG_TOKEN` del entorno es solo la **semilla**: se usa si no hay nada guardado o Supabase no está.
+- La cola (`procesar_cola.py`) llama a `renovar_token_ig()` al empezar cada corrida: si faltan menos de 30 días (o no se conoce el vencimiento) pide el refresh a Meta y guarda el nuevo. Si falla, deja el viejo y lo dice en el log.
+- Forzarlo a mano: `POST /admin/instagram/renovar-token` (solo admins). Salud → «instagram» muestra de dónde sale y cuándo vence (rojo a menos de 7 días).
+- Si algún día venciera igual: generar un token nuevo en Meta for Developers, pegarlo en `META_IG_TOKEN` y borrar la clave `meta_ig_token` de `config` (o forzar la renovación).
+
 ## Actualizar el corpus
 El corpus se genera en el proyecto **fva-transcripcion** (transcripción + embeddings). Cuando cambie, copiar
 `corpus/fragmentos.jsonl` y `corpus/fragmentos_openai.npy` a este repo → commit + push (Render reconstruye la imagen).

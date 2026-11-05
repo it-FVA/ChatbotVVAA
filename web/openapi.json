@@ -2029,6 +2029,26 @@
     ]
    }
   },
+  "/admin/instagram/renovar-token": {
+   "post": {
+    "description": "(5/11) Fuerza la renovación del token de Instagram y lo guarda en config.meta_ig_token. Devuelve `vence` (ISO).",
+    "operationId": "renovar_token_instagram_admin_instagram_renovar_token_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Renovar Token Instagram",
+    "tags": [
+     "administracion"
+    ]
+   }
+  },
   "/admin/lista-blanca": {
    "get": {
     "operationId": "lista_blanca_admin_lista_blanca_get",

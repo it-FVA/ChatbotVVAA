@@ -414,6 +414,20 @@ def _limpio(s):
     return (s or "").strip() or None
 
 
+@router.post("/instagram/renovar-token")
+def renovar_token_instagram(quien=Depends(_admin)):
+    """(5/11) Fuerza la renovación del token de Instagram y lo guarda en config.meta_ig_token. Devuelve `vence` (ISO)."""
+    import meta_token
+    if not db.disponible():
+        raise HTTPException(503, "Sin Supabase: no hay dónde guardar el token renovado.")
+    r = meta_token.renovar_token_ig(forzar=True)
+    if not r["renovado"]:
+        raise HTTPException(502, "No pude renovar el token de Instagram: " + r["motivo"].replace("error: ", "", 1))
+    from . import salud
+    salud._CACHE.pop("instagram", None)
+    return {"renovado": True, "vence": r["vence"]}
+
+
 @router.get("/servicios")
 def servicios(quien=Depends(_admin)):
     if not db.disponible():

@@ -185,7 +185,7 @@ La lista completa y vigente está en `api/variables_entorno.py` (de ahí salen `
 | `VECTORES_K` | cuántos candidatos pide cada búsqueda a Postgres en modo supabase (300) | no |
 | `SALUD_TOKEN` | token para consultar `/salud/servicios` desde un monitor externo sin sesión | no |
 | `MEMORIA_LIMITE_MB` | límite de memoria del plan para la fila «memoria» (512) | no |
-| `META_IG_TOKEN_VENCE` | `AAAA-MM-DD` en que vence el token de Instagram (Meta no lo informa para tokens de Instagram Login); la fila «instagram» avisa 14 días antes | no |
+| `META_IG_TOKEN_VENCE` | `AAAA-MM-DD` en que vence el token de Instagram **solo mientras viene del entorno** (semilla); una vez que la cola lo guarda en `config.meta_ig_token` se usa el vencimiento guardado | no |
 | `META_IG_TOKEN`, `META_FB_PAGE_TOKEN`, `WP_APP_PASSWORD`, `DRIVE_TOKEN_JSON`, `YOUTUBE_TOKEN_JSON`, `GITHUB_TOKEN` | si están, «Salud» verifica esos servicios (hoy los usa la cola de GitHub Actions, no la API); `GITHUB_TOKEN` solo sube el límite de la API pública de GitHub | no |
 | `PORT` | puerto (lo pone el hosting) | no |
 
@@ -269,7 +269,7 @@ corre en paralelo 13 chequeos y devuelve, por cada uno, `estado` (ok / aviso / e
 | `supabase` | una consulta mínima a `config` y la latencia | error si no responde; aviso si tarda > 2 s |
 | `openai` | `models.retrieve` del modelo de producción (gratis; cacheado 10 min) | error si la clave falla o el modelo no existe |
 | `wordpress` | `GET /wp-json/` y, con `WP_USER` + `WP_APP_PASSWORD`, `/wp/v2/users/me` | error si el sitio o las credenciales fallan |
-| `instagram` | el token de Instagram Login (`IG…`) contra `graph.instagram.com/me`; el vencimiento sale de `META_IG_TOKEN_VENCE` (Meta no permite `debug_token` con estos tokens, probado 22/10) | aviso 14 días antes de vencer o si falta la fecha; error si venció o no sirve |
+| `instagram` | el token de Instagram Login (`IG…`) contra `graph.instagram.com/me`; de dónde sale el token y el vencimiento (`config.meta_ig_token`, o `META_IG_TOKEN_VENCE` si viene del entorno; Meta no permite `debug_token` con estos tokens, probado 22/10) | aviso a menos de 14 días; **error** a menos de 7, si venció, si no se sabe cuándo vence o si no sirve |
 | `facebook` | `debug_token` del token de la página: validez, vencimiento, permisos | ídem |
 | `drive`, `youtube` | canje del `refresh_token` por un access token en Google (no consume cuota) | error si Google lo rechaza (`invalid_grant` = volver a autorizar) |
 | `cola_publicacion` | última corrida de `cola.yml` (API pública de GitHub, cacheada 5 min) + piezas `pendiente` vencidas hace > 30 min | aviso si falló, si tiene > 45 min o si hay piezas sin procesar |

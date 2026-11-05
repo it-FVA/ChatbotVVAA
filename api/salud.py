@@ -216,37 +216,45 @@ def _chequear_meta(nombre, token, que):
     return _cacheado(nombre, _ir)
 
 
-def _chequear_ig_login(token):
-    """Token de «Instagram Login» (empieza con IG…; publicar.py lo usa contra graph.instagram.com). Para estos tokens Meta no
-    permite debug_token (403 «Application does not have permission», probado el 22/10): se verifica con /me y el vencimiento
-    sale de META_IG_TOKEN_VENCE (AAAA-MM-DD, lo carga quien genera el token: duran 60 días). Sin esa variable, no se inventa."""
+def _chequear_ig_login(token, inf=None):
+    """Token de «Instagram Login» (IG…; publicar.py lo usa contra graph.instagram.com). Meta no permite debug_token con estos
+    tokens (probado 22/10): validez con /me. (5/11) El token se renueva solo y vive en config.meta_ig_token: el vencimiento sale de
+    ahí; si viene del entorno, de META_IG_TOKEN_VENCE. Rojo si faltan menos de 7 días o no se sabe cuándo vence."""
+    inf = inf or {"origen": "entorno", "vence": None, "renovado": None}
     def _ir():
         st, cuerpo, ms = _get(f"https://graph.instagram.com/v21.0/me?fields=id,username&access_token={urllib.parse.quote(token)}")
         d = _json(cuerpo) or {}
         if st != 200 or not d.get("id"):
             err = (d.get("error") or {}).get("message") or cuerpo[:150]
             return _res("instagram", "error", f"Instagram rechaza el token ({st}): {err}",
-                        "Generar un token de larga duración nuevo (developers.facebook.com, app de Instagram, Generate token) y cargarlo en Render y en los secrets de GitHub, con META_IG_TOKEN_VENCE = hoy + 60 días.", ms=ms)
-        det = f"Token válido para la cuenta @{d.get('username', '?')}."
-        vence = os.environ.get("META_IG_TOKEN_VENCE", "").strip()
-        f = _fecha(vence) if vence else None
+                        "Probar «Renovar token» (POST /admin/instagram/renovar-token). Si no alcanza, generar un token de larga duración nuevo (developers.facebook.com, app de Instagram, Generate token) y pegarlo en META_IG_TOKEN: la cola lo guarda y lo renueva sola.", ms=ms)
+        origen = "guardado en la base (config.meta_ig_token)" if inf["origen"] == "config" else "tomado de META_IG_TOKEN del entorno"
+        det = f"Token válido para la cuenta @{d.get('username', '?')}, {origen}."
+        f = inf["vence"]
         if f is None:
-            return _res("instagram", "aviso", det + " Instagram no informa el vencimiento de este tipo de token (dura 60 días desde que se generó) y no está META_IG_TOKEN_VENCE.",
-                        "Cargar META_IG_TOKEN_VENCE=AAAA-MM-DD en render.yaml (la fecha en que vence el token actual) para que esta fila avise 14 días antes.", ms=ms)
+            return _res("instagram", "error", det + " No se sabe cuándo vence (Instagram no lo informa).",
+                        "Forzar la renovación (POST /admin/instagram/renovar-token): guarda el token con su vencimiento.", ms=ms)
         dias = (f - _ahora()).days
-        det += f" Vence el {f:%d/%m/%Y} según META_IG_TOKEN_VENCE ({dias} días)."
+        det += f" Vence el {f:%d/%m/%Y} ({dias} días)." + (f" Renovado el {inf['renovado']:%d/%m/%Y}." if inf.get("renovado") else "")
         if dias < 0:
-            return _res("instagram", "error", det, "Según la fecha cargada ya venció (aunque /me todavía responda): generar un token nuevo y actualizar META_IG_TOKEN y META_IG_TOKEN_VENCE.", vence=_iso(f), ms=ms)
+            return _res("instagram", "error", det, "Según la fecha ya venció: generar un token nuevo y pegarlo en META_IG_TOKEN.", vence=_iso(f), ms=ms)
+        if dias < 7:
+            return _res("instagram", "error", det, f"Vence en {dias} días y la renovación automática no lo renovó: forzarla (POST /admin/instagram/renovar-token) o revisar el log de la cola.", vence=_iso(f), ms=ms)
         if dias < AVISO_VENCE_DIAS:
-            return _res("instagram", "aviso", det, f"Vence en {dias} días: generar un token nuevo, cargarlo en Render y GitHub y actualizar META_IG_TOKEN_VENCE.", vence=_iso(f), ms=ms)
+            return _res("instagram", "aviso", det, f"Vence en {dias} días: la cola lo renueva sola cuando faltan menos de 30; si sigue así, revisar el log de la cola.", vence=_iso(f), ms=ms)
         return _res("instagram", "ok", det, None, vence=_iso(f), ms=ms)
     return _cacheado("instagram", _ir)
 
 
 def _chequear_instagram():
-    token = os.environ.get("META_IG_TOKEN", "").strip()
+    try:
+        import meta_token
+        inf = meta_token.info_token()
+    except Exception:
+        inf = None
+    token = (inf or {}).get("token") or os.environ.get("META_IG_TOKEN", "").strip()
     if token.startswith("IG"):
-        return _chequear_ig_login(token)
+        return _chequear_ig_login(token, inf)
     return _chequear_meta("instagram", token, "META_IG_TOKEN")
 
 

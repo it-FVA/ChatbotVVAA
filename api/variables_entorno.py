@@ -55,7 +55,7 @@ VARIABLES = [
     # --- Salud ---
     _v("SALUD_TOKEN", secreto=True, requerida=False, nota="Token para consultar /salud/servicios desde un monitor externo sin sesión (?token= o X-Salud-Token)."),
     _v("MEMORIA_LIMITE_MB", "512", nota="Límite de memoria del plan (MB), para la fila «memoria» de /salud/servicios (aviso al 80 %, error al 95 %)."),
-    _v("META_IG_TOKEN_VENCE", "2026-11-22", nota="(22/10, salud) Vencimiento del token de Instagram Login (dura 60 días); corregirlo al renovar el token."),
+    _v("META_IG_TOKEN_VENCE", "2026-11-22", nota="(22/10, salud) Vencimiento de la semilla META_IG_TOKEN; desde el 5/11 el token se renueva solo y el vencimiento vigente queda en config.meta_ig_token."),
     # --- Canales: modo de cada uno (apagado | simulado | borrador | real; YouTube: privado) ---
     _v("PUBLICAR_WORDPRESS", "real", cola=SECRET, nota="(2/11, Franco) real: el aprobador publica la entrada de verdad desde la plataforma (o la programa)."),
     _v("PUBLICAR_WHATSAPP", "simulado", cola=VALOR, nota="(2/11) prototipo: apagado | simulado (no hay modo real todavía)."),

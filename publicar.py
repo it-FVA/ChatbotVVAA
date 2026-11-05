@@ -107,6 +107,12 @@ class Config:
         self.wp_user = g("WP_USER")
         self.wp_pass = g("WP_APP_PASSWORD")
         self.ig_token = g("META_IG_TOKEN")
+        if fuente is os.environ:       # (5/11) el token vigente vive en config.meta_ig_token (se renueva solo); META_IG_TOKEN es la semilla
+            try:
+                import meta_token
+                self.ig_token = meta_token.token_ig_vigente() or self.ig_token
+            except Exception:
+                pass
         self.ig_id = g("META_IG_USER_ID")
         self.fb_page_id = g("META_FB_PAGE_ID")
         self.fb_token = g("META_FB_PAGE_TOKEN")

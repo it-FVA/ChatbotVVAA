@@ -37,6 +37,11 @@ def main():
     if not db.disponible():
         print("Sin Supabase (SUPABASE_URL / SUPABASE_KEY). Nada que hacer.")
         return 1
+    try:   # (5/11) el token de Instagram se renueva solo cuando faltan menos de 30 días
+        import meta_token
+        meta_token.renovar_token_ig()
+    except Exception as e:
+        print(f"token IG: error inesperado al renovar: {type(e).__name__}")
     cfg = publicar.Config(os.environ)
     r = cfg.resumen()
     ahora = datetime.datetime.now(datetime.timezone.utc)

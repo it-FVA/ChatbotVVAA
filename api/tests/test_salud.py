@@ -154,17 +154,20 @@ def test_instagram_login(mundo, monkeypatch):
     """Token IG… (Instagram Login, el de producción): /me para la validez, META_IG_TOKEN_VENCE para el vencimiento."""
     salud._CACHE.clear()
     assert salud._chequear_instagram()["estado"] == "ok"
-    monkeypatch.setenv("META_IG_TOKEN_VENCE", (AHORA + dt.timedelta(days=3)).date().isoformat())
+    monkeypatch.setenv("META_IG_TOKEN_VENCE", (AHORA + dt.timedelta(days=10)).date().isoformat())
     salud._CACHE.clear()
     r = salud._chequear_instagram()
     assert r["estado"] == "aviso" and "Vence en" in r["que_hacer"]
+    monkeypatch.setenv("META_IG_TOKEN_VENCE", (AHORA + dt.timedelta(days=3)).date().isoformat())     # (5/11) menos de 7 días: rojo
+    salud._CACHE.clear()
+    assert salud._chequear_instagram()["estado"] == "error"
     monkeypatch.setenv("META_IG_TOKEN_VENCE", "2026-01-01")
     salud._CACHE.clear()
     assert salud._chequear_instagram()["estado"] == "error"
     monkeypatch.delenv("META_IG_TOKEN_VENCE")
     salud._CACHE.clear()
     r = salud._chequear_instagram()
-    assert r["estado"] == "aviso" and "META_IG_TOKEN_VENCE" in r["que_hacer"]
+    assert r["estado"] == "error" and "renovar-token" in r["que_hacer"]     # (5/11) sin vencimiento conocido: rojo
     mundo["mapa"]["graph.instagram.com/v21.0/me"] = (400, {"error": {"message": "Invalid OAuth access token - Cannot parse access token", "type": "OAuthException"}})
     salud._CACHE.clear()
     r = salud._chequear_instagram()
