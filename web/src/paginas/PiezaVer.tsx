@@ -221,7 +221,11 @@ export default function PiezaVer() {
 
           <div className="acciones">
             {edita && p.retomable && (
-              <Link className="boton primario" to={esNewsletter ? `/newsletter?borrador=${encodeURIComponent(p.id)}` : `/publicar?borrador=${encodeURIComponent(p.id)}`}>
+              <Link
+                className="boton primario"
+                to={esNewsletter ? `/newsletter?borrador=${encodeURIComponent(p.id)}` : `/publicar?borrador=${encodeURIComponent(p.id)}`}
+                title={p.estado === "rechazada" ? "Abre la pieza con la nota del rechazo arriba. Cuando termines de corregirla, la volvés a mandar a aprobación." : undefined}
+              >
                 <Icono nombre="lapiz" /> {p.estado === "rechazada" || !propia ? "Editar" : "Retomar"}
               </Link>
             )}
