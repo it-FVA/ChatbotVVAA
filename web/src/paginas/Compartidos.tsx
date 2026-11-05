@@ -1,6 +1,7 @@
 // «Compartidos conmigo» (22/10): las carpetas y las conversaciones sueltas que otras personas compartieron con esta cuenta.
 // Una carpeta abre la vista grande; una conversación abre el chat (en modo lectura o edición según el permiso).
 // «Dejar de ver» saca a la persona de la lista de compartidos (api DELETE /compartidos/{tipo}/{id}/{yo}).
+import LinkAyuda from "../componentes/LinkAyuda";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ErrorApi } from "../api";
@@ -51,7 +52,7 @@ export default function Compartidos() {
     <div className="pagina">
       <header className="pagina-cabecera">
         <h1>Compartidos conmigo</h1>
-        <p className="suave">Carpetas y conversaciones que otras personas del equipo compartieron con vos. Lo que te compartieron «para ver» lo abrís sin poder cambiarlo.</p>
+        <p className="suave">Carpetas y conversaciones que otras personas del equipo compartieron con vos. Lo que te compartieron «para ver» lo abrís sin poder cambiarlo.  <LinkAyuda seccion="proyectos" /></p>
       </header>
       {error && <div className="aviso error">{error}</div>}
       {datos === null && (

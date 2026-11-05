@@ -4,6 +4,7 @@
 // (GET /banco) y el bloque «Un recorte para ver» se carga desde un recorte (?recorte=<id> o el selector). «Descargar HTML» para pegar
 // en Perfit, «Guardar borrador» (se retoma desde acá o desde Mis publicaciones: ?borrador=<id>) y «Enviar a aprobación» (tabla
 // publicaciones, canal newsletter, mismos estados que las demás piezas). El email NO sale de acá.
+import LinkAyuda from "../componentes/LinkAyuda";
 import { fechaCreacion, fechaHora } from "../util/fechas";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -285,7 +286,7 @@ export default function Newsletter() {
           <h1>Newsletter</h1>
           <p className="suave">
             El email a la comunidad, bloque por bloque, con las plantillas reales de la Fundación. El bot redacta los textos desde el material; la agenda, las fotos y los links los cargás vos. El email no sale de acá: el HTML aprobado se pega en Perfit. (Una entrada de la web es un «blogpost» y se diseña en Canales → Blogpost.)
-          </p>
+            <LinkAyuda seccion="newsletter" /></p>
         </div>
         <div className="acciones">
           <button type="button" className="boton" onClick={() => setAbrirBorradores(true)}>

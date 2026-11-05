@@ -1,3 +1,4 @@
+import LinkAyuda from "../componentes/LinkAyuda";
 import { fechaHora } from "../util/fechas";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -62,7 +63,7 @@ export default function Recortes({ vistaFija }: { vistaFija?: Vista } = {}) {
               <Icono nombre="enviar" /> Subir un video
             </button>
           </div>
-          <p className="suave">Los recortes tardan unos 15 minutos. Cuando están listos aparece el video y los botones «Diseñar», «Editar» y «Abrir». Borrá los que no vayas a usar: cada uno ocupa entre 5 y 50 MB en WordPress.</p>
+          <p className="suave">Los recortes tardan unos 15 minutos. Cuando están listos aparece el video y los botones «Diseñar», «Editar» y «Abrir». Borrá los que no vayas a usar: cada uno ocupa entre 5 y 50 MB en WordPress.  <LinkAyuda seccion="recortes" /></p>
         </header>
       )}
 

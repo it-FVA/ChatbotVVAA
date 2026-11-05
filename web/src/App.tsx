@@ -24,6 +24,7 @@ import Configuracion from "./paginas/admin/Configuracion";
 import Barra from "./componentes/Barra";
 import Proyectos from "./paginas/Proyectos";
 import Compartidos from "./paginas/Compartidos";
+import Ayuda from "./paginas/Ayuda";
 import { ProyectosProvider } from "./componentes/proyectos/ProyectosContexto";
 
 interface Sesion {
@@ -70,6 +71,7 @@ export default function App() {
                     <Route path="/proyectos/:id" element={<Proyectos />} />
                     <Route path="/compartidos" element={<Compartidos />} />
                     <Route path="/cuenta" element={<Cuenta />} />
+                    <Route path="/ayuda" element={<Ayuda />} />
                     <Route path="/newsletter" element={<Newsletter />} />
                     <Route path="/frase-del-dia" element={<FraseDelDia />} />
                     <Route path="/publicar" element={<Publicar />} />

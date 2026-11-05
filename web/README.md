@@ -338,3 +338,7 @@ corre en local.
   y agregar el dominio de producción a los orígenes autorizados.
 - **Hosting y dominio**: Vercel + Railway/Render o el VPS; CORS y `COOKIE_SAMESITE` dependen de eso.
 - **Idiomas**: el chat está en es/en/de; la pantalla de recortes y el login, solo en español.
+
+## Ayuda (5/11)
+
+`/ayuda` (`src/paginas/Ayuda.tsx`, estilos en `src/ayuda.css`): un instructivo corto por pantalla, con índice y anclas (`/ayuda#recortes`). Cada pantalla enlaza a su sección con `<LinkAyuda seccion="recortes" />` (`src/componentes/LinkAyuda.tsx`) junto a su párrafo de ayuda; el ítem «Ayuda» está al final de Herramientas en la barra. Si cambia un botón, hay que cambiarlo también en `SECCIONES`.
