@@ -36,6 +36,7 @@ VARIABLES = [
     _v("SUPABASE_KEY_COLA", secreto=True, api=False, cola=SECRET, requerida=False,
        nota="(3/11) Clave acotada de la cola (rol de Postgres «cola»: api/migraciones/manual_cola_rol.sql). Si existe, db/_cliente.py la usa en vez de SUPABASE_KEY."),
     _v("ASISTENTE_MODELO", "gpt-5.6-sol", nota="(21/10) Configuración NO secreta, administrada desde acá."),
+    _v("VECTORES", "supabase", cola=False, requerida=False, nota="(5/11) local = embeddings .npy en memoria; supabase = pgvector (match_fragmentos_varios). En Render va supabase desde el 5/11 (decisión de Franco, opción A de la revisión)."),
     _v("BUSQUEDA_HIBRIDA", "1"),
     _v("LIMPIEZA_EXTRA", "1"),
     _v("RERANK_CANDIDATOS", "50"),

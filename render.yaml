@@ -4,8 +4,8 @@
 # Las variables con sync: false se cargan a mano en el panel de Render (Environment → Add from .env, pegando api.env,
 # que se genera en local con `python api/armar_env.py` y NO va al repo).
 # (3/11) El bloque envVars se GENERA desde api/variables_entorno.py (python api/generar_config.py); no editarlo a mano.
-# /salud/servicios (fila «variables») avisa cuáles faltan en Render. Opcional, no incluida: VECTORES=supabase (vectores en
-# pgvector en vez del .npy: -52 MB de RAM, misma calidad medida; lo decide Franco, informes/medicion-vectores-supabase-validado.md).
+# /salud/servicios (fila «variables») avisa cuáles faltan en Render. (5/11) VECTORES=supabase cargada en Render (vectores en
+# pgvector en vez del .npy: -52 MB de RAM, misma calidad medida: informes/medicion-vectores-supabase-validado.md). Opción A de la revisión, decidida por Franco.
 services:
   - type: web
     name: fva-api
@@ -28,6 +28,9 @@ services:
       # (21/10) Configuración NO secreta, administrada desde acá.
       - key: ASISTENTE_MODELO
         value: "gpt-5.6-sol"
+      # (5/11) local = embeddings .npy en memoria; supabase = pgvector (match_fragmentos_varios). En Render va supabase desde el 5/11 (decisión de Franco, opción A de la revisión).
+      - key: VECTORES
+        value: "supabase"
       - key: BUSQUEDA_HIBRIDA
         value: "1"
       - key: LIMPIEZA_EXTRA

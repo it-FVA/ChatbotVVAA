@@ -9,6 +9,8 @@ COPY requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 # Los módulos de la raíz se copian por patrón: un módulo nuevo no exige tocar este archivo.
 COPY *.py datos_fijos.md logo.png fragmentos.jsonl fragmentos_openai.npy ./
+# (5/11) VECTORES=supabase en Render: los embeddings se consultan en pgvector y fragmentos_openai.npy no se carga en memoria.
+# El archivo sigue en la imagen solo como respaldo para volver a VECTORES=local sin redeploy de código.
 COPY fuentes ./fuentes
 COPY distribucion ./distribucion
 COPY db ./db
