@@ -2,6 +2,7 @@
 // fechas, miniatura, quién aprobó/rechazó y la nota, y las acciones Retomar (borradores), Eliminar (lo eliminable), Ver resultado
 // (el posteo, la entrada o el borrador de WordPress) y Descargar HTML (newsletter).
 import LinkAyuda from "../componentes/LinkAyuda";
+import { definirAyuda } from "../ayuda/registro";
 import { fechaCreacion, fechaLegible } from "../util/fechas";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -33,6 +34,18 @@ function nombreTipo(canales: CanalInfo[], t: string): string {
   if (canal === "instagram") return `${nombre} · ${formato || "posteo"}`;
   return nombre;
 }
+
+// (5/11, Franco) Ayuda de esta pantalla: de acá salen la página /ayuda y la guía interactiva. Cada id es un data-ayuda="publicaciones.<id>" en el JSX.
+definirAyuda("publicaciones", {
+  titulo: "Mis publicaciones",
+  que: "Todo lo que diseñaste, con su estado: borrador (todavía no la mandaste), a aprobar, aprobada (espera su fecha), publicada o rechazada.",
+  pasos: [
+    { id: "solapas", texto: "Elegí la solapa del estado." },
+    { id: "retomar", texto: "Con un borrador, «Retomar» para seguir. Si la rechazaron, leé la nota y tocá «Editar»: corregila y volvé a mandarla a aprobación." },
+    { id: "eliminar", texto: "«Eliminar» borra lo que ya no sirve." },
+    { id: "nueva", texto: "«Diseñar una pieza» arma una nueva." },
+  ],
+});
 
 export default function Publicaciones() {
   const { avisar } = useToast();
@@ -81,13 +94,13 @@ export default function Publicaciones() {
       <header className="pagina-cabecera">
         <div>
           <h1>Mis publicaciones</h1>
-          <p className="suave">Todas las piezas que mandaste: pendientes, aprobadas, rechazadas, publicadas, borradores y pruebas.  <LinkAyuda seccion="publicaciones" /></p>
+          <p className="suave">Todas las piezas que mandaste: pendientes, aprobadas, rechazadas, publicadas, borradores y pruebas.  <LinkAyuda pantalla="publicaciones" /></p>
         </div>
-        <Link to="/publicar" className="boton primario">
+        <Link to="/publicar" className="boton primario" data-ayuda="publicaciones.nueva">
           <Icono nombre="mas" tam={16} /> Diseñar una pieza
         </Link>
       </header>
-      <div className="solapas pub-solapas" role="tablist" aria-label="Estado de las piezas">
+      <div className="solapas pub-solapas" data-ayuda="publicaciones.solapas" role="tablist" aria-label="Estado de las piezas">
         {ORDEN.map((n) => {
           const cant = n === "Del equipo" ? (equipo ? equipo.piezas.length : null) : datos ? (n === "Todas" ? datos.piezas.length : (datos.solapas[n] || []).length) : null;
           return (
@@ -266,11 +279,11 @@ export function TarjetaPublicacion({ p, mostrarUsuario = false, onEliminar, onCa
         <div className="acciones">
           {p.retomable &&
             (esNewsletter ? (
-              <Link className="boton primario" to={`/newsletter?borrador=${encodeURIComponent(p.id)}`} title={p.estado === "rechazada" ? "Abre el newsletter con la nota del rechazo arriba: corregilo y mandalo otra vez a aprobación" : undefined}>
+              <Link className="boton primario" data-ayuda="publicaciones.retomar" to={`/newsletter?borrador=${encodeURIComponent(p.id)}`} title={p.estado === "rechazada" ? "Abre el newsletter con la nota del rechazo arriba: corregilo y mandalo otra vez a aprobación" : undefined}>
                 <Icono nombre="lapiz" /> {p.estado === "rechazada" ? "Editar" : "Retomar"}
               </Link>
             ) : (
-              <Link className="boton primario" to={`/publicar?borrador=${encodeURIComponent(p.id)}`} title={p.estado === "rechazada" ? "Abre la pieza con la nota del rechazo arriba: corregila y mandala otra vez a aprobación" : undefined}>
+              <Link className="boton primario" data-ayuda="publicaciones.retomar" to={`/publicar?borrador=${encodeURIComponent(p.id)}`} title={p.estado === "rechazada" ? "Abre la pieza con la nota del rechazo arriba: corregila y mandala otra vez a aprobación" : undefined}>
                 <Icono nombre="lapiz" /> {p.estado === "rechazada" ? "Editar" : "Retomar"}
               </Link>
             ))}
@@ -299,7 +312,7 @@ export function TarjetaPublicacion({ p, mostrarUsuario = false, onEliminar, onCa
             <Icono nombre="carpeta" /> {carpeta ? etiqueta(carpeta) : "Proyecto"}
           </button>
           {p.eliminable && onEliminar && (
-            <button type="button" className="boton peligro sutil" onClick={onEliminar}>
+            <button type="button" className="boton peligro sutil" data-ayuda="publicaciones.eliminar" onClick={onEliminar}>
               <Icono nombre="tacho" /> Eliminar
             </button>
           )}

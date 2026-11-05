@@ -21,7 +21,7 @@ export default function Fuentes({ tarjetas, idioma, abierto, onPedirRecorte }: P
   const t = textos(idioma);
   const citadas = tarjetas.filter((x) => x.citada).length;
   return (
-    <details className="fuentes" open={abierto}>
+    <details className="fuentes" open={abierto} data-ayuda="chat.fuentes">
       <summary>
         <Icono nombre="chevron" tam={16} />
         <span>
@@ -111,7 +111,7 @@ function BotonesRecorte({ x, onPedirRecorte }: { x: Tarjeta; onPedirRecorte: Pro
     }
   }
   return (
-    <span className="recorte-botones">
+    <span className="recorte-botones" data-ayuda="chat.recorte">
       {(["horizontal", "vertical"] as const).map((f) => {
         const c: EstadoRecorte | null = x.recortes?.[f] ?? null;
         const icono = f === "vertical" ? "celular" : "tijera";

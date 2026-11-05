@@ -1,4 +1,5 @@
 import LinkAyuda from "../../componentes/LinkAyuda";
+import { definirAyuda } from "../../ayuda/registro";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { NavLink, Navigate, Outlet } from "react-router-dom";
 import { useSesion } from "../../App";
@@ -26,6 +27,15 @@ interface Admin {
 
 const Ctx = createContext<Admin>({ resumen: null, errorResumen: null, recargarResumen: async () => {} });
 export const useAdmin = () => useContext(Ctx);
+
+// (5/11, Franco) Ayuda de esta pantalla: de acá salen la página /ayuda y la guía interactiva. Cada id es un data-ayuda="administracion.<id>" en el JSX.
+definirAyuda("administracion", {
+  titulo: "Administración",
+  que: "Solo la ve el equipo técnico. Muestra si la app funciona, cuánto cuesta y quién la usa.",
+  pasos: [
+    { id: "menu", texto: "El menú tiene los usuarios, la lista blanca, la salud de la app y la configuración." },
+  ],
+});
 
 export default function Administracion() {
   const { yo } = useSesion();
@@ -59,11 +69,11 @@ export default function Administracion() {
         <header className="pagina-cabecera">
           <div>
             <h1>Administración</h1>
-            <p className="suave">¿Funciona la app? ¿Cuánto cuesta? Quién la usa, los servicios, las cuentas y la configuración.  <LinkAyuda seccion="gestion" /></p>
+            <p className="suave">¿Funciona la app? ¿Cuánto cuesta? Quién la usa, los servicios, las cuentas y la configuración.  <LinkAyuda pantalla="administracion" /></p>
           </div>
         </header>
         <div className="admin-grilla">
-          <nav className="admin-menu" aria-label="Administración">
+          <nav className="admin-menu" data-ayuda="administracion.menu" aria-label="Administración">
             {MENU.map((m) => (
               <NavLink key={m.a} to={m.a} data-texto={m.texto} title={m.texto} className={({ isActive }) => "admin-link" + (isActive ? " activo" : "")}>
                 <IconoAdmin nombre={m.icono} tam={16} /> {m.texto}

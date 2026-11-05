@@ -4,6 +4,7 @@
 // Migas de pan, grilla o lista, buscador, ordenar, selección múltiple (clic, Ctrl/Shift+clic, casillas), arrastrar carpetas e
 // ítems a otra carpeta o a una miga, menú contextual (clic derecho o ⋮), panel de detalles, vacíos con llamada a la acción.
 import LinkAyuda from "../componentes/LinkAyuda";
+import { definirAyuda } from "../ayuda/registro";
 import { fechaHora } from "../util/fechas";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -33,6 +34,18 @@ const fechaCorta = (iso: string | null | undefined) => fechaHora(iso, { anio: tr
 function claveSel(s: Sel) {
   return s.clase + ":" + s.id;
 }
+
+// (5/11, Franco) Ayuda de esta pantalla: de acá salen la página /ayuda y la guía interactiva. Cada id es un data-ayuda="proyectos.<id>" en el JSX.
+definirAyuda("proyectos", {
+  titulo: "Proyectos",
+  que: "Un proyecto es una carpeta con conversaciones, piezas y recortes de una misma campaña. Se pueden compartir con el equipo.",
+  pasos: [
+    { id: "nueva", texto: "«Nueva carpeta» crea un proyecto." },
+    { id: "agregar", texto: "Dentro de una carpeta, «Agregar» suma piezas y recortes. Las conversaciones se arrastran." },
+    { id: "compartir", texto: "«Compartir» y elegí a quién." },
+    { texto: "Con permiso de ver, se mira y no se toca. Con editar, se edita la misma pieza.", titulo: "Permisos" },
+  ],
+});
 
 export default function Proyectos() {
   const { id } = useParams();
@@ -379,7 +392,7 @@ export default function Proyectos() {
           <Icono nombre="carpeta" tam={22} style={{ color: carpetaActual?.color || "var(--amarillo-oscuro)" }} />
           <h1>{nombreVentana}</h1>
           {carpetaActual && permiso && permiso !== "dueño" && <span className="chip suave">{permiso === "ver" ? "solo ver" : "podés editar"} · de {carpetaActual.dueno}</span>}
-          <LinkAyuda seccion="proyectos" />
+          <LinkAyuda pantalla="proyectos" />
         </div>
         <div className="buscar drive-buscar">
           <Icono nombre="buscar" tam={16} />
@@ -408,17 +421,17 @@ export default function Proyectos() {
             <Icono nombre="info" tam={16} />
           </button>
           {puedeEditar && (
-            <button type="button" className="boton chico" onClick={() => setNuevaCarpeta(true)}>
+            <button type="button" className="boton chico" data-ayuda="proyectos.nueva" onClick={() => setNuevaCarpeta(true)}>
               <Icono nombre="carpetaMas" tam={16} /> <span>Nueva carpeta</span>
             </button>
           )}
           {id && puedeEditar && (
-            <button type="button" className="boton primario chico" onClick={() => setAgregando(true)}>
+            <button type="button" className="boton primario chico" data-ayuda="proyectos.agregar" onClick={() => setAgregando(true)}>
               <Icono nombre="mas" tam={16} /> <span>Agregar</span>
             </button>
           )}
           {carpetaActual && esDuenoDe(carpetaActual) && (
-            <button type="button" className="boton chico" onClick={() => setCompartiendo(carpetaActual)} title="Compartir esta carpeta">
+            <button type="button" className="boton chico" data-ayuda="proyectos.compartir" onClick={() => setCompartiendo(carpetaActual)} title="Compartir esta carpeta">
               <Icono nombre="compartir" tam={16} /> <span>Compartir</span>
             </button>
           )}

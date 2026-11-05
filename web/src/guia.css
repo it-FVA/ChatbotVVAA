@@ -1,0 +1,23 @@
+/* Guía interactiva (5/11): velo con recorte y cartelito. El control «¿Cómo se usa?» también vive acá. */
+.link-ayuda-caja { position: relative; display: inline-block; }
+.link-ayuda { all: unset; cursor: pointer; color: var(--verde); font-size: 0.85rem; border-radius: 6px; padding: 2px 4px; position: relative; }
+.link-ayuda:hover { text-decoration: underline; }
+.link-ayuda:focus-visible { box-shadow: var(--foco); }
+.link-ayuda-signo { display: inline-grid; place-items: center; width: 16px; height: 16px; border: 1.5px solid currentColor; border-radius: 50%; font-size: 0.7rem; font-weight: 700; }
+.link-ayuda-punto { position: absolute; top: 0; right: -4px; width: 7px; height: 7px; border-radius: 50%; background: var(--amarillo-oscuro); }
+.link-ayuda-menu { position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; min-width: 230px; display: flex; flex-direction: column; background: #fff; border: 1px solid var(--borde); border-radius: 10px; box-shadow: var(--sombra-alta); padding: 4px; }
+.link-ayuda-menu > * { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 1px; padding: 8px 10px; border-radius: 8px; font-size: 0.9rem; color: var(--tinta); }
+.link-ayuda-menu > *:hover, .link-ayuda-menu > *:focus-visible { background: var(--amarillo-suave); }
+
+.guia { position: fixed; inset: 0; z-index: 3000; }
+.guia-bloqueo { position: absolute; inset: 0; }
+.guia-velo { position: absolute; inset: 0; background: rgba(30, 30, 30, 0.55); }
+.guia-recorte { position: fixed; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(30, 30, 30, 0.55); outline: 2px solid var(--amarillo); pointer-events: none; transition: top 0.18s, left 0.18s, width 0.18s, height 0.18s; }
+.guia-cartel { position: fixed; background: #fff; border-radius: 12px; box-shadow: var(--sombra-alta); padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.guia-cartel.fijo { left: 50%; bottom: 12px; transform: translateX(-50%); width: min(420px, calc(100vw - 16px)); }
+.guia-cartel p { margin: 0; line-height: 1.4; }
+.guia-cabecera { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.guia-nota { padding: 6px 8px; background: var(--amarillo-suave); border-radius: 8px; }
+.guia-pie { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.guia-botones { display: flex; gap: 6px; }
+@media (prefers-reduced-motion: reduce) { .guia-recorte { transition: none; } }

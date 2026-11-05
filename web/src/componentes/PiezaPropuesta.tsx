@@ -68,7 +68,7 @@ export default function PiezaPropuesta({ pieza, abierto }: { pieza: Pieza; abier
   const texto = pieza.texto || "";
   const largo = texto.length > 420 && !verTodo;
   return (
-    <details className="pieza-caja" open={abierto}>
+    <details className="pieza-caja" open={abierto} data-ayuda="chat.pieza">
       <summary>
         <Icono nombre="chevron" tam={16} />
         <Icono nombre="megafono" tam={18} />

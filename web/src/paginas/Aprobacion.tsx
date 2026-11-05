@@ -2,6 +2,7 @@
 // aprobar con fecha y hora editables, rechazar con nota), En cola (cancelar), Registro, Papelera de conversaciones (restaurar) y
 // Clips de todo el equipo (la pantalla de recortes con la solapa «Todos» fija; los admins además fijan el estilo por defecto).
 import LinkAyuda from "../componentes/LinkAyuda";
+import { definirAyuda } from "../ayuda/registro";
 import { fechaCreacion, fechaLegible } from "../util/fechas";
 import { useCallback, useEffect, useState } from "react";
 import { NavLink, Navigate, Outlet, useOutletContext } from "react-router-dom";
@@ -33,6 +34,18 @@ interface Ctx {
   refrescarConteo: () => void;
 }
 
+// (5/11, Franco) Ayuda de esta pantalla: de acá salen la página /ayuda y la guía interactiva. Cada id es un data-ayuda="aprobacion.<id>" en el JSX.
+definirAyuda("aprobacion", {
+  titulo: "Aprobación",
+  que: "Solo la ve quien tiene el rol de aprobar. Acá se revisa lo que mandó el equipo y se publica.",
+  pasos: [
+    { id: "menu", texto: "«Para aprobar» tiene lo pendiente. «En cola» muestra lo que está por salir; el resto es el registro, la papelera y los clips." },
+    { texto: "En «Para aprobar», mirá la vista previa y ajustá la fecha y hora si hace falta.", titulo: "Revisar" },
+    { id: "aprobar", texto: "«Aprobar y programar» la aprueba con la fecha y hora elegidas." },
+    { id: "rechazar", texto: "«Rechazar», con una nota que explique por qué." },
+  ],
+});
+
 export default function Aprobacion() {
   const { yo } = useSesion();
   const [pendientes, setPendientes] = useState<number | null>(null);
@@ -51,11 +64,11 @@ export default function Aprobacion() {
       <header className="pagina-cabecera">
         <div>
           <h1>Aprobación</h1>
-          <p className="suave">Piezas para aprobar, la cola, el registro, la papelera y los clips del equipo. La Frase del día está en Campañas; el Dashboard, en Administración.  <LinkAyuda seccion="gestion" /></p>
+          <p className="suave">Piezas para aprobar, la cola, el registro, la papelera y los clips del equipo. La Frase del día está en Campañas; el Dashboard, en Administración.  <LinkAyuda pantalla="aprobacion" /></p>
         </div>
       </header>
       <div className="admin-grilla">
-        <nav className="admin-menu" aria-label="Aprobación">
+        <nav className="admin-menu" data-ayuda="aprobacion.menu" aria-label="Aprobación">
           {MENU.map((m) => (
             <NavLink key={m.a} to={m.a} end={m.fin} className={({ isActive }) => "admin-link" + (isActive ? " activo" : "")}>
               <Icono nombre={m.icono} tam={16} /> {m.texto}
@@ -183,10 +196,10 @@ function PiezaParaAprobar({ p, modo, onHecho }: { p: Publicacion; modo: string; 
           </label>
           {error && <div className="aviso error chico">{error}</div>}
           <div className="acciones">
-            <button type="button" className="boton primario" onClick={() => accion("aprobar")} disabled={ocupado !== null || (!esNewsletter && !fecha)}>
+            <button type="button" className="boton primario" data-ayuda="aprobacion.aprobar" onClick={() => accion("aprobar")} disabled={ocupado !== null || (!esNewsletter && !fecha)}>
               <Icono nombre="check" /> {ocupado === "aprobar" ? "Aprobando…" : esNewsletter ? "Aprobar (queda listo para Perfit)" : "Aprobar y programar"}
             </button>
-            <button type="button" className="boton peligro" onClick={() => accion("rechazar")} disabled={ocupado !== null}>
+            <button type="button" className="boton peligro" data-ayuda="aprobacion.rechazar" onClick={() => accion("rechazar")} disabled={ocupado !== null}>
               <Icono nombre="cruz" /> {ocupado === "rechazar" ? "Rechazando…" : "Rechazar"}
             </button>
             {esNewsletter && (

@@ -74,6 +74,7 @@ No se toca la cola, ni las rutas, ni la web: `publicar.enviar_pieza` despacha co
    (`pedirCrudo` para blobs, multipart o streaming). No hay otro `fetch`.
 3. Fechas y horas: solo `web/src/util/fechas.ts` (`fechaHora`, `fechaLegible`, `horaArgentina`, `hace`…); no se formatean fechas a mano.
 4. Una prueba al lado (`<Pantalla>.test.tsx`) con `instalarApi({ "GET /ruta": respuesta })` de `web/src/pruebas/apiSimulada.ts`.
+5. Su ayuda: `definirAyuda("<pantalla>", { … })` arriba del componente y `data-ayuda="<pantalla>.<id>"` en cada botón o zona que se explica (`web/src/ayuda/registro.ts`). La página `/ayuda` y la guía interactiva («¿Cómo se usa?» → «Guía en pantalla») salen de ahí. La prueba `web/src/ayuda/registro.test.tsx` (agregá un escenario de la pantalla) y `web/scripts/verificar-ayuda.mjs` (corre con `npm test` y antes de `npm run build`) fallan si no coinciden. Sumá `import "../paginas/<Pantalla>"` en `web/src/ayuda/index.ts` para fijar su lugar en la página.
 
 **Una persona con cualquier permiso**: Administración → Usuarios (rol creador / aprobador / admin en la tabla `usuarios`). Ya no hay contraseñas
 ni listas de roles en secrets ni en el entorno.

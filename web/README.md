@@ -342,3 +342,9 @@ corre en local.
 ## Ayuda (5/11)
 
 `/ayuda` (`src/paginas/Ayuda.tsx`, estilos en `src/ayuda.css`): un instructivo corto por pantalla, con índice y anclas (`/ayuda#recortes`). Cada pantalla enlaza a su sección con `<LinkAyuda seccion="recortes" />` (`src/componentes/LinkAyuda.tsx`) junto a su párrafo de ayuda; el ítem «Ayuda» está al final de Herramientas en la barra. Si cambia un botón, hay que cambiarlo también en `SECCIONES`.
+
+## Ayuda y guía interactiva (5/11)
+- Una sola fuente por pantalla: `definirAyuda("<pantalla>", { titulo, que, pasos })` arriba del componente y `data-ayuda="<pantalla>.<id>"` en el JSX de cada elemento que se explica (`src/ayuda/registro.ts`). El orden de los pasos es el del recorrido. Un paso sin `id` no apunta a un elemento: en la página es un texto y en la guía un cartelito general.
+- De ahí salen la página `/ayuda` (`paginas/Ayuda.tsx`, en el orden de `src/ayuda/index.ts`) y la guía (`componentes/GuiaInteractiva.tsx`): velo con recorte sobre el elemento, cartelito con Atrás, Siguiente y una cruz, Esc cierra, un paso cuyo elemento no está en pantalla muestra un cartelito general. Se abre desde `<LinkAyuda pantalla="…" />` («¿Cómo se usa?»). Recuerda en `localStorage` (`fva.guia.<pantalla>`) que ya se hizo, solo para sacar el puntito.
+- Se mantiene sola: `src/ayuda/registro.test.tsx` renderiza cada pantalla y falla si un paso apunta a algo que no existe o si hay un `data-ayuda` sin explicar; `scripts/verificar-ayuda.mjs` hace la misma comparación sobre el código (sin dependencias) y corre con `npm test` y como `prebuild`.
+

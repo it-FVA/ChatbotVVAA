@@ -2,6 +2,7 @@
 // Una carpeta abre la vista grande; una conversación abre el chat (en modo lectura o edición según el permiso).
 // «Dejar de ver» saca a la persona de la lista de compartidos (api DELETE /compartidos/{tipo}/{id}/{yo}).
 import LinkAyuda from "../componentes/LinkAyuda";
+import { definirAyuda } from "../ayuda/registro";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ErrorApi } from "../api";
@@ -14,6 +15,17 @@ import { useToast } from "../componentes/Toasts";
 import { etiqueta, useProyectos } from "../componentes/proyectos/ProyectosContexto";
 import { relativa } from "../util/fechas";
 import "../proyectos.css";
+
+// (5/11, Franco) Ayuda de esta pantalla: de acá salen la página /ayuda y la guía interactiva. Cada id es un data-ayuda="compartidos.<id>" en el JSX.
+definirAyuda("compartidos", {
+  titulo: "Compartidos",
+  que: "Las carpetas y conversaciones que otras personas del equipo compartieron con vos.",
+  pasos: [
+    { id: "carpetas", texto: "Abrí una carpeta para ver lo que contiene. También aparece en el árbol de proyectos del chat." },
+    { id: "dejar", texto: "La cruz de cada carpeta es «Dejar de ver»." },
+    { texto: "Con permiso de ver, se mira y no se toca. Con editar, se edita la misma pieza.", titulo: "Permisos" },
+  ],
+});
 
 export default function Compartidos() {
   const { yo } = useSesion();
@@ -52,7 +64,7 @@ export default function Compartidos() {
     <div className="pagina">
       <header className="pagina-cabecera">
         <h1>Compartidos conmigo</h1>
-        <p className="suave">Carpetas y conversaciones que otras personas del equipo compartieron con vos. Lo que te compartieron «para ver» lo abrís sin poder cambiarlo.  <LinkAyuda seccion="proyectos" /></p>
+        <p className="suave">Carpetas y conversaciones que otras personas del equipo compartieron con vos. Lo que te compartieron «para ver» lo abrís sin poder cambiarlo.  <LinkAyuda pantalla="compartidos" /></p>
       </header>
       {error && <div className="aviso error">{error}</div>}
       {datos === null && (
@@ -78,7 +90,7 @@ export default function Compartidos() {
         </div>
       )}
       {datos && datos.proyectos.length > 0 && (
-        <section aria-label="Carpetas compartidas">
+        <section aria-label="Carpetas compartidas" data-ayuda="compartidos.carpetas">
           <h2 className="drive-seccion">Carpetas</h2>
           <div className="drive-grilla">
             {datos.proyectos.map((p) => (
@@ -92,7 +104,7 @@ export default function Compartidos() {
                     de {p.compartido_por} · {p.permiso === "ver" ? "solo ver" : "podés editar"} · {p.n_items ?? 0} elem.
                   </span>
                 </div>
-                <button type="button" className="boton sutil chico icono-solo ficha-menu" onClick={(e) => (e.stopPropagation(), dejar("proyecto", p.id, etiqueta(p)))} aria-label={`Dejar de ver ${p.nombre}`} title="Dejar de ver">
+                <button type="button" className="boton sutil chico icono-solo ficha-menu" data-ayuda="compartidos.dejar" onClick={(e) => (e.stopPropagation(), dejar("proyecto", p.id, etiqueta(p)))} aria-label={`Dejar de ver ${p.nombre}`} title="Dejar de ver">
                   <Icono nombre="cruz" tam={15} />
                 </button>
               </div>

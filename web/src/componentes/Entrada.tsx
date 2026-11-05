@@ -57,7 +57,7 @@ const Entrada = forwardRef<EntradaRef, Props>(function Entrada({ placeholder, ay
 
   return (
     <div className="entrada">
-      <div className="entrada-caja">
+      <div className="entrada-caja" data-ayuda="chat.entrada">
         <textarea
           ref={area}
           value={texto}

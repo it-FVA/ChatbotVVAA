@@ -11,6 +11,7 @@
 // (3/11, revisión 5.2 punto 13) Partida en paginas/frase/: el estado en useFraseDelDia.ts, un archivo por panel en paneles/ y una
 // solapa del detalle del día por archivo en solapas/ (la lista de solapas se registra en solapas/index.ts). Acá queda solo el armado.
 import LinkAyuda from "../../componentes/LinkAyuda";
+import { definirAyuda } from "../../ayuda/registro";
 import { diaIso, fechaLarga } from "../../util/fechas";
 import { Link } from "react-router-dom";
 import { apiFrases } from "../../apiFrases";
@@ -33,6 +34,18 @@ import { useFraseDelDia } from "./useFraseDelDia";
 import { DetalleDia } from "./DetalleDia";
 import "../../frases.css";
 
+// (5/11, Franco) Ayuda de esta pantalla: de acá salen la página /ayuda y la guía interactiva. Cada id es un data-ayuda="frase-del-dia.<id>" en el JSX.
+definirAyuda("frase-del-dia", {
+  titulo: "Frase del día",
+  que: "Una frase por día, con foto de fondo, que sale sola cada mañana por mail y redes. La tarjeta «Mañana» muestra qué sale y por dónde.",
+  pasos: [
+    { id: "manana", texto: "Mirá la tarjeta «Mañana»: qué frase sale y por dónde." },
+    { id: "calendario", texto: "Abrí un día del calendario para ver la frase y su diseño." },
+    { texto: "Si querés otra frase ese día, abrilo y usá «Pedir un cambio para este día».", titulo: "Pedir un cambio" },
+    { id: "solicitudes", texto: "Quien aprueba acepta o rechaza el pedido en «Solicitudes»." },
+  ],
+});
+
 export default function FraseDelDia() {
   const s = useFraseDelDia();
   const { avisar, resumen, proximas, diaSel, setDiaSel, error, arrastre, setArrastre, setSobre, deshacer, setDeshacer, modal, setModal, verMail, setVerMail, verWa, setVerWa, verMailDetalles, setVerMailDetalles, solapaPedida, setSolapaPedida, ocupado, version, recargar, ofrecerDeshacer, correr, cambiarCanales, alternarActiva, aprueba, c } = s;
@@ -46,7 +59,7 @@ export default function FraseDelDia() {
               ? "Una frase por día, que sale sola cada mañana por mail y redes con una foto de fondo. Solo entran las validadas del Sheet. Arrastrá una frase a otro día para moverla o intercambiarla; desde el backlog, para asignarla."
               : "Una frase por día, que sale sola cada mañana por mail y redes con una foto de fondo. Acá ves qué sale cada día. Si querés que un día salga otra frase, abrí ese día y pedí el cambio: lo revisa quien aprueba."}
             {" "}
-            <LinkAyuda seccion="frase-del-dia" />
+            <LinkAyuda pantalla="frase-del-dia" />
           </p>
         </div>
         <div className="acciones">

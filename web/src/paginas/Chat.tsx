@@ -3,6 +3,7 @@
 // las fuentes plegables con los botones de recorte, el recuadro de la pieza propuesta, las descargas Word/Excel y el cuadro de
 // escribir. Atajos: / enfoca el cuadro, Esc cierra el cajón. Antes de mandar, si la API dormía (Render free), avisa y espera.
 import LinkAyuda from "../componentes/LinkAyuda";
+import { definirAyuda } from "../ayuda/registro";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ErrorApi } from "../api";
@@ -29,6 +30,19 @@ const VACIA = (): Conversacion => ({ id: "", titulo: null, mensajes: [] });
 function normalizar(s: string) {
   return s.split(/\s+/).join(" ").trim();
 }
+
+// (5/11, Franco) Ayuda de esta pantalla: de acá salen la página /ayuda y la guía interactiva. Cada id es un data-ayuda="chat.<id>" en el JSX.
+definirAyuda("chat", {
+  titulo: "Chat",
+  que: "Le preguntás al asistente y busca en el material de la Fundación: libros, videos y charlas. Cada respuesta muestra las fuentes y, debajo, se puede diseñar una pieza.",
+  pasos: [
+    { id: "entrada", texto: "Escribí tu pregunta y enviala.", titulo: "Tu pregunta" },
+    { id: "fuentes", texto: "Abrí las fuentes para ver de dónde sale cada cosa." },
+    { id: "recorte", texto: "Si es un video, usá «Pedir el recorte» o «Pedir en vertical»." },
+    { id: "pieza", texto: "Para publicar, abrí la pieza propuesta y tocá su botón: se abre Diseñar con todo cargado." },
+    { id: "compartir", texto: "«Compartir» le da la conversación a otra persona." },
+  ],
+});
 
 export default function Chat() {
   const { yo } = useSesion();
@@ -356,6 +370,7 @@ export default function Chat() {
           <h1 className="chat-titulo" title={titulo}>
             {titulo}
           </h1>
+          <LinkAyuda pantalla="chat" />
           {conv.compartida && (
             <span className={"chip chat-compartida" + (soloLectura ? " suave" : "")} title={soloLectura ? "Te la compartieron para ver: no podés escribir." : "Te la compartieron con permiso para escribir."}>
               <Icono nombre="compartir" tam={12} /> compartida por {conv.compartida.por} · {soloLectura ? "solo lectura" : "podés editar"}
@@ -368,7 +383,7 @@ export default function Chat() {
                   <Icono nombre="carpeta" tam={12} /> {etiqueta(carpetaActual)}
                 </button>
               )}
-              <button type="button" className="boton sutil chico" onClick={() => setCompartiendo(true)} title="Compartir esta conversación con otra persona">
+              <button type="button" data-ayuda="chat.compartir" className="boton sutil chico" onClick={() => setCompartiendo(true)} title="Compartir esta conversación con otra persona">
                 <Icono nombre="compartir" tam={15} /> <span>Compartir</span>
               </button>
             </span>
@@ -399,7 +414,7 @@ export default function Chat() {
             <div className="chat-vacio">
               <img src="/logo.png" alt="" />
               <h2>{t("vacioTitulo")}</h2>
-              <p className="suave">{t("vacioTexto")}  <LinkAyuda seccion="chat" /></p>
+              <p className="suave">{t("vacioTexto")}</p>
               <div className="chat-ejemplos">
                 {t("ejemplos").map((ej) => (
                   <button key={ej} type="button" className="boton" onClick={() => entrada.current?.poner(ej)}>

@@ -1,4 +1,5 @@
 import LinkAyuda from "../componentes/LinkAyuda";
+import { definirAyuda } from "../ayuda/registro";
 import { fechaHora } from "../util/fechas";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -19,6 +20,19 @@ import "../recortes.css";
 type Vista = "mios" | "equipo" | "todos";
 
 /** vistaFija (22/10): embebida en Aprobación → Clips con la solapa «Todos» fija y sin cabecera. */
+// (5/11, Franco) Ayuda de esta pantalla: de acá salen la página /ayuda y la guía interactiva. Cada id es un data-ayuda="recortes.<id>" en el JSX.
+definirAyuda("recortes", {
+  titulo: "Mis recortes",
+  que: "Los pedazos de video que pediste desde el chat. Tardan unos 15 minutos en estar listos, y aparecen acá solos.",
+  pasos: [
+    { texto: "En el chat, debajo de un video, tocá «Pedir el recorte» o «Pedir en vertical». Después esperá a que aparezca el video acá.", titulo: "Cómo se pide" },
+    { id: "diseniar", texto: "«Diseñar» arma una pieza con el recorte." },
+    { id: "editar", texto: "«Editar» cambia los tramos, quita pausas largas y corrige los subtítulos. Después, «Regenerar el recorte»." },
+    { id: "descargar", texto: "«Descargar» baja el video." },
+    { id: "subir", texto: "«Subir un video» sirve para un video editado afuera: entra como un recorte más." },
+  ],
+});
+
 export default function Recortes({ vistaFija }: { vistaFija?: Vista } = {}) {
   const { yo } = useSesion();
   const { avisar } = useToast();
@@ -59,11 +73,11 @@ export default function Recortes({ vistaFija }: { vistaFija?: Vista } = {}) {
         <header className="pagina-cabecera">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <h1>Mis recortes</h1>
-            <button className="boton primario" onClick={() => setSubiendo(true)}>
+            <button className="boton primario" data-ayuda="recortes.subir" onClick={() => setSubiendo(true)}>
               <Icono nombre="enviar" /> Subir un video
             </button>
           </div>
-          <p className="suave">Los recortes tardan unos 15 minutos. Cuando están listos aparece el video y los botones «Diseñar», «Editar» y «Abrir». Borrá los que no vayas a usar: cada uno ocupa entre 5 y 50 MB en WordPress.  <LinkAyuda seccion="recortes" /></p>
+          <p className="suave">Los recortes tardan unos 15 minutos. Cuando están listos aparece el video y los botones «Diseñar», «Editar» y «Abrir». Borrá los que no vayas a usar: cada uno ocupa entre 5 y 50 MB en WordPress.  <LinkAyuda pantalla="recortes" /></p>
         </header>
       )}
 
@@ -266,12 +280,12 @@ function Tarjeta({ c, mostrarQuien, aprueba, onBorrar, onCambio }: { c: Recorte;
         {c.estado === "error" && c.error && <p className="aviso error chico">{c.error.slice(0, 200)}</p>}
         <div className="acciones">
           {listo && (
-            <Link className="boton primario" to={`/publicar?recorte=${encodeURIComponent(c.id)}`} title="Diseñar una pieza con este recorte para Instagram, Facebook, YouTube o como blogpost">
+            <Link className="boton primario" data-ayuda="recortes.diseniar" to={`/publicar?recorte=${encodeURIComponent(c.id)}`} title="Diseñar una pieza con este recorte para Instagram, Facebook, YouTube o como blogpost">
               <Icono nombre="enviar" /> Diseñar
             </Link>
           )}
           {c.puede_editar && (
-            <Link className="boton" to={`/recortes/${c.id}`}>
+            <Link className="boton" data-ayuda="recortes.editar" to={`/recortes/${c.id}`}>
               <Icono nombre="lapiz" /> Editar
             </Link>
           )}
@@ -281,7 +295,7 @@ function Tarjeta({ c, mostrarQuien, aprueba, onBorrar, onCambio }: { c: Recorte;
             </a>
           )}
           {listo && (
-            <button type="button" className="boton" onClick={descargar} disabled={descargando} title="Bajar el mp4 tal cual está, para editarlo con otro programa">
+            <button type="button" className="boton" data-ayuda="recortes.descargar" onClick={descargar} disabled={descargando} title="Bajar el mp4 tal cual está, para editarlo con otro programa">
               <Icono nombre="descargar" /> {descargando ? "Bajando…" : "Descargar"}
             </button>
           )}
