@@ -103,5 +103,6 @@ ni listas de roles en secrets ni en el entorno.
 ## Actualizar el corpus
 El corpus se genera en el proyecto **fva-transcripcion** (transcripción + embeddings). Cuando cambie, copiar
 `corpus/fragmentos.jsonl` y `corpus/fragmentos_openai.npy` a este repo → commit + push (Render reconstruye la imagen).
+Para sumar un video nuevo de YouTube: en fva-transcripcion, `python agregar_video.py <id o URL>` (transcribe, corta, embebe y agrega al corpus con backup; `--probar` no escribe). Después copiar los dos archivos, correr acá `python subir_embeddings.py` y pushear.
 
 El diario de trabajo (decisiones, incidentes, qué se probó) está en `../fva-transcripcion/HANDOFF.md`.
