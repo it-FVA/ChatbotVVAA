@@ -5,12 +5,13 @@ import Modal from "./Modal";
 
 const MAX_MB = 200;
 
-export default function SubirVideo({ onCerrar, onSubido }: { onCerrar: () => void; onSubido: (id: string | null) => void }) {
-  const [archivo, setArchivo] = useState<File | null>(null);
-  const [titulo, setTitulo] = useState("");
+// (5/11, Franco) `archivoInicial`: Diseñar ya recibió el archivo en su zona de arrastrar, y acá solo se completan el título y el formato
+export default function SubirVideo({ onCerrar, onSubido, archivoInicial = null }: { onCerrar: () => void; onSubido: (id: string | null) => void; archivoInicial?: File | null }) {
+  const [archivo, setArchivo] = useState<File | null>(archivoInicial);
+  const [titulo, setTitulo] = useState(archivoInicial ? archivoInicial.name.replace(/\.[^.]+$/, "").slice(0, 100) : "");
   const [formato, setFormato] = useState<"horizontal" | "vertical">("horizontal");
   const [subiendo, setSubiendo] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(archivoInicial && archivoInicial.size > MAX_MB * 1024 * 1024 ? `El video pesa ${Math.round(archivoInicial.size / 1024 / 1024)} MB; el máximo es ${MAX_MB} MB.` : null);
 
   function elegir(f: File | null) {
     setError(null);

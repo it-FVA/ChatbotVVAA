@@ -61,15 +61,8 @@
   font-weight: 600;
   font-size: 0.9rem;
 }
-.pub-otra summary {
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: var(--verde);
-}
-.pub-otra input[type="file"] {
-  padding: 6px;
-}
+
+
 .pub-diseno h3 {
   margin: 0;
 }

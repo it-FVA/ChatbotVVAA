@@ -198,14 +198,8 @@
   display: grid;
   gap: 8px;
 }
-.pub-otra {
-  border: 1px dashed var(--borde-fuerte);
-  border-radius: 10px;
-  padding: 8px 12px;
-}
-.pub-otra label {
-  margin-top: 10px;
-}
+
+
 .pub-diseno {
   border-top: 1px solid var(--borde);
   padding-top: 12px;
@@ -586,4 +580,135 @@
 .pub-paso-editar span {
     display: none;
   }
+}
+/* (5/11, Franco) paso 2 con dos caminos, Foto o Video (maqueta web/maquetas/disenar-paso-2.html) */
+.pub-caminos-intro {
+  margin: 0 0 10px;
+}
+.pub-caminos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+.pub-camino {
+  font: inherit;
+  text-align: left;
+  background: #fff;
+  border: 2px solid var(--borde);
+  border-radius: var(--radio, 12px);
+  padding: 16px 14px;
+  cursor: pointer;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  color: inherit;
+  min-height: 112px;
+  transition: border-color 0.14s, box-shadow 0.14s;
+}
+.pub-camino:hover:not(:disabled) {
+  border-color: var(--borde-fuerte);
+}
+.pub-camino:focus-visible {
+  outline: none;
+  box-shadow: var(--foco);
+}
+.pub-camino b {
+  font-size: 1.05rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pub-camino-ico {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--amarillo-suave);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.pub-camino.pronto {
+  border-style: dashed;
+  cursor: default;
+  opacity: 0.7;
+}
+.pub-camino-pronto {
+  justify-self: start;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--borde);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.pub-elegido {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--amarillo-suave);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-weight: 600;
+  justify-self: start;
+}
+.pub-elegido button {
+  font: inherit;
+  font-size: 0.85rem;
+  background: transparent;
+  border: 0;
+  color: var(--verde);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.pub-fuentes {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--borde);
+}
+.pub-fuentes button {
+  font: inherit;
+  background: transparent;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--suave);
+  margin-bottom: -1px;
+  min-height: var(--toque, 44px);
+}
+.pub-fuentes button.on {
+  color: var(--tinta);
+  border-bottom-color: var(--amarillo);
+}
+.pub-zona {
+  border: 2px dashed var(--borde-fuerte);
+  border-radius: var(--radio, 12px);
+  padding: 22px;
+  text-align: center;
+  color: var(--suave);
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+}
+.pub-zona.encima {
+  border-color: var(--amarillo);
+  background: var(--amarillo-suave);
+}
+.pub-zona b {
+  color: var(--tinta);
+}
+.pub-fila-formato {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.pub-chip-formato {
+  background: var(--tinta);
+  color: #fff;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 0.88rem;
 }

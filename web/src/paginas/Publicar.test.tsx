@@ -1,6 +1,6 @@
 // El flujo de Diseñar con la API simulada: entrar desde el menú «Canales · Diseñar», completar el formulario, pasar al paso 2 y al 3
 // y apretar «Ver simulado» (revisión 3/11, 5.3 punto 19).
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Link, MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
@@ -8,6 +8,8 @@ import { ToastProvider } from "../componentes/Toasts";
 import { instalarApi } from "../pruebas/apiSimulada";
 import type { CanalOpcion, OpcionesPublicar, RespuestaEnvio } from "../tiposPublicar";
 import Publicar from "./Publicar";
+
+const RECORTE = { id: "c1", titulo: "Un corte", estado: "listo", url: "https://v/c1.mp4", miniatura: null, formato: "vertical", inicio_ms: 0, fin_ms: 30000, propio: true, subido: false };
 
 function canal(nombre: string, extra: Partial<CanalOpcion> = {}): CanalOpcion {
   return {
@@ -50,6 +52,8 @@ const OPCIONES: OpcionesPublicar = {
   zona: "America/Argentina/Buenos_Aires",
 };
 
+const FOTO = { id: 7, url: "https://w/amanecer.jpg", miniatura: "https://w/amanecer-m.jpg", titulo: "amanecer-sierras" };
+
 const SIMULADO: RespuestaEnvio = { ok: true, modo: "simulado", simulado: true, encolada: false, imagen_url: null, avisos: [], aviso: "Así quedaría el posteo.", pieza: {}, texto_final: "Hoy agradezco el día.", formato: "cuadrado", video_url: null };
 
 function montar(ruta: string) {
@@ -62,10 +66,17 @@ function montar(ruta: string) {
   );
 }
 
+// (5/11, Franco) paso 2 con dos caminos: se elige la tarjeta Foto, y de ahí una foto del banco
+async function elegirFoto(u: ReturnType<typeof userEvent.setup>) {
+  await u.click(await screen.findByRole("button", { name: /^Foto/ }));
+  await u.click(await screen.findByRole("radio", { name: /amanecer-sierras/ }));
+}
+
 function pantalla(ruta: string) {
   const api = instalarApi({
     "GET /publicar/opciones": OPCIONES,
-    "GET /banco": [],
+    "GET /banco": [FOTO],
+    "GET /recortes": [RECORTE],
     "POST /publicar/enviar": SIMULADO,
   });
   montar(ruta);
@@ -85,7 +96,7 @@ describe("Diseñar", () => {
   it("sin canal en el menú ofrece los canales y no deja seguir hasta elegir uno", async () => {
     const u = userEvent.setup();
     pantalla("/publicar");
-    const siguiente = await screen.findByRole("button", { name: /Siguiente: foto y diseño/ });
+    const siguiente = await screen.findByRole("button", { name: /Siguiente: qué va en la pieza/ });
     expect(screen.getByRole("group", { name: "Canal" })).toBeInTheDocument();
     expect(siguiente).toBeDisabled();
     await u.click(screen.getByRole("radio", { name: /Instagram/ }));
@@ -100,10 +111,12 @@ describe("Diseñar", () => {
     await u.type(await screen.findByLabelText(/^Título/), "Gratitud de noviembre");
     await u.type(screen.getByLabelText(/Texto de la pieza/), "Hoy agradezco el día.");
     expect(screen.getByText(/21 caracteres/)).toBeInTheDocument();
-    await u.click(screen.getByRole("button", { name: /Siguiente: foto y diseño/ }));
+    await u.click(screen.getByRole("button", { name: /Siguiente: qué va en la pieza/ }));
 
-    // paso 2: Facebook es una red: se ofrece el texto sobre la imagen y el banco buscó fotos solo
+    // paso 2: primero se elige Foto; Facebook es una red: se ofrece el texto sobre la imagen y el banco buscó fotos solo
+    await u.click(await screen.findByRole("button", { name: /^Foto/ }));
     expect(await screen.findByLabelText(/Texto sobre la imagen/)).toBeInTheDocument();
+    await u.click(await screen.findByRole("radio", { name: /amanecer-sierras/ }));
     expect(api.de("GET", "/banco")).toHaveLength(1);
     await u.click(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ }));
 
@@ -122,7 +135,8 @@ describe("Diseñar", () => {
     const api = pantalla("/publicar?canal=facebook");
     await u.type(await screen.findByLabelText(/^Título/), "Gratitud de noviembre");
     await u.type(screen.getByLabelText(/Texto de la pieza/), "Hoy agradezco el día.");
-    await u.click(screen.getByRole("button", { name: /Siguiente: foto y diseño/ }));
+    await u.click(screen.getByRole("button", { name: /Siguiente: qué va en la pieza/ }));
+    await elegirFoto(u);
     await u.click(await screen.findByRole("button", { name: /Siguiente: cuándo y enviar/ }));
     expect(await screen.findByRole("button", { name: /Enviar a aprobación/ })).toBeEnabled();
     expect(screen.queryByRole("button", { name: /Publicar en/ })).toBeNull();
@@ -135,7 +149,7 @@ describe("Diseñar", () => {
     id: "r1", usuario: "patricio", canal: "facebook", estado: "rechazada", titulo: "Al mismo nivel", texto: "Texto de Patricio",
     rechazada_por: "julian", rechazada_en: "2026-11-04T20:00:00+00:00", nota: "se retorna para colaborar",
     propia: false, retomable: true, corregible: true,
-    pieza: { canal: "facebook", titulo: "Al mismo nivel", texto: "Texto de Patricio", imagen_url: "", borrador_id: "r1" },
+    pieza: { canal: "facebook", titulo: "Al mismo nivel", texto: "Texto de Patricio", imagen_url: "https://w/foto.jpg", borrador_id: "r1" },
   };
 
   it("una rechazada ajena con permiso editar se corrige en el mismo lugar y se reenvía con el mismo id", async () => {
@@ -168,11 +182,10 @@ describe("Diseñar", () => {
 
   // (5/11, Franco) Instagram son tres entradas del menú: Posteo, Reel e Historia, cada una con su formulario acotado
   describe("Instagram por tipo", () => {
-    const RECORTE = { id: "c1", titulo: "Un corte", estado: "listo", url: "https://v/c1.mp4", miniatura: null, formato: "vertical", inicio_ms: 0, fin_ms: 30000, propio: true, subido: false };
     function pantallaIG(ruta: string) {
       const api = instalarApi({
         "GET /publicar/opciones": OPCIONES,
-        "GET /banco": [],
+        "GET /banco": [FOTO],
         "GET /recortes": [RECORTE],
         "POST /publicar/a-aprobar": { ok: true, id: "p1", estado: "a_aprobar", modo: "aprobacion", imagen_url: null, avisos: [], mensaje: "Quedó pendiente de aprobación (ana)." },
       });
@@ -185,7 +198,8 @@ describe("Diseñar", () => {
       pantallaIG("/publicar?canal=instagram&tipo=posteo");
       expect(await screen.findByRole("heading", { level: 1, name: "Diseñar · Instagram · Posteo" })).toBeInTheDocument();
       expect(screen.getByLabelText(/Texto de la pieza/)).toBeInTheDocument();
-      await u.click(screen.getByRole("button", { name: /Siguiente: foto y diseño/ }));
+      await u.click(screen.getByRole("button", { name: /Siguiente: qué va en la pieza/ }));
+      await u.click(await screen.findByRole("button", { name: /^Foto/ }));
       expect(await screen.findByLabelText(/Texto sobre la imagen/)).toBeInTheDocument();
       expect(screen.queryByText(/O usá un video vertical/)).not.toBeInTheDocument();
       expect(screen.queryByText(/Usar este/)).not.toBeInTheDocument();
@@ -196,15 +210,14 @@ describe("Diseñar", () => {
       const api = pantallaIG("/publicar?canal=instagram&tipo=reel");
       expect(await screen.findByRole("heading", { level: 1, name: "Diseñar · Instagram · Reel" })).toBeInTheDocument();
       await u.type(screen.getByLabelText(/Texto de la pieza/), "Un caption");
-      await u.click(screen.getByRole("button", { name: /Siguiente: video/ }));
-      // el paso 2 es el video: no hay foto ni frase
+      await u.click(screen.getByRole("button", { name: /Siguiente: qué va en la pieza/ }));
+      // el reel solo lleva video: sin elección, directo a los recortes, sin foto ni frase
+      expect(screen.queryByRole("button", { name: /^Foto/ })).not.toBeInTheDocument();
       expect(screen.queryByLabelText(/Texto sobre la imagen/)).not.toBeInTheDocument();
       expect(screen.queryByRole("radiogroup", { name: "Elegí una foto" })).not.toBeInTheDocument();
-      await u.click(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ }));
-      expect(await screen.findByRole("button", { name: /Enviar a aprobación/ })).toBeDisabled();
-      expect(screen.getByText(/falta el video/)).toBeInTheDocument();
+      // sin video el paso 3 espera
+      expect(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ })).toBeDisabled();
       // se elige un recorte
-      await u.click(screen.getByRole("button", { name: /Video/ }));
       await u.click(await screen.findByRole("button", { name: "Usar este" }));
       await u.click(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ }));
       const enviar = await screen.findByRole("button", { name: /Enviar a aprobación/ });
@@ -221,12 +234,14 @@ describe("Diseñar", () => {
       expect(screen.queryByLabelText(/Texto de la pieza/)).not.toBeInTheDocument();
       expect(screen.getByText(/dura 24 horas y no lleva caption/)).toBeInTheDocument();
       // sin foto ni video todavía no se puede enviar
-      await u.click(screen.getByRole("button", { name: /Siguiente: foto o video/ }));
-      expect(screen.getByText(/O usá un video vertical/)).toBeInTheDocument();
+      await u.click(screen.getByRole("button", { name: /Siguiente: qué va en la pieza/ }));
+      // la historia tiene la misma elección que los demás canales, sin carrusel
+      expect(screen.getByRole("button", { name: /^Video/ })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Varias fotos/ })).not.toBeInTheDocument();
+      await u.click(screen.getByRole("button", { name: /^Foto/ }));
       expect(screen.queryByLabelText(/^Formato/)).not.toBeInTheDocument();
-      await u.click(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ }));
-      expect(await screen.findByRole("button", { name: /Enviar a aprobación/ })).toBeDisabled();
-      expect(screen.getByText(/falta la foto/)).toBeInTheDocument();
+      // sin foto ni video no se puede seguir
+      expect(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ })).toBeDisabled();
       expect(api.de("POST", "/publicar/a-aprobar")).toHaveLength(0);
     });
 
@@ -252,6 +267,97 @@ describe("Diseñar", () => {
       expect(screen.queryByLabelText(/Texto de la pieza/)).not.toBeInTheDocument();
       await u.click(screen.getByText("ir al reel"));
       expect(await screen.findByLabelText(/Texto de la pieza/)).toHaveValue("Mi caption");
+    });
+  });
+
+  // (5/11, Franco) paso 2 nuevo, «Qué va en la pieza»: primero se elige Foto o Video
+  describe("Paso 2: Foto o Video", () => {
+    async function aPaso2(u: ReturnType<typeof userEvent.setup>, ruta: string) {
+      const api = pantalla(ruta);
+      const siguiente = await screen.findByRole("button", { name: /Siguiente: qué va en la pieza/ });
+      const texto = screen.queryByLabelText(/Texto de la pieza/); // la historia no lleva caption
+      if (texto) await u.type(texto, "Hoy agradezco el día.");
+      await u.click(siguiente);
+      return api;
+    }
+
+    it("al abrir el paso sin nada elegido se ven las tarjetas Foto y Video, y el paso 3 espera", async () => {
+      const u = userEvent.setup();
+      await aPaso2(u, "/publicar?canal=facebook");
+      expect(screen.getByText("Qué va en la pieza")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^Foto/ })).toBeEnabled();
+      expect(screen.getByRole("button", { name: /^Video/ })).toBeEnabled();
+      expect(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ })).toBeDisabled();
+    });
+
+    it("elegir Foto muestra las tres solapas", async () => {
+      const u = userEvent.setup();
+      await aPaso2(u, "/publicar?canal=facebook");
+      await u.click(screen.getByRole("button", { name: /^Foto/ }));
+      expect(screen.getByRole("tab", { name: "Banco de la Fundación" })).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByRole("tab", { name: "Subir de mi compu" })).toBeInTheDocument();
+      await u.click(screen.getByRole("tab", { name: "Pegar un link" }));
+      expect(screen.getByLabelText(/Link de una imagen/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Cambiar a video" })).toBeInTheDocument();
+    });
+
+    it("elegir Video muestra los recortes listos y subir un video, también en Blogpost", async () => {
+      const u = userEvent.setup();
+      await aPaso2(u, "/publicar?canal=wordpress");
+      await u.click(screen.getByRole("button", { name: /^Video/ }));
+      expect(screen.getByRole("tab", { name: "Recortes listos" })).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByRole("tab", { name: "Subir un video mío" })).toBeInTheDocument();
+      await u.click(await screen.findByRole("button", { name: "Usar este" }));
+      expect(screen.getByText(/El video va al principio de la entrada/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ })).toBeEnabled();
+      await u.click(screen.getByRole("tab", { name: "Subir un video mío" }));
+      expect(screen.getByText("Arrastrá un video o elegilo")).toBeInTheDocument();
+    });
+
+    it("«Varias fotos» aparece solo en Instagram posteo y Facebook, y está deshabilitada", async () => {
+      const u = userEvent.setup();
+      for (const [ruta, aparece] of [["/publicar?canal=facebook", true], ["/publicar?canal=instagram&tipo=posteo", true], ["/publicar?canal=wordpress", false], ["/publicar?canal=instagram&tipo=historia", false]] as const) {
+        await aPaso2(u, ruta);
+        const varias = screen.queryByRole("button", { name: /Varias fotos/ });
+        if (aparece) {
+          expect(varias).toBeDisabled();
+          expect(varias).toHaveTextContent("pronto");
+        } else expect(varias).not.toBeInTheDocument();
+        cleanup();
+      }
+    });
+
+    it("cambiar de camino limpia lo elegido pero conserva el texto y la fecha", async () => {
+      const u = userEvent.setup();
+      await aPaso2(u, "/publicar?canal=facebook");
+      await elegirFoto(u);
+      // la fecha del paso 3
+      await u.click(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ }));
+      await u.click(await screen.findByLabelText(/Programar para una fecha/));
+      await u.click(screen.getByRole("button", { name: /Qué va en la pieza/ }));
+      await u.click(screen.getByRole("button", { name: "Cambiar a video" }));
+      // lo elegido de la foto se limpió: el paso 3 vuelve a esperar
+      expect(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ })).toBeDisabled();
+      await u.click(screen.getByRole("button", { name: "Cambiar a foto" }));
+      expect(await screen.findByRole("radio", { name: /amanecer-sierras/ })).toHaveAttribute("aria-checked", "false");
+      // el texto del paso 1 sigue
+      await u.click(screen.getByRole("button", { name: /Volver/ }));
+      expect(screen.getByLabelText(/Texto de la pieza/)).toHaveValue("Hoy agradezco el día.");
+      // y la fecha también
+      await u.click(screen.getByRole("button", { name: /Siguiente: qué va en la pieza/ }));
+      await u.click(await screen.findByRole("radio", { name: /amanecer-sierras/ }));
+      await u.click(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ }));
+      expect(await screen.findByLabelText(/Programar para una fecha/)).toBeChecked();
+    });
+
+    it("una pieza que llega con un recorte abre el paso 2 directo en Video", async () => {
+      const u = userEvent.setup();
+      instalarApi({ "GET /publicar/opciones": OPCIONES, "GET /banco": [FOTO], "GET /recortes": [RECORTE], "GET /recortes/c1": RECORTE });
+      montar("/publicar?recorte=c1");
+      await u.click(await screen.findByRole("button", { name: /Qué va en la pieza/ }));
+      expect(screen.getByRole("tab", { name: "Recortes listos" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Cambiar a foto" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Foto/ })).not.toBeInTheDocument();
     });
   });
 

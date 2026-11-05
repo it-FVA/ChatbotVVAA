@@ -17,11 +17,11 @@ const OPCIONES = {
 } as unknown as OpcionesPublicar;
 
 const BORRADOR = {
-  id: "b1", creado: "2026-11-05T12:00:00+00:00", usuario: "ana", canal: "facebook", modo: "borrador", titulo: "Gratitud", texto: "Hoy agradezco.", imagen_url: null, estado: "borrador",
+  id: "b1", creado: "2026-11-05T12:00:00+00:00", usuario: "ana", canal: "facebook", modo: "borrador", titulo: "Gratitud", texto: "Hoy agradezco.", imagen_url: "https://w/foto.jpg", estado: "borrador",
   fecha_programada: null, resultado: null, estado_texto: "Borrador", canal_texto: "Facebook", video_url: null, texto_imagen: null, formato: null, nota: null, propuesta_por: null,
   aprobada_por: null, aprobada_en: null, rechazada_por: null, rechazada_en: null, cancelada_por: null, plantilla: null, ver_url: null, link_editar: null, error_texto: null,
   eliminable: true, retomable: true, propia: true, permiso: "dueño", version: "v1",
-  pieza: { canal: "facebook", titulo: "Gratitud", texto: "Hoy agradezco.", texto_imagen: "Gracias", firma: "", imagen_busqueda: "", fecha: "", hora: "", borrador_id: "b1" },
+  pieza: { canal: "facebook", titulo: "Gratitud", texto: "Hoy agradezco.", texto_imagen: "Gracias", firma: "", imagen_busqueda: "", imagen_url: "https://w/foto.jpg", fecha: "", hora: "", borrador_id: "b1" },
 };
 
 const OTRO_GUARDO = new Response(
