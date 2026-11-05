@@ -266,11 +266,11 @@ export function TarjetaPublicacion({ p, mostrarUsuario = false, onEliminar, onCa
           {p.retomable &&
             (esNewsletter ? (
               <Link className="boton primario" to={`/newsletter?borrador=${encodeURIComponent(p.id)}`} title={p.estado === "rechazada" ? "Abre el newsletter con la nota del rechazo arriba: corregilo y mandalo otra vez a aprobación" : undefined}>
-                <Icono nombre="lapiz" /> {p.estado === "rechazada" ? "Corregir y reenviar" : "Retomar"}
+                <Icono nombre="lapiz" /> {p.estado === "rechazada" ? "Editar" : "Retomar"}
               </Link>
             ) : (
               <Link className="boton primario" to={`/publicar?borrador=${encodeURIComponent(p.id)}`} title={p.estado === "rechazada" ? "Abre la pieza con la nota del rechazo arriba: corregila y mandala otra vez a aprobación" : undefined}>
-                <Icono nombre="lapiz" /> {p.estado === "rechazada" ? "Corregir y reenviar" : "Retomar"}
+                <Icono nombre="lapiz" /> {p.estado === "rechazada" ? "Editar" : "Retomar"}
               </Link>
             ))}
           {p.ver_url && (

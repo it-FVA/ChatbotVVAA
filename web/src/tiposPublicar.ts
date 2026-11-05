@@ -142,7 +142,7 @@ export interface Publicacion {
   aprobada_en: string | null;
   rechazada_por: string | null;
   rechazada_en: string | null;
-  corregible?: boolean; // (4/11) rechazada que se puede corregir y reenviar (no newsletter)
+  corregible?: boolean; // (4/11) rechazada que se puede corregir en el mismo lugar y volver a mandar a aprobación (también newsletter)
   corregida_por?: string | null; // (4/11) quién la corrigió después del rechazo
   cancelada_por: string | null;
   plantilla: string | null;
