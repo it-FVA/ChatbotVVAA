@@ -1,16 +1,22 @@
 """(3/11) El ÚNICO cargador de secretos locales. Lo usan la API (api/config.py), la cola (procesar_cola.py), los recortes
 (procesar_clips.py), programar_frases.py y los scripts de la raíz.
 
-Fuera de Render y de GitHub Actions las claves están en `.streamlit/secrets.toml` (nombre histórico; es el archivo local de
-secretos, no se sube al repo) o en el archivo que indique FVA_SECRETS. FVA_SECRETS="-" desactiva la carga (lo usan los tests).
+Fuera de Render y de GitHub Actions las claves están en `%USERPROFILE%/.fva/secrets.toml` (desde el 5/11, fuera de las carpetas
+sincronizadas a Drive; antes en `.streamlit/secrets.toml`, que sigue valiendo si existe) o en el archivo que indique FVA_SECRETS. FVA_SECRETS="-" desactiva la carga (lo usan los tests).
 Lo que ya está en el entorno NO se pisa. Si el archivo no existe y el entorno no trae SUPABASE_URL (o sea, no es un
 servidor con las variables cargadas), avisa por stderr en vez de seguir en silencio sin claves.
 """
 import os, sys, tomllib
 
 RAIZ = os.path.dirname(os.path.abspath(__file__))
-RUTA_DEFECTO = os.path.join(RAIZ, ".streamlit", "secrets.toml")
-CLAVE_ENV = os.path.join(RAIZ, "..", "fva-transcripcion", "clave.env")      # resto del uso desde la terminal (opcional)
+# (5/11) Los secretos locales viven FUERA de las carpetas de los repos, en %USERPROFILE%\.fva\, porque Documents\GitHub se
+# sincroniza a Google Drive y los archivos de claves viajaban con el espejo. Se busca primero ahí; si no existe, en la ubicación
+# histórica dentro del repo (sigue en .gitignore).
+CARPETA_SECRETOS = os.path.join(os.path.expanduser("~"), ".fva")
+_RUTA_HISTORICA = os.path.join(RAIZ, ".streamlit", "secrets.toml")
+RUTA_DEFECTO = os.path.join(CARPETA_SECRETOS, "secrets.toml") if os.path.exists(os.path.join(CARPETA_SECRETOS, "secrets.toml")) else _RUTA_HISTORICA
+_CLAVE_ENV_HISTORICA = os.path.join(RAIZ, "..", "fva-transcripcion", "clave.env")      # resto del uso desde la terminal (opcional)
+CLAVE_ENV = os.path.join(CARPETA_SECRETOS, "clave.env") if os.path.exists(os.path.join(CARPETA_SECRETOS, "clave.env")) else _CLAVE_ENV_HISTORICA
 
 
 def ruta():

@@ -9,7 +9,8 @@ recortar_clip.yml baje los originales de Drive sin compartir nada públicamente.
 import json, re, tomllib
 from google_auth_oauthlib.flow import InstalledAppFlow
 
-SECRETS = ".streamlit/secrets.toml"
+import secretos
+SECRETS = secretos.ruta()      # (5/11) %USERPROFILE%\.fva\secrets.toml si existe; si no, .streamlit/secrets.toml
 SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
 
 s = tomllib.load(open(SECRETS, "rb"))

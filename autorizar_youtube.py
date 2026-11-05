@@ -14,7 +14,8 @@ en .streamlit/secrets.toml (reemplaza el viejo). Después: pegarlo en Render y e
 import json, re, tomllib
 from google_auth_oauthlib.flow import InstalledAppFlow
 
-SECRETS = ".streamlit/secrets.toml"
+import secretos
+SECRETS = secretos.ruta()      # (5/11) %USERPROFILE%\.fva\secrets.toml si existe; si no, .streamlit/secrets.toml
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube.readonly"]
 
 s = tomllib.load(open(SECRETS, "rb"))
