@@ -75,6 +75,14 @@ definirAyuda("disenar", {
   ],
 });
 
+/** Qué pasa con la pieza cuando el canal no está en real (modo_real del registro de canales). */
+const TEXTO_NO_REAL: Record<string, string> = {
+  simulado: "Este canal está en modo de prueba: la pieza se arma pero no sale de verdad.",
+  apagado: "Este canal está apagado: la pieza se arma y queda guardada, pero no sale.",
+  borrador: "La entrada queda como borrador en WordPress: no se publica sola.",
+  privado: "El video sube a YouTube como privado: lo publica quien administra el canal.",
+};
+
 export default function Publicar() {
   const [params] = useSearchParams();
   const loc = useLocation();
@@ -481,6 +489,12 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
         </div>
       )}
 
+      {/* (5/11, QA visual) Una sola línea, en llano, cuando el canal no está en real: quien diseña sabe si su pieza va a salir. */}
+      {info && info.modo_real !== "real" && (
+        <p className="suave chico pub-aviso-modo">
+          <Icono nombre="info" tam={14} /> {TEXTO_NO_REAL[info.modo_real] ?? "Este canal todavía no publica de verdad: la pieza se arma y queda guardada."}
+        </p>
+      )}
       <div className="pub-grilla">
         <div className="pub-pasos">
           {/* ---------- Paso 1: qué se publica ---------- */}

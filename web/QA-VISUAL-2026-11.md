@@ -12,7 +12,7 @@ solo en el código.
 | # | Pantalla | Hallazgo | Decisión |
 |---|---|---|---|
 | T1 | Diseñar | Chip «SIMULADO» al lado de cada canal (y «Blogpost · simulado» arriba de la vista previa). Es el modo interno del canal; a quien diseña no le cambia nada. | arreglar: se saca de los canales y de la vista previa |
-| T2 | Diseñar | «Blogpost en modo simulado: …» y «(el canal real está en …: lo que mandes a aprobación sale con ese modo)» debajo del canal. | arreglar: se saca; el texto por canal ya está en el subtítulo |
+| T2 | Diseñar | «Blogpost en modo simulado: …» y «(el canal real está en …: lo que mandes a aprobación sale con ese modo)» debajo del canal. | arreglar: se saca; queda una sola línea arriba del formulario, solo cuando el canal no está en real («Este canal está en modo de prueba: la pieza se arma pero no sale de verdad») (decisión del coordinador, 5/11) |
 | T3 | Diseñar | Botón «Ver simulado» y el texto «“Ver simulado” solo muestra cómo quedaría». | arreglar: pasa a «Ver cómo quedaría»; el estado de esas piezas pasa de «simulada/simulado» a «prueba» |
 | T4 | Diseñar | Toast «Pieza simulada: así quedaría.» y título de resultado «Así quedaría en X». | arreglar: «Así quedaría la pieza.» |
 | T5 | Diseñar | «Quedó en la cola.» al enviar. | arreglar: «Quedó programada: sale en su fecha.» |
@@ -114,7 +114,7 @@ Verificación local: `npx tsc --noEmit -p .`, `npm test -- --run` (47 pruebas, s
 - En Newsletter la función interna `Cabecera` (la cabecera del mail) pasa a llamarse `CabeceraMail` para no chocar con el componente común.
 - Constantes exportadas pero usadas solo en su archivo (`PASO_MS`, `LARGO_MINIMO_WORD`, `MAX_POR_RENGLON`, `MAX_DOS_RENGLONES`) se dejaron: no molestan y pueden servir a una prueba.
 
-## Decisiones dudosas (mandadas al coordinador el 5/11)
+## Decisiones dudosas (mandadas al coordinador el 5/11; respondió que sí a 1, 2, 4 y 5 y dejar la 3; la 2 con la línea discreta de T2)
 
 1. **«En cola» → «Programadas»** (T14). La palabra «cola» aparece en Aprobación, Frase del día, Newsletter y los toasts. Propongo
    «programadas / programada» en toda la web. Riesgo: el equipo ya puede llamarla «la cola».
@@ -127,7 +127,7 @@ Verificación local: `npx tsc --noEmit -p .`, `npm test -- --run` (47 pruebas, s
 
 ## Para verificar en producción (después del deploy)
 
-- [ ] Diseñar: sin «SIMULADO» en canales ni en la vista previa; con `?canal=blogpost` se ve el canal fijo, no el selector.
+- [ ] Diseñar: sin «SIMULADO» en canales ni en la vista previa; una sola línea «Este canal está en modo de prueba…» arriba del formulario mientras el canal no esté en real; con `?canal=blogpost` se ve el canal fijo, no el selector.
 - [ ] Diseñar: botón «Ver cómo quedaría» y toast «Así quedaría la pieza.».
 - [ ] Mis publicaciones: chips con la paleta nueva; «prueba» en vez de «simulada/simulado»; «Instagram · Historia» sin repetir.
 - [ ] Aprobación: subtítulo nuevo, solapa «Programadas», sin chips vacíos en las tarjetas.
