@@ -23,13 +23,59 @@ def generar(secreto: str, rol: str = "cola", anios: int = 5, ahora=None) -> str:
     return f"{cabecera}.{cuerpo}.{_b64(firma)}"
 
 
+def probar(clave, url):
+    """(5/11) Prueba la clave contra la base: config tiene que responder 200 y usuarios 401/403. Devuelve (ok, detalle)."""
+    import urllib.request, urllib.error
+    def pedir(tabla):
+        req = urllib.request.Request(f"{url.rstrip('/')}/rest/v1/{tabla}?select=*&limit=1",
+                                     headers={"apikey": clave, "Authorization": f"Bearer {clave}"})
+        try:
+            with urllib.request.urlopen(req, timeout=20) as r:
+                return r.status
+        except urllib.error.HTTPError as e:
+            return e.code
+        except Exception as e:
+            return f"error: {e}"
+    c, u = pedir("config"), pedir("usuarios")
+    return c == 200 and u in (401, 403), f"config → {c} (esperado 200), usuarios → {u} (esperado 401 o 403)"
+
+
 def main(argv):
     secreto = os.environ.get("SUPABASE_JWT_SECRET", "").strip()
+    if not secreto and sys.stdin.isatty():
+        # (5/11) Más cómodo para Franco: lo pide por teclado sin mostrarlo (Supabase → Project Settings → JWT Keys →
+        # solapa «Legacy JWT Secret» → Reveal → copiar).
+        import getpass
+        secreto = getpass.getpass("Pegá el Legacy JWT Secret de Supabase (no se muestra) y Enter: ").strip()
     if not secreto:
-        print("Falta SUPABASE_JWT_SECRET en el entorno (Supabase → Project Settings → API → JWT Secret).", file=sys.stderr)
+        print("Falta SUPABASE_JWT_SECRET en el entorno (Supabase → Project Settings → JWT Keys → Legacy JWT Secret).", file=sys.stderr)
         return 1
     anios = int(argv[argv.index("--anios") + 1]) if "--anios" in argv else 5
-    print(generar(secreto, anios=anios))
+    clave = generar(secreto, anios=anios)
+    url = os.environ.get("SUPABASE_URL", "").strip()
+    if not url:
+        try:
+            sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            import secretos
+            secretos.cargar_al_entorno()
+            url = os.environ.get("SUPABASE_URL", "").strip()
+        except Exception:
+            pass
+    if url:
+        ok, detalle = probar(clave, url)
+        print(("OK, la clave funciona: " if ok else "ATENCIÓN, la clave no pasó la prueba: ") + detalle)
+        if not ok:
+            print("Si config no da 200, el rol «cola» no está aplicado o el secreto no es el que firma los JWT del proyecto.", file=sys.stderr)
+            return 2
+    else:
+        print("Sin SUPABASE_URL: no pude probar la clave, la imprimo igual.")
+    destino = os.path.join(os.path.expanduser("~"), "Desktop", "SUPABASE_KEY_COLA.txt")
+    try:
+        with open(destino, "w", encoding="utf-8") as f:
+            f.write(clave + chr(10))
+        print(f"La clave quedó en {destino}: abrilo, copiá todo y pegalo en GitHub → Settings → Secrets → Actions → New repository secret → nombre SUPABASE_KEY_COLA. Después borrá el archivo.")
+    except OSError:
+        print(clave)
     return 0
 
 
