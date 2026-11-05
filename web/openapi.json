@@ -5766,7 +5766,7 @@
   },
   "/publicar/enviar": {
    "post": {
-    "description": "= «Enviar a <canal>» (modo real, solo quien publica directo) y «👁 Ver simulado» (modo simulado: arma la pieza tal cual\nsaldría y la muestra; no manda nada y queda como 'prueba' en el registro). Sube la imagen compuesta\na WordPress, encola si hay fecha y el canal no programa solo, o llama al conector. Devuelve el resultado del conector.",
+    "description": "= «Enviar a <canal>» (modo real, 403 siempre: nadie publica directo desde el 5/11) y «👁 Ver simulado» (modo simulado: arma la pieza tal cual\nsaldría y la muestra; no manda nada y queda como 'prueba' en el registro). Sube la imagen compuesta\na WordPress, encola si hay fecha y el canal no programa solo, o llama al conector. Devuelve el resultado del conector.",
     "operationId": "enviar_publicar_enviar_post",
     "requestBody": {
      "content": {

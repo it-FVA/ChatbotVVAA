@@ -11,7 +11,7 @@ Rutas (todas con sesión):
   POST   /publicar/componer                  la foto con la frase encima, para la vista previa (imagen.componer_imagen); devuelve image/jpeg
   POST   /publicar/borrador                  = «💾 Guardar borrador» con TODOS los campos del formulario (diseño incluido)
   POST   /publicar/a-aprobar                 = «📨 Enviar a aprobación» (sube la imagen compuesta a WordPress y deja la pieza a_aprobar)
-  POST   /publicar/enviar                    = «Enviar a <canal>» / «👁 Ver simulado»: {modo: real|simulado}; real solo para quien publica directo
+  POST   /publicar/enviar                    = «Enviar a <canal>» / «👁 Ver simulado»: {modo: real|simulado}; real ya no lo usa nadie (403): se publica desde Aprobación
   GET    /publicaciones/{id}                 una pieza (dueño o aprobador) con el dict `pieza` para retomar el borrador
   DELETE /publicaciones/{id}                 = «🗑 Eliminar» (db.eliminar_publicacion: solo propias y en estado eliminable)
   GET    /aprobacion/para-aprobar            (aprobadores) las piezas a_aprobar + el modo real de cada canal
@@ -65,7 +65,7 @@ PiezaCompleta = Pieza        # (3/11) el modelo único está en api/pieza.py (lo
 
 
 class Envio(PiezaCompleta):
-    modo: str = "simulado"                      # 'real' (= «Enviar a <canal>», solo quien publica directo) | 'simulado' (= «Ver simulado»)
+    modo: str = "simulado"                      # 'real' (= «Enviar a <canal>», 403 siempre: nadie publica directo) | 'simulado' (= «Ver simulado»)
 
 
 class Componer(BaseModel):
@@ -465,7 +465,7 @@ def enviar_a_aprobacion(p: PiezaCompleta, request: Request):
     r = cr.modos()
     if not cr._puede_proponer(canal, r):
         if canal == "youtube":
-            raise HTTPException(400, "YouTube no pasa por aprobación: lo publica directo quien tiene permiso (o se sube desde YouTube Studio).")
+            raise HTTPException(400, f"YouTube está en modo {r.get('youtube', 'apagado')}: no hay a dónde mandar el video cuando lo aprueben. Guardalo como borrador.")
         raise HTTPException(400, f"{CANAL_TXT[canal]} está en modo {r.get(canal, 'apagado')}: no hay a dónde mandar la pieza cuando la aprueben. Guardala como borrador.")
     fecha_iso = _fecha_iso(p.fecha, p.hora)
     nombre = CANALES[canal]
@@ -511,13 +511,13 @@ def enviar_a_aprobacion(p: PiezaCompleta, request: Request):
 
 @router.post("/publicar/enviar")
 def enviar(p: Envio, request: Request):
-    """= «Enviar a <canal>» (modo real, solo quien publica directo) y «👁 Ver simulado» (modo simulado: arma la pieza tal cual
+    """= «Enviar a <canal>» (modo real, 403 siempre: nadie publica directo desde el 5/11) y «👁 Ver simulado» (modo simulado: arma la pieza tal cual
     saldría y la muestra; no manda nada y queda como 'prueba' en el registro). Sube la imagen compuesta
     a WordPress, encola si hay fecha y el canal no programa solo, o llama al conector. Devuelve el resultado del conector."""
     usuario, rol = _rol(request)
     simulado = (p.modo or "simulado") != "real"
-    if not simulado and not rol.get("publica"):
-        raise HTTPException(403, "Tu rol no publica directo: mandá la pieza a aprobación.")
+    if not simulado:     # (5/11) nadie publica directo, tampoco aprobadores ni admins: se publica desde Aprobación
+        raise HTTPException(403, "Las piezas se publican desde Aprobación: mandala a aprobación.")
     canal = _validar(p, simulado=simulado)
     nombre = CANALES[canal]
     cfg_real = _cfg_real()

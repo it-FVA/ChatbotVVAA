@@ -1,6 +1,6 @@
 // Publicar (22/10, fase 3): el formulario de tres pasos, con un paso visible a la vez y el resumen de los
 // anteriores, la vista previa en vivo (la foto con la frase se compone en la API: POST /publicar/componer) y UN botón principal según
-// el rol: «Enviar a aprobación» (creadores) o «Publicar en <canal>» (quien publica directo); secundarios «Ver simulado» y «Guardar
+// el rol: «Enviar a aprobación» para todos los roles (desde el 5/11 nadie publica directo, ni aprobadores ni admins); secundarios «Ver simulado» y «Guardar
 // borrador». Entra desde «Nueva pieza», desde el chat (la pieza propuesta llega en location.state), desde un recorte (?recorte=<id>)
 // y desde un borrador (?borrador=<id>). Las reglas de negocio están en la API (api/publicar_rutas.py); acá solo se repiten para
 // deshabilitar botones a tiempo.
@@ -39,12 +39,12 @@ type Resultado = { tipo: "aprobacion"; r: RespuestaAprobacion } | { tipo: "envio
 // (5/11, Franco) Ayuda de esta pantalla: de acá salen la página /ayuda y la guía interactiva. Cada id es un data-ayuda="disenar.<id>" en el JSX.
 definirAyuda("disenar", {
   titulo: "Diseñar",
-  que: "Armás la pieza de un canal: foto con frase, texto y fecha. Diseñar no publica: la pieza va a aprobación y la publica quien aprueba. Cada canal tiene lo suyo:",
+  que: "Armás la pieza de un canal: foto con frase, texto y fecha. Diseñar no publica: toda pieza va a aprobación, también la de aprobadores. Cada canal tiene lo suyo:",
   lista: [
     "Instagram: foto cuadrada o vertical, historia (dura 24 horas y no lleva texto) o reel.",
     "Facebook: foto con la frase y el texto.",
     "Blogpost: entrada de la web, con título, texto largo y foto destacada.",
-    "YouTube: un recorte, con título. Sube privado: se publica desde YouTube Studio.",
+    "YouTube: un recorte, con título. Sube privado hasta que Google audite el proyecto.",
     "Email: es el Newsletter.",
   ],
   pasos: [
@@ -183,8 +183,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
   const [compuesta, setCompuesta] = useState<string | null>(null);
   const [componiendo, setComponiendo] = useState(false);
   const [errorCompuesta, setErrorCompuesta] = useState<string | null>(null);
-  const [confirmo, setConfirmo] = useState(false);
-  const [enviando, setEnviando] = useState<"aprobar" | "real" | "simulado" | "borrador" | null>(null);
+  const [enviando, setEnviando] = useState<"aprobar" | "simulado" | "borrador" | null>(null);
   const [error, setError] = useState<string | null>(avisoInicial);
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const archivoRef = useRef<HTMLInputElement>(null);
@@ -309,22 +308,12 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
   );
 
   // ---- botones
-  const puedeProponer = !!info?.a_aprobar && !op.publica;
+  const puedeProponer = !!info?.a_aprobar;
   const motivoNoProponer = !canal ? "Elegí el canal." : info && !info.acepta_aprobacion ? `${info.texto_canal} no pasa por aprobación.` : info && !info.a_aprobar ? `${info.texto_canal} está en modo ${info.modo_real}: no hay a dónde mandarla cuando la aprueben. Guardala como borrador.` : null;
   const faltas = [faltaTexto && "falta el texto", faltaTitulo && "falta el título", faltaVideoYT && "falta el video (un recorte)"].filter(Boolean) as string[];
-  const etiquetaPrincipal = !canal
-    ? "Elegí el canal"
-    : op.publica
-      ? modo === "real"
-        ? `Publicar en ${info!.texto_canal}`
-        : modo === "borrador"
-          ? "Crear el borrador en WordPress"
-          : modo === "privado"
-            ? "Subir a YouTube (privado)"
-            : `Enviar a ${info!.texto_canal} (simulado)`
-      : "Enviar a aprobación";
+  const etiquetaPrincipal = !canal ? "Elegí el canal" : "Enviar a aprobación"; // (5/11) nadie publica directo: todo pasa por aprobación
 
-  async function mandar(que: "aprobar" | "real" | "simulado" | "borrador") {
+  async function mandar(que: "aprobar" | "simulado" | "borrador") {
     setError(null);
     setEnviando(que);
     try {
@@ -434,7 +423,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
             {info && (
               <p className={"suave chico pub-modo-texto"}>
                 {info.texto_canal} en modo <strong>{info.modo}</strong>: {info.texto.split(":").slice(1).join(":").trim()}
-                {!op.publica && info.modo_real !== info.modo && <> (el canal real está en {info.modo_real}: lo que mandes a aprobación sale con ese modo).</>}
+                {info.modo_real !== info.modo && <> (el canal real está en {info.modo_real}: lo que mandes a aprobación sale con ese modo).</>}
               </p>
             )}
             {!desdeMenu && <p className="suave chico">Para el email a la comunidad usá «Email» (o «Newsletter») en el menú: tiene sus plantillas y su vista previa.</p>}
@@ -643,27 +632,19 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
                 <span>{textoAviso(info, fechaIso)}</span>
               </div>
             )}
-            {op.publica && modo === "real" && (
-              <label className="casilla">
-                <input type="checkbox" checked={confirmo} onChange={(e) => setConfirmo(e.target.checked)} /> Entiendo que esto publica de verdad.
-              </label>
-            )}
-            {!op.publica && <p className="suave chico">Creador de contenido: lo mandás a aprobación y lo revisa {op.aprobadores.join(", ") || "un aprobador"}. «Ver simulado» solo muestra cómo quedaría.</p>}
+            <p className="suave chico">
+              Lo revisa {op.aprobadores.join(", ") || "un aprobador"}. «Ver simulado» solo muestra cómo quedaría.
+              {op.aprueba && " Vos también lo aprobás desde Aprobación."}
+            </p>
             {faltas.length > 0 && canal && (
               <p className="suave chico">
                 <Icono nombre="alerta" tam={14} /> Antes de enviar: {faltas.join(", ")}.
               </p>
             )}
             <div className="acciones pub-enviar">
-              {op.publica ? (
-                <button type="button" className="boton primario grande" onClick={() => mandar("real")} disabled={enviando !== null || !canal || modo === "apagado" || faltas.length > 0 || (modo === "real" && !confirmo)} title={modo === "real" && !confirmo ? "Marcá «Entiendo que esto publica de verdad»." : undefined}>
-                  <Icono nombre="enviar" /> {enviando === "real" ? "Enviando…" : etiquetaPrincipal}
-                </button>
-              ) : (
-                <button type="button" className="boton primario grande" onClick={() => mandar("aprobar")} disabled={enviando !== null || !puedeProponer || faltas.length > 0} title={motivoNoProponer || undefined}>
-                  <Icono nombre="check" /> {enviando === "aprobar" ? "Enviando…" : etiquetaPrincipal}
-                </button>
-              )}
+              <button type="button" className="boton primario grande" onClick={() => mandar("aprobar")} disabled={enviando !== null || !puedeProponer || faltas.length > 0} title={motivoNoProponer || undefined}>
+                <Icono nombre="check" /> {enviando === "aprobar" ? "Enviando…" : etiquetaPrincipal}
+              </button>
               <button type="button" className="boton" onClick={() => mandar("simulado")} disabled={enviando !== null || !canal || modo === "apagado" || faltaTexto || faltaTitulo} title="Arma la pieza tal cual saldría y la muestra. No manda nada; queda como prueba en el registro.">
                 <Icono nombre="ojo" /> {enviando === "simulado" ? "Armando…" : "Ver simulado"}
               </button>
@@ -671,7 +652,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
                 <Icono nombre="lapiz" /> {enviando === "borrador" ? "Guardando…" : f.borrador_id ? "Guardar cambios" : "Guardar borrador"}
               </button>
             </div>
-            {!op.publica && motivoNoProponer && canal && <p className="suave chico">{motivoNoProponer}</p>}
+            {motivoNoProponer && canal && <p className="suave chico">{motivoNoProponer}</p>}
           </Paso>
         </div>
 

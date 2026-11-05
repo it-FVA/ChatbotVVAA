@@ -43,8 +43,8 @@ def test_reglas_por_canal():
     ig, fb, wp, yt = (canales.CANALES[k] for k in ("instagram", "facebook", "wordpress", "youtube"))
     assert ig.va_a_la_cola("real") and ig.va_a_la_cola("simulado") and not ig.va_a_la_cola("apagado")
     assert fb.va_a_la_cola("simulado") and not fb.va_a_la_cola("real")
-    assert not wp.va_a_la_cola("real") and not yt.va_a_la_cola("privado")
-    assert wp.puede_proponer("borrador") and ig.puede_proponer("real") and not fb.puede_proponer("simulado") and not yt.puede_proponer("real")
+    assert not wp.va_a_la_cola("real") and yt.va_a_la_cola("privado") and yt.va_a_la_cola("real")
+    assert wp.puede_proponer("borrador") and ig.puede_proponer("real") and not fb.puede_proponer("simulado") and yt.puede_proponer("real") and yt.puede_proponer("privado") and not yt.puede_proponer("simulado")   # (5/11) YouTube pasa por aprobación
     assert wp.requiere_titulo and yt.requiere_titulo and not ig.requiere_titulo
 
 

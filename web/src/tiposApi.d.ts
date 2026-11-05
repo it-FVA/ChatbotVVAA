@@ -1789,7 +1789,7 @@ export interface paths {
         put?: never;
         /**
          * Enviar
-         * @description = «Enviar a <canal>» (modo real, solo quien publica directo) y «👁 Ver simulado» (modo simulado: arma la pieza tal cual
+         * @description = «Enviar a <canal>» (modo real, 403 siempre: nadie publica directo desde el 5/11) y «👁 Ver simulado» (modo simulado: arma la pieza tal cual
          *     saldría y la muestra; no manda nada y queda como 'prueba' en el registro). Sube la imagen compuesta
          *     a WordPress, encola si hay fecha y el canal no programa solo, o llama al conector. Devuelve el resultado del conector.
          */

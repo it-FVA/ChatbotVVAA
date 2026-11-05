@@ -16,6 +16,7 @@ Frase del día y circuito de aprobación. Desde el 2/11/2026 es **solo la web + 
   `newsletter.py` — las plantillas del newsletter. `recortar_clip.py` / `procesar_clips.py` — recortes de video.
   **Videos subidos** (5/11): en Mis recortes, «Subir un video» (o «o subí un video» en Diseñar → YouTube) sube un mp4/mov propio, hasta 200 MB, editado afuera. `POST /recortes/subir` lo manda a WordPress y crea una fila de `clips` ya `listo` con `video_id = "subido:<uuid>"` (sin migración): desde ahí se diseña, publica, comparte y borra como cualquier recorte, pero no se edita (tramo y subtítulos son de YouTube).
 - `procesar_cola.py` — la cola de publicación: corre en **GitHub Actions** cada 15 minutos (`.github/workflows/cola.yml`).
+- Circuito: todas las piezas pasan por aprobación, también las de aprobadores y admins (desde el 5/11); se publican desde Aprobación y la cola las saca a su hora.
 - `distribucion/` — plantillas que se copian a otros lados (el mail de la frase, el snippet de WordPress de la home).
 
 ## Correr en local
