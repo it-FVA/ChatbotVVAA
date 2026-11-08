@@ -21,6 +21,7 @@ import Dashboard from "./paginas/admin/Dashboard";
 import Salud from "./paginas/admin/Salud";
 import Servicios from "./paginas/admin/Servicios";
 import Configuracion from "./paginas/admin/Configuracion";
+import Metricas from "./paginas/admin/Metricas";
 import Barra from "./componentes/Barra";
 import Proyectos from "./paginas/Proyectos";
 import Compartidos from "./paginas/Compartidos";
@@ -91,6 +92,7 @@ export default function App() {
                       <Route path="usuarios" element={<Usuarios />} />
                       <Route path="lista-blanca" element={<ListaBlanca />} />
                       <Route path="configuracion" element={<Configuracion />} />
+                      <Route path="metricas" element={<Metricas />} />
                       <Route path="*" element={<Navigate to="/administracion/dashboard" replace />} />
                     </Route>
                     <Route path="*" element={<Navigate to="/recortes" replace />} />

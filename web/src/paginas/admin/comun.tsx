@@ -118,6 +118,7 @@ const TRAZOS: Record<string, string> = {
   calendario: "M4 5h16v16H4zM4 10h16M8 3v4M16 3v4",
   escudo: "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z",
   subtitulos: "M3 5h18v14H3zM6 12h6M14 12h4M6 15h3M11 15h7",
+  grafico: "M4 20V10M10 20V4M16 20v-7M22 20H2",
   megafono: "M3 10v4a1 1 0 0 0 1 1h3l6 4V5L7 9H4a1 1 0 0 0-1 1zM17 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12",
 };
 

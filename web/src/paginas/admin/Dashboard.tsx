@@ -15,7 +15,7 @@ import { BarrasApiladas } from "./Graficos";
 type Periodo = { dias?: number; mes?: string };
 
 
-function mesesRecientes(n = 6) {
+export function mesesRecientes(n = 6) {
   const out: { mes: string; texto: string }[] = [];
   const d = new Date();
   for (let i = 0; i < n; i++) {
