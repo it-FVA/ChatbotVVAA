@@ -1145,6 +1145,8 @@ h2 .estado-chip {
   text-decoration: none;
 }
 .met-nota-carga { margin: 0; }
+/* (8/11) «Desconectar» del sitio: un enlace chico, no un botón */
+.met-desconectar { align-self: flex-start; background: none; border: 0; padding: 0; font: inherit; font-size: 0.8rem; color: var(--suave, inherit); text-decoration: underline; cursor: pointer; }
 .met-aparte summary { font-size: 0.85rem; }
 .met-aparte-total { margin: 0 0 10px; }
 .met-mover { margin-top: 4px; }

@@ -135,8 +135,8 @@ describe("Métricas", () => {
 
   it("actualizar muestra el resultado por canal", async () => {
     const u = userEvent.setup();
-    abrir({ "POST /admin/metricas/actualizar": { capturado: ahora, instagram: { ok: true, piezas: 4, error: null }, facebook: { ok: false, piezas: 0, error: "Falta el permiso read_insights" }, youtube: { ok: false, piezas: 2, error: "Falta autorizar la lectura de estadísticas de YouTube (correr autorizar_youtube.py de nuevo)" } } });
-    await u.click(await screen.findByRole("button", { name: /Actualizar desde Instagram, Facebook y YouTube/ }));
+    abrir({ "POST /admin/metricas/actualizar": { capturado: ahora, instagram: { ok: true, piezas: 4, error: null }, facebook: { ok: false, piezas: 0, error: "Falta el permiso read_insights" }, youtube: { ok: false, piezas: 2, error: "Falta autorizar la lectura de estadísticas de YouTube (correr autorizar_youtube.py de nuevo)" }, sitio: { ok: false, piezas: 0, error: "Falta conectar con WordPress.com (un clic)" } } });
+    await u.click(await screen.findByRole("button", { name: /Actualizar desde las plataformas/ }));
     expect(await screen.findByText(/Instagram: 4 piezas leídas/)).toBeInTheDocument();
     expect(screen.getByText(/Facebook: falta un permiso en la conexión/)).toBeInTheDocument();
     expect(screen.getByText(/YouTube: falta un permiso en la conexión/)).toBeInTheDocument();
@@ -211,5 +211,51 @@ describe("Métricas", () => {
     await u.click(within(suelta).getByRole("button", { name: "Mover" }));
     expect(await within(suelta).findByText(/lo tenés solo para ver/)).toBeInTheDocument();
     expect(api.de("GET", "/admin/metricas/campanas")).toHaveLength(1); // no recargó
+  });
+});
+
+const SITIO = { clave: "sitio", texto: "Sitio web", icono: "casa", modo: "real", enlace: "https://wordpress.com/stats/day/viviragradecidos.org", enlace_texto: "Ver en WordPress.com", manual: null };
+const conSitio = (c: Record<string, unknown>) => ({ "GET /admin/metricas/canales": { ...CANALES, canales: [...CANALES.canales, { ...SITIO, configurado: true, ultima: null, ...c }] } });
+
+describe("Métricas · Sitio web (WordPress.com)", () => {
+  it("falta conectar: botón «Conectar con WordPress.com» que navega a la API, sin Desconectar", async () => {
+    abrir(conSitio({ api: "pendiente", nota_api: "Falta conectar con WordPress.com (un clic)", conectado: false, conectar_url: "/admin/metricas/wordpress/autorizar" }));
+    const sitio = await screen.findByRole("article", { name: "Sitio web" });
+    const boton = within(sitio).getByRole("link", { name: /Conectar con WordPress.com/ });
+    expect(boton.getAttribute("href")).toMatch(/\/admin\/metricas\/wordpress\/autorizar$/);
+    expect(within(sitio).getByText("Falta conectar con WordPress.com (un clic)")).toBeInTheDocument();
+    expect(within(sitio).queryByRole("button", { name: "Desconectar" })).not.toBeInTheDocument();
+  });
+
+  it("conectado y leído: muestra los números y «Desconectar» pide confirmación y manda DELETE", async () => {
+    const u = userEvent.setup();
+    const confirmar = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const api = abrir({ ...conSitio({ api: "disponible", nota_api: "", conectado: true, conectar_url: "/admin/metricas/wordpress/autorizar", ultima: { datos: { visitas: 2400, visitantes: 900 }, periodo_desde: "2026-10-11", periodo_hasta: "2026-11-08", capturado: ahora, fuente: "api" } }), "DELETE /admin/metricas/wordpress": { ok: true } });
+    const sitio = await screen.findByRole("article", { name: "Sitio web" });
+    expect(within(sitio).getByText("conectado")).toBeInTheDocument();
+    expect(within(sitio).getByText("2.400")).toBeInTheDocument();
+    expect(within(sitio).queryByRole("link", { name: /Conectar con WordPress.com/ })).not.toBeInTheDocument();
+    await u.click(within(sitio).getByRole("button", { name: "Desconectar" }));
+    expect(confirmar).toHaveBeenCalled();
+    await waitFor(() => expect(api.de("DELETE", "/admin/metricas/wordpress")).toHaveLength(1));
+    expect(await screen.findByText("Sitio desconectado de WordPress.com.")).toBeInTheDocument();
+    confirmar.mockRestore();
+  });
+
+  it("sin app registrada: solo el enlace a la plataforma, sin botón de conectar", async () => {
+    abrir(conSitio({ api: "no_hay", nota_api: "WordPress.com pide autorizar una app propia para leer las estadísticas; por ahora, el enlace.", conectado: false, conectar_url: null }));
+    const sitio = await screen.findByRole("article", { name: "Sitio web" });
+    expect(within(sitio).queryByRole("link", { name: /Conectar con WordPress.com/ })).not.toBeInTheDocument();
+    expect(within(sitio).getAllByRole("link", { name: /Ver en WordPress.com/ }).length).toBeGreaterThan(0);
+  });
+
+  it("al volver de WordPress.com avisa y limpia la dirección", async () => {
+    abrir({}, "/administracion/metricas?wordpress=ok");
+    expect(await screen.findByText("WordPress.com conectado: tocá Actualizar.")).toBeInTheDocument();
+  });
+
+  it("al volver con error muestra el motivo", async () => {
+    abrir({}, "/administracion/metricas?wordpress=error&motivo=WordPress.com%20no%20dio%20el%20permiso.");
+    expect(await screen.findByText("WordPress.com no dio el permiso.")).toBeInTheDocument();
   });
 });

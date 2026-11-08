@@ -26,6 +26,9 @@
      "instagram": {
       "$ref": "#/components/schemas/ResultadoCanal"
      },
+     "sitio": {
+      "$ref": "#/components/schemas/ResultadoCanal"
+     },
      "youtube": {
       "$ref": "#/components/schemas/ResultadoCanal"
      }
@@ -34,7 +37,8 @@
      "capturado",
      "instagram",
      "facebook",
-     "youtube"
+     "youtube",
+     "sitio"
     ],
     "title": "ActualizarResp",
     "type": "object"
@@ -433,6 +437,22 @@
      "clave": {
       "title": "Clave",
       "type": "string"
+     },
+     "conectado": {
+      "default": false,
+      "title": "Conectado",
+      "type": "boolean"
+     },
+     "conectar_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Conectar Url"
      },
      "configurado": {
       "title": "Configurado",
@@ -3982,6 +4002,26 @@
      }
     },
     "summary": "Ver Resumen",
+    "tags": [
+     "metricas"
+    ]
+   }
+  },
+  "/admin/metricas/wordpress": {
+   "delete": {
+    "description": "Desconecta el sitio: borra el token guardado. Las estadísticas ya guardadas quedan; para volver a leer hay que conectar de nuevo.",
+    "operationId": "wordpress_desconectar_admin_metricas_wordpress_delete",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Wordpress Desconectar",
     "tags": [
      "metricas"
     ]

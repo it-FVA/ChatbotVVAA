@@ -34,6 +34,29 @@ def _serializador():
     return _ser
 
 
+_ser_estado = {}
+
+
+def firmar_estado(datos, proposito):
+    """(8/11, Franco) Un texto firmado con el secreto de sesión pero con otra «sal» por propósito (no sirve como cookie de sesión):
+    lo usa el «Conectar con WordPress.com» de Métricas como `state` del flujo OAuth. Vence al leerlo (leer_estado)."""
+    return _estado(proposito).dumps(datos)
+
+
+def leer_estado(token, proposito, max_age):
+    """Los datos de firmar_estado si la firma es válida y no pasaron `max_age` segundos; si no, None."""
+    try:
+        return _estado(proposito).loads(token, max_age=max_age)
+    except (BadSignature, SignatureExpired):
+        return None
+
+
+def _estado(proposito):
+    if proposito not in _ser_estado:
+        _ser_estado[proposito] = URLSafeTimedSerializer(_serializador().secret_keys[-1], salt="fva-estado-" + proposito)
+    return _ser_estado[proposito]
+
+
 def emitir(resp: Response, usuario, origen, rol_tabla=None):
     token = _serializador().dumps({"usuario": usuario, "origen": origen, "rol_tabla": rol_tabla})
     resp.set_cookie(COOKIE, token, max_age=DURACION, httponly=True,

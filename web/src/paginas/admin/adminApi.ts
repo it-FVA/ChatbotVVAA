@@ -332,6 +332,7 @@ export const adminApi = {
   campanas: (dias?: number, mes?: string) => pedir<Campanas>("/admin/metricas/campanas" + q(dias, mes)),
   canalesMetricas: () => pedir<CanalesMetricas>("/admin/metricas/canales"),
   actualizarMetricas: () => pedir<ResultadoActualizar>("/admin/metricas/actualizar", { method: "POST" }),
+  desconectarWordpress: () => pedir<{ ok: boolean }>("/admin/metricas/wordpress", { method: "DELETE" }),
   anotarMetrica: (body: MetricaManual) => pedir<{ id: string }>("/admin/metricas/manual", { method: "PUT", body: JSON.stringify(body) }),
   asesorApertura: (dias: number) => pedir<Apertura>(`/admin/metricas/asesor/apertura?dias=${dias}`),
   preguntarAsesor: (mensajes: MensajeAsesor[], dias: number) => pedir<RespuestaAsesor>("/admin/metricas/asesor", { method: "POST", body: JSON.stringify({ mensajes: mensajes.slice(-12), dias }) }),

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { ErrorApi } from "../../api";
+import { useSearchParams } from "react-router-dom";
+import { BASE, ErrorApi } from "../../api";
 import { apiProyectos } from "../../apiProyectos";
 import { definirAyuda } from "../../ayuda/registro";
 import ChipEstado from "../../componentes/ChipEstado";
@@ -103,7 +104,8 @@ const GRUPOS: { clave: GrupoEstado; estado: string; texto: string; columna: stri
 
 function textoActualizar(nombre: string, r: { ok: boolean; piezas: number; error?: string | null }) {
   if (r.ok) return `${nombre}: ${r.piezas} ${r.piezas === 1 ? "pieza leída" : "piezas leídas"}`;
-  return `${nombre}: ${/permiso|autorizar/i.test(r.error ?? "") ? "falta un permiso en la conexión" : "no pude leer los números"}`;
+  const motivo = /conectar/i.test(r.error ?? "") ? "falta conectar con WordPress.com" : /permiso|autorizar/i.test(r.error ?? "") ? "falta un permiso en la conexión" : "no pude leer los números";
+  return `${nombre}: ${motivo}`;
 }
 
 const mensaje = (e: unknown, defecto: string) => (e instanceof ErrorApi || e instanceof Error ? e.message : defecto);
@@ -119,6 +121,8 @@ export default function Metricas() {
   const [actualizando, setActualizando] = useState(false);
   const [resultado, setResultado] = useState<ResultadoActualizar | null>(null);
   const [errorActualizar, setErrorActualizar] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null); // (8/11) lo que dejó volver de WordPress.com (?wordpress=ok|error&motivo=)
+  const [busqueda, setBusqueda] = useSearchParams();
   const [charla, setCharla] = useState<Turno[]>([]);
   const agregarCharla = useCallback((...t: Turno[]) => setCharla((c) => [...c, ...t]), []);
 
@@ -134,6 +138,28 @@ export default function Metricas() {
   useEffect(() => {
     cargarCanales();
   }, [cargarCanales]);
+
+  // (8/11, Franco) Al volver de WordPress.com la API redirige acá con ?wordpress=ok o ?wordpress=error&motivo=…: se avisa y se limpia la dirección.
+  useEffect(() => {
+    const w = busqueda.get("wordpress");
+    if (!w) return;
+    setAviso(w === "ok" ? { ok: true, texto: "WordPress.com conectado: tocá Actualizar." } : { ok: false, texto: busqueda.get("motivo") || "No pude conectar con WordPress.com." });
+    const resto = new URLSearchParams(busqueda);
+    resto.delete("wordpress");
+    resto.delete("motivo");
+    setBusqueda(resto, { replace: true });
+  }, [busqueda, setBusqueda]);
+
+  async function desconectarSitio() {
+    if (!window.confirm("¿Desconectar el sitio de WordPress.com? Dejan de leerse sus estadísticas hasta que lo vuelvas a conectar.")) return;
+    try {
+      await adminApi.desconectarWordpress();
+      setAviso({ ok: true, texto: "Sitio desconectado de WordPress.com." });
+      await cargarCanales();
+    } catch (e) {
+      setAviso({ ok: false, texto: mensaje(e, "No pude desconectar el sitio.") });
+    }
+  }
 
   useEffect(() => {
     let vivo = true;
@@ -177,16 +203,24 @@ export default function Metricas() {
         <div className="acciones">
           <span className="suave chico">Última lectura {canales?.actualizado ? hace(canales.actualizado) : "nunca"}</span>
           <button className="boton chico" onClick={actualizar} disabled={actualizando} data-ayuda="metricas.actualizar">
-            <IconoAdmin nombre="regenerar" tam={14} /> {actualizando ? "Leyendo…" : "Actualizar desde Instagram, Facebook y YouTube"}
+            <IconoAdmin nombre="regenerar" tam={14} /> {actualizando ? "Leyendo…" : "Actualizar desde las plataformas"}
           </button>
         </div>
       </div>
       {errorActualizar && <AvisoError texto={errorActualizar} />}
+      {aviso && (aviso.ok ? (
+        <div className="aviso met-resultado" role="status">
+          <IconoAdmin nombre="info" tam={18} />
+          <span>{aviso.texto}</span>
+        </div>
+      ) : (
+        <AvisoError texto={aviso.texto} />
+      ))}
       {resultado && (
         <div className="aviso met-resultado" role="status">
           <IconoAdmin nombre="info" tam={18} />
           <span>
-            {textoActualizar("Instagram", resultado.instagram)}. {textoActualizar("Facebook", resultado.facebook)}. {textoActualizar("YouTube", resultado.youtube)}.
+            {textoActualizar("Instagram", resultado.instagram)}. {textoActualizar("Facebook", resultado.facebook)}. {textoActualizar("YouTube", resultado.youtube)}.{resultado.sitio ? ` ${textoActualizar("Sitio web", resultado.sitio)}.` : ""}
           </span>
         </div>
       )}
@@ -197,7 +231,7 @@ export default function Metricas() {
         canales && (
           <div className="met-canales">
             {canales.canales.map((c) => (
-              <TarjetaCanal key={c.clave} canal={c} alGuardar={cargarCanales} />
+              <TarjetaCanal key={c.clave} canal={c} alGuardar={cargarCanales} alDesconectar={desconectarSitio} />
             ))}
           </div>
         )
@@ -263,7 +297,7 @@ export default function Metricas() {
 
 const NOTA_CARGA = "Para lo que la plataforma no nos deja leer solo: copiá acá lo que ves en sus estadísticas, con el período.";
 
-function TarjetaCanal({ canal, alGuardar }: { canal: CanalMetricas; alGuardar: () => Promise<void> }) {
+function TarjetaCanal({ canal, alGuardar, alDesconectar }: { canal: CanalMetricas; alGuardar: () => Promise<void>; alDesconectar: () => void }) {
   const [abierto, setAbierto] = useState(false);
   const chip = API_CHIP[canal.api] ?? API_CHIP.error;
   const nums = canal.ultima ? grandes(canal.ultima.datos) : [];
@@ -325,6 +359,17 @@ function TarjetaCanal({ canal, alGuardar }: { canal: CanalMetricas; alGuardar: (
         </div>
       )}
       <div className="met-acciones">
+        {/* (8/11) Sitio web: «Conectar» es un link normal a la API (redirige a WordPress.com con la cookie de admin), no un fetch */}
+        {canal.conectar_url && !canal.conectado && (
+          <a className="boton primario chico" href={`${BASE}${canal.conectar_url}`}>
+            <IconoAdmin nombre="externo" tam={14} /> Conectar con WordPress.com
+          </a>
+        )}
+        {canal.conectar_url && canal.conectado && canal.api === "error" && (
+          <a className="boton chico" href={`${BASE}${canal.conectar_url}`}>
+            Volver a conectar con WordPress.com
+          </a>
+        )}
         {canal.enlace && (
           <a className="boton chico" href={canal.enlace} target="_blank" rel="noopener noreferrer">
             {canal.enlace_texto ?? "Abrir"} <IconoAdmin nombre="externo" tam={14} />
@@ -332,6 +377,11 @@ function TarjetaCanal({ canal, alGuardar }: { canal: CanalMetricas; alGuardar: (
         )}
         {!conectado && boton}
       </div>
+      {canal.conectado && (
+        <button type="button" className="met-desconectar" onClick={alDesconectar}>
+          Desconectar
+        </button>
+      )}
       {!conectado && <p className="suave chico met-nota-carga">{NOTA_CARGA}</p>}
       {/* (8/11, Franco) si la plataforma los lee sola no se ofrece cargarlos a mano: confundía («¿para qué, si es automático?») */}
       {abierto && (
