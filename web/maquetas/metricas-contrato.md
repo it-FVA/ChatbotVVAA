@@ -110,6 +110,7 @@ subproyecto y no para el padre.
       "api": "disponible" | "sin_permiso" | "no_hay" | "pendiente" | "error",
       "nota_api": "texto corto: por qué no hay API o qué falta (p. ej. «Falta el permiso instagram_manage_insights en el token»)",
       "enlace": "https://business.facebook.com/latest/insights/overview", "enlace_texto": "Ver en Meta Business Suite",
+      "conectado": false, "conectar_url": null,   // (8/11) solo el sitio los usa: ¿hay token de WordPress.com? y la ruta de la API que lleva a conectarlo («/admin/metricas/wordpress/autorizar»; la web le antepone la base de la API); null si no hay app registrada
       "ultima": { "datos": { "alcance": 1200, "seguidores": 3400, "crudo": {…}, "errores": [] }, "periodo_desde": "2026-10-10", "periodo_hasta": "2026-11-08", "capturado": "iso", "fuente": "api" } | null,
       "manual": { "datos": { "alcance": 1500 }, "periodo_desde": "…", "periodo_hasta": "…", "capturado": "iso", "nota": "…", "por": "franco" } | null
     }
@@ -126,7 +127,11 @@ juntos como `sitio` (texto «Sitio web»), whatsapp. `api`:
   vistas, suscriptores, me gusta y comentarios de la Data API); `error` otro; `pendiente` si nunca se capturó. `POST /actualizar` suma la
   clave `youtube` con la misma forma `{ok, piezas, error}`. Módulo: `metricas_youtube.py`.
 - mail: `no_hay`, nota «Perfit: los reportes se ven en la plataforma; la API de métricas por campaña está sin confirmar».
-- sitio: `no_hay`, nota «WordPress.com pide autorizar una app propia para leer las estadísticas; por ahora, el enlace».
+- sitio (8/11, Franco: WordPress.com): `disponible` si hay token guardado y la última captura trajo números; `pendiente` si hay app registrada
+  (`WPCOM_CLIENT_ID` y `WPCOM_CLIENT_SECRET`) pero falta conectar (nota «Falta conectar con WordPress.com (un clic)») o si está conectado y
+  nunca se capturó; `error` si WordPress.com ya no acepta el token (nota «WordPress.com ya no acepta la conexión: hay que volver a conectar (un
+  clic)») u otro; `no_hay` sin app registrada, con la nota de antes («WordPress.com pide autorizar una app propia para leer las estadísticas;
+  por ahora, el enlace»). Módulo: `metricas_wordpress.py`.
 - whatsapp: `no_hay`, nota «WhatsApp no da métricas de grupos».
 
 Enlaces: Instagram y Facebook → `https://business.facebook.com/latest/insights/overview`; YouTube → `https://studio.youtube.com/`
@@ -135,12 +140,17 @@ whatsapp → null.
 
 ### `POST /admin/metricas/actualizar`
 
-Captura ahora por API (Instagram y Facebook): cuenta (últimos 28 días) + cada pieza `publicada` en modo `real` de los últimos 60 días
+Captura ahora por API (Instagram, Facebook, YouTube y —8/11— el sitio): cuenta (últimos 28 días) + cada pieza `publicada` en modo `real` de los últimos 60 días
 que tenga id de la plataforma en `resultado.ultimo.id` (o `resultado.id`). Guarda filas `fuente='api'`. Responde:
 
 ```jsonc
-{ "capturado": "iso", "instagram": { "ok": true, "piezas": 4, "error": null }, "facebook": { "ok": false, "piezas": 0, "error": "Falta el permiso read_insights" } }
+{ "capturado": "iso", "instagram": { "ok": true, "piezas": 4, "error": null }, "facebook": { "ok": false, "piezas": 0, "error": "Falta el permiso read_insights" },
+  "youtube": { "ok": true, "piezas": 2, "error": null }, "sitio": { "ok": false, "piezas": 0, "error": "Falta conectar con WordPress.com (un clic)" } }
 ```
+
+`sitio` (8/11): cuenta de 28 días en una fila `ambito: "canal", ref: "sitio"` con `visitas`, `visitantes`, `me_gusta`, `comentarios` y en el `crudo` el
+top de 5 entradas, 5 referentes y 5 clics; y cada entrada de WordPress `publicada` en modo `real` de los últimos 60 días en una fila `ambito: "pieza"`
+con `visitas` (OJO: es el total desde que se publicó, no el de un período; el `crudo` lo dice). Solo necesita el token guardado, así que también corre desde la cola.
 
 Nunca lanza 500 por un error de Meta: lo devuelve en `error`. La cola (`procesar_cola.py`) llama a `metricas.capturar_si_toca(cfg)`
 al final de cada pasada: captura si pasó más de 1 hora desde la última (config `metricas_ultima_captura`), para no perder las
@@ -280,3 +290,30 @@ depende del contexto `ProyectosProvider`); se hizo un selector chico dentro de l
 - El botón pasa a «Cargar números a mano» con la línea gris «Para lo que la plataforma no nos deja leer solo: copiá acá lo que ves en sus estadísticas, con el período.».
   En los canales con `api: "disponible"` queda escondido dentro de un «¿Preferís cargarlos a mano?».
 - La ayuda (`definirAyuda("metricas")`) se actualizó sin pasar los límites.
+
+## Agregado del 8/11 (Franco, noche): el sitio con WordPress.com
+
+La tarjeta «Sitio web» lee las estadísticas de WordPress.com con una autorización que se hace con dos clics desde la pantalla (flujo OAuth2
+«authorization code», https://developer.wordpress.com/docs/oauth2/). El paso único de Franco es registrar la app (ver HANDOFF).
+
+### Rutas (admin; las dos primeras no están en el OpenAPI porque las abre el navegador, no `pedir`)
+- `GET /admin/metricas/wordpress/autorizar` → 302 a `https://public-api.wordpress.com/oauth2/authorize?client_id&redirect_uri&response_type=code&scope=global&blog=<WP_SITE>&state=<firmado>`.
+  `redirect_uri` = `<API_URL_PUBLICA o la base del pedido>/admin/metricas/wordpress/callback` (tiene que ser idéntica a la registrada en la app).
+  Sin app registrada vuelve a la web con `?wordpress=error&motivo=…` (no deja un JSON en pantalla).
+- `GET /admin/metricas/wordpress/callback?code&state` → valida el `state`, canjea el código (`POST /oauth2/token`), guarda `config.wpcom_token`
+  = `{access_token, blog_id, blog_url, autorizado_en, por}`, registra el cambio en `usuarios_cambios` (clave `wpcom_token`, sin el token) y redirige (302) a
+  `<WEB_URL>/administracion/metricas?wordpress=ok`. Con error: `?wordpress=error&motivo=<texto corto>`. `state` inválido o vencido → 400.
+  **No exige cookie de admin**: llega desde otro sitio y la cookie puede no viajar. Lo autoriza el `state`: firmado con el secreto de sesión
+  (otra «sal», `auth.firmar_estado`), lleva el usuario admin que lo pidió y vence a los 10 minutos; se vuelve a comprobar que siga siendo admin y activo.
+- `DELETE /admin/metricas/wordpress` → `{ok: true}`; borra el token (queda la clave vacía). Registra el cambio.
+- `GET /canales` suma `conectado` y `conectar_url` a cada canal (solo el sitio los llena).
+
+### Web
+- Tarjeta «Sitio web»: con `conectar_url` y sin `conectado`, botón «Conectar con WordPress.com» (link normal a `BASE + conectar_url`, no fetch);
+  conectado y con error, «Volver a conectar con WordPress.com»; conectado, un enlace chico «Desconectar» (pide confirmación, `DELETE`).
+- Al volver con `?wordpress=ok` avisa «WordPress.com conectado: tocá Actualizar.»; con `?wordpress=error` muestra el `motivo`. Limpia la query.
+- El botón de arriba dice «Actualizar desde las plataformas» y el resumen muestra las cuatro líneas (Instagram, Facebook, YouTube y Sitio web).
+
+### Sin confirmar contra WordPress.com (no hay app registrada todavía)
+Ver el docstring de `metricas_wordpress.py`: que el token del flujo «code» no expire, si `scope=global` hace falta, la forma exacta de las respuestas
+de `stats/summary`, `top-posts`, `referrers`, `clicks` y que `stats/post/{id}` acepte `fields=views`.
