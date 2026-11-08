@@ -234,12 +234,12 @@ def _enlace(clave, cfg):
     if clave in ("instagram", "facebook"):
         return URL_META, "Ver en Meta Business Suite"
     if clave == "youtube":
-        return "https://studio.youtube.com/", "Abrir YouTube Studio → Estadísticas"
+        return "https://studio.youtube.com/", "Abrir YouTube Studio"
     if clave == "mail":
-        return "https://app.myperfit.com/", "Ver reportes en Perfit"
+        return "https://app.myperfit.com/", "Ver en Perfit"
     if clave == "sitio":
         site = getattr(cfg, "wp_site", "") or ""
-        return (f"https://wordpress.com/stats/day/{site}" if site else "https://wordpress.com/stats/"), "Ver estadísticas en WordPress.com"
+        return (f"https://wordpress.com/stats/day/{site}" if site else "https://wordpress.com/stats/"), "Ver en WordPress.com"
     return None, None
 
 

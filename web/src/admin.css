@@ -1134,6 +1134,22 @@ h2 .estado-chip {
   gap: 4px 10px;
   align-items: center;
 }
+.met-enlace-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--borde);
+  text-decoration: none;
+}
+.met-nota-carga { margin: 0; }
+.met-aparte summary { font-size: 0.85rem; }
+.met-aparte-total { margin: 0 0 10px; }
+.met-mover { margin-top: 4px; }
+.met-mover-form { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
+.met-mover-form select, .met-mover-form input { min-height: 34px; max-width: 100%; }
 .met-resumen {
   display: flex;
   flex-direction: column;

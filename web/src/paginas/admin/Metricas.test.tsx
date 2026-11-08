@@ -18,31 +18,47 @@ const CAMPANAS = {
   periodo: { tipo: "dias", dias: 90, desde: "2026-08-10", hasta: null, texto: "últimos 90 días" },
   campanas: [
     {
-      id: "c1", nombre: "Lo común nos convoca", emoji: "🤝", color: "#3a6b35", dueno: "pato", creado: ahora, piezas_total: 2,
-      por_canal: { instagram: { ...G0, publicada: 1, programada: 1 } }, por_estado: { ...G0, publicada: 1, programada: 1 }, primera: ahora, ultima: ahora,
+      id: "c1", nombre: "Lo común nos convoca", emoji: "🤝", color: "#3a6b35", dueno: "pato", creado: ahora, piezas_total: 3,
+      por_canal: { instagram: { ...G0, publicada: 1, programada: 1, borrador: 1 } }, por_estado: { ...G0, publicada: 1, programada: 1, borrador: 1 }, primera: ahora, ultima: ahora,
       piezas: [
         { id: "p1", canal: "instagram", canal_texto: "Instagram", titulo: "Gratitud en casa", estado: "publicada", estado_grupo: "publicada", fecha: "2026-11-05T12:00:00+00:00", ver_url: "https://instagram.com/p/x", formato: "cuadrado", usuario: "pato", modo: "real", metricas: { alcance: 120, me_gusta: 14, fuente: "api", capturado: ahora } },
         { id: "p2", canal: "instagram", canal_texto: "Instagram", titulo: "Mañana sale", estado: "pendiente", estado_grupo: "programada", fecha: "2026-11-09T12:00:00+00:00", ver_url: null, formato: "historia", usuario: "pato", modo: "real", metricas: null },
+        { id: "p3", canal: "instagram", canal_texto: "Instagram", titulo: "Idea a medias", estado: "borrador", estado_grupo: "borrador", fecha: "2026-11-04T12:00:00+00:00", ver_url: null, formato: null, usuario: "pato", modo: "real", metricas: null },
       ],
     },
+    {
+      id: "frase_del_dia", nombre: "Frase del día (automática)", emoji: "📅", color: null, dueno: null, creado: null, piezas_total: 1,
+      por_canal: { instagram: { ...G0, publicada: 1 } }, por_estado: { ...G0, publicada: 1 }, primera: ahora, ultima: ahora,
+      piezas: [{ id: "f1", canal: "instagram", canal_texto: "Instagram", titulo: "Frase de ayer", estado: "publicada", estado_grupo: "publicada", fecha: "2026-11-07T12:00:00+00:00", ver_url: null, formato: "historia", usuario: "frase_del_dia", modo: "real", metricas: null }],
+    },
   ],
-  sueltas: { id: "sueltas", nombre: "Sin campaña", emoji: null, color: null, dueno: null, creado: null, piezas_total: 0, por_canal: {}, por_estado: G0, primera: null, ultima: null, piezas: [] },
-  totales: { piezas: 2, ...G0, publicada: 1, programada: 1, por_canal: { instagram: 2 } },
+  sueltas: {
+    id: "sueltas", nombre: "Sin campaña", emoji: null, color: null, dueno: null, creado: null, piezas_total: 1, por_canal: { facebook: { ...G0, publicada: 1 } }, por_estado: { ...G0, publicada: 1 }, primera: ahora, ultima: ahora,
+    piezas: [{ id: "s1", canal: "facebook", canal_texto: "Facebook", titulo: "Una suelta", estado: "publicada", estado_grupo: "publicada", fecha: "2026-11-06T12:00:00+00:00", ver_url: null, formato: "cuadrado", usuario: "pato", modo: "real", metricas: null }],
+  },
+  totales: { piezas: 4, ...G0, publicada: 3, programada: 1, borrador: 1, prueba: 2, por_canal: { instagram: 3, facebook: 1 } },
 };
 const CANALES = {
   actualizado: ahora,
   canales: [
     { clave: "instagram", texto: "Instagram", icono: "instagram", modo: "real", configurado: true, api: "sin_permiso", nota_api: "Falta el permiso instagram_manage_insights", enlace: "https://business.facebook.com/latest/insights/overview", enlace_texto: "Ver en Meta Business Suite", ultima: null, manual: { datos: { alcance: 1500 }, periodo_desde: "2026-10-01", periodo_hasta: "2026-10-31", capturado: ahora, nota: "Del panel", por: "franco" } },
     { clave: "facebook", texto: "Facebook", icono: "facebook", modo: "real", configurado: true, api: "disponible", nota_api: null, enlace: null, enlace_texto: null, ultima: { datos: { alcance: 1200, seguidores: 3400 }, periodo_desde: "2026-10-10", periodo_hasta: "2026-11-08", capturado: ahora, fuente: "api" }, manual: null },
-    { clave: "mail", texto: "Mail", icono: "sobre", modo: "real", configurado: true, api: "no_hay", nota_api: "Perfit: los reportes se ven en la plataforma", enlace: "https://app.myperfit.com/", enlace_texto: "Abrir Perfit", ultima: null, manual: null },
+    { clave: "mail", texto: "Mail", icono: "sobre", modo: "real", configurado: true, api: "no_hay", nota_api: "Perfit: los reportes se ven en la plataforma", enlace: "https://app.myperfit.com/", enlace_texto: "Ver en Perfit", ultima: null, manual: null },
   ],
 };
 const RESUMEN = { ref: "c1", nombre: "Lo común nos convoca", texto: "Le fue **bien** en Instagram.", fuentes: ["Instagram (desde la plataforma, 8/11)"], falto: ["YouTube: sin datos"], comparado_con: "Polarizaciones", modelo: "gpt", capturado: ahora };
 
+const PROYECTOS = {
+  proyectos: [
+    { id: "pr1", nombre: "Lo común nos convoca", emoji: "🤝", permiso: "dueño", dueno: "pato", padre_id: null, color: null, descripcion: null, creado: ahora, actualizado: ahora },
+    { id: "pr2", nombre: "Solo para mirar", emoji: null, permiso: "ver", dueno: "otro", padre_id: null, color: null, descripcion: null, creado: ahora, actualizado: ahora },
+  ],
+  ubicaciones: {},
+};
 const APERTURA = { texto: "Esta semana se movió **Lo común**.", fuentes: ["Instagram (desde la plataforma, 8/11)"], falto: [], capturado: ahora, nuevo: true };
 
 function abrir(extra: Record<string, unknown> = {}, ruta = "/administracion/metricas") {
-  const api = instalarApi({ "GET /admin/metricas/campanas": CAMPANAS, "GET /admin/metricas/canales": CANALES, "GET /admin/metricas/resumen/c1": null, "GET /admin/metricas/asesor/apertura": APERTURA, "GET /admin/resumen": { salud: { estado: "ok" }, costo: null, registro_desde: "" }, ...extra });
+  const api = instalarApi({ "GET /admin/metricas/campanas": CAMPANAS, "GET /admin/metricas/canales": CANALES, "GET /admin/metricas/resumen/c1": null, "GET /admin/metricas/asesor/apertura": APERTURA, "GET /proyectos": PROYECTOS, "GET /admin/resumen": { salud: { estado: "ok" }, costo: null, registro_desde: "" }, ...extra });
   render(
     <MemoryRouter initialEntries={[ruta]}>
       <Routes>
@@ -86,7 +102,7 @@ describe("Métricas", () => {
     const u = userEvent.setup();
     const api = abrir({ "PUT /admin/metricas/manual": { id: "m1" } });
     const mail = await screen.findByRole("article", { name: "Mail" });
-    await u.click(within(mail).getByRole("button", { name: /Anotar números/ }));
+    await u.click(within(mail).getByRole("button", { name: /Cargar números a mano/ }));
     await u.type(within(mail).getByLabelText("Enviados"), "300");
     await u.type(within(mail).getByLabelText("Aperturas"), "120");
     await u.type(within(mail).getByLabelText("Nota"), "Reporte de Perfit");
@@ -99,7 +115,7 @@ describe("Métricas", () => {
   it("«¿Cómo le fue?» muestra el texto, las fuentes y lo que faltó", async () => {
     const u = userEvent.setup();
     const api = abrir({ "POST /admin/metricas/resumen": RESUMEN });
-    await u.click(await screen.findByRole("button", { name: "¿Cómo le fue?" }));
+    await u.click((await screen.findAllByRole("button", { name: "¿Cómo le fue?" }))[0]);
     expect((await screen.findAllByText("bien")).length).toBeGreaterThan(0);
     expect(screen.getByText("¿Cómo le fue a Lo común nos convoca?")).toBeInTheDocument(); // también queda en la conversación del asesor
     expect(screen.getAllByText("De dónde salen los números").length).toBeGreaterThan(0);
@@ -130,5 +146,73 @@ describe("Métricas", () => {
     abrir();
     expect(await screen.findByRole("article", { name: "Instagram" })).toBeInTheDocument();
     expect(within(screen.getByRole("navigation", { name: "Administración" })).queryByText("Métricas")).not.toBeInTheDocument();
+  });
+
+  it("las tarjetas de canal: el enlace es el chip, y cargar a mano explica para qué", async () => {
+    const u = userEvent.setup();
+    abrir();
+    const mail = await screen.findByRole("article", { name: "Mail" });
+    expect(within(mail).getAllByRole("link", { name: /Ver en Perfit/ })).toHaveLength(2); // el chip de arriba y el botón de siempre
+    expect(within(mail).queryByText("se mira en la plataforma")).not.toBeInTheDocument();
+    expect(within(mail).getByText(/Para lo que la plataforma no nos deja leer solo: copiá acá lo que ves en sus estadísticas, con el período\./)).toBeInTheDocument();
+    // conectado: el botón queda adentro de «¿Preferís cargarlos a mano?»
+    const fb = screen.getByRole("article", { name: "Facebook" });
+    expect(within(fb).getByText("¿Preferís cargarlos a mano?")).toBeInTheDocument();
+    expect(within(fb).getByText("¿Preferís cargarlos a mano?").closest("details")).not.toHaveAttribute("open");
+    await u.click(within(fb).getByText("¿Preferís cargarlos a mano?"));
+    expect(within(fb).getByRole("button", { name: /Cargar números a mano/ })).toBeVisible();
+  });
+
+  it("los borradores van plegados aparte y los totales no los cuentan", async () => {
+    abrir();
+    expect(await screen.findByText("1 borrador")).toBeInTheDocument();
+    expect(screen.getByText("Idea a medias")).toBeInTheDocument();
+    expect(screen.getByText("Aparte: 2 en prueba, 1 borrador.")).toBeInTheDocument();
+    expect(screen.getByText("Piezas hechas").closest(".metrica")).toHaveTextContent("4");
+    const c1 = screen.getByRole("region", { name: "Lo común nos convoca" });
+    expect(within(c1).queryByText("Borradores")).not.toBeInTheDocument(); // ni columna en la tabla
+    expect(screen.getByRole("region", { name: "Frase del día (automática)" })).toBeInTheDocument();
+  });
+
+  it("«Mover a campaña» mueve una pieza suelta a un Proyecto y recarga las campañas", async () => {
+    const u = userEvent.setup();
+    const api = abrir({ "POST /proyectos/pr1/items": { ok: true, ya: false, item: {} } });
+    const suelta = await screen.findByRole("region", { name: "Sin campaña" });
+    await u.click(within(suelta).getByText("Piezas"));
+    await u.click(within(suelta).getByRole("button", { name: /Mover a campaña/ }));
+    const sel = await within(suelta).findByLabelText("Campaña de destino");
+    await waitFor(() => expect(within(sel).getByRole("option", { name: "🤝 Lo común nos convoca" })).toBeInTheDocument());
+    expect(within(sel).queryByRole("option", { name: "Solo para mirar" })).not.toBeInTheDocument(); // solo las que se pueden editar
+    await u.selectOptions(sel, "pr1");
+    await u.click(within(suelta).getByRole("button", { name: "Mover" }));
+    await waitFor(() => expect(api.de("POST", "/proyectos/pr1/items")).toHaveLength(1));
+    expect(api.de("POST", "/proyectos/pr1/items")[0].cuerpo).toEqual({ tipo: "pieza", item_id: "s1", datos: null });
+    await waitFor(() => expect(api.de("GET", "/admin/metricas/campanas")).toHaveLength(2));
+  });
+
+  it("«Nueva campaña…» crea el Proyecto y mueve la pieza de la Frase del día", async () => {
+    const u = userEvent.setup();
+    const api = abrir({ "POST /proyectos": { id: "pr9", nombre: "Noviembre" }, "POST /proyectos/pr9/items": { ok: true, ya: false, item: {} } });
+    const frase = await screen.findByRole("region", { name: "Frase del día (automática)" });
+    await u.click(within(frase).getByText("Piezas"));
+    await u.click(within(frase).getByRole("button", { name: /Mover a campaña/ }));
+    await u.selectOptions(await within(frase).findByLabelText("Campaña de destino"), "__nueva");
+    await u.type(within(frase).getByLabelText("Nombre de la campaña nueva"), "Noviembre");
+    await u.click(within(frase).getByRole("button", { name: "Mover" }));
+    await waitFor(() => expect(api.de("POST", "/proyectos/pr9/items")).toHaveLength(1));
+    expect((api.de("POST", "/proyectos")[0].cuerpo as { nombre: string }).nombre).toBe("Noviembre");
+    expect(api.de("POST", "/proyectos/pr9/items")[0].cuerpo).toEqual({ tipo: "pieza", item_id: "f1", datos: null });
+  });
+
+  it("si no puede mover la pieza, muestra el motivo en castellano", async () => {
+    const u = userEvent.setup();
+    const api = abrir({ "POST /proyectos/pr1/items": new Response(JSON.stringify({ detail: "Este proyecto lo tenés solo para ver: no podés cambiarlo." }), { status: 403, headers: { "Content-Type": "application/json" } }) });
+    const suelta = await screen.findByRole("region", { name: "Sin campaña" });
+    await u.click(within(suelta).getByText("Piezas"));
+    await u.click(within(suelta).getByRole("button", { name: /Mover a campaña/ }));
+    await u.selectOptions(await within(suelta).findByLabelText("Campaña de destino"), "pr1");
+    await u.click(within(suelta).getByRole("button", { name: "Mover" }));
+    expect(await within(suelta).findByText(/lo tenés solo para ver/)).toBeInTheDocument();
+    expect(api.de("GET", "/admin/metricas/campanas")).toHaveLength(1); // no recargó
   });
 });

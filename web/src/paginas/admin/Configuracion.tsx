@@ -49,6 +49,7 @@ export default function Configuracion() {
           <EstiloDefecto cfg={cfg} onGuardado={cargar} />
           <FraseDelDia cfg={cfg} onGuardado={cargar} />
           <BancoImagenes cfg={cfg} onGuardado={cargar} />
+          <MetricasExcluir cfg={cfg} onGuardado={cargar} />
           {cambios.length > 0 && (
             <Plegable titulo="Últimos cambios de configuración y servicios" resumen={`${cambios.length}`}>
               <ul className="cambios-lista">
@@ -391,6 +392,30 @@ function FraseDelDia({ cfg, onGuardado }: { cfg: Config; onGuardado: () => void 
           <input value={pie} onChange={(e) => setPie(e.target.value)} />
         </label>
       </div>
+    </Bloque>
+  );
+}
+
+/** (8/11, Franco) Métricas: las cuentas cuyas piezas no cuentan (pruebas o desarrollo interno). Vacía por defecto. */
+function MetricasExcluir({ cfg, onGuardado }: { cfg: Config; onGuardado: () => void }) {
+  const { guardar, guardando } = useGuardar(onGuardado);
+  const [usuarios, setUsuarios] = useState(((cfg.valores.metricas_excluir_usuarios?.valor as string[] | undefined) ?? []).join("\n"));
+  return (
+    <Bloque
+      titulo="Métricas"
+      icono="grafico"
+      explicacion="Qué piezas no se cuentan en Administración → Métricas."
+      meta={cfg.valores.metricas_excluir_usuarios}
+      acciones={
+        <button className="boton primario" type="button" onClick={() => guardar({ metricas_excluir_usuarios: usuarios }, "Métricas guardado.")} disabled={guardando}>
+          Guardar
+        </button>
+      }
+    >
+      <label>
+        Usuarios que no cuentan <span className="suave chico">{cfg.explicaciones.metricas_excluir_usuarios}</span>
+        <textarea value={usuarios} onChange={(e) => setUsuarios(e.target.value)} rows={3} placeholder={"uno por línea\n(vacío: cuentan todas)"} />
+      </label>
     </Bloque>
   );
 }

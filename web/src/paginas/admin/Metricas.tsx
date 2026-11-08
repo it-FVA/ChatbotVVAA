@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { ErrorApi } from "../../api";
+import { apiProyectos } from "../../apiProyectos";
 import { definirAyuda } from "../../ayuda/registro";
 import ChipEstado from "../../componentes/ChipEstado";
 import { EstadoVacio } from "../../componentes/Comunes";
@@ -7,6 +8,7 @@ import { Icono, type NombreIcono } from "../../componentes/Iconos";
 import { fechaCompleta, hace } from "../../util/fechas";
 import { aHtml } from "../../util/markdown";
 import { mesesRecientes } from "./Dashboard";
+import type { Proyecto } from "../../tiposProyectos";
 import { adminApi, type Campana, type Apertura, type Campanas, type CanalMetricas, type CanalesMetricas, type DatosMetricas, type GrupoEstado, type MensajeAsesor, type PiezaCampana, type ResultadoActualizar, type ResumenCampana } from "./adminApi";
 import { AvisoError, Cargando, EstadoChip, IconoAdmin, Metrica, Plegable, diaCorto, miles } from "./comun";
 
@@ -18,11 +20,11 @@ definirAyuda("metricas", {
   titulo: "Métricas",
   que: "Cuánto llegó cada canal y cuánto hicimos en cada campaña.",
   pasos: [
-    { id: "asesor", texto: "Preguntale al asesor cómo vienen las campañas: te responde con los números y de dónde salen." },
+    { id: "asesor", texto: "Preguntale al asesor cómo vienen las campañas: te nombra las piezas y de dónde salen los números." },
     { id: "actualizar", texto: "Trae los números de Instagram, Facebook y YouTube al momento." },
-    { id: "canal", texto: "Cada canal muestra sus números y de dónde salen." },
-    { id: "anotar", texto: "Si la plataforma no los da, anotalos a mano acá." },
-    { id: "campana", texto: "Cada campaña muestra sus piezas por estado y por canal." },
+    { id: "canal", texto: "Cada canal muestra sus números y un enlace para verlos en la plataforma." },
+    { id: "anotar", texto: "Lo que la plataforma no deja leer, cargalo a mano con el período." },
+    { id: "campana", texto: "Cada campaña muestra sus piezas por estado y canal. Las sueltas se mueven a una campaña." },
     { id: "resumen", texto: "«¿Cómo le fue?» arma un resumen con los números que hay y avisa qué faltó." },
   ],
 });
@@ -113,6 +115,7 @@ export default function Metricas() {
   const [errorCanales, setErrorCanales] = useState<string | null>(null);
   const [campanas, setCampanas] = useState<Campanas | null>(null);
   const [errorCampanas, setErrorCampanas] = useState<string | null>(null);
+  const [recarga, setRecarga] = useState(0); // sube al mover una pieza a otra campaña: vuelve a pedir las campañas
   const [actualizando, setActualizando] = useState(false);
   const [resultado, setResultado] = useState<ResultadoActualizar | null>(null);
   const [errorActualizar, setErrorActualizar] = useState<string | null>(null);
@@ -134,7 +137,6 @@ export default function Metricas() {
 
   useEffect(() => {
     let vivo = true;
-    setCampanas(null);
     adminApi
       .campanas(periodo.dias, periodo.mes)
       .then((c) => {
@@ -146,7 +148,7 @@ export default function Metricas() {
     return () => {
       vivo = false;
     };
-  }, [periodo]);
+  }, [periodo, recarga]);
 
   async function actualizar() {
     setActualizando(true);
@@ -207,11 +209,17 @@ export default function Metricas() {
         </h2>
         <div className="acciones periodo" role="group" aria-label="Período">
           {[7, 28, 90].map((d) => (
-            <button key={d} className={"boton chico" + (periodo.dias === d ? " activo" : "")} onClick={() => setPeriodo({ dias: d })} aria-pressed={periodo.dias === d}>
+            <button key={d} className={"boton chico" + (periodo.dias === d ? " activo" : "")} onClick={() => {
+                setCampanas(null);
+                setPeriodo({ dias: d });
+              }} aria-pressed={periodo.dias === d}>
               {d} días
             </button>
           ))}
-          <select value={periodo.mes ?? ""} onChange={(e) => setPeriodo(e.target.value ? { mes: e.target.value } : { dias: 90 })} aria-label="Un mes">
+          <select value={periodo.mes ?? ""} onChange={(e) => {
+              setCampanas(null);
+              setPeriodo(e.target.value ? { mes: e.target.value } : { dias: 90 });
+            }} aria-label="Un mes">
             <option value="">un mes…</option>
             {meses.map((m) => (
               <option key={m.mes} value={m.mes}>
@@ -226,11 +234,16 @@ export default function Metricas() {
       {campanas && t && (
         <>
           <div className="metricas">
-            <Metrica etiqueta="Piezas" valor={miles(t.piezas)} detalle={campanas.periodo.texto} />
+            <Metrica etiqueta="Piezas hechas" valor={miles(t.piezas)} detalle={campanas.periodo.texto} />
             <Metrica etiqueta="Publicadas" valor={miles(t.publicada)} />
             <Metrica etiqueta="Programadas" valor={miles(t.programada)} />
             <Metrica etiqueta="En aprobación" valor={miles(t.en_aprobacion)} />
           </div>
+          {(t.prueba > 0 || t.borrador > 0) && (
+            <p className="suave chico met-aparte-total">
+              Aparte: {t.prueba} en prueba, {t.borrador} {t.borrador === 1 ? "borrador" : "borradores"}.
+            </p>
+          )}
           {lista.length === 0 ? (
             <EstadoVacio icono="carpeta" titulo="No hay campañas con piezas en este período" texto="Probá con un período más largo, o armá piezas desde Diseñar." />
           ) : (
@@ -238,6 +251,7 @@ export default function Metricas() {
                 key={c.id}
                 campana={c}
                 dias={dias}
+                alMover={() => setRecarga((n) => n + 1)}
                 alResumir={(r) => agregarCharla({ rol: "usuario", texto: `¿Cómo le fue a ${c.nombre}?` }, { rol: "asesor", texto: r.texto, fuentes: r.fuentes, falto: r.falto, capturado: r.capturado })}
               />)
           )}
@@ -247,19 +261,33 @@ export default function Metricas() {
   );
 }
 
+const NOTA_CARGA = "Para lo que la plataforma no nos deja leer solo: copiá acá lo que ves en sus estadísticas, con el período.";
+
 function TarjetaCanal({ canal, alGuardar }: { canal: CanalMetricas; alGuardar: () => Promise<void> }) {
   const [abierto, setAbierto] = useState(false);
   const chip = API_CHIP[canal.api] ?? API_CHIP.error;
   const nums = canal.ultima ? grandes(canal.ultima.datos) : [];
   const manual = canal.manual;
   const manualNums = manual ? Object.entries(manual.datos).filter(([k, v]) => typeof v === "number" && ETIQUETA[k]) : [];
+  const conectado = canal.api === "disponible"; // si la plataforma los lee sola, cargar a mano es la excepción
+  const boton = (
+    <button className="boton chico" onClick={() => setAbierto((a) => !a)} aria-expanded={abierto} data-ayuda="metricas.anotar">
+      <IconoAdmin nombre="lapiz" tam={14} /> Cargar números a mano
+    </button>
+  );
   return (
     <article className="tarjeta met-canal" data-ayuda="metricas.canal" aria-label={canal.texto}>
       <header className="met-canal-cab">
         <h3>
           <Icono nombre={ICONO_CANAL[canal.clave] ?? "megafono"} tam={18} /> {canal.texto}
         </h3>
-        <EstadoChip estado={chip.estado} texto={chip.texto} />
+        {canal.api === "no_hay" && canal.enlace ? (
+          <a className="met-enlace-chip" href={canal.enlace} target="_blank" rel="noopener noreferrer">
+            {canal.enlace_texto ?? "Abrir"} <IconoAdmin nombre="externo" tam={12} />
+          </a>
+        ) : (
+          <EstadoChip estado={chip.estado} texto={chip.texto} />
+        )}
       </header>
       {canal.api !== "disponible" && canal.nota_api && <p className="suave chico met-nota">{canal.nota_api}</p>}
       {canal.ultima && nums.length > 0 && (
@@ -302,10 +330,16 @@ function TarjetaCanal({ canal, alGuardar }: { canal: CanalMetricas; alGuardar: (
             {canal.enlace_texto ?? "Abrir"} <IconoAdmin nombre="externo" tam={14} />
           </a>
         )}
-        <button className="boton chico" onClick={() => setAbierto((a) => !a)} aria-expanded={abierto} data-ayuda="metricas.anotar">
-          <IconoAdmin nombre="lapiz" tam={14} /> Anotar números
-        </button>
+        {!conectado && boton}
       </div>
+      {!conectado && <p className="suave chico met-nota-carga">{NOTA_CARGA}</p>}
+      {conectado && (
+        <details className="met-det met-aparte">
+          <summary>¿Preferís cargarlos a mano?</summary>
+          <div className="met-acciones">{boton}</div>
+          <p className="suave chico met-nota-carga">{NOTA_CARGA}</p>
+        </details>
+      )}
       {abierto && (
         <FormularioAnotar
           canal={canal}
@@ -356,7 +390,7 @@ function FormularioAnotar({ canal, alCerrar, alGuardar }: { canal: CanalMetricas
   }
 
   return (
-    <form className="met-form" onSubmit={enviar} aria-label={`Anotar números de ${canal.texto}`}>
+    <form className="met-form" onSubmit={enviar} aria-label={`Cargar números de ${canal.texto}`}>
       <div className="met-form-fechas">
         <label>
           Desde
@@ -401,7 +435,10 @@ function lineaMetricas(p: PiezaCampana): string | null {
   return `${partes.join(" · ")} · ${fuente}`;
 }
 
-function TarjetaCampana({ campana, dias, alResumir }: { campana: Campana; dias: number; alResumir: (r: ResumenCampana) => void }) {
+/** Las campañas que no son un Proyecto: sus piezas se pueden mover a una campaña de verdad. */
+const MOVIBLES = ["sueltas", "frase_del_dia"];
+
+function TarjetaCampana({ campana, dias, alResumir, alMover }: { campana: Campana; dias: number; alResumir: (r: ResumenCampana) => void; alMover: () => void }) {
   const [guardado, setGuardado] = useState<ResumenCampana | null>(null);
   const [cargando, setCargando] = useState(false);
   const [nuevo, setNuevo] = useState(false);
@@ -433,9 +470,14 @@ function TarjetaCampana({ campana, dias, alResumir }: { campana: Campana; dias: 
     }
   }
 
-  const grupos = GRUPOS.filter((g) => (campana.por_estado[g.clave] ?? 0) > 0);
+  // (8/11, Franco) los borradores no son trabajo hecho: van plegados aparte y no entran en los chips ni en la tabla
+  const hechas = GRUPOS.filter((g) => g.clave !== "borrador");
+  const grupos = hechas.filter((g) => (campana.por_estado[g.clave] ?? 0) > 0);
   const filas = Object.entries(campana.por_canal);
-  const columnas = GRUPOS.filter((g) => filas.some(([, f]) => (f[g.clave] ?? 0) > 0));
+  const columnas = hechas.filter((g) => filas.some(([, f]) => (f[g.clave] ?? 0) > 0));
+  const borradores = campana.piezas.filter((p) => p.estado_grupo === "borrador");
+  const piezas = campana.piezas.filter((p) => p.estado_grupo !== "borrador");
+  const movible = MOVIBLES.includes(campana.id);
   const nombresCanal = new Map(campana.piezas.map((p) => [p.canal, p.canal_texto]));
 
   return (
@@ -449,7 +491,7 @@ function TarjetaCampana({ campana, dias, alResumir }: { campana: Campana; dias: 
       </header>
       <div className="met-chips">
         {grupos.length === 0 ? (
-          <span className="suave chico">Sin piezas en este período ({campana.piezas_total} en total).</span>
+          <span className="suave chico">{borradores.length > 0 ? "Todavía sin piezas hechas en este período." : `Sin piezas en este período (${campana.piezas_total} en total).`}</span>
         ) : (
           grupos.map((g) => <ChipEstado key={g.clave} estado={g.estado} texto={`${campana.por_estado[g.clave]} ${g.texto}`} />)
         )}
@@ -482,30 +524,14 @@ function TarjetaCampana({ campana, dias, alResumir }: { campana: Campana; dias: 
           </table>
         </div>
       )}
-      {campana.piezas.length > 0 && (
-        <Plegable titulo="Piezas" resumen={`${campana.piezas.length}`}>
-          <ul className="met-piezas">
-            {campana.piezas.map((p) => {
-              const linea = lineaMetricas(p);
-              return (
-                <li key={p.id}>
-                  <div className="met-pieza-cab">
-                    <strong>{p.titulo || "(sin título)"}</strong>
-                    <span className="suave chico">
-                      {p.canal_texto} · {diaCorto((p.fecha ?? "").slice(0, 10))}
-                    </span>
-                    <ChipEstado estado={GRUPOS.find((g) => g.clave === p.estado_grupo)?.estado ?? p.estado} texto={GRUPOS.find((g) => g.clave === p.estado_grupo)?.texto.replace(/s$/, "") ?? p.estado} icono={false} />
-                    {p.ver_url && (
-                      <a href={p.ver_url} target="_blank" rel="noopener noreferrer" className="chico">
-                        ver
-                      </a>
-                    )}
-                  </div>
-                  <div className="suave chico">{linea ?? "sin números"}</div>
-                </li>
-              );
-            })}
-          </ul>
+      {piezas.length > 0 && (
+        <Plegable titulo="Piezas" resumen={`${piezas.length}`}>
+          <ListaPiezas piezas={piezas} movible={movible} alMover={alMover} />
+        </Plegable>
+      )}
+      {borradores.length > 0 && (
+        <Plegable titulo={`${borradores.length} ${borradores.length === 1 ? "borrador" : "borradores"}`} resumen="sin contar como hechas">
+          <ListaPiezas piezas={borradores} movible={movible} alMover={alMover} />
         </Plegable>
       )}
 
@@ -522,6 +548,100 @@ function TarjetaCampana({ campana, dias, alResumir }: { campana: Campana; dias: 
         {guardado && !cargando && <ResumenVista key={guardado.capturado} r={guardado} abierto={nuevo} />}
       </div>
     </section>
+  );
+}
+
+function ListaPiezas({ piezas, movible, alMover }: { piezas: PiezaCampana[]; movible: boolean; alMover: () => void }) {
+  return (
+    <ul className="met-piezas">
+      {piezas.map((p) => {
+        const linea = lineaMetricas(p);
+        const g = GRUPOS.find((x) => x.clave === p.estado_grupo);
+        return (
+          <li key={p.id}>
+            <div className="met-pieza-cab">
+              <strong>{p.titulo || "(sin título)"}</strong>
+              <span className="suave chico">
+                {p.canal_texto} · {diaCorto((p.fecha ?? "").slice(0, 10))}
+              </span>
+              <ChipEstado estado={g?.estado ?? p.estado} texto={g?.texto.replace(/s$/, "") ?? p.estado} icono={false} />
+              {p.ver_url && (
+                <a href={p.ver_url} target="_blank" rel="noopener noreferrer" className="chico">
+                  ver
+                </a>
+              )}
+            </div>
+            <div className="suave chico">{linea ?? "sin números"}</div>
+            {movible && <MoverACampana pieza={p} alMover={alMover} />}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+const NUEVA = "__nueva";
+
+/** (8/11, Franco) «Mover a campaña» de una pieza suelta o de la Frase del día: elige un Proyecto de los que puede editar, o crea uno nuevo. */
+function MoverACampana({ pieza, alMover }: { pieza: PiezaCampana; alMover: () => void }) {
+  const [abierto, setAbierto] = useState(false);
+  const [proyectos, setProyectos] = useState<Proyecto[] | null>(null);
+  const [elegido, setElegido] = useState("");
+  const [nombre, setNombre] = useState("");
+  const [moviendo, setMoviendo] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function abrir() {
+    setAbierto((a) => !a);
+    if (proyectos) return;
+    try {
+      const r = await apiProyectos.listar();
+      setProyectos(r.proyectos.filter((p) => p.permiso !== "ver").sort((a, b) => a.nombre.localeCompare(b.nombre, "es")));
+    } catch (e) {
+      setError(mensaje(e, "No pude leer tus campañas."));
+    }
+  }
+
+  async function mover(e: FormEvent) {
+    e.preventDefault();
+    if (!elegido || (elegido === NUEVA && !nombre.trim())) return;
+    setMoviendo(true);
+    setError(null);
+    try {
+      const id = elegido === NUEVA ? (await apiProyectos.crear({ nombre: nombre.trim() })).id : elegido;
+      await apiProyectos.agregarItem(id, "pieza", pieza.id);
+      alMover();
+    } catch (err) {
+      setError(mensaje(err, "No pude mover la pieza a esa campaña."));
+      setMoviendo(false);
+    }
+  }
+
+  return (
+    <div className="met-mover">
+      <button type="button" className="boton chico sutil" onClick={abrir} aria-expanded={abierto}>
+        <IconoAdmin nombre="carpeta" tam={14} /> Mover a campaña
+      </button>
+      {abierto && (
+        <form className="met-mover-form" onSubmit={mover} aria-label={`Mover «${pieza.titulo || "pieza"}» a una campaña`}>
+          <select value={elegido} onChange={(e) => setElegido(e.target.value)} aria-label="Campaña de destino" disabled={!proyectos || moviendo}>
+            <option value="">{proyectos ? "Elegí una campaña…" : "Cargando…"}</option>
+            {(proyectos ?? []).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.emoji ? `${p.emoji} ` : ""}
+                {p.nombre}
+              </option>
+            ))}
+            <option value={NUEVA}>Nueva campaña…</option>
+          </select>
+          {elegido === NUEVA && <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre de la campaña" aria-label="Nombre de la campaña nueva" maxLength={80} autoFocus />}
+          <button type="submit" className="boton chico primario" disabled={moviendo || !elegido || (elegido === NUEVA && !nombre.trim())}>
+            {moviendo ? "Moviendo…" : "Mover"}
+          </button>
+        </form>
+      )}
+      {error && <AvisoError texto={error} />}
+    </div>
   );
 }
 
