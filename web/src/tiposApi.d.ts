@@ -182,6 +182,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/metricas/asesor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preguntar Al Asesor
+         * @description Conversa con el asesor de campañas. La conversación no se guarda: la web manda los últimos mensajes cada vez.
+         */
+        post: operations["preguntar_al_asesor_admin_metricas_asesor_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/metricas/asesor/apertura": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Apertura Asesor
+         * @description El mensaje proactivo del asesor al abrir la pestaña. Se genera una vez por día (hora Argentina); el resto del día devuelve el guardado.
+         */
+        get: operations["apertura_asesor_admin_metricas_asesor_apertura_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/metricas/campanas": {
         parameters: {
             query?: never;
@@ -253,7 +293,7 @@ export interface paths {
         put?: never;
         /**
          * Generar Resumen
-         * @description Genera un resumen nuevo de «¿cómo le fue a esta campaña?» con el modelo auxiliar y lo guarda. El uso queda a nombre de quien lo pidió.
+         * @description Genera un resumen nuevo de «¿cómo le fue a esta campaña?» (una pregunta fija al asesor) y lo guarda. El uso queda a nombre de quien lo pidió.
          */
         post: operations["generar_resumen_admin_metricas_resumen_post"];
         delete?: never;
@@ -2330,12 +2370,44 @@ export interface components {
             facebook: components["schemas"]["ResultadoCanal"];
             instagram: components["schemas"]["ResultadoCanal"];
         };
+        /** AperturaOut */
+        AperturaOut: {
+            /** Capturado */
+            capturado?: string | null;
+            /** Falto */
+            falto: string[];
+            /** Fuentes */
+            fuentes: string[];
+            /** Nuevo */
+            nuevo: boolean;
+            /** Texto */
+            texto: string;
+        };
         /** Aprobar */
         Aprobar: {
             /** Fecha */
             fecha?: string | null;
             /** Hora */
             hora?: string | null;
+        };
+        /** AsesorIn */
+        AsesorIn: {
+            /**
+             * Dias
+             * @default 90
+             */
+            dias: number;
+            /** Mensajes */
+            mensajes: components["schemas"]["api__metricas_rutas__Mensaje"][];
+        };
+        /** AsesorOut */
+        AsesorOut: {
+            /** Falto */
+            falto: string[];
+            /** Fuentes */
+            fuentes: string[];
+            /** Texto */
+            texto: string;
         };
         /** Body_subir_al_banco_banco_subir_post */
         Body_subir_al_banco_banco_subir_post: {
@@ -2792,16 +2864,6 @@ export interface components {
             por?: string | null;
             /** Ref */
             ref: string;
-        };
-        /** Mensaje */
-        Mensaje: {
-            /**
-             * Stream
-             * @default false
-             */
-            stream: boolean;
-            /** Texto */
-            texto: string;
         };
         /**
          * MetricasPieza
@@ -3302,6 +3364,26 @@ export interface components {
             /** Texto */
             texto?: string | null;
         };
+        /** Mensaje */
+        api__main__Mensaje: {
+            /**
+             * Stream
+             * @default false
+             */
+            stream: boolean;
+            /** Texto */
+            texto: string;
+        };
+        /** Mensaje */
+        api__metricas_rutas__Mensaje: {
+            /**
+             * Rol
+             * @enum {string}
+             */
+            rol: "usuario" | "asesor";
+            /** Texto */
+            texto: string;
+        };
         /** Compartir */
         api__proyectos__Compartir: {
             /**
@@ -3631,6 +3713,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActualizarResp"];
+                };
+            };
+        };
+    };
+    preguntar_al_asesor_admin_metricas_asesor_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AsesorIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AsesorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apertura_asesor_admin_metricas_asesor_apertura_get: {
+        parameters: {
+            query?: {
+                dias?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AperturaOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -4656,7 +4802,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Mensaje"];
+                "application/json": components["schemas"]["api__main__Mensaje"];
             };
         };
         responses: {

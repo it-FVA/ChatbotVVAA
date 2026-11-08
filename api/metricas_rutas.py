@@ -1,6 +1,6 @@
 """Métricas de campañas y canales (8/11, Franco; pedido de Beto: «que la app sea el centro de métricas de evolución de campañas»).
 Pestaña «Métricas» de Administración, solo admins. Contrato con la web: web/maquetas/metricas-contrato.md. La lógica está en
-metricas.py (campañas, canales, captura), metricas_meta.py (HTTP contra Meta) y metricas_resumen.py (el resumen con IA).
+metricas.py (campañas, canales, captura), metricas_meta.py (HTTP contra Meta) y metricas_asesor.py (el asesor de campañas con IA).
 
   GET  /admin/metricas/campanas?dias=90 | mes=AAAA-MM   campañas (Proyectos) con sus piezas por canal y por estado, y las métricas de cada pieza
   GET  /admin/metricas/canales                           una tarjeta por canal: estado de la conexión, últimos números, enlace y lo anotado a mano
@@ -8,14 +8,16 @@ metricas.py (campañas, canales, captura), metricas_meta.py (HTTP contra Meta) y
   PUT  /admin/metricas/manual                            anota números a mano de un canal o de una pieza (queda en usuarios_cambios, clave metricas_manual:<ref>)
   GET  /admin/metricas/resumen/{ref}                     el último resumen con IA de una campaña (id de proyecto o «sueltas»), o null
   POST /admin/metricas/resumen                           genera uno nuevo con el modelo auxiliar y lo guarda
+  GET  /admin/metricas/asesor/apertura?dias=90           el mensaje con que el asesor recibe al abrir la pestaña (se genera una vez por día)
+  POST /admin/metricas/asesor                            conversa con el asesor de campañas: {mensajes: [{rol, texto}], dias} → {texto, fuentes, falto}
 
 La tabla `metricas` se crea con api/migraciones/20261108_1200_metricas.sql (la corre Franco a mano). Sin ella, las lecturas dan 503
 con un texto que lo dice.
 """
 import os
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from . import auth
@@ -176,6 +178,27 @@ class ResumenIn(BaseModel):
     dias: int = Field(DIAS_DEFECTO, ge=1, le=365)
 
 
+class Mensaje(BaseModel):
+    rol: Literal["usuario", "asesor"]
+    texto: str
+
+
+class AsesorIn(BaseModel):
+    mensajes: list[Mensaje] = Field(..., min_length=1)       # los últimos 12 de la conversación; el último es del usuario
+    dias: int = Field(DIAS_DEFECTO, ge=1, le=365)
+
+
+class AsesorOut(BaseModel):
+    texto: str
+    fuentes: list[str]
+    falto: list[str]
+
+
+class AperturaOut(AsesorOut):
+    capturado: Optional[str] = None
+    nuevo: bool
+
+
 class ResumenOut(BaseModel):
     ref: str
     nombre: Optional[str] = None
@@ -239,24 +262,47 @@ def anotar_a_mano(datos: ManualIn, quien=Depends(auth.admin)):
     return fila
 
 
+def _asesor(fn, *a):
+    """Llama al asesor y traduce sus errores: sin clave de OpenAI 503, sin pregunta 400, sin campaña 404, falla del modelo 502."""
+    import metricas_asesor
+    if not db.disponible():
+        raise HTTPException(503, "Sin Supabase no hay de dónde sacar las campañas.")
+    try:
+        return fn(metricas_asesor, *a)
+    except metricas_asesor.ResumenNoDisponible as e:
+        raise HTTPException(503, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except LookupError as e:
+        raise HTTPException(404, str(e))
+    except RuntimeError as e:
+        msg = str(e)
+        raise HTTPException(503 if msg.startswith("Supabase") else 502, FALTA_TABLA + msg[:160] if msg.startswith("Supabase") else msg)
+
+
 @router.get("/resumen/{ref}", response_model=Optional[ResumenOut])
 def ver_resumen(ref: str, quien=Depends(auth.admin)):
     """El último resumen con IA guardado de la campaña (id de proyecto o «sueltas»), o null si todavía no hay."""
-    import metricas_resumen
-    return _leer(metricas_resumen.ultimo, ref)
+    import metricas_asesor
+    return _leer(metricas_asesor.ultimo, ref)
 
 
 @router.post("/resumen", response_model=ResumenOut)
 def generar_resumen(datos: ResumenIn, quien=Depends(auth.admin)):
-    """Genera un resumen nuevo de «¿cómo le fue a esta campaña?» con el modelo auxiliar y lo guarda. El uso queda a nombre de quien lo pidió."""
-    import metricas_resumen
-    if not db.disponible():
-        raise HTTPException(503, "Sin Supabase no hay de dónde sacar las campañas.")
-    try:
-        return metricas_resumen.generar(datos.ref, datos.dias, quien)
-    except metricas_resumen.ResumenNoDisponible as e:
-        raise HTTPException(503, str(e))
-    except LookupError as e:
-        raise HTTPException(404, str(e))
-    except RuntimeError as e:
-        raise HTTPException(502, str(e))
+    """Genera un resumen nuevo de «¿cómo le fue a esta campaña?» (una pregunta fija al asesor) y lo guarda. El uso queda a nombre de quien lo pidió."""
+    return _asesor(lambda m, *a: m.resumen_campana(*a), datos.ref, datos.dias, quien, _config())
+
+
+@router.get("/asesor/apertura", response_model=AperturaOut)
+def apertura_asesor(dias: int = Query(DIAS_DEFECTO, ge=1, le=365), quien=Depends(auth.admin)):
+    """El mensaje proactivo del asesor al abrir la pestaña. Se genera una vez por día (hora Argentina); el resto del día devuelve el guardado."""
+    return _asesor(lambda m, *a: m.apertura(*a), dias, quien, _config())
+
+
+@router.post("/asesor", response_model=AsesorOut)
+def preguntar_al_asesor(datos: AsesorIn, quien=Depends(auth.admin)):
+    """Conversa con el asesor de campañas. La conversación no se guarda: la web manda los últimos mensajes cada vez."""
+    from .admin_rutas import periodo as _periodo
+    msgs = [m.model_dump() for m in datos.mensajes][-12:]
+    r = _asesor(lambda m, *a: m.responder(*a), msgs, _periodo(datos.dias, None), quien, _config())
+    return {k: r[k] for k in ("texto", "fuentes", "falto")}

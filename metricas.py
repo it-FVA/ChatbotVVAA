@@ -1,7 +1,7 @@
 """
 metricas.py — Métricas de campañas y canales (8/11, Franco; pedido de Beto: «que la app sea el centro de métricas de evolución de
 campañas»). Contrato con la web: web/maquetas/metricas-contrato.md. Las rutas viven en api/metricas_rutas.py; el HTTP contra Meta,
-en metricas_meta.py; el resumen con IA, en metricas_resumen.py; la tabla, en db/metricas.py (migración 20261108_1200_metricas.sql).
+en metricas_meta.py; el asesor de campañas con IA, en metricas_asesor.py; la tabla, en db/metricas.py (migración 20261108_1200_metricas.sql).
 
 Dos preguntas, dos mitades:
   1. «Cuánto hicimos» sale de nuestra base, sin APIs: campanas(periodo) cruza proyectos + proyecto_items (tipo «pieza» →

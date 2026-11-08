@@ -2,7 +2,7 @@
 ### 8/11 · Métricas (API)
 Pedido de Beto, decisión de Franco: la app como centro de métricas de campañas. Contrato en `web/maquetas/metricas-contrato.md`; la pantalla web la construye otra sesión contra el mismo contrato.
 
-**Quedó hecho (rama `claude/metricas-api-e073a1`):** migración `api/migraciones/20261108_1200_metricas.sql` (tabla `metricas`, índice, RLS, política `cola_todo`), `db/metricas.py`, `metricas.py` (campañas, canales, captura, carga a mano), `metricas_meta.py` (HTTP contra Meta), `metricas_resumen.py` (resumen con IA), `api/metricas_rutas.py` (`/admin/metricas/*`, solo admins), captura cada hora desde `procesar_cola.py` (no corre con `--simular`), 24 pruebas nuevas en `api/tests/test_metricas.py`, OpenAPI y `tiposApi.d.ts` regenerados.
+**Quedó hecho (rama `claude/metricas-api-e073a1`):** migración `api/migraciones/20261108_1200_metricas.sql` (tabla `metricas`, índice, RLS, política `cola_todo`), `db/metricas.py`, `metricas.py` (campañas, canales, captura, carga a mano), `metricas_meta.py` (HTTP contra Meta), `metricas_asesor.py` (asesor de campañas con IA: conversa, apertura diaria y resumen por campaña), `api/metricas_rutas.py` (`/admin/metricas/*`, solo admins), captura cada hora desde `procesar_cola.py` (no corre con `--simular`), 27 pruebas nuevas en `api/tests/test_metricas.py`, OpenAPI y `tiposApi.d.ts` regenerados.
 
 **Falta (en este orden):**
 1. **Correr la migración a mano** en el SQL Editor de Supabase y registrarla con `python api/migrar.py --registrar 20261108_1200_metricas`. Sin ella, `/campanas`, `/canales` y `/resumen` dan 503 con un texto que lo dice.

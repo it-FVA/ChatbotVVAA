@@ -35,6 +35,51 @@
     "title": "ActualizarResp",
     "type": "object"
    },
+   "AperturaOut": {
+    "properties": {
+     "capturado": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Capturado"
+     },
+     "falto": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Falto",
+      "type": "array"
+     },
+     "fuentes": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Fuentes",
+      "type": "array"
+     },
+     "nuevo": {
+      "title": "Nuevo",
+      "type": "boolean"
+     },
+     "texto": {
+      "title": "Texto",
+      "type": "string"
+     }
+    },
+    "required": [
+     "texto",
+     "fuentes",
+     "falto",
+     "nuevo"
+    ],
+    "title": "AperturaOut",
+    "type": "object"
+   },
    "Aprobar": {
     "properties": {
      "fecha": {
@@ -61,6 +106,59 @@
      }
     },
     "title": "Aprobar",
+    "type": "object"
+   },
+   "AsesorIn": {
+    "properties": {
+     "dias": {
+      "default": 90,
+      "maximum": 365.0,
+      "minimum": 1.0,
+      "title": "Dias",
+      "type": "integer"
+     },
+     "mensajes": {
+      "items": {
+       "$ref": "#/components/schemas/api__metricas_rutas__Mensaje"
+      },
+      "minItems": 1,
+      "title": "Mensajes",
+      "type": "array"
+     }
+    },
+    "required": [
+     "mensajes"
+    ],
+    "title": "AsesorIn",
+    "type": "object"
+   },
+   "AsesorOut": {
+    "properties": {
+     "falto": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Falto",
+      "type": "array"
+     },
+     "fuentes": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Fuentes",
+      "type": "array"
+     },
+     "texto": {
+      "title": "Texto",
+      "type": "string"
+     }
+    },
+    "required": [
+     "texto",
+     "fuentes",
+     "falto"
+    ],
+    "title": "AsesorOut",
     "type": "object"
    },
    "Body_subir_al_banco_banco_subir_post": {
@@ -1396,24 +1494,6 @@
      "datos"
     ],
     "title": "ManualOut",
-    "type": "object"
-   },
-   "Mensaje": {
-    "properties": {
-     "stream": {
-      "default": false,
-      "title": "Stream",
-      "type": "boolean"
-     },
-     "texto": {
-      "title": "Texto",
-      "type": "string"
-     }
-    },
-    "required": [
-     "texto"
-    ],
-    "title": "Mensaje",
     "type": "object"
    },
    "MetricasPieza": {
@@ -3074,6 +3154,46 @@
     "title": "Edicion",
     "type": "object"
    },
+   "api__main__Mensaje": {
+    "properties": {
+     "stream": {
+      "default": false,
+      "title": "Stream",
+      "type": "boolean"
+     },
+     "texto": {
+      "title": "Texto",
+      "type": "string"
+     }
+    },
+    "required": [
+     "texto"
+    ],
+    "title": "Mensaje",
+    "type": "object"
+   },
+   "api__metricas_rutas__Mensaje": {
+    "properties": {
+     "rol": {
+      "enum": [
+       "usuario",
+       "asesor"
+      ],
+      "title": "Rol",
+      "type": "string"
+     },
+     "texto": {
+      "title": "Texto",
+      "type": "string"
+     }
+    },
+    "required": [
+     "rol",
+     "texto"
+    ],
+    "title": "Mensaje",
+    "type": "object"
+   },
    "api__proyectos__Compartir": {
     "properties": {
      "permiso": {
@@ -3552,6 +3672,94 @@
     ]
    }
   },
+  "/admin/metricas/asesor": {
+   "post": {
+    "description": "Conversa con el asesor de campañas. La conversación no se guarda: la web manda los últimos mensajes cada vez.",
+    "operationId": "preguntar_al_asesor_admin_metricas_asesor_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AsesorIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AsesorOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Preguntar Al Asesor",
+    "tags": [
+     "metricas"
+    ]
+   }
+  },
+  "/admin/metricas/asesor/apertura": {
+   "get": {
+    "description": "El mensaje proactivo del asesor al abrir la pestaña. Se genera una vez por día (hora Argentina); el resto del día devuelve el guardado.",
+    "operationId": "apertura_asesor_admin_metricas_asesor_apertura_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "dias",
+      "required": false,
+      "schema": {
+       "default": 90,
+       "maximum": 365,
+       "minimum": 1,
+       "title": "Dias",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AperturaOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Apertura Asesor",
+    "tags": [
+     "metricas"
+    ]
+   }
+  },
   "/admin/metricas/campanas": {
    "get": {
     "description": "Campañas con sus piezas del período (90 días por defecto), agrupadas por estado y canal, y la última métrica de cada pieza.",
@@ -3684,7 +3892,7 @@
   },
   "/admin/metricas/resumen": {
    "post": {
-    "description": "Genera un resumen nuevo de «¿cómo le fue a esta campaña?» con el modelo auxiliar y lo guarda. El uso queda a nombre de quien lo pidió.",
+    "description": "Genera un resumen nuevo de «¿cómo le fue a esta campaña?» (una pregunta fija al asesor) y lo guarda. El uso queda a nombre de quien lo pidió.",
     "operationId": "generar_resumen_admin_metricas_resumen_post",
     "requestBody": {
      "content": {
@@ -4912,7 +5120,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/Mensaje"
+        "$ref": "#/components/schemas/api__main__Mensaje"
        }
       }
      },

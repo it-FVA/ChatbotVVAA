@@ -1,4 +1,4 @@
-"""(8/11, Franco) Métricas de campañas y canales (api/metricas_rutas.py, metricas.py, metricas_meta.py, metricas_resumen.py)
+"""(8/11, Franco) Métricas de campañas y canales (api/metricas_rutas.py, metricas.py, metricas_meta.py, metricas_asesor.py)
 con una Supabase simulada (monkeypatch sobre db), Meta simulado (monkeypatch sobre metricas_meta._http / las funciones de insights)
 y el cliente de OpenAI simulado. Sin red, sin claves."""
 import datetime as dt, json, types
@@ -8,7 +8,7 @@ import pytest
 import db
 import metricas
 import metricas_meta
-import metricas_resumen
+import metricas_asesor
 import nucleo
 
 AHORA = dt.datetime.now(dt.timezone.utc)
@@ -433,14 +433,16 @@ def test_resumen(logueado, mundo, monkeypatch):
     d = r.json()
     assert d["ref"] == "A" and d["nombre"] == "Lo común nos convoca" and d["texto"].startswith("A la campaña le fue bien")
     assert d["comparado_con"] == "Polarizaciones"                                    # calculado de los datos, no lo que dijo el modelo
-    assert d["fuentes"] == [f"Instagram (desde la plataforma, {metricas_resumen._dia(hace(1))})"]
+    assert d["fuentes"] == [f"Instagram (desde la plataforma, {metricas_asesor._dia(hace(1))})"]
     assert "YouTube: sin datos" in d["falto"] and any("Facebook: sin datos" in f for f in d["falto"])
     assert d["modelo"] == nucleo._modelo() and d["capturado"]
     # el pedido lleva las piezas, sus métricas con la fuente y la guía recortada
-    pedido = cl.pedidos[0]["messages"][1]["content"]
+    sistema = cl.pedidos[0]["messages"][0]["content"]
+    assert cl.pedidos[0]["messages"][-1] == {"role": "user", "content": "¿Cómo le fue a la campaña Lo común nos convoca?"}
+    pedido = sistema
     assert "Pieza 1" in pedido and "alcance 120" in pedido and "desde la plataforma" in pedido and "sin métricas" in pedido
     assert "Los tres errores" in pedido and "## Instagram" in pedido and "## Facebook" in pedido and "## YouTube" not in pedido
-    assert "Campaña anterior del mismo dueño: Polarizaciones" in pedido
+    assert "Campaña anterior del mismo dueño: ### Polarizaciones" in pedido and "CANALES" in pedido
     # uso registrado como auxiliar, a nombre de quien lo pidió
     assert usos == [(nucleo._modelo(), "auxiliar", "franco", 900)]
     # la fila quedó guardada y el GET la devuelve
@@ -450,7 +452,7 @@ def test_resumen(logueado, mundo, monkeypatch):
     # sin ninguna métrica igual responde
     r = logueado.post("/admin/metricas/resumen", json={"ref": "sueltas"})
     assert r.status_code == 200 and r.json()["fuentes"] == [] and r.json()["comparado_con"] is None
-    assert "ninguna" in cl.pedidos[1]["messages"][1]["content"]
+    assert "ninguna" in cl.pedidos[1]["messages"][0]["content"]
 
 
 def test_resumen_errores(logueado, mundo, monkeypatch):
@@ -466,19 +468,83 @@ def test_resumen_errores(logueado, mundo, monkeypatch):
 
 
 def test_tramos_de_la_guia():
-    g = metricas_resumen.tramos_guia(["instagram"])
+    g = metricas_asesor.tramos_guia(["instagram"])
     assert "## Instagram" in g and "## Facebook" not in g and "Los tres errores" in g and "## Resumen" in g
     assert "Reel." in g
+
+
+# ---------------- asesor de campañas ----------------
+def _asesor_listo(monkeypatch, contenido=None):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-prueba")
+    cl = _ClienteFalso(contenido or json.dumps({"texto": "Esta semana se movió *Lo común nos convoca*.", "fuentes": ["inventada"], "falto": ["Cargar YouTube"]}))
+    monkeypatch.setattr(nucleo, "_get_client", lambda: cl)
+    usos = []
+    monkeypatch.setattr(nucleo, "_registrar_uso", lambda modelo, usage, que: usos.append((que, nucleo.USUARIO.get())))
+    return cl, usos
+
+
+def test_asesor_conversa(logueado, mundo, monkeypatch):
+    cl, usos = _asesor_listo(monkeypatch)
+    mundo["filas"].append({"id": "x1", "ambito": "pieza", "ref": "pub-1", "canal": "instagram", "fuente": "api", "capturado": hace(1), "datos": {"alcance": 120}})
+    mundo["filas"].append({"id": "c1", "ambito": "canal", "ref": "instagram", "canal": "instagram", "fuente": "api", "capturado": hace(0, 2),
+                           "periodo_desde": "2026-10-10", "periodo_hasta": "2026-11-08", "datos": {"seguidores": 3400, "crudo": {}, "errores": []}})
+    msgs = [{"rol": "usuario", "texto": "¿Cómo nos fue?"}, {"rol": "asesor", "texto": "Bien."}, {"rol": "usuario", "texto": "¿Qué canal conviene?"}]
+    r = logueado.post("/admin/metricas/asesor", json={"mensajes": msgs, "dias": 90})
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert set(d) == {"texto", "fuentes", "falto"} and d["texto"].startswith("Esta semana")
+    assert d["fuentes"] == [f"Instagram (desde la plataforma, {metricas_asesor._dia(hace(1))})"] and "Cargar YouTube" in d["falto"]
+    enviados = cl.pedidos[0]["messages"]
+    assert [m["role"] for m in enviados] == ["system", "user", "assistant", "user"] and enviados[-1]["content"] == "¿Qué canal conviene?"
+    ctx = enviados[0]["content"]
+    assert "Lo común nos convoca" in ctx and "alcance 120" in ctx and "seguidores 3400" in ctx and "PIEZAS SIN CAMPAÑA" in ctx and "## Instagram" in ctx
+    assert "Hoy es" in ctx and "Los tres errores" in ctx
+    assert usos == [("auxiliar", "franco")]
+    assert [f for f in mundo["filas"] if f["ambito"] == "resumen"] == []                  # la conversación no se guarda
+    # tope de 12 mensajes
+    muchos = [{"rol": "usuario" if i % 2 == 0 else "asesor", "texto": f"m{i}"} for i in range(30)] + [{"rol": "usuario", "texto": "última"}]
+    assert logueado.post("/admin/metricas/asesor", json={"mensajes": muchos}).status_code == 200
+    assert len(cl.pedidos[1]["messages"]) == 1 + 12
+
+
+def test_asesor_errores(logueado, mundo, monkeypatch):
+    assert logueado.post("/admin/metricas/asesor", json={"mensajes": []}).status_code == 422
+    assert logueado.post("/admin/metricas/asesor", json={"mensajes": [{"rol": "otro", "texto": "x"}]}).status_code == 422
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    r = logueado.post("/admin/metricas/asesor", json={"mensajes": [{"rol": "usuario", "texto": "hola"}]})
+    assert r.status_code == 503 and r.json()["detail"] == "El resumen con IA no está disponible ahora"
+    _asesor_listo(monkeypatch)
+    assert logueado.post("/admin/metricas/asesor", json={"mensajes": [{"rol": "usuario", "texto": "hola"}, {"rol": "asesor", "texto": "chau"}]}).status_code == 400
+    assert logueado.get("/admin/metricas/asesor/apertura?dias=0").status_code == 422
+
+
+def test_apertura_una_vez_por_dia(logueado, mundo, monkeypatch):
+    cl, usos = _asesor_listo(monkeypatch)
+    r = logueado.get("/admin/metricas/asesor/apertura")
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["nuevo"] is True and d["texto"].startswith("Esta semana") and d["capturado"]
+    assert len(cl.pedidos) == 1 and "últimos 7 días" in cl.pedidos[0]["messages"][-1]["content"]
+    f = [x for x in mundo["filas"] if x["ambito"] == "resumen"]
+    assert len(f) == 1 and f[0]["ref"] == "apertura" and f[0]["fuente"] == "ia"
+    # segunda vez, mismo día: sin modelo
+    d2 = logueado.get("/admin/metricas/asesor/apertura").json()
+    assert d2["nuevo"] is False and d2["texto"] == d["texto"] and len(cl.pedidos) == 1 and len(usos) == 1
+    # si la guardada es de ayer, genera una nueva
+    f[0]["capturado"] = hace(1, 1)
+    d3 = logueado.get("/admin/metricas/asesor/apertura").json()
+    assert d3["nuevo"] is True and len(cl.pedidos) == 2
 
 
 # ---------------- permisos ----------------
 def test_solo_admins(cliente, mundo):
     rutas = [("get", "/admin/metricas/campanas"), ("get", "/admin/metricas/canales"), ("post", "/admin/metricas/actualizar"),
-             ("put", "/admin/metricas/manual"), ("get", "/admin/metricas/resumen/A"), ("post", "/admin/metricas/resumen")]
+             ("put", "/admin/metricas/manual"), ("get", "/admin/metricas/resumen/A"), ("post", "/admin/metricas/resumen"),
+             ("get", "/admin/metricas/asesor/apertura"), ("post", "/admin/metricas/asesor")]
     for m, ruta in rutas:
         assert getattr(cliente, m)(ruta).status_code == 401
     cliente.post("/login", json={"usuario": "lizzie", "clave": "clave-lizzie"})
     for m, ruta in rutas:
-        kw = {"json": {"ambito": "canal", "ref": "instagram", "datos": {"alcance": 1}}} if m == "put" else ({"json": {"ref": "A"}} if m == "post" else {})
+        kw = {"json": {"ambito": "canal", "ref": "instagram", "datos": {"alcance": 1}}} if m == "put" else ({"json": {"mensajes": [{"rol": "usuario", "texto": "hola"}]}} if ruta.endswith("/asesor") else ({"json": {"ref": "A"}} if m == "post" else {}))
         assert getattr(cliente, m)(ruta, **kw).status_code == 403, ruta
     assert mundo["filas"] == []
