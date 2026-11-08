@@ -492,9 +492,31 @@ Tenés la herramienta proponer_publicacion: prepara, debajo de tu respuesta, un 
 - Después de llamarla, respondé en una o dos líneas ("Abajo tenés el recuadro para ajustar y publicar"); no repitas la pieza."""
 
 
+# Criterio de marketing digital del chat (8/11, Beto, tarjeta Trello 99). Resumen de
+# fuentes/guia_canales.md: si cambia ese documento hay que rehacer este resumen a mano
+# (el chat no lee el documento entero para no agrandar la consigna). Constante aparte
+# para poder medirla (len) y probarla sin armar todo el system message.
+GUIA_CANALES_RESUMEN = """
+═══ QUÉ FORMATO PARA QUÉ (guía de canales, Beto 10/2026) ═══
+Dos preguntas ordenan todo. 1) ¿El canal es propio o prestado? Propios: newsletter, WhatsApp y sitio (lo que mandamos llega, la lista es nuestra). Prestados: Instagram, Facebook, YouTube, TikTok (un algoritmo decide a quién le llegamos). El objetivo de la Fundación es ganar gente propia (mail y WhatsApp): lo prestado sirve para que nos encuentren, y todo lo que sale ahí debería terminar invitando a entrar a lo propio.
+2) ¿Qué función cumple el formato? Casi todos hacen bien UNA sola: alcance (mostrarnos a quien no nos conoce: reel, short), profundidad (que quien llegó se quede: carrusel, video largo, artículo, podcast), conversación (hablar con los que ya están: historia, grupo, WhatsApp) o permanencia (que se encuentre en dos años: YouTube, sitio).
+Qué hace bien cada uno:
+- Post de Instagram: la tarjeta, una imagen que se lee en dos segundos; la ven sobre todo los que ya nos siguen. Carrusel: desarrolla (la acción, la cita de Br. David, el texto); cada deslizada suma tiempo de lectura.
+- Reel: el único formato de Instagram que se muestra a gente que no nos sigue. Clip del archivo de 30 a 45 segundos con subtítulos en la imagen, y que se entienda sin contexto (si necesita contexto, no sirve).
+- Historia: dura 24 horas y la ven los que ya nos siguen. Sirve para preguntar y conversar (encuestas, cajita de preguntas), no para crecer.
+- Facebook: la misma tarjeta de Instagram, el mismo día. Grupos para conversar, eventos para convocar a algo presencial. Público de 35 para arriba.
+- YouTube: es un buscador y el archivo de la Fundación. Video largo para charlas y Ecos, short = el mismo clip del reel, listas por tema, capítulos y subtítulos.
+- Newsletter: el canal más valioso. Diario la Frase del Día, semanal con una idea y la cita entera con link al texto, secuencia de bienvenida para quien se suscribe.
+- WhatsApp: llega a todas las edades. La acción de la semana, grupo, canal, lista de difusión, estados. No sirve para campañas compartidas con Europa.
+- Sitio: artículos, página de campaña y buscador del corpus; es el destino de todo lo demás.
+Tres errores: pedirle alcance a una historia, hacer un reel que solo entienden los de adentro, y producir distinto para cada canal. Regla: se produce una vez y se publica en cinco lugares (el mismo clip es reel, short y estado de WhatsApp; la misma tarjeta es post de Instagram y de Facebook).
+Cómo usarlo: cuando la persona piensa una campaña o pregunta por dónde salir, recomendá formato por canal con este criterio y decí por qué en una línea cada uno. Nunca propongas producir algo distinto para cada canal. Es criterio para elegir formato, no material de Br. David: no lo cites como fuente."""
+
+
 def system_msg():
     """El system message: el unificado (SYSTEM_MSG_V2) más las reglas y datos fijos comunes."""
-    msg = SYSTEM_MSG_V2.replace("{DISTINCIONES}", _bloque_distinciones()) + "\n" + _REGLA_TEXTO_PROPIO + "\n" + _REGLA_PUBLICAR
+    msg = (SYSTEM_MSG_V2.replace("{DISTINCIONES}", _bloque_distinciones()) + "\n" + _REGLA_TEXTO_PROPIO
+           + "\n" + _REGLA_PUBLICAR + "\n" + GUIA_CANALES_RESUMEN)
     df = datos_fijos()
     if df:
         msg += ("\n\n═══ DATOS FIJOS DE LA FUNDACIÓN ═══\n"
