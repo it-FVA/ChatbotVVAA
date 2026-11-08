@@ -130,7 +130,7 @@ juntos como `sitio` (texto «Sitio web»), whatsapp. `api`:
 - whatsapp: `no_hay`, nota «WhatsApp no da métricas de grupos».
 
 Enlaces: Instagram y Facebook → `https://business.facebook.com/latest/insights/overview`; YouTube → `https://studio.youtube.com/`
-(«Abrir YouTube Studio → Estadísticas»); mail → `https://app.myperfit.com/`; sitio → `https://wordpress.com/stats/day/<WP_SITE>`;
+(«Abrir YouTube Studio»; 8/11 v2: los textos de enlace son «Ver en Perfit», «Ver en WordPress.com» y «Abrir YouTube Studio»); mail → `https://app.myperfit.com/`; sitio → `https://wordpress.com/stats/day/<WP_SITE>`;
 whatsapp → null.
 
 ### `POST /admin/metricas/actualizar`
@@ -228,3 +228,55 @@ fue?», «¿esta campaña rindió mejor que la anterior?», «¿qué canal convi
   preguntado el usuario.
 - Ayuda: el panel del asesor es el primer paso de la guía («Preguntale al asesor cómo vienen las campañas: te responde con los
   números y de dónde salen»). Sigue valiendo el límite de 6 pasos / 120 palabras.
+
+## Agregado del 8/11 (Franco, tarde): Métricas v2
+
+Cinco mejoras que pidió Franco al ver la pestaña en producción. Rama `claude/metricas-v2`.
+
+### Asesor más profundo (`metricas_asesor.py`)
+
+- El bloque de cada campaña que ve el modelo suma listas **nombradas**: «Programadas» y «En aprobación» con título, canal, fecha/hora
+  relativa en hora Argentina («mañana 10:00 (9/11)») y quién (`de pato`); «Publicadas en los últimos 7 días» con título, canal y fecha.
+  Hasta 15 por lista. Después, el detalle de piezas con sus números (ahora con «de <usuario>»).
+- Los **borradores** no se nombran ni cuentan como hechos: solo un conteo «aparte: N borradores».
+- La apertura nombra las cosas por campaña («quedan programadas X (Instagram, mañana 10:00, de Pato)…», «esta semana salieron…»), después
+  los números con su fuente y lo que falta cargar. Límite: **350 palabras** (`LIMITE_APERTURA`); las preguntas libres siguen en 250
+  (`LIMITE_PALABRAS`) pero ven las mismas listas. `responder(..., limite=…)`.
+
+### Campaña virtual «Frase del día (automática)»
+
+`metricas.campanas` agrupa las piezas cuyo `usuario` está en `admin_rutas.SERVICIO` (frase_del_dia, bot, cola, prueba) y que no están en
+ningún Proyecto en una campaña `{id: "frase_del_dia", nombre: "Frase del día (automática)", emoji: "📅", dueno: null, color: null, creado: null,
+piezas_total, por_canal, por_estado, primera, ultima, piezas}` con la misma forma que las demás. Va **después de las campañas reales y antes de
+«Sin campaña»** (dentro de `campanas`), y solo aparece si tiene piezas en el período. Una pieza de esos usuarios que sí está en un Proyecto se
+queda en el Proyecto. El asesor la trata como una campaña más (puede comparar sus historias con las de una campaña hecha por personas).
+`GET /admin/metricas/resumen/frase_del_dia` y `POST /admin/metricas/resumen` con `ref: "frase_del_dia"` funcionan (`comparado_con` siempre null).
+
+### Configuración: `metricas_excluir_usuarios`
+
+Clave de `admin_rutas.CLAVES_CONFIG` (tabla `config`), lista de usuarios; **vacía por defecto, nadie en el código**. `PUT /admin/config` acepta
+una lista o texto separado por líneas/comas, y valida que cada usuario exista en la tabla `usuarios` (400 «No existe el usuario «x».»).
+`metricas.campanas` (y por lo tanto el asesor) ignora las piezas de esos usuarios, en campañas y en totales; `canales_estado` no cambia.
+Pantalla: Configuración → bloque «Métricas» (un usuario por línea).
+
+### `totales` y borradores
+
+`totales.piezas` = publicada + programada + en_aprobacion («piezas hechas»). `borrador`, `prueba` y `no_salio` siguen viniendo como conteos y la
+web los muestra aparte («Aparte: N en prueba, M borradores.»). `totales.por_canal` cuenta solo las piezas hechas. En cada tarjeta de campaña los
+borradores van en un plegable propio («3 borradores») y no entran en los chips ni en la tabla por canal. `Campana.piezas_total` sigue incluyéndolos.
+
+### Mover a campaña desde Métricas
+
+En «Sin campaña» y en «Frase del día (automática)», cada pieza tiene «Mover a campaña»: un selector con los Proyectos que la persona puede editar
+(`GET /proyectos`, permiso distinto de «ver») y «Nueva campaña…» (pide un nombre y hace `POST /proyectos`). Al elegir llama
+`POST /proyectos/{id}/items` con `{tipo: "pieza", item_id}` y recarga las campañas. Si `agregar_item` lo rechaza (un admin puede no ser dueño
+del Proyecto, o la pieza ser ajena y no compartida), se muestra el texto del error tal como viene, en castellano. **No se agregó
+`proyectos_disponibles` a `/admin/metricas/campanas`**: `GET /proyectos` ya da lo necesario. No se reutilizó `MoverA.tsx` (modal con árbol de carpetas que
+depende del contexto `ProyectosProvider`); se hizo un selector chico dentro de la pantalla.
+
+### Canales: enlaces y carga a mano
+
+- Donde la API no hay (`api: "no_hay"`) y el canal tiene enlace, el chip «se mira en la plataforma» es el enlace mismo (texto = `enlace_texto`), además del botón de siempre.
+- El botón pasa a «Cargar números a mano» con la línea gris «Para lo que la plataforma no nos deja leer solo: copiá acá lo que ves en sus estadísticas, con el período.».
+  En los canales con `api: "disponible"` queda escondido dentro de un «¿Preferís cargarlos a mano?».
+- La ayuda (`definirAyuda("metricas")`) se actualizó sin pasar los límites.
