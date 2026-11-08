@@ -33,7 +33,7 @@ type Periodo = { dias?: number; mes?: string };
 interface Turno extends MensajeAsesor {
   fuentes?: string[];
   falto?: string[];
-  capturado?: string;
+  capturado?: string | null;
 }
 
 const ICONO_CANAL: Record<string, NombreIcono> = { instagram: "imagen", facebook: "usuarios", youtube: "pelicula", mail: "sobre", sitio: "casa", whatsapp: "celular" };
@@ -85,7 +85,7 @@ function grandes(d: DatosMetricas): [string, number][] {
   return out;
 }
 
-function rango(desde: string | null, hasta: string | null) {
+function rango(desde?: string | null, hasta?: string | null) {
   if (desde && hasta) return `${diaCorto(desde)} al ${diaCorto(hasta)}`;
   return desde ? `desde el ${diaCorto(desde)}` : hasta ? `hasta el ${diaCorto(hasta)}` : "";
 }
@@ -99,7 +99,7 @@ const GRUPOS: { clave: GrupoEstado; estado: string; texto: string; columna: stri
   { clave: "no_salio", estado: "error", texto: "no salieron", columna: "No salieron" },
 ];
 
-function textoActualizar(nombre: string, r: { ok: boolean; piezas: number; error: string | null }) {
+function textoActualizar(nombre: string, r: { ok: boolean; piezas: number; error?: string | null }) {
   if (r.ok) return `${nombre}: ${r.piezas} ${r.piezas === 1 ? "pieza leída" : "piezas leídas"}`;
   return `${nombre}: ${/permiso|autorizar/i.test(r.error ?? "") ? "falta un permiso en la conexión" : "no pude leer los números"}`;
 }
@@ -439,7 +439,7 @@ function TarjetaCampana({ campana, dias, alResumir }: { campana: Campana; dias: 
   const nombresCanal = new Map(campana.piezas.map((p) => [p.canal, p.canal_texto]));
 
   return (
-    <section className="tarjeta met-campana" data-ayuda="metricas.campana" aria-label={campana.nombre}>
+    <section className="tarjeta met-campana" data-ayuda="metricas.campana" aria-label={campana.nombre ?? undefined}>
       <header className="met-campana-cab">
         <h3 style={campana.color ? { borderLeft: `4px solid ${campana.color}`, paddingLeft: 8 } : undefined}>
           {campana.emoji && <span aria-hidden="true">{campana.emoji} </span>}
@@ -492,7 +492,7 @@ function TarjetaCampana({ campana, dias, alResumir }: { campana: Campana; dias: 
                   <div className="met-pieza-cab">
                     <strong>{p.titulo || "(sin título)"}</strong>
                     <span className="suave chico">
-                      {p.canal_texto} · {diaCorto(p.fecha.slice(0, 10))}
+                      {p.canal_texto} · {diaCorto((p.fecha ?? "").slice(0, 10))}
                     </span>
                     <ChipEstado estado={GRUPOS.find((g) => g.clave === p.estado_grupo)?.estado ?? p.estado} texto={GRUPOS.find((g) => g.clave === p.estado_grupo)?.texto.replace(/s$/, "") ?? p.estado} icono={false} />
                     {p.ver_url && (

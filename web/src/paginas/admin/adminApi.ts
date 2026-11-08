@@ -2,6 +2,7 @@
 // pisar a las otras pantallas que se construyen en paralelo; usa la misma cookie de sesión y el mismo manejo de errores.
 // (3/11, revisión 5.3 punto 17) el cliente HTTP es el de src/api.ts; acá quedan los tipos y las llamadas de una línea.
 import { pedir } from "../../api";
+import type { components } from "../../tiposApi";
 
 export type Estado = "ok" | "aviso" | "error" | "sin_dato" | "arranque" | string;
 
@@ -262,112 +263,55 @@ export interface CambioRegistro {
   detalle: Record<string, unknown> | null;
 }
 
-// (8/11, Franco) Métricas: contrato en web/maquetas/metricas-contrato.md. (8/11) provisionales: cuando la API esté mergeada se reemplazan por `components["schemas"]` de tiposApi.d.ts
+// (8/11, Franco) Métricas: contrato en web/maquetas/metricas-contrato.md. (8/11) Los tipos son alias de `components["schemas"]` de tiposApi.d.ts; donde el esquema generado es más laxo que lo que la pantalla necesita (uniones literales que el OpenAPI trae como `string`, diccionarios con `unknown`), el alias lo ajusta con una intersección y lo dice.
+type Esq = components["schemas"];
+
+// (8/11) el esquema trae `estado_grupo` como `string`; la pantalla indexa `PorGrupo` con él, así que la unión literal se mantiene acá
 export type GrupoEstado = "publicada" | "programada" | "en_aprobacion" | "borrador" | "prueba" | "no_salio";
 export type PorGrupo = Record<GrupoEstado, number>;
+// (8/11) `datos` viene como `{[k]: unknown}` (números normalizados + `crudo` + `errores`); la pantalla lee números, `crudo` y `errores`
 export type DatosMetricas = Partial<Record<string, number>> & { crudo?: Record<string, unknown>; errores?: string[] };
 
-export interface PiezaCampana {
-  id: string;
-  canal: string;
-  canal_texto: string;
-  titulo: string;
-  estado: string;
+// (8/11) ajustes sobre PiezaCampana: `estado_grupo` literal, `formato` literal y `metricas.fuente` literal (el esquema los trae como `string`)
+export type PiezaCampana = Omit<Esq["PiezaCampana"], "estado_grupo" | "formato" | "metricas"> & {
   estado_grupo: GrupoEstado;
-  fecha: string;
-  ver_url: string | null;
-  formato: "historia" | "cuadrado" | "reel" | "carrusel" | null;
-  usuario: string;
-  modo: string;
-  metricas?: (Partial<Record<string, number>> & { fuente?: "api" | "manual"; capturado?: string }) | null;
-}
+  formato?: "historia" | "cuadrado" | "reel" | "carrusel" | null;
+  metricas?: (Esq["MetricasPieza"] & { fuente: "api" | "manual" }) | null;
+};
 
-export interface Campana {
-  id: string;
-  nombre: string;
-  emoji: string | null;
-  color: string | null;
-  dueno: string | null;
-  creado: string | null;
-  piezas_total: number;
+// (8/11) ajustes sobre Campana: `piezas` con la PiezaCampana ajustada; `por_canal` y `por_estado` como PorGrupo (el esquema trae diccionarios de número)
+export type Campana = Omit<Esq["Campana"], "piezas" | "por_canal" | "por_estado"> & {
+  piezas: PiezaCampana[];
   por_canal: Record<string, PorGrupo>;
   por_estado: PorGrupo;
-  primera: string | null;
-  ultima: string | null;
-  piezas: PiezaCampana[];
-}
+};
 
-export interface Campanas {
-  periodo: Periodo;
+// (8/11) ajustes sobre CampanasResp: `periodo.tipo` literal y `totales` con los seis grupos tipados
+export type Campanas = Omit<Esq["CampanasResp"], "campanas" | "sueltas" | "periodo" | "totales"> & {
+  periodo: Omit<Esq["Periodo"], "tipo"> & { tipo: "dias" | "mes" };
   campanas: Campana[];
   sueltas: Campana;
   totales: { piezas: number; por_canal: Record<string, number> } & PorGrupo;
-}
+};
 
-export interface CanalMetricas {
-  clave: string;
-  texto: string;
-  icono: string;
-  modo: string;
-  configurado: boolean;
+// (8/11) ajustes sobre CanalMetricas: `api` literal y `datos` tipado (ver DatosMetricas)
+export type CanalMetricas = Omit<Esq["CanalMetricas"], "api" | "ultima" | "manual"> & {
   api: "disponible" | "sin_permiso" | "no_hay" | "pendiente" | "error";
-  nota_api: string | null;
-  enlace: string | null;
-  enlace_texto: string | null;
-  ultima: { datos: DatosMetricas; periodo_desde: string | null; periodo_hasta: string | null; capturado: string; fuente: string } | null;
-  manual: { datos: DatosMetricas; periodo_desde: string | null; periodo_hasta: string | null; capturado: string; nota: string | null; por: string | null } | null;
-}
+  ultima?: (Omit<Esq["FilaMetrica"], "datos"> & { datos: DatosMetricas }) | null;
+  manual?: (Omit<Esq["FilaManual"], "datos"> & { datos: DatosMetricas }) | null;
+};
+export type CanalesMetricas = Omit<Esq["CanalesResp"], "canales"> & { canales: CanalMetricas[] };
 
-export interface CanalesMetricas {
-  actualizado: string | null;
-  canales: CanalMetricas[];
-}
+export type ResultadoActualizar = Esq["ActualizarResp"];
 
-export interface ResultadoActualizar {
-  capturado: string;
-  instagram: { ok: boolean; piezas: number; error: string | null };
-  facebook: { ok: boolean; piezas: number; error: string | null };
-  youtube: { ok: boolean; piezas: number; error: string | null };
-}
-
-export interface MetricaManual {
-  ambito: "canal" | "pieza";
-  ref: string;
-  canal: string;
-  periodo_desde: string | null;
-  periodo_hasta: string | null;
-  datos: Record<string, number>;
-  nota: string | null;
-}
+// (8/11) ajustes sobre ManualIn: `ambito` literal y `datos` solo con números (lo que la pantalla manda)
+export type MetricaManual = Omit<Esq["ManualIn"], "ambito" | "datos"> & { ambito: "canal" | "pieza"; datos: Record<string, number> };
 
 // (8/11, Franco) asesor de campañas (sección «Agregado del 8/11» del contrato)
-export interface Apertura {
-  texto: string;
-  fuentes: string[];
-  falto: string[];
-  capturado: string;
-  nuevo: boolean;
-}
-export interface MensajeAsesor {
-  rol: "usuario" | "asesor";
-  texto: string;
-}
-export interface RespuestaAsesor {
-  texto: string;
-  fuentes: string[];
-  falto: string[];
-}
-
-export interface ResumenCampana {
-  ref: string;
-  nombre: string;
-  texto: string;
-  fuentes: string[];
-  falto: string[];
-  comparado_con: string | null;
-  modelo: string;
-  capturado: string;
-}
+export type Apertura = Esq["AperturaOut"];
+export type MensajeAsesor = Esq["api__metricas_rutas__Mensaje"];
+export type RespuestaAsesor = Esq["AsesorOut"];
+export type ResumenCampana = Esq["ResumenOut"];
 
 const q = (dias?: number, mes?: string) => (mes ? `?mes=${encodeURIComponent(mes)}` : dias ? `?dias=${dias}` : "");
 
