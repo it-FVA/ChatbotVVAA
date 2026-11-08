@@ -22,6 +22,7 @@ import Salud from "./paginas/admin/Salud";
 import Servicios from "./paginas/admin/Servicios";
 import Configuracion from "./paginas/admin/Configuracion";
 import Metricas from "./paginas/admin/Metricas";
+import RedirigeMetricas from "./paginas/admin/RedirigeMetricas";
 import Barra from "./componentes/Barra";
 import Proyectos from "./paginas/Proyectos";
 import Compartidos from "./paginas/Compartidos";
@@ -82,8 +83,11 @@ export default function App() {
                       <Route path="registro" element={<Registro />} />
                       <Route path="papelera" element={<Papelera />} />
                       <Route path="clips" element={<Clips />} />
+                      <Route path="metricas" element={<Metricas />} />
                       <Route path="*" element={<Navigate to="/aprobacion" replace />} />
                     </Route>
+                    {/* (8/11, Franco) Métricas se mudó a Gestión; los links que ya circulan (y el regreso de WordPress.com) siguen andando */}
+                    <Route path="/administracion/metricas" element={<RedirigeMetricas />} />
                     <Route path="/administracion" element={<Administracion />}>
                       <Route index element={<Navigate to="/administracion/dashboard" replace />} />
                       <Route path="dashboard" element={<Dashboard />} />
@@ -92,7 +96,6 @@ export default function App() {
                       <Route path="usuarios" element={<Usuarios />} />
                       <Route path="lista-blanca" element={<ListaBlanca />} />
                       <Route path="configuracion" element={<Configuracion />} />
-                      <Route path="metricas" element={<Metricas />} />
                       <Route path="*" element={<Navigate to="/administracion/dashboard" replace />} />
                     </Route>
                     <Route path="*" element={<Navigate to="/recortes" replace />} />

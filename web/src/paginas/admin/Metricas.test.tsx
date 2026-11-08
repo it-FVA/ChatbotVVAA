@@ -1,7 +1,7 @@
 // (8/11, Franco) Pantalla Métricas con la API simulada (contrato: web/maquetas/metricas-contrato.md).
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { instalarApi } from "../../pruebas/apiSimulada";
 
@@ -9,8 +9,9 @@ vi.mock("../../App", () => ({
   useSesion: () => ({ yo: { usuario: "ana", rol: { nombre: "admin", admin: true, aprueba: true, publica: true, etiqueta: "Administrador" } }, cargando: false, setYo: () => {} }),
 }));
 
-import Administracion from "./Administracion";
+import Aprobacion from "../Aprobacion";
 import Metricas from "./Metricas";
+import RedirigeMetricas from "./RedirigeMetricas";
 
 const ahora = new Date().toISOString();
 const G0 = { publicada: 0, programada: 0, en_aprobacion: 0, borrador: 0, prueba: 0, no_salio: 0 };
@@ -57,12 +58,17 @@ const PROYECTOS = {
 };
 const APERTURA = { texto: "Esta semana se movió **Lo común**.", fuentes: ["Instagram (desde la plataforma, 8/11)"], falto: [], capturado: ahora, nuevo: true };
 
-function abrir(extra: Record<string, unknown> = {}, ruta = "/administracion/metricas") {
+function Lugar() {
+  const l = useLocation();
+  return <p>{l.pathname + l.search}</p>;
+}
+
+function abrir(extra: Record<string, unknown> = {}, ruta = "/aprobacion/metricas") {
   const api = instalarApi({ "GET /admin/metricas/campanas": CAMPANAS, "GET /admin/metricas/canales": CANALES, "GET /admin/metricas/resumen/c1": null, "GET /admin/metricas/asesor/apertura": APERTURA, "GET /proyectos": PROYECTOS, "GET /admin/resumen": { salud: { estado: "ok" }, costo: null, registro_desde: "" }, ...extra });
   render(
     <MemoryRouter initialEntries={[ruta]}>
       <Routes>
-        <Route path="/administracion" element={<Administracion />}>
+        <Route path="/aprobacion" element={<Aprobacion />}>
           <Route path="metricas" element={<Metricas />} />
         </Route>
       </Routes>
@@ -72,6 +78,24 @@ function abrir(extra: Record<string, unknown> = {}, ruta = "/administracion/metr
 }
 
 describe("Métricas", () => {
+  it("vive en Gestión: /aprobacion/metricas muestra la pantalla y el menú no ofrece «Métricas» (oculto)", async () => {
+    abrir();
+    expect(await screen.findByRole("article", { name: "Instagram" })).toBeInTheDocument();
+    expect(within(screen.getByRole("navigation", { name: "Aprobación" })).queryByText("Métricas")).toBeNull();
+  });
+
+  it("/administracion/metricas redirige a /aprobacion/metricas conservando la consulta", async () => {
+    render(
+      <MemoryRouter initialEntries={["/administracion/metricas?wordpress=ok"]}>
+        <Routes>
+          <Route path="/administracion/metricas" element={<RedirigeMetricas />} />
+          <Route path="/aprobacion/metricas" element={<Lugar />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("/aprobacion/metricas?wordpress=ok")).toBeInTheDocument();
+  });
+
   it("muestra canales y campañas; sin permiso dice «falta un permiso»", async () => {
     abrir();
     const ig = await screen.findByRole("article", { name: "Instagram" });
@@ -142,13 +166,6 @@ describe("Métricas", () => {
     expect(screen.getByText(/YouTube: falta un permiso en la conexión/)).toBeInTheDocument();
     expect(screen.getByText(/Mail: 3 piezas leídas/)).toBeInTheDocument();      // (8/11, Franco) Perfit
   });
-
-  it("el menú de Administración no muestra «Métricas», pero la ruta directa abre la pantalla", async () => {
-    abrir();
-    expect(await screen.findByRole("article", { name: "Instagram" })).toBeInTheDocument();
-    expect(within(screen.getByRole("navigation", { name: "Administración" })).queryByText("Métricas")).not.toBeInTheDocument();
-  });
-
   it("las tarjetas de canal: el enlace es el chip, y cargar a mano explica para qué", async () => {
     abrir();
     const mail = await screen.findByRole("article", { name: "Mail" });
@@ -251,12 +268,12 @@ describe("Métricas · Sitio web (WordPress.com)", () => {
   });
 
   it("al volver de WordPress.com avisa y limpia la dirección", async () => {
-    abrir({}, "/administracion/metricas?wordpress=ok");
+    abrir({}, "/aprobacion/metricas?wordpress=ok");
     expect(await screen.findByText("WordPress.com conectado: tocá Actualizar.")).toBeInTheDocument();
   });
 
   it("al volver con error muestra el motivo", async () => {
-    abrir({}, "/administracion/metricas?wordpress=error&motivo=WordPress.com%20no%20dio%20el%20permiso.");
+    abrir({}, "/aprobacion/metricas?wordpress=error&motivo=WordPress.com%20no%20dio%20el%20permiso.");
     expect(await screen.findByText("WordPress.com no dio el permiso.")).toBeInTheDocument();
   });
 });

@@ -16,7 +16,7 @@ import { AvisoError, Cargando, EstadoChip, IconoAdmin, Metrica, Plegable, diaCor
 // (8/11, Franco) Administración → Métricas: la app como centro de métricas de campañas (pedido de Beto). Dos preguntas: «¿Cuánto llegó?»
 // (una tarjeta por canal: números desde la plataforma donde se puede, enlace y números anotados a mano donde no) y «¿Cuánto hicimos?»
 // (una tarjeta por campaña, con el botón «¿Cómo le fue?» que resume con IA). Contrato con la API: web/maquetas/metricas-contrato.md.
-// El ítem del menú está oculto (MOSTRAR_METRICAS en Administracion.tsx); la ruta /administracion/metricas funciona igual.
+// Vive en Gestión (Aprobación), para quienes aprueban y admins (8/11, Franco). El ítem del menú está oculto (MOSTRAR_METRICAS en Aprobacion.tsx); la ruta /aprobacion/metricas funciona igual.
 definirAyuda("metricas", {
   titulo: "Métricas",
   que: "Cuánto llegó cada canal y cuánto hicimos en cada campaña.",

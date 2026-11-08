@@ -10,17 +10,14 @@ import "../../admin.css";
 // Sección «Administración» (22/10, solo admins), separada de «Aprobación». Menú propio: Dashboard (portada), Salud (con el badge
 // de avisos), Servicios y costos, Usuarios, Lista blanca y Configuración. El resumen (GET /admin/resumen) se comparte por
 // contexto: el Dashboard lo muestra y el badge de Salud sale de ahí; «Volver a chequear» en Salud lo refresca.
-const MOSTRAR_METRICAS = false; // (8/11, Franco) la pestaña queda oculta hasta que la pida; /administracion/metricas funciona por URL
-const TODAS: { a: string; texto: string; icono: NombreIconoAdmin; badge?: boolean }[] = [
+const MENU: { a: string; texto: string; icono: NombreIconoAdmin; badge?: boolean }[] = [
   { a: "/administracion/dashboard", texto: "Dashboard", icono: "tablero" },
   { a: "/administracion/salud", texto: "Salud", icono: "pulso", badge: true },
   { a: "/administracion/servicios", texto: "Servicios y costos", icono: "moneda" },
   { a: "/administracion/usuarios", texto: "Usuarios", icono: "usuarios" },
   { a: "/administracion/lista-blanca", texto: "Lista blanca", icono: "check" },
   { a: "/administracion/configuracion", texto: "Configuración", icono: "engranaje" },
-  { a: "/administracion/metricas", texto: "Métricas", icono: "grafico" },
 ];
-const MENU = TODAS.filter((m) => MOSTRAR_METRICAS || m.a !== "/administracion/metricas");
 
 interface Admin {
   resumen: Resumen | null;

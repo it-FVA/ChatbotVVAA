@@ -1,9 +1,9 @@
-# Métricas (Administración → pestaña «Métricas»): contrato API ↔ web
+# Métricas (Gestión → «Métricas»): contrato API ↔ web
 
 Pedido de Beto (8/11): «que la app sea el centro de métricas de evolución de campañas». Decisión de Franco (8/11): alternativa E del
 análisis `fva-transcripcion/analisis/analiticas-por-api-2026-11.md`: un panel único con una tarjeta por canal (números por API donde
 hay, enlace directo y carga a mano donde no) y un botón «¿Cómo le fue a esta campaña?» que resume con IA. Vive en
-`/administracion/metricas`. **El ítem del menú queda OCULTO** (constante `MOSTRAR_METRICAS = false` en `Administracion.tsx`) hasta que
+`/aprobacion/metricas` (8/11, Franco: se mudó de Administración a Gestión; `/administracion/metricas` redirige, conservando `?wordpress=…`). La ven los del rol de aprobación y los admins (`yo.rol.aprueba`). **El ítem del menú queda OCULTO** (constante `MOSTRAR_METRICAS = false` en `Aprobacion.tsx`) hasta que
 Franco pida destaparlo; la ruta directa funciona igual.
 
 Dos preguntas, dos mitades de la pantalla:
@@ -62,7 +62,7 @@ Además: `crudo` (dict con lo que devolvió la plataforma, tal cual, para no per
 se pudo traer y por qué, p. ej. «Meta rechazó `saved`: (#100) …»). En `resumen` (fuente `ia`): `{texto, fuentes: [str], falto: [str],
 comparado_con: str|null, modelo: str}`.
 
-## Rutas (`api/metricas_rutas.py`, prefijo `/admin/metricas`, todas con `Depends(auth.admin)`)
+## Rutas (`api/metricas_rutas.py`, prefijo `/admin/metricas`, todas con `Depends(auth.aprobador_o_admin)`: aprueba o administra; si no, 403 «Solo para quienes aprueban o administran.»)
 
 ### `GET /admin/metricas/campanas?dias=90` | `?mes=AAAA-MM`
 
@@ -186,7 +186,7 @@ decir siempre de dónde sale cada número y qué faltó; no inventar nada que no
 para la próxima campaña apoyadas en la guía. Si no hay ninguna métrica (ni API ni manual), igual responde: resume lo hecho y dice
 qué habría que cargar. Registra el uso en `uso_openai` con `que='auxiliar'` y `usuario` = quien pidió.
 
-## Web (`web/src/paginas/admin/Metricas.tsx`, ruta `/administracion/metricas`)
+## Web (`web/src/paginas/admin/Metricas.tsx`, ruta `/aprobacion/metricas`)
 
 - Cabecera de sección: «Métricas» con el selector de período de Dashboard (7 / 28 / 90 días o un mes) que alimenta `campanas`.
 - **Cuánto llegó**: grilla de tarjetas por canal (`canales`). Cada tarjeta: ícono y nombre, chip de estado (`api`), números grandes
@@ -201,7 +201,7 @@ qué habría que cargar. Registra el uso en `uso_openai` con `que='auxiliar'` y 
   muestra con su fecha y el botón dice «Volver a resumir».
 - Estados vacíos con `EstadoVacio`; cargando con `Cargando`; errores con `AvisoError`.
 - Ayuda: `definirAyuda("metricas", …)` (≤ 6 pasos, ≤ 120 palabras) con `data-ayuda="metricas.<id>"` en los elementos.
-- Menú: entrada `{ a: "/administracion/metricas", texto: "Métricas", icono: "grafico" }` en `MENU`, filtrada por `MOSTRAR_METRICAS`
+- Menú: entrada `{ a: "/aprobacion/metricas", texto: "Métricas", icono: "grafico" }` en `TODAS` de `Aprobacion.tsx`, filtrada por `MOSTRAR_METRICAS`
   (false). Comentario: «(8/11, Franco) oculto hasta que lo pida; la URL directa funciona».
 - Tipos: en `adminApi.ts` a mano según este contrato, con comentario «provisional: se reemplaza por tiposApi.d.ts tras `npm run tipos`».
 - Vocabulario de usuario: «campaña» (no proyecto), «alcance», «vistas», «anotado a mano», «desde la plataforma». Nada de «API»,
@@ -306,7 +306,7 @@ La tarjeta «Sitio web» lee las estadísticas de WordPress.com con una autoriza
   Sin app registrada vuelve a la web con `?wordpress=error&motivo=…` (no deja un JSON en pantalla).
 - `GET /admin/metricas/wordpress/callback?code&state` → valida el `state`, canjea el código (`POST /oauth2/token`), guarda `config.wpcom_token`
   = `{access_token, blog_id, blog_url, autorizado_en, por}`, registra el cambio en `usuarios_cambios` (clave `wpcom_token`, sin el token) y redirige (302) a
-  `<WEB_URL>/administracion/metricas?wordpress=ok`. Con error: `?wordpress=error&motivo=<texto corto>`. `state` inválido o vencido → 400.
+  `<WEB_URL>/aprobacion/metricas?wordpress=ok`. Con error: `?wordpress=error&motivo=<texto corto>`. `state` inválido o vencido → 400.
   **No exige cookie de admin**: llega desde otro sitio y la cookie puede no viajar. Lo autoriza el `state`: firmado con el secreto de sesión
   (otra «sal», `auth.firmar_estado`), lleva el usuario admin que lo pidió y vence a los 10 minutos; se vuelve a comprobar que siga siendo admin y activo.
 - `DELETE /admin/metricas/wordpress` → `{ok: true}`; borra el token (queda la clave vacía). Registra el cambio.

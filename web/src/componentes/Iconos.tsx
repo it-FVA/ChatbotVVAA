@@ -54,6 +54,7 @@ const TRAZOS: Record<string, string> = {
   ordenar: "M3 6h18M6 12h12M9 18h6",
   casa: "M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10",
   sobre: "M3 6h18v12H3zM3 7l9 6 9-6",
+  grafico: "M4 20V10M10 20V4M16 20v-7M22 20H2", // (8/11, Franco) Métricas en Gestión
 };
 
 export type NombreIcono = keyof typeof TRAZOS;
