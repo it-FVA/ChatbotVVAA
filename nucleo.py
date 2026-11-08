@@ -489,12 +489,40 @@ Tenés la herramienta proponer_publicacion: prepara, debajo de tu respuesta, un 
 - Cuando entregás un borrador TERMINADO de una pieza (posteo, frase, carrusel, entrada, copy), cerrá con una sola pregunta: "¿Lo dejamos así y lo publicamos, o lo seguimos ajustando?". No llames la herramienta todavía.
 - Llamá proponer_publicacion SOLO cuando la persona da el ok o pide publicar/programar ("dale, así", "me gusta", "publicalo", "programalo para el sábado", "mandalo a Instagram"). Pasale el texto que se publica (para redes: texto plano, sin markdown, sin rótulos, sin links; la cita entre comillas con autor y nombre de la fuente), aparte el texto que va sobre la imagen si lo hay, el título aparte, el canal solo si lo dijo, la fecha si la dijo, y 2-4 palabras para buscar la imagen.
 - Nunca la llames mientras se piensa, se elige material o se corrige; nunca con una lista de fragmentos.
-- Después de llamarla, respondé en una o dos líneas ("Abajo tenés el recuadro para ajustar y publicar"); no repitas la pieza."""
+- Después de llamarla, respondé en una o dos líneas ("Abajo tenés el recuadro para ajustar y publicar"); no repitas la pieza.
+
+═══ MODO CAMPAÑA (desde el 8/11, pedido de Beto) ═══
+Tenés la herramienta proponer_campana: crea el Proyecto de la campaña y deja una pieza borrador por canal, listas para abrir en Diseñar.
+- Llamala SOLO cuando la persona pide armar o guardar la campaña ("armá la campaña", "dejame las piezas", "guardalo como campaña"). Nunca mientras se piensa o se elige el plan: ahí conversá y recomendá formatos.
+- Una pieza por canal del plan (de 2 a 6), con el texto listo para publicar (mismas reglas que proponer_publicacion), la fuente textual del material YA ENCONTRADO (título y autor; no inventes citas) y en una línea por qué ese formato.
+- Después de llamarla, respondé en una o dos líneas ("Armé la campaña con N piezas, abajo las abrís en Diseñar"); no repitas las piezas."""
+
+
+# Criterio de marketing digital del chat (8/11, Beto, tarjeta Trello 99). Resumen de
+# fuentes/guia_canales.md: si cambia ese documento hay que rehacer este resumen a mano
+# (el chat no lee el documento entero para no agrandar la consigna). Constante aparte
+# para poder medirla (len) y probarla sin armar todo el system message.
+GUIA_CANALES_RESUMEN = """
+═══ QUÉ FORMATO PARA QUÉ (guía de canales, Beto 10/2026) ═══
+Dos preguntas ordenan todo. 1) ¿El canal es propio o prestado? Propios: newsletter, WhatsApp y sitio (lo que mandamos llega, la lista es nuestra). Prestados: Instagram, Facebook, YouTube, TikTok (un algoritmo decide a quién le llegamos). El objetivo de la Fundación es ganar gente propia (mail y WhatsApp): lo prestado sirve para que nos encuentren, y todo lo que sale ahí debería terminar invitando a entrar a lo propio.
+2) ¿Qué función cumple el formato? Casi todos hacen bien UNA sola: alcance (mostrarnos a quien no nos conoce: reel, short), profundidad (que quien llegó se quede: carrusel, video largo, artículo, podcast), conversación (hablar con los que ya están: historia, grupo, WhatsApp) o permanencia (que se encuentre en dos años: YouTube, sitio).
+Qué hace bien cada uno:
+- Post de Instagram: la tarjeta, una imagen que se lee en dos segundos; la ven sobre todo los que ya nos siguen. Carrusel: desarrolla (la acción, la cita de Br. David, el texto); cada deslizada suma tiempo de lectura.
+- Reel: el único formato de Instagram que se muestra a gente que no nos sigue. Clip del archivo de 30 a 45 segundos con subtítulos en la imagen, y que se entienda sin contexto (si necesita contexto, no sirve).
+- Historia: dura 24 horas y la ven los que ya nos siguen. Sirve para preguntar y conversar (encuestas, cajita de preguntas), no para crecer.
+- Facebook: la misma tarjeta de Instagram, el mismo día. Grupos para conversar, eventos para convocar a algo presencial. Público de 35 para arriba.
+- YouTube: es un buscador y el archivo de la Fundación. Video largo para charlas y Ecos, short = el mismo clip del reel, listas por tema, capítulos y subtítulos.
+- Newsletter: el canal más valioso. Diario la Frase del Día, semanal con una idea y la cita entera con link al texto, secuencia de bienvenida para quien se suscribe.
+- WhatsApp: llega a todas las edades. La acción de la semana, grupo, canal, lista de difusión, estados. No sirve para campañas compartidas con Europa.
+- Sitio: artículos, página de campaña y buscador del corpus; es el destino de todo lo demás.
+Tres errores: pedirle alcance a una historia, hacer un reel que solo entienden los de adentro, y producir distinto para cada canal. Regla: se produce una vez y se publica en cinco lugares (el mismo clip es reel, short y estado de WhatsApp; la misma tarjeta es post de Instagram y de Facebook).
+Cómo usarlo: cuando la persona piensa una campaña o pregunta por dónde salir, recomendá formato por canal con este criterio y decí por qué en una línea cada uno. Nunca propongas producir algo distinto para cada canal. Es criterio para elegir formato, no material de Br. David: no lo cites como fuente."""
 
 
 def system_msg():
     """El system message: el unificado (SYSTEM_MSG_V2) más las reglas y datos fijos comunes."""
-    msg = SYSTEM_MSG_V2.replace("{DISTINCIONES}", _bloque_distinciones()) + "\n" + _REGLA_TEXTO_PROPIO + "\n" + _REGLA_PUBLICAR
+    msg = (SYSTEM_MSG_V2.replace("{DISTINCIONES}", _bloque_distinciones()) + "\n" + _REGLA_TEXTO_PROPIO
+           + "\n" + _REGLA_PUBLICAR + "\n" + GUIA_CANALES_RESUMEN)
     df = datos_fijos()
     if df:
         msg += ("\n\n═══ DATOS FIJOS DE LA FUNDACIÓN ═══\n"
@@ -1178,6 +1206,28 @@ TOOLS = [
             "imagen_busqueda": {"type": "string", "description": "2 a 4 palabras en español con el tema visual para buscar una imagen en el banco (ej. 'amanecer montaña calma')."}},
             "required": ["texto", "titulo", "canal", "imagen_busqueda"]}}},
     {"type": "function", "function": {
+        "name": "proponer_campana",
+        "description": ("Crea el Proyecto de la campaña y deja una pieza borrador por canal, con el material elegido y su fuente, "
+                        "listas para abrir en Diseñar. Llamala SOLO cuando la persona pide armar o guardar la campaña ('armá la "
+                        "campaña', 'dejame las piezas', 'guardalo como campaña') y ya hay un plan (tema + piezas por canal). "
+                        "NUNCA mientras se está pensando o eligiendo. Las citas salen del material ya encontrado, textuales."),
+        "parameters": {"type": "object", "properties": {
+            "nombre": {"type": "string", "description": "Nombre corto de la campaña (ej. 'Confianza plena en la vida')."},
+            "descripcion": {"type": "string", "description": "2 o 3 líneas: el objetivo de la campaña y a quién le habla."},
+            "piezas": {"type": "array", "minItems": 2, "maxItems": 6, "description": "Una pieza por canal del plan (de 2 a 6). Se produce una vez y se publica en varios lugares: no inventes una versión distinta para cada canal.",
+                       "items": {"type": "object", "properties": {
+                           "canal": {"type": "string", "enum": CANALES_CHAT},
+                           "formato": {"type": "string", "enum": ["historia", "cuadrado", "reel", "carrusel", ""],
+                                       "description": "Formato de la pieza, solo si corresponde (Instagram/Facebook). Vacío si no."},
+                           "titulo": {"type": "string", "description": "Título corto de la pieza."},
+                           "texto": {"type": "string", "description": "El texto que se publica, listo para pegar: texto plano, sin markdown, sin rótulos, sin links; la cita entre comillas seguida del autor y la fuente. Para newsletter, la reflexión principal; para YouTube, la descripción del video. Sin introducción ni pregunta final."},
+                           "texto_imagen": {"type": "string", "description": "Texto que va SOBRE la imagen, sin la firma. Vacío si no aplica."},
+                           "firma": {"type": "string", "description": "Quién dice la frase de la imagen ('— Br. David' por defecto)."},
+                           "fuente": {"type": "string", "description": "Título y autor del material de donde sale, TEXTUAL, tal cual figura en MATERIAL YA ENCONTRADO."},
+                           "porque": {"type": "string", "description": "Una línea: por qué ese formato en ese canal, según la guía de canales."}},
+                           "required": ["canal", "titulo", "texto", "fuente", "porque"]}}},
+            "required": ["nombre", "descripcion", "piezas"]}}},
+    {"type": "function", "function": {
         "name": "analizar_corpus",
         "description": ("Cuenta y analiza sobre el corpus. Dos alcances: 'tema' = cuántos autores o contenidos hablan de "
                         "un tema concreto, quiénes, cantidades; 'todo' = panorama del corpus entero sin tema (quiénes "
@@ -1193,6 +1243,33 @@ TOOLS = [
                        "description": "Con alcance 'todo': además del panorama, lista TODOS los documentos que están en ese idioma (título, autor, link). Usalo para 'what do you have in English?' / 'was gibt es auf Deutsch?'."}},
             "required": ["consulta"]}}},
 ]
+
+
+def _campana_de_args(args):
+    """(8/11, Beto) Limpia lo que pasó el modelo en proponer_campana y lo devuelve como {"__campana__": {...}}: el que crea el
+    Proyecto y los borradores es la API (api/campana.py), no este módulo. Mínimo 2 piezas con texto, máximo 6."""
+    piezas = []
+    for p in (args.get("piezas") or []):
+        if len(piezas) >= 6:
+            break
+        if not isinstance(p, dict):
+            continue
+        canal = (p.get("canal") or "").strip().lower()
+        texto = (p.get("texto") or "").strip()
+        if canal not in CANALES_CHAT or not texto:
+            continue
+        formato = (p.get("formato") or "").strip().lower()
+        piezas.append({"canal": canal, "formato": formato if formato in ("historia", "cuadrado", "reel", "carrusel") else "",
+                       "titulo": (p.get("titulo") or "").strip()[:150], "texto": texto,
+                       "texto_imagen": (p.get("texto_imagen") or "").strip()[:400], "firma": (p.get("firma") or "").strip()[:60],
+                       "fuente": (p.get("fuente") or "").strip()[:300], "porque": (p.get("porque") or "").strip()[:300]})
+    nombre = " ".join((args.get("nombre") or "").split())[:80]
+    if not nombre or len(piezas) < 2:
+        return ("No se armó la campaña: hacen falta el nombre y entre 2 y 6 piezas con su canal y su texto. "
+                "Pedile a la persona lo que falte o completalo vos con el material ya encontrado."), []
+    campana = {"nombre": nombre, "descripcion": (args.get("descripcion") or "").strip()[:600], "piezas": piezas}
+    return (f"Campaña «{nombre}» preparada con {len(piezas)} piezas. Respondé en UNA o dos líneas: decile que abajo tiene la campaña "
+            "guardada con cada pieza para abrir en Diseñar. NO repitas las piezas."), {"__campana__": campana}
 
 
 def _ejecutar_tool(nombre, args, usuario=None):
@@ -1265,6 +1342,8 @@ def _ejecutar_tool(nombre, args, usuario=None):
                  + ". Respondé en UNA o dos líneas: decile que abajo tiene el recuadro para ajustar y publicar"
                  + (" y que elija el canal" if not pieza["canal"] else "") + ". NO repitas la pieza.")
         return aviso, {"__pieza__": pieza}
+    if nombre == "proponer_campana":
+        return _campana_de_args(args)
     if nombre == "analizar_corpus":
         if (args.get("alcance") or "").lower() == "todo" or not consulta:
             txt = ("PANORAMA REAL del corpus entero (conteos exactos, NO los recalcules; son documentos, no fragmentos):\n"
@@ -1370,6 +1449,9 @@ def responder_con_pieza(historial, idioma=None):
         texto_tool, res = _ejecutar_tool(tc.function.name, args)
         if isinstance(res, dict) and res.get("__pieza__"):
             pieza = res["__pieza__"]
+        elif isinstance(res, dict) and res.get("__campana__"):
+            # (8/11) el Proyecto y los borradores los crea la API web; en el chat de la terminal no hay dónde guardarlos
+            texto_tool = "Esta campaña solo se guarda desde el chat de la web. Decile a la persona que la arme ahí."
         elif res:
             mostrar = res
         mensajes.append({"role": "tool", "tool_call_id": tc.id, "content": texto_tool})

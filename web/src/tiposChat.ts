@@ -44,11 +44,30 @@ export interface Pieza {
   imagen_busqueda: string;
 }
 
+/** (8/11, Beto) La campaña que guardó el chat con proponer_campana (api/campana.py): el Proyecto y un borrador por pieza. */
+export interface PiezaDeCampana {
+  id: string;
+  canal: string;
+  canal_texto: string;
+  titulo: string;
+  formato: string; // historia | cuadrado | reel | carrusel | ''
+  fuente: string;
+  porque: string;
+  url_editar: string; // /publicar?borrador=<id> (o /newsletter?borrador=<id>)
+}
+
+export interface Campana {
+  proyecto_id: string;
+  nombre: string;
+  piezas: PiezaDeCampana[];
+}
+
 export interface MensajeChat {
   role: "user" | "assistant";
   content: string;
   tarjetas?: Tarjeta[];
   pieza?: Pieza | null;
+  campana?: Campana | null;
   /** Solo mientras el bot escribe: estado que se muestra arriba de la respuesta. */
   estado?: string | null;
   /** Hubo un error al generar (la respuesta quedó incompleta). */
@@ -68,6 +87,7 @@ export interface FinChat {
   titulo: string | null;
   texto: string;
   pieza: Pieza | null;
+  campana?: Campana | null;
   tarjetas: Tarjeta[];
 }
 

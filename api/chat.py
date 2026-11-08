@@ -6,7 +6,7 @@ Qué hace: lo mismo que nucleo.responder_con_pieza (la función que usa el chat)
      proponer_publicacion, pedir_recorte, estado_recortes, analizar_corpus,
   3. ejecuta las herramientas con nucleo._ejecutar_tool (mismas redes de seguridad: autor pedido, duración),
   4. segunda llamada al modelo, PERO con stream=True: el texto sale a medida que llega.
-y va emitiendo eventos: estado → fuentes (tarjetas) → pieza → texto (deltas) → fin.
+y va emitiendo eventos: estado → fuentes (tarjetas) → pieza → campana → texto (deltas) → fin.
 
 NOTA DE MANTENIMIENTO: los pasos 1-3 están copiados de nucleo.responder_con_pieza (versión del 21/10) porque
 en esta fase nucleo.py no se toca. Si esa función cambia, cambiar acá también; el plan (fase 2) prevé
@@ -20,6 +20,7 @@ import json, re, logging
 
 import nucleo
 import db
+from . import campana as _campana   # (8/11, Beto) modo campaña: Proyecto + un borrador por canal
 
 log = logging.getLogger("api")
 
@@ -157,7 +158,7 @@ def generar(historial, idioma=None, usuario=""):
             autor_hint = _a
             break
     dur_hint = nucleo._detectar_duracion_max(" ".join(usuarios[-2:]))
-    mostrar, pieza = [], None
+    mostrar, pieza, campana = [], None, None
     cl = nucleo._get_client()
     yield "estado", {"texto": "pensando"}
     try:
@@ -165,13 +166,13 @@ def generar(historial, idioma=None, usuario=""):
             resp = nucleo._chat(cl, mensajes, tools=nucleo.TOOLS, tool_choice="auto", temperature=0.5, max_tokens=2500)
     except Exception as e:
         yield "texto", {"delta": f"Error llamando al modelo: {e}"}
-        yield "fin", {"texto": f"Error llamando al modelo: {e}", "mats": [], "pieza": None, "query": query}
+        yield "fin", {"texto": f"Error llamando al modelo: {e}", "mats": [], "pieza": None, "campana": None, "query": query}
         return
     msg = resp.choices[0].message
     if not msg.tool_calls:
         texto = msg.content or ""
         yield "texto", {"delta": texto}
-        yield "fin", {"texto": texto, "mats": [], "pieza": None, "query": query}
+        yield "fin", {"texto": texto, "mats": [], "pieza": None, "campana": None, "query": query}
         return
     mensajes.append({"role": "assistant", "content": msg.content or "",
                      "tool_calls": [{"id": tc.id, "type": "function",
@@ -195,6 +196,13 @@ def generar(historial, idioma=None, usuario=""):
             texto_tool, res = nucleo._ejecutar_tool(tc.function.name, args, usuario=usuario)
         if isinstance(res, dict) and res.get("__pieza__"):
             pieza = res["__pieza__"]
+        elif isinstance(res, dict) and res.get("__campana__"):
+            # (8/11, Beto) una sola campaña por respuesta; si la base falla, el modelo recibe el motivo y se lo cuenta a la persona
+            if campana is None:
+                with nucleo.como(usuario):
+                    campana, texto_tool = _campana.crear(usuario, res["__campana__"])
+            else:
+                texto_tool = "Ya se guardó una campaña en esta respuesta."
         elif res:
             mostrar = res
         mensajes.append({"role": "tool", "tool_call_id": tc.id, "content": texto_tool})
@@ -202,6 +210,8 @@ def generar(historial, idioma=None, usuario=""):
         yield "fuentes", {"tarjetas": tarjetas(mostrar, idioma or "es")}
     if pieza:
         yield "pieza", pieza
+    if campana:
+        yield "campana", campana
     partes = []
     try:   # (sin nucleo.como: un `with` que abarca un yield se cierra en otro hilo; esta llamada en streaming no registra uso)
         for d in _deltas(_chat_stream(cl, mensajes, temperature=0.5, max_tokens=1300)):
@@ -211,7 +221,7 @@ def generar(historial, idioma=None, usuario=""):
         partes = [f"Error llamando al modelo: {e}"]
         yield "texto", {"delta": partes[0]}
     texto = "".join(partes)
-    yield "fin", {"texto": texto, "mats": mostrar, "pieza": pieza, "query": query}
+    yield "fin", {"texto": texto, "mats": mostrar, "pieza": pieza, "campana": campana, "query": query}
 
 
 def responder(historial, idioma=None, usuario=""):
@@ -220,4 +230,4 @@ def responder(historial, idioma=None, usuario=""):
     for nombre, datos in generar(historial, idioma, usuario):
         if nombre == "fin":
             fin = datos
-    return fin or {"texto": "", "mats": [], "pieza": None, "query": ""}
+    return fin or {"texto": "", "mats": [], "pieza": None, "campana": None, "query": ""}

@@ -1,7 +1,7 @@
 // Cliente de la API para el chat: conversaciones, el mensaje en streaming (SSE por POST, leído a mano porque EventSource
 // solo hace GET), recortes desde las tarjetas, pieza propuesta y descargas. La sesión es la cookie de siempre.
 import { BASE, ErrorApi, haceRatoSinApi, marcarViva, pedir, pedirCrudo } from "./api";
-import type { Clip, Conversacion, ConversacionResumen, FinChat, FotoBanco, Modos, Pieza, PiezaEnviada, RespuestaPedido, RespuestaPieza, Tarjeta } from "./tiposChat";
+import type { Campana, Clip, Conversacion, ConversacionResumen, FinChat, FotoBanco, Modos, Pieza, PiezaEnviada, RespuestaPedido, RespuestaPieza, Tarjeta } from "./tiposChat";
 
 // ---------- ¿la API está despierta? (Render plan free se duerme a los 15 min; arrancar tarda ~1 min) ----------
 async function saludRapida(ms: number): Promise<boolean> {
@@ -78,6 +78,7 @@ export type EventoChat =
   | { nombre: "estado"; datos: { texto: string; herramienta?: string } }
   | { nombre: "fuentes"; datos: { tarjetas: Tarjeta[] } }
   | { nombre: "pieza"; datos: Pieza }
+  | { nombre: "campana"; datos: Campana }
   | { nombre: "texto"; datos: { delta: string } }
   | { nombre: "fin"; datos: FinChat }
   | { nombre: "error"; datos: { detalle: string } };

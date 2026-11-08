@@ -8,6 +8,7 @@ import { textos } from "../textos";
 import type { Idioma } from "../util/fechas";
 import { aHtml, tieneTablas } from "../util/markdown";
 import Fuentes from "./Fuentes";
+import CampanaPropuesta from "./CampanaPropuesta";
 import PiezaPropuesta from "./PiezaPropuesta";
 import { Icono } from "./Iconos";
 import { useToast } from "./Toasts";
@@ -35,7 +36,7 @@ function MensajeBase({ m, n, convId, idioma, ultimo, generando, onPedirRecorte }
     );
   }
 
-  const conPieza = !!m.pieza;
+  const conPieza = !!m.pieza || !!m.campana;
   return (
     <div className={"msj bot" + (generando ? " generando" : "")}>
       <div className="msj-avatar" aria-hidden="true">
@@ -55,6 +56,7 @@ function MensajeBase({ m, n, convId, idioma, ultimo, generando, onPedirRecorte }
           </div>
         )}
         {!generando && m.pieza && idioma === "es" && <PiezaPropuesta pieza={m.pieza} abierto={ultimo} />}
+        {!generando && m.campana && idioma === "es" && <CampanaPropuesta campana={m.campana} />}
         {!generando && convId && m.content.length >= LARGO_MINIMO_WORD && <Descargas convId={convId} n={n} conTablas={tieneTablas(m.content)} idioma={idioma} />}
         {m.tarjetas && m.tarjetas.length > 0 && <Fuentes tarjetas={m.tarjetas} idioma={idioma} abierto={!conPieza} onPedirRecorte={generando ? null : onPedirRecorte} />}
       </div>

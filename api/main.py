@@ -14,7 +14,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from . import config, auth, roles as _roles, chat as _chat
+from . import config, auth, roles as _roles, chat as _chat, campana as _campana
 
 log = logging.getLogger("api")
 config.cargar()                      # variables de entorno (y secrets.toml en local) ANTES de importar nucleo/db
@@ -208,7 +208,7 @@ def _sse(nombre, datos):
 @app.post("/conversaciones/{cid}/mensajes")
 def mensaje(cid: str, datos: Mensaje, request: Request, usuario=Depends(auth.usuario_actual)):
     """Manda un mensaje. cid = 'nueva' abre una conversación nueva. Con stream=true (o Accept: text/event-stream)
-    responde Server-Sent Events: estado → fuentes → pieza → texto (deltas) → fin {conversacion_id, titulo, mensaje}.
+    responde Server-Sent Events: estado → fuentes → pieza → campana → texto (deltas) → fin {conversacion_id, titulo, mensaje}.
     Sin streaming, responde el JSON del evento fin."""
     texto = (datos.texto or "").strip()
     if not texto:
@@ -232,9 +232,14 @@ def mensaje(cid: str, datos: Mensaje, request: Request, usuario=Depends(auth.usu
 
     def _cerrar(fin):
         m = {"role": "assistant", "content": fin["texto"], "mats": fin["mats"], "pieza": fin["pieza"]}
+        if fin.get("campana"):
+            m["campana"] = fin["campana"]      # (8/11) se guarda como la pieza: al reabrir la conversación se ve la campaña
         mensajes.append(m)
         nuevo_id, nuevo_titulo = _guardar(usuario, conv_id, titulo, mensajes)
+        if fin.get("campana"):
+            _campana.agregar_conversacion(usuario, fin["campana"]["proyecto_id"], nuevo_id)
         return {"conversacion_id": nuevo_id, "titulo": nuevo_titulo, "texto": fin["texto"], "pieza": fin["pieza"],
+                "campana": fin.get("campana"),
                 "query": fin["query"], "tarjetas": _chat.tarjetas(fin["mats"], idioma, fin["texto"]),
                 "mensaje": m}
 
