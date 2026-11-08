@@ -4,7 +4,7 @@ metricas.py (campañas, canales, captura), metricas_meta.py (HTTP contra Meta) y
 
   GET  /admin/metricas/campanas?dias=90 | mes=AAAA-MM   campañas (Proyectos) con sus piezas por canal y por estado, y las métricas de cada pieza
   GET  /admin/metricas/canales                           una tarjeta por canal: estado de la conexión, últimos números, enlace y lo anotado a mano
-  POST /admin/metricas/actualizar                        captura ahora Instagram, Facebook, YouTube y el sitio (cuenta de 28 días + piezas de los últimos 60); nunca 500 por las plataformas
+  POST /admin/metricas/actualizar                        captura ahora Instagram, Facebook, YouTube, el sitio y el mail (Perfit) (cuenta de 28 días + piezas de los últimos 60); nunca 500 por las plataformas
   GET  /admin/metricas/wordpress/autorizar               (8/11) redirige (302) a WordPress.com para conectar el sitio; el `state` va firmado y vence a los 10 minutos
   GET  /admin/metricas/wordpress/callback?code&state     (8/11) vuelve de WordPress.com: canjea el código, guarda el token y redirige a la web (?wordpress=ok | error&motivo=)
   DELETE /admin/metricas/wordpress                       (8/11) desconecta el sitio (borra el token guardado)
@@ -156,6 +156,7 @@ class ActualizarResp(BaseModel):
     facebook: ResultadoCanal
     youtube: ResultadoCanal                      # (8/11, Franco)
     sitio: ResultadoCanal                        # (8/11, Franco) estadísticas de WordPress.com
+    mail: ResultadoCanal                         # (8/11, Franco) Perfit: cuenta de 28 días + envíos de la Frase del día
 
 
 class ManualIn(BaseModel):

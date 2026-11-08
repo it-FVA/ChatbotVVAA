@@ -7,7 +7,7 @@ Dos preguntas, dos mitades:
   1. «Cuánto hicimos» sale de nuestra base, sin APIs: campanas(periodo) cruza proyectos + proyecto_items (tipo «pieza» →
      publicaciones.id) + publicaciones + la última métrica de cada pieza (de la API o cargada a mano; si hay las dos, la de la API).
   2. «Cuánto llegó» depende de cada plataforma: canales_estado(cfg) arma una tarjeta por canal (Instagram, Facebook, YouTube y el sitio por API;
-     mail y WhatsApp con enlace a la plataforma y carga a mano); capturar(cfg) pide los números a Meta, Google y WordPress.com y los guarda.
+     el mail por Perfit (8/11) y WhatsApp con enlace a la plataforma y carga a mano); capturar(cfg) pide los números a Meta, Google y WordPress.com y los guarda.
 
   GRUPO_ESTADO / grupo_de(estado)   el único lugar donde se agrupan los estados de una pieza (publicada, programada, en_aprobacion…)
   CLAVES_NORMALIZADAS               las claves de números que acepta la carga a mano y que usa la API
@@ -22,7 +22,7 @@ textos para la persona van en rioplatense y sin jerga («la conexión con Instag
 Las fechas son en hora Argentina (UTC-3), como api/admin_rutas.py (cuyo `periodo()` se importa recién cuando se necesita, para que
 la cola no cargue FastAPI).
 """
-import re, datetime as dt
+import os, re, datetime as dt
 
 import db
 
@@ -224,7 +224,7 @@ def campanas(periodo):
 
 # ---------------- canales ----------------
 _NOTAS = {
-    "mail": ("no_hay", "Perfit: los reportes se ven en la plataforma; la API de métricas por campaña está sin confirmar."),
+    "mail": ("no_hay", "No hay conexión con Perfit configurada en el servidor; los reportes se ven en la plataforma."),
     "sitio": ("no_hay", "WordPress.com pide autorizar una app propia para leer las estadísticas; por ahora, el enlace."),
     "whatsapp": ("no_hay", "WhatsApp no da métricas de grupos."),
 }
@@ -270,6 +270,20 @@ def _estado_api_youtube(configurado, fila):
     errores = (fila.get("datos") or {}).get("errores") or []
     if any(metricas_youtube.es_error_de_scope(e) for e in errores):
         return "sin_permiso", next(e for e in errores if metricas_youtube.es_error_de_scope(e))
+    if errores and not _numeros(fila):
+        return "error", errores[0]
+    return "disponible", (f"Algo no se pudo traer: {errores[0]}" if errores else "")
+
+
+def _estado_api_mail(fuente_env, fila):
+    """('disponible'|'pendiente'|'error'|'no_hay', nota) del mail (Perfit, 8/11, Franco): 'no_hay' solo si no hay clave; con clave y sin
+    captura 'pendiente'; si la última captura no trajo números, 'error'."""
+    import metricas_perfit as mp
+    if not mp.hay_clave(fuente_env):
+        return _NOTAS["mail"]
+    if not fila:
+        return "pendiente", "Todavía no se pidieron los números: tocá «Actualizar»."
+    errores = (fila.get("datos") or {}).get("errores") or []
     if errores and not _numeros(fila):
         return "error", errores[0]
     return "disponible", (f"Algo no se pudo traer: {errores[0]}" if errores else "")
@@ -328,6 +342,8 @@ def canales_estado(cfg):
         else:
             if clave == "sitio":
                 estado, nota, conectado, conectar_url = _estado_api_sitio(cfg, fa)
+            elif clave == "mail":
+                (estado, nota), conectado, conectar_url = _estado_api_mail(os.environ, fa), False, None
             else:
                 (estado, nota), conectado, conectar_url = _NOTAS[clave], False, None
             texto = {"sitio": "Sitio web", "mail": "Mail (Newsletter y Frase del día)"}.get(clave) or _canal_texto(clave)
@@ -499,6 +515,39 @@ def _captura_sitio(cfg, por, ahora, desde_pub):
         return {"ok": False, "piezas": 0, "error": f"No pude traer los números del sitio: {type(e).__name__}: {mw._limpiar(str(e), mw._secretos(cfg, (tok or {}).get('access_token')))[:160]}"}
 
 
+def _captura_mail(por, ahora, desde_pub, fuente_env=None):
+    """El mail (Perfit, 8/11, Franco): cuenta de 28 días + las piezas `mail` (Frase del día) publicadas, con el conteo de envíos de frase_envios.
+    Devuelve {"ok", "piezas", "error"}; nunca lanza. Las piezas `newsletter` no se leen por pieza: se pegan a mano en Perfit y no guardan el id de campaña."""
+    import metricas_perfit as mp
+    env = os.environ if fuente_env is None else fuente_env
+    try:
+        if not mp.hay_clave(env):
+            return {"ok": False, "piezas": 0, "error": mp.TEXTO_SIN_CLAVE}
+        cuenta = mp.insights_cuenta_mail(env, DIAS_CUENTA, ahora)
+        hoy = ahora.astimezone(ZONA_AR).date()
+        db.guardar_metrica({"ambito": "canal", "ref": "mail", "canal": "mail", "fuente": "api",
+                            "periodo_desde": (hoy - dt.timedelta(days=DIAS_CUENTA)).isoformat(), "periodo_hasta": hoy.isoformat(),
+                            "datos": cuenta, "por": por})
+        errores = cuenta.get("errores") or []
+        clave = next((e for e in errores if mp.es_error_de_clave(e)), None)
+        if clave:
+            return {"ok": False, "piezas": 0, "error": clave}
+        if errores and not _numeros({"datos": cuenta}):
+            return {"ok": False, "piezas": 0, "error": errores[0]}
+        n, con_numeros = 0, 0
+        for p in desde_pub:
+            if p.get("canal") != "mail":
+                continue
+            res = mp.insights_frase_mail(db, p["id"])
+            db.guardar_metrica({"ambito": "pieza", "ref": str(p["id"]), "canal": "mail", "fuente": "api", "datos": res, "por": por})
+            n += 1
+            if _numeros({"datos": res}):
+                con_numeros += 1
+        return {"ok": True, "piezas": con_numeros, "error": None}
+    except Exception as e:      # nunca un 500 por un error de Perfit o de la base
+        return {"ok": False, "piezas": 0, "error": f"No pude traer los números del mail: {type(e).__name__}: {mp._limpiar(str(e), env)[:160]}"}
+
+
 def _piezas_a_capturar(todas, ahora):
     """Las publicadas en modo real de los últimos DIAS_PIEZAS días con id de la plataforma. Sin `todas` (la pasada de la cola)
     se saltean las que ya se capturaron hace menos de 20 h, salvo las historias (vencen a las 24 h: se piden cada hora mientras duren)."""
@@ -506,10 +555,10 @@ def _piezas_a_capturar(todas, ahora):
     cand = []
     for p in db.publicaciones_para_metricas(desde):
         modos = ("real", "privado") if p.get("canal") == "youtube" else ("real",)       # YouTube sube en privado hasta la auditoría
-        if p.get("estado") != "publicada" or p.get("modo") not in modos or p.get("canal") not in ("instagram", "facebook", "youtube", "wordpress"):
+        if p.get("estado") != "publicada" or p.get("modo") not in modos or p.get("canal") not in ("instagram", "facebook", "youtube", "wordpress", "mail"):
             continue
         d = _fecha(fecha_efectiva(p))
-        if not id_plataforma(p) or not d or d < ahora - dt.timedelta(days=DIAS_PIEZAS):
+        if (p.get("canal") != "mail" and not id_plataforma(p)) or not d or d < ahora - dt.timedelta(days=DIAS_PIEZAS):
             continue
         if _formato(p) == "historia" and d < ahora - dt.timedelta(hours=26):
             continue                                            # Instagram ya borró sus métricas
@@ -529,8 +578,8 @@ def _piezas_a_capturar(todas, ahora):
 
 
 def capturar(cfg, por="api", todas=True):
-    """Pide a Instagram, Facebook, YouTube y WordPress.com los números (cuenta de 28 días + cada pieza real publicada en los últimos 60) y los guarda
-    con fuente 'api'. Devuelve {"capturado", "instagram": {ok, piezas, error}, "facebook": {…}, "youtube": {…}, "sitio": {…}}. No lanza por errores
+    """Pide a Instagram, Facebook, YouTube, WordPress.com y Perfit (mail) los números (cuenta de 28 días + cada pieza real publicada en los últimos 60) y los guarda
+    con fuente 'api'. Devuelve {"capturado", "instagram": {ok, piezas, error}, "facebook": {…}, "youtube": {…}, "sitio": {…}, "mail": {…}}. No lanza por errores
     de las plataformas."""
     ahora = _ahora()
     try:
@@ -545,6 +594,7 @@ def capturar(cfg, por="api", todas=True):
     res["youtube"] = (_captura_youtube(cfg, por, ahora, cand) if getattr(cfg, "yt_token_json", "") else
                       {"ok": False, "piezas": 0, "error": "Falta la conexión con YouTube en el servidor."})
     res["sitio"] = _captura_sitio(cfg, por, ahora, cand)
+    res["mail"] = _captura_mail(por, ahora, cand)
     return res
 
 

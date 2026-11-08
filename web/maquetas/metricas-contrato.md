@@ -126,7 +126,11 @@ juntos como `sitio` (texto «Sitio web»), whatsapp. `api`:
   el token no tiene el permiso de YouTube Analytics (nota: «Falta autorizar la lectura de estadísticas de YouTube…»; igual vienen las
   vistas, suscriptores, me gusta y comentarios de la Data API); `error` otro; `pendiente` si nunca se capturó. `POST /actualizar` suma la
   clave `youtube` con la misma forma `{ok, piezas, error}`. Módulo: `metricas_youtube.py`.
-- mail: `no_hay`, nota «Perfit: los reportes se ven en la plataforma; la API de métricas por campaña está sin confirmar».
+- mail (8/11, Franco: Perfit): `no_hay` SOLO si el servidor no tiene `PERFIT_API_KEY` y `PERFIT_CUENTA` (nota «No hay conexión con Perfit configurada en el servidor…»); con clave, `pendiente` si nunca se capturó, `disponible` si la última captura trajo números, `error` si falló
+  (por ejemplo «Perfit rechazó la clave…»). Números de la cuenta (28 días, suma de las campañas lanzadas en el período): `enviados`, `aperturas`, `clics`,
+  más `rebotes`, `bajas`, `tasa_apertura`, `tasa_clics` y `crudo.campanas` (hasta 20). Piezas `mail` (Frase del día) publicadas en los últimos 60 días: `enviados`
+  y `crudo.errores_envio` salen del registro de la app (`frase_envios`), no de Perfit (no es una campaña). Las piezas `newsletter` no se leen por pieza (el HTML se pega a mano
+  en Perfit, no hay id de campaña). `POST /actualizar` suma la clave `mail` con la misma forma `{ok, piezas, error}`. Módulo: `metricas_perfit.py`.
 - sitio (8/11, Franco: WordPress.com): `disponible` si hay token guardado y la última captura trajo números; `pendiente` si hay app registrada
   (`WPCOM_CLIENT_ID` y `WPCOM_CLIENT_SECRET`) pero falta conectar (nota «Falta conectar con WordPress.com (un clic)») o si está conectado y
   nunca se capturó; `error` si WordPress.com ya no acepta el token (nota «WordPress.com ya no acepta la conexión: hay que volver a conectar (un

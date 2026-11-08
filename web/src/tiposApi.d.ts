@@ -2390,6 +2390,7 @@ export interface components {
             capturado: string;
             facebook: components["schemas"]["ResultadoCanal"];
             instagram: components["schemas"]["ResultadoCanal"];
+            mail: components["schemas"]["ResultadoCanal"];
             sitio: components["schemas"]["ResultadoCanal"];
             youtube: components["schemas"]["ResultadoCanal"];
         };

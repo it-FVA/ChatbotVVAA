@@ -26,6 +26,9 @@
      "instagram": {
       "$ref": "#/components/schemas/ResultadoCanal"
      },
+     "mail": {
+      "$ref": "#/components/schemas/ResultadoCanal"
+     },
      "sitio": {
       "$ref": "#/components/schemas/ResultadoCanal"
      },
@@ -38,7 +41,8 @@
      "instagram",
      "facebook",
      "youtube",
-     "sitio"
+     "sitio",
+     "mail"
     ],
     "title": "ActualizarResp",
     "type": "object"

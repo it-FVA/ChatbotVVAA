@@ -220,7 +220,7 @@ export default function Metricas() {
         <div className="aviso met-resultado" role="status">
           <IconoAdmin nombre="info" tam={18} />
           <span>
-            {textoActualizar("Instagram", resultado.instagram)}. {textoActualizar("Facebook", resultado.facebook)}. {textoActualizar("YouTube", resultado.youtube)}.{resultado.sitio ? ` ${textoActualizar("Sitio web", resultado.sitio)}.` : ""}
+            {textoActualizar("Instagram", resultado.instagram)}. {textoActualizar("Facebook", resultado.facebook)}. {textoActualizar("YouTube", resultado.youtube)}.{resultado.sitio ? ` ${textoActualizar("Sitio web", resultado.sitio)}.` : ""}{resultado.mail ? ` ${textoActualizar("Mail", resultado.mail)}.` : ""}
           </span>
         </div>
       )}

@@ -135,11 +135,12 @@ describe("Métricas", () => {
 
   it("actualizar muestra el resultado por canal", async () => {
     const u = userEvent.setup();
-    abrir({ "POST /admin/metricas/actualizar": { capturado: ahora, instagram: { ok: true, piezas: 4, error: null }, facebook: { ok: false, piezas: 0, error: "Falta el permiso read_insights" }, youtube: { ok: false, piezas: 2, error: "Falta autorizar la lectura de estadísticas de YouTube (correr autorizar_youtube.py de nuevo)" }, sitio: { ok: false, piezas: 0, error: "Falta conectar con WordPress.com (un clic)" } } });
+    abrir({ "POST /admin/metricas/actualizar": { capturado: ahora, instagram: { ok: true, piezas: 4, error: null }, facebook: { ok: false, piezas: 0, error: "Falta el permiso read_insights" }, youtube: { ok: false, piezas: 2, error: "Falta autorizar la lectura de estadísticas de YouTube (correr autorizar_youtube.py de nuevo)" }, sitio: { ok: false, piezas: 0, error: "Falta conectar con WordPress.com (un clic)" }, mail: { ok: true, piezas: 3, error: null } } });
     await u.click(await screen.findByRole("button", { name: /Actualizar desde las plataformas/ }));
     expect(await screen.findByText(/Instagram: 4 piezas leídas/)).toBeInTheDocument();
     expect(screen.getByText(/Facebook: falta un permiso en la conexión/)).toBeInTheDocument();
     expect(screen.getByText(/YouTube: falta un permiso en la conexión/)).toBeInTheDocument();
+    expect(screen.getByText(/Mail: 3 piezas leídas/)).toBeInTheDocument();      // (8/11, Franco) Perfit
   });
 
   it("el menú de Administración no muestra «Métricas», pero la ruta directa abre la pantalla", async () => {
