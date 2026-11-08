@@ -1,3 +1,15 @@
+### 8/11 · Métricas: YouTube
+Franco decidió avanzar con YouTube ya (no esperar la auditoría de Google). **Quedó hecho:** `metricas_youtube.py` (solo HTTP contra Google: `insights_canal_youtube`, `insights_video_youtube`, `es_error_de_scope`), YouTube dentro de `metricas.capturar`/`capturar_si_toca` (canal + videos `publicada` en modo `real` o `privado` con id de los últimos 60 días), tarjeta de YouTube con `api` disponible / sin_permiso / error / pendiente, `POST /actualizar` con la clave `youtube`, botón «Actualizar desde Instagram, Facebook y YouTube», `autorizar_youtube.py` con el scope nuevo `yt-analytics.readonly`, `/admin/salud` avisa «Sin estadísticas» (sin marcar error) si el token no lo tiene, y pruebas con Google simulado (`api/tests/test_metricas_youtube.py`).
+
+**Sin el permiso nuevo ya anda lo de la Data API** (suscriptores, vistas históricas del canal, vistas, me gusta y comentarios por video); la tarjeta dice «Falta autorizar la lectura de estadísticas». Con él suma vistas del período, suscriptores ganados, compartidos, minutos vistos y duración promedio.
+
+**Paso de Franco (tres líneas):**
+1. En ChatbotVVAA correr `python autorizar_youtube.py`, abrir el link con la cuenta dueña del canal (webviviragradecidos@gmail.com) y aceptar los tres permisos (el script imprime al final cuáles quedaron).
+2. Pegar el `YOUTUBE_TOKEN_JSON` nuevo en Render (variable de entorno) y en los secrets de GitHub.
+3. En Administración → Métricas tocar «Actualizar»: la tarjeta de YouTube tiene que pasar a «disponible».
+
+**No se pudo confirmar contra Google (acá no hay token):** la forma de las respuestas sale de la documentación. Mirar en la primera captura real que `reports` acepte `endDate` = ayer (UTC), los nombres de las columnas y que el `403` por falta de permiso se reconozca (`es_error_de_scope`). Google exige no guardar datos de Analytics más de 30 días sin reconfirmar la autorización: por eso se guardan solo totales y un `crudo` chico, nunca series. Cuota de la Data API: 10.000 unidades por día (leer channels o videos cuesta 1).
+
 
 ### 8/11 (18:10) · Bug en la búsqueda del chat desde el 5/11, corregido
 Beto vio «module 'db' has no attribute '_cabeceras'» en el chat. Causa: el commit e54fb1b (5/11 01:55, clave acotada de la cola) cambió `db/_cliente._rpc` para armar las cabeceras con `_db._cabeceras`, y el paquete `db` no reexportaba esa función privada: cada búsqueda en el corpus con `VECTORES=supabase` (match_lexico / match_fragmentos_varios) y el chequeo `tamano_base` de Salud fallaban. El chat seguía respondiendo mientras no buscara, por eso tardó 3 días en verse. Arreglo: `_rpc` usa la función local y `db` la reexporta; prueba de regresión `test_rpc_arma_la_llamada` en `api/tests/test_vectores.py`. Verificado en producción con una búsqueda real (citas con fuente). Lección: las pruebas no ejercitan `_rpc` contra nada; cualquier cambio en `db/_cliente.py` debe verificarse con una pregunta al chat en producción.
