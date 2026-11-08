@@ -1,4 +1,7 @@
 
+### 8/11 (18:10) · Bug en la búsqueda del chat desde el 5/11, corregido
+Beto vio «module 'db' has no attribute '_cabeceras'» en el chat. Causa: el commit e54fb1b (5/11 01:55, clave acotada de la cola) cambió `db/_cliente._rpc` para armar las cabeceras con `_db._cabeceras`, y el paquete `db` no reexportaba esa función privada: cada búsqueda en el corpus con `VECTORES=supabase` (match_lexico / match_fragmentos_varios) y el chequeo `tamano_base` de Salud fallaban. El chat seguía respondiendo mientras no buscara, por eso tardó 3 días en verse. Arreglo: `_rpc` usa la función local y `db` la reexporta; prueba de regresión `test_rpc_arma_la_llamada` en `api/tests/test_vectores.py`. Verificado en producción con una búsqueda real (citas con fuente). Lección: las pruebas no ejercitan `_rpc` contra nada; cualquier cambio en `db/_cliente.py` debe verificarse con una pregunta al chat en producción.
+
 ### 8/11 · Métricas (API)
 Pedido de Beto, decisión de Franco: la app como centro de métricas de campañas. Contrato en `web/maquetas/metricas-contrato.md`; la pantalla web la construye otra sesión contra el mismo contrato.
 
