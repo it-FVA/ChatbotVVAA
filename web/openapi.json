@@ -14,6 +14,27 @@
     "title": "Activa",
     "type": "object"
    },
+   "ActualizarResp": {
+    "properties": {
+     "capturado": {
+      "title": "Capturado",
+      "type": "string"
+     },
+     "facebook": {
+      "$ref": "#/components/schemas/ResultadoCanal"
+     },
+     "instagram": {
+      "$ref": "#/components/schemas/ResultadoCanal"
+     }
+    },
+    "required": [
+     "capturado",
+     "instagram",
+     "facebook"
+    ],
+    "title": "ActualizarResp",
+    "type": "object"
+   },
    "Aprobar": {
     "properties": {
      "fecha": {
@@ -151,6 +172,241 @@
     "title": "CambiosConfig",
     "type": "object"
    },
+   "Campana": {
+    "properties": {
+     "color": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Color"
+     },
+     "creado": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Creado"
+     },
+     "dueno": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Dueno"
+     },
+     "emoji": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Emoji"
+     },
+     "id": {
+      "title": "Id",
+      "type": "string"
+     },
+     "nombre": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Nombre"
+     },
+     "piezas": {
+      "items": {
+       "$ref": "#/components/schemas/PiezaCampana"
+      },
+      "title": "Piezas",
+      "type": "array"
+     },
+     "piezas_total": {
+      "title": "Piezas Total",
+      "type": "integer"
+     },
+     "por_canal": {
+      "additionalProperties": {
+       "additionalProperties": {
+        "type": "integer"
+       },
+       "type": "object"
+      },
+      "title": "Por Canal",
+      "type": "object"
+     },
+     "por_estado": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "title": "Por Estado",
+      "type": "object"
+     },
+     "primera": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Primera"
+     },
+     "ultima": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ultima"
+     }
+    },
+    "required": [
+     "id",
+     "piezas_total",
+     "por_canal",
+     "por_estado",
+     "piezas"
+    ],
+    "title": "Campana",
+    "type": "object"
+   },
+   "CampanasResp": {
+    "properties": {
+     "campanas": {
+      "items": {
+       "$ref": "#/components/schemas/Campana"
+      },
+      "title": "Campanas",
+      "type": "array"
+     },
+     "periodo": {
+      "$ref": "#/components/schemas/Periodo"
+     },
+     "sueltas": {
+      "$ref": "#/components/schemas/Campana"
+     },
+     "totales": {
+      "$ref": "#/components/schemas/Totales"
+     }
+    },
+    "required": [
+     "periodo",
+     "campanas",
+     "sueltas",
+     "totales"
+    ],
+    "title": "CampanasResp",
+    "type": "object"
+   },
+   "CanalMetricas": {
+    "properties": {
+     "api": {
+      "title": "Api",
+      "type": "string"
+     },
+     "clave": {
+      "title": "Clave",
+      "type": "string"
+     },
+     "configurado": {
+      "title": "Configurado",
+      "type": "boolean"
+     },
+     "enlace": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Enlace"
+     },
+     "enlace_texto": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Enlace Texto"
+     },
+     "icono": {
+      "title": "Icono",
+      "type": "string"
+     },
+     "manual": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/FilaManual"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "modo": {
+      "title": "Modo",
+      "type": "string"
+     },
+     "nota_api": {
+      "title": "Nota Api",
+      "type": "string"
+     },
+     "texto": {
+      "title": "Texto",
+      "type": "string"
+     },
+     "ultima": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/FilaMetrica"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "clave",
+     "texto",
+     "icono",
+     "modo",
+     "configurado",
+     "api",
+     "nota_api"
+    ],
+    "title": "CanalMetricas",
+    "type": "object"
+   },
    "Canales": {
     "properties": {
      "canales": {
@@ -165,6 +421,33 @@
      "canales"
     ],
     "title": "Canales",
+    "type": "object"
+   },
+   "CanalesResp": {
+    "properties": {
+     "actualizado": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Actualizado"
+     },
+     "canales": {
+      "items": {
+       "$ref": "#/components/schemas/CanalMetricas"
+      },
+      "title": "Canales",
+      "type": "array"
+     }
+    },
+    "required": [
+     "canales"
+    ],
+    "title": "CanalesResp",
     "type": "object"
    },
    "CompartirPieza": {
@@ -613,6 +896,145 @@
     "title": "EstiloDefecto",
     "type": "object"
    },
+   "FilaManual": {
+    "properties": {
+     "capturado": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Capturado"
+     },
+     "datos": {
+      "additionalProperties": true,
+      "title": "Datos",
+      "type": "object"
+     },
+     "fuente": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Fuente"
+     },
+     "nota": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Nota"
+     },
+     "periodo_desde": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Periodo Desde"
+     },
+     "periodo_hasta": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Periodo Hasta"
+     },
+     "por": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Por"
+     }
+    },
+    "required": [
+     "datos"
+    ],
+    "title": "FilaManual",
+    "type": "object"
+   },
+   "FilaMetrica": {
+    "description": "Una captura: `datos` lleva los números normalizados, `crudo` (lo que devolvió la plataforma) y `errores`.",
+    "properties": {
+     "capturado": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Capturado"
+     },
+     "datos": {
+      "additionalProperties": true,
+      "title": "Datos",
+      "type": "object"
+     },
+     "fuente": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Fuente"
+     },
+     "periodo_desde": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Periodo Desde"
+     },
+     "periodo_hasta": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Periodo Hasta"
+     }
+    },
+    "required": [
+     "datos"
+    ],
+    "title": "FilaMetrica",
+    "type": "object"
+   },
    "Guardar": {
     "properties": {
      "borrador_id": {
@@ -807,6 +1229,175 @@
     "title": "LoginGoogle",
     "type": "object"
    },
+   "ManualIn": {
+    "properties": {
+     "ambito": {
+      "title": "Ambito",
+      "type": "string"
+     },
+     "canal": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Canal"
+     },
+     "datos": {
+      "additionalProperties": true,
+      "title": "Datos",
+      "type": "object"
+     },
+     "nota": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Nota"
+     },
+     "periodo_desde": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Periodo Desde"
+     },
+     "periodo_hasta": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Periodo Hasta"
+     },
+     "ref": {
+      "title": "Ref",
+      "type": "string"
+     }
+    },
+    "required": [
+     "ambito",
+     "ref",
+     "datos"
+    ],
+    "title": "ManualIn",
+    "type": "object"
+   },
+   "ManualOut": {
+    "properties": {
+     "ambito": {
+      "title": "Ambito",
+      "type": "string"
+     },
+     "canal": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Canal"
+     },
+     "capturado": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Capturado"
+     },
+     "datos": {
+      "additionalProperties": true,
+      "title": "Datos",
+      "type": "object"
+     },
+     "id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Id"
+     },
+     "nota": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Nota"
+     },
+     "periodo_desde": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Periodo Desde"
+     },
+     "periodo_hasta": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Periodo Hasta"
+     },
+     "por": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Por"
+     },
+     "ref": {
+      "title": "Ref",
+      "type": "string"
+     }
+    },
+    "required": [
+     "ambito",
+     "ref",
+     "datos"
+    ],
+    "title": "ManualOut",
+    "type": "object"
+   },
    "Mensaje": {
     "properties": {
      "stream": {
@@ -823,6 +1414,131 @@
      "texto"
     ],
     "title": "Mensaje",
+    "type": "object"
+   },
+   "MetricasPieza": {
+    "additionalProperties": true,
+    "description": "Los números normalizados que haya (todas las claves son opcionales: lo que la plataforma no da, no está) + de dónde salen.",
+    "properties": {
+     "alcance": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Alcance"
+     },
+     "capturado": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Capturado"
+     },
+     "clics": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Clics"
+     },
+     "comentarios": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Comentarios"
+     },
+     "compartidos": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Compartidos"
+     },
+     "fuente": {
+      "title": "Fuente",
+      "type": "string"
+     },
+     "guardados": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Guardados"
+     },
+     "interacciones": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Interacciones"
+     },
+     "me_gusta": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Me Gusta"
+     },
+     "respuestas": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Respuestas"
+     },
+     "vistas": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Vistas"
+     }
+    },
+    "required": [
+     "fuente"
+    ],
+    "title": "MetricasPieza",
     "type": "object"
    },
    "Mover": {
@@ -951,6 +1667,62 @@
      "fin_ms"
     ],
     "title": "PedidoRecorte",
+    "type": "object"
+   },
+   "Periodo": {
+    "properties": {
+     "desde": {
+      "title": "Desde",
+      "type": "string"
+     },
+     "dias": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Dias"
+     },
+     "hasta": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Hasta"
+     },
+     "mes": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mes"
+     },
+     "texto": {
+      "title": "Texto",
+      "type": "string"
+     },
+     "tipo": {
+      "title": "Tipo",
+      "type": "string"
+     }
+    },
+    "required": [
+     "tipo",
+     "desde",
+     "texto"
+    ],
+    "title": "Periodo",
     "type": "object"
    },
    "Pieza": {
@@ -1423,6 +2195,115 @@
     "title": "PiezaBorrador",
     "type": "object"
    },
+   "PiezaCampana": {
+    "properties": {
+     "canal": {
+      "title": "Canal",
+      "type": "string"
+     },
+     "canal_texto": {
+      "title": "Canal Texto",
+      "type": "string"
+     },
+     "estado": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Estado"
+     },
+     "estado_grupo": {
+      "title": "Estado Grupo",
+      "type": "string"
+     },
+     "fecha": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Fecha"
+     },
+     "formato": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Formato"
+     },
+     "id": {
+      "title": "Id",
+      "type": "string"
+     },
+     "metricas": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/MetricasPieza"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "modo": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Modo"
+     },
+     "titulo": {
+      "title": "Titulo",
+      "type": "string"
+     },
+     "usuario": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Usuario"
+     },
+     "ver_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ver Url"
+     }
+    },
+    "required": [
+     "id",
+     "canal",
+     "canal_texto",
+     "titulo",
+     "estado_grupo"
+    ],
+    "title": "PiezaCampana",
+    "type": "object"
+   },
    "PrimeraVez": {
     "properties": {
      "clave": {
@@ -1680,6 +2561,127 @@
     "title": "Resolver",
     "type": "object"
    },
+   "ResultadoCanal": {
+    "properties": {
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     },
+     "ok": {
+      "title": "Ok",
+      "type": "boolean"
+     },
+     "piezas": {
+      "title": "Piezas",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "ok",
+     "piezas"
+    ],
+    "title": "ResultadoCanal",
+    "type": "object"
+   },
+   "ResumenIn": {
+    "properties": {
+     "dias": {
+      "default": 90,
+      "maximum": 365.0,
+      "minimum": 1.0,
+      "title": "Dias",
+      "type": "integer"
+     },
+     "ref": {
+      "title": "Ref",
+      "type": "string"
+     }
+    },
+    "required": [
+     "ref"
+    ],
+    "title": "ResumenIn",
+    "type": "object"
+   },
+   "ResumenOut": {
+    "properties": {
+     "capturado": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Capturado"
+     },
+     "comparado_con": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Comparado Con"
+     },
+     "falto": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Falto",
+      "type": "array"
+     },
+     "fuentes": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Fuentes",
+      "type": "array"
+     },
+     "modelo": {
+      "title": "Modelo",
+      "type": "string"
+     },
+     "nombre": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Nombre"
+     },
+     "ref": {
+      "title": "Ref",
+      "type": "string"
+     },
+     "texto": {
+      "title": "Texto",
+      "type": "string"
+     }
+    },
+    "required": [
+     "ref",
+     "texto",
+     "fuentes",
+     "falto",
+     "modelo"
+    ],
+    "title": "ResumenOut",
+    "type": "object"
+   },
    "Servicio": {
     "properties": {
      "activo": {
@@ -1857,6 +2859,57 @@
      "fecha"
     ],
     "title": "Solicitud",
+    "type": "object"
+   },
+   "Totales": {
+    "properties": {
+     "borrador": {
+      "title": "Borrador",
+      "type": "integer"
+     },
+     "en_aprobacion": {
+      "title": "En Aprobacion",
+      "type": "integer"
+     },
+     "no_salio": {
+      "title": "No Salio",
+      "type": "integer"
+     },
+     "piezas": {
+      "title": "Piezas",
+      "type": "integer"
+     },
+     "por_canal": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "title": "Por Canal",
+      "type": "object"
+     },
+     "programada": {
+      "title": "Programada",
+      "type": "integer"
+     },
+     "prueba": {
+      "title": "Prueba",
+      "type": "integer"
+     },
+     "publicada": {
+      "title": "Publicada",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "piezas",
+     "publicada",
+     "programada",
+     "en_aprobacion",
+     "borrador",
+     "prueba",
+     "no_salio",
+     "por_canal"
+    ],
+    "title": "Totales",
     "type": "object"
    },
    "Vaciar": {
@@ -2475,6 +3528,251 @@
      }
     },
     "summary": "Lista Blanca Baja"
+   }
+  },
+  "/admin/metricas/actualizar": {
+   "post": {
+    "description": "Captura ahora los números de Instagram y Facebook. Un error de Meta no es un 500: vuelve en `error` de cada canal.",
+    "operationId": "actualizar_admin_metricas_actualizar_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ActualizarResp"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Actualizar",
+    "tags": [
+     "metricas"
+    ]
+   }
+  },
+  "/admin/metricas/campanas": {
+   "get": {
+    "description": "Campañas con sus piezas del período (90 días por defecto), agrupadas por estado y canal, y la última métrica de cada pieza.",
+    "operationId": "ver_campanas_admin_metricas_campanas_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "dias",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Dias"
+      }
+     },
+     {
+      "in": "query",
+      "name": "mes",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Mes"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CampanasResp"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Ver Campanas",
+    "tags": [
+     "metricas"
+    ]
+   }
+  },
+  "/admin/metricas/canales": {
+   "get": {
+    "description": "Una tarjeta por canal: Instagram y Facebook por la plataforma; YouTube, mail, sitio y WhatsApp con enlace y carga a mano.",
+    "operationId": "ver_canales_admin_metricas_canales_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CanalesResp"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Ver Canales",
+    "tags": [
+     "metricas"
+    ]
+   }
+  },
+  "/admin/metricas/manual": {
+   "put": {
+    "description": "Anota números a mano (fuente 'manual'). Las claves y los enteros ≥ 0 se validan acá; queda en usuarios_cambios.",
+    "operationId": "anotar_a_mano_admin_metricas_manual_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ManualIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ManualOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Anotar A Mano",
+    "tags": [
+     "metricas"
+    ]
+   }
+  },
+  "/admin/metricas/resumen": {
+   "post": {
+    "description": "Genera un resumen nuevo de «¿cómo le fue a esta campaña?» con el modelo auxiliar y lo guarda. El uso queda a nombre de quien lo pidió.",
+    "operationId": "generar_resumen_admin_metricas_resumen_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ResumenIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ResumenOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Generar Resumen",
+    "tags": [
+     "metricas"
+    ]
+   }
+  },
+  "/admin/metricas/resumen/{ref}": {
+   "get": {
+    "description": "El último resumen con IA guardado de la campaña (id de proyecto o «sueltas»), o null si todavía no hay.",
+    "operationId": "ver_resumen_admin_metricas_resumen__ref__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "ref",
+      "required": true,
+      "schema": {
+       "title": "Ref",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "anyOf": [
+          {
+           "$ref": "#/components/schemas/ResumenOut"
+          },
+          {
+           "type": "null"
+          }
+         ],
+         "title": "Response Ver Resumen Admin Metricas Resumen  Ref  Get"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Ver Resumen",
+    "tags": [
+     "metricas"
+    ]
    }
   },
   "/admin/resumen": {

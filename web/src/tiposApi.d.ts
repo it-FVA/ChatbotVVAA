@@ -162,6 +162,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/metricas/actualizar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Actualizar
+         * @description Captura ahora los números de Instagram y Facebook. Un error de Meta no es un 500: vuelve en `error` de cada canal.
+         */
+        post: operations["actualizar_admin_metricas_actualizar_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/metricas/campanas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ver Campanas
+         * @description Campañas con sus piezas del período (90 días por defecto), agrupadas por estado y canal, y la última métrica de cada pieza.
+         */
+        get: operations["ver_campanas_admin_metricas_campanas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/metricas/canales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ver Canales
+         * @description Una tarjeta por canal: Instagram y Facebook por la plataforma; YouTube, mail, sitio y WhatsApp con enlace y carga a mano.
+         */
+        get: operations["ver_canales_admin_metricas_canales_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/metricas/manual": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Anotar A Mano
+         * @description Anota números a mano (fuente 'manual'). Las claves y los enteros ≥ 0 se validan acá; queda en usuarios_cambios.
+         */
+        put: operations["anotar_a_mano_admin_metricas_manual_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/metricas/resumen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generar Resumen
+         * @description Genera un resumen nuevo de «¿cómo le fue a esta campaña?» con el modelo auxiliar y lo guarda. El uso queda a nombre de quien lo pidió.
+         */
+        post: operations["generar_resumen_admin_metricas_resumen_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/metricas/resumen/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ver Resumen
+         * @description El último resumen con IA guardado de la campaña (id de proyecto o «sueltas»), o null si todavía no hay.
+         */
+        get: operations["ver_resumen_admin_metricas_resumen__ref__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/resumen": {
         parameters: {
             query?: never;
@@ -2203,6 +2323,13 @@ export interface components {
             /** Activa */
             activa: boolean;
         };
+        /** ActualizarResp */
+        ActualizarResp: {
+            /** Capturado */
+            capturado: string;
+            facebook: components["schemas"]["ResultadoCanal"];
+            instagram: components["schemas"]["ResultadoCanal"];
+        };
         /** Aprobar */
         Aprobar: {
             /** Fecha */
@@ -2266,10 +2393,81 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** Campana */
+        Campana: {
+            /** Color */
+            color?: string | null;
+            /** Creado */
+            creado?: string | null;
+            /** Dueno */
+            dueno?: string | null;
+            /** Emoji */
+            emoji?: string | null;
+            /** Id */
+            id: string;
+            /** Nombre */
+            nombre?: string | null;
+            /** Piezas */
+            piezas: components["schemas"]["PiezaCampana"][];
+            /** Piezas Total */
+            piezas_total: number;
+            /** Por Canal */
+            por_canal: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
+            /** Por Estado */
+            por_estado: {
+                [key: string]: number;
+            };
+            /** Primera */
+            primera?: string | null;
+            /** Ultima */
+            ultima?: string | null;
+        };
+        /** CampanasResp */
+        CampanasResp: {
+            /** Campanas */
+            campanas: components["schemas"]["Campana"][];
+            periodo: components["schemas"]["Periodo"];
+            sueltas: components["schemas"]["Campana"];
+            totales: components["schemas"]["Totales"];
+        };
+        /** CanalMetricas */
+        CanalMetricas: {
+            /** Api */
+            api: string;
+            /** Clave */
+            clave: string;
+            /** Configurado */
+            configurado: boolean;
+            /** Enlace */
+            enlace?: string | null;
+            /** Enlace Texto */
+            enlace_texto?: string | null;
+            /** Icono */
+            icono: string;
+            manual?: components["schemas"]["FilaManual"] | null;
+            /** Modo */
+            modo: string;
+            /** Nota Api */
+            nota_api: string;
+            /** Texto */
+            texto: string;
+            ultima?: components["schemas"]["FilaMetrica"] | null;
+        };
         /** Canales */
         Canales: {
             /** Canales */
             canales: string[];
+        };
+        /** CanalesResp */
+        CanalesResp: {
+            /** Actualizado */
+            actualizado?: string | null;
+            /** Canales */
+            canales: components["schemas"]["CanalMetricas"][];
         };
         /** CompartirPieza */
         CompartirPieza: {
@@ -2428,6 +2626,43 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** FilaManual */
+        FilaManual: {
+            /** Capturado */
+            capturado?: string | null;
+            /** Datos */
+            datos: {
+                [key: string]: unknown;
+            };
+            /** Fuente */
+            fuente?: string | null;
+            /** Nota */
+            nota?: string | null;
+            /** Periodo Desde */
+            periodo_desde?: string | null;
+            /** Periodo Hasta */
+            periodo_hasta?: string | null;
+            /** Por */
+            por?: string | null;
+        };
+        /**
+         * FilaMetrica
+         * @description Una captura: `datos` lleva los números normalizados, `crudo` (lo que devolvió la plataforma) y `errores`.
+         */
+        FilaMetrica: {
+            /** Capturado */
+            capturado?: string | null;
+            /** Datos */
+            datos: {
+                [key: string]: unknown;
+            };
+            /** Fuente */
+            fuente?: string | null;
+            /** Periodo Desde */
+            periodo_desde?: string | null;
+            /** Periodo Hasta */
+            periodo_hasta?: string | null;
+        };
         /** Guardar */
         Guardar: {
             /** Borrador Id */
@@ -2514,6 +2749,50 @@ export interface components {
             /** Id Token */
             id_token: string;
         };
+        /** ManualIn */
+        ManualIn: {
+            /** Ambito */
+            ambito: string;
+            /** Canal */
+            canal?: string | null;
+            /** Datos */
+            datos: {
+                [key: string]: unknown;
+            };
+            /** Nota */
+            nota?: string | null;
+            /** Periodo Desde */
+            periodo_desde?: string | null;
+            /** Periodo Hasta */
+            periodo_hasta?: string | null;
+            /** Ref */
+            ref: string;
+        };
+        /** ManualOut */
+        ManualOut: {
+            /** Ambito */
+            ambito: string;
+            /** Canal */
+            canal?: string | null;
+            /** Capturado */
+            capturado?: string | null;
+            /** Datos */
+            datos: {
+                [key: string]: unknown;
+            };
+            /** Id */
+            id?: string | null;
+            /** Nota */
+            nota?: string | null;
+            /** Periodo Desde */
+            periodo_desde?: string | null;
+            /** Periodo Hasta */
+            periodo_hasta?: string | null;
+            /** Por */
+            por?: string | null;
+            /** Ref */
+            ref: string;
+        };
         /** Mensaje */
         Mensaje: {
             /**
@@ -2523,6 +2802,36 @@ export interface components {
             stream: boolean;
             /** Texto */
             texto: string;
+        };
+        /**
+         * MetricasPieza
+         * @description Los números normalizados que haya (todas las claves son opcionales: lo que la plataforma no da, no está) + de dónde salen.
+         */
+        MetricasPieza: {
+            /** Alcance */
+            alcance?: number | null;
+            /** Capturado */
+            capturado?: string | null;
+            /** Clics */
+            clics?: number | null;
+            /** Comentarios */
+            comentarios?: number | null;
+            /** Compartidos */
+            compartidos?: number | null;
+            /** Fuente */
+            fuente: string;
+            /** Guardados */
+            guardados?: number | null;
+            /** Interacciones */
+            interacciones?: number | null;
+            /** Me Gusta */
+            me_gusta?: number | null;
+            /** Respuestas */
+            respuestas?: number | null;
+            /** Vistas */
+            vistas?: number | null;
+        } & {
+            [key: string]: unknown;
         };
         /** Mover */
         Mover: {
@@ -2578,6 +2887,21 @@ export interface components {
             titulo?: string | null;
             /** Video Id */
             video_id: string;
+        };
+        /** Periodo */
+        Periodo: {
+            /** Desde */
+            desde: string;
+            /** Dias */
+            dias?: number | null;
+            /** Hasta */
+            hasta?: string | null;
+            /** Mes */
+            mes?: string | null;
+            /** Texto */
+            texto: string;
+            /** Tipo */
+            tipo: string;
         };
         /**
          * Pieza
@@ -2696,6 +3020,32 @@ export interface components {
             /** Video Url */
             video_url?: string | null;
         };
+        /** PiezaCampana */
+        PiezaCampana: {
+            /** Canal */
+            canal: string;
+            /** Canal Texto */
+            canal_texto: string;
+            /** Estado */
+            estado?: string | null;
+            /** Estado Grupo */
+            estado_grupo: string;
+            /** Fecha */
+            fecha?: string | null;
+            /** Formato */
+            formato?: string | null;
+            /** Id */
+            id: string;
+            metricas?: components["schemas"]["MetricasPieza"] | null;
+            /** Modo */
+            modo?: string | null;
+            /** Titulo */
+            titulo: string;
+            /** Usuario */
+            usuario?: string | null;
+            /** Ver Url */
+            ver_url?: string | null;
+        };
         /** PrimeraVez */
         PrimeraVez: {
             /** Clave */
@@ -2786,6 +3136,44 @@ export interface components {
             /** Respuesta */
             respuesta?: string | null;
         };
+        /** ResultadoCanal */
+        ResultadoCanal: {
+            /** Error */
+            error?: string | null;
+            /** Ok */
+            ok: boolean;
+            /** Piezas */
+            piezas: number;
+        };
+        /** ResumenIn */
+        ResumenIn: {
+            /**
+             * Dias
+             * @default 90
+             */
+            dias: number;
+            /** Ref */
+            ref: string;
+        };
+        /** ResumenOut */
+        ResumenOut: {
+            /** Capturado */
+            capturado?: string | null;
+            /** Comparado Con */
+            comparado_con?: string | null;
+            /** Falto */
+            falto: string[];
+            /** Fuentes */
+            fuentes: string[];
+            /** Modelo */
+            modelo: string;
+            /** Nombre */
+            nombre?: string | null;
+            /** Ref */
+            ref: string;
+            /** Texto */
+            texto: string;
+        };
         /** Servicio */
         Servicio: {
             /**
@@ -2831,6 +3219,27 @@ export interface components {
             nota?: string | null;
             /** Texto */
             texto?: string | null;
+        };
+        /** Totales */
+        Totales: {
+            /** Borrador */
+            borrador: number;
+            /** En Aprobacion */
+            en_aprobacion: number;
+            /** No Salio */
+            no_salio: number;
+            /** Piezas */
+            piezas: number;
+            /** Por Canal */
+            por_canal: {
+                [key: string]: number;
+            };
+            /** Programada */
+            programada: number;
+            /** Prueba */
+            prueba: number;
+            /** Publicada */
+            publicada: number;
         };
         /** Vaciar */
         Vaciar: {
@@ -3193,6 +3602,175 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    actualizar_admin_metricas_actualizar_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActualizarResp"];
+                };
+            };
+        };
+    };
+    ver_campanas_admin_metricas_campanas_get: {
+        parameters: {
+            query?: {
+                dias?: number | null;
+                mes?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampanasResp"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ver_canales_admin_metricas_canales_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CanalesResp"];
+                };
+            };
+        };
+    };
+    anotar_a_mano_admin_metricas_manual_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManualOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generar_resumen_admin_metricas_resumen_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResumenIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumenOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ver_resumen_admin_metricas_resumen__ref__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumenOut"] | null;
                 };
             };
             /** @description Validation Error */
