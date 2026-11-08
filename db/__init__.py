@@ -3,7 +3,7 @@ db — Acceso a Supabase (Postgres por REST), partido por dominio (3/11, revisi�
 
     db/_cliente.py       _req (la llamada cruda), consulta/insertar/actualizar/borrar (escapan siempre), _rpc, ping, _q, _ahora_iso
     db/conversaciones.py db/publicaciones.py  db/clips.py  db/config.py  db/frases.py  db/usuarios.py  db/uso.py  db/servicios.py
-    db/salud.py  db/vectores.py  db/proyectos.py  db/banco.py       una tabla (o un grupo de tablas) por módulo
+    db/salud.py  db/vectores.py  db/proyectos.py  db/banco.py  db/metricas.py       una tabla (o un grupo de tablas) por módulo
 
 `import db` sigue funcionando igual: todas las funciones públicas se reexportan acá (db.listar_pendientes, db.obtener_config…),
 y las privadas que usan los scripts y las pruebas (db._req, db._cfg, db._rpc, db._ahora_iso, db._q). Dentro del paquete las
@@ -29,5 +29,6 @@ from .servicios import *        # noqa: F401,F403
 from .salud import *            # noqa: F401,F403
 from .vectores import *         # noqa: F401,F403
 from .banco import *            # noqa: F401,F403
+from .metricas import *         # noqa: F401,F403   (8/11: métricas de campañas y canales)
 from . import proyectos         # noqa: F401
 from .presencia import *        # noqa: F401,F403   (5/11: quién está mirando o editando una pieza o un recorte)
