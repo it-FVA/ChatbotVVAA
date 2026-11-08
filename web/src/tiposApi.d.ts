@@ -816,7 +816,7 @@ export interface paths {
         /**
          * Mensaje
          * @description Manda un mensaje. cid = 'nueva' abre una conversación nueva. Con stream=true (o Accept: text/event-stream)
-         *     responde Server-Sent Events: estado → fuentes → pieza → texto (deltas) → fin {conversacion_id, titulo, mensaje}.
+         *     responde Server-Sent Events: estado → fuentes → pieza → campana → texto (deltas) → fin {conversacion_id, titulo, mensaje}.
          *     Sin streaming, responde el JSON del evento fin.
          */
         post: operations["mensaje_conversaciones__cid__mensajes_post"];

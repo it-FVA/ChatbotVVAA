@@ -5103,7 +5103,7 @@
   },
   "/conversaciones/{cid}/mensajes": {
    "post": {
-    "description": "Manda un mensaje. cid = 'nueva' abre una conversación nueva. Con stream=true (o Accept: text/event-stream)\nresponde Server-Sent Events: estado → fuentes → pieza → texto (deltas) → fin {conversacion_id, titulo, mensaje}.\nSin streaming, responde el JSON del evento fin.",
+    "description": "Manda un mensaje. cid = 'nueva' abre una conversación nueva. Con stream=true (o Accept: text/event-stream)\nresponde Server-Sent Events: estado → fuentes → pieza → campana → texto (deltas) → fin {conversacion_id, titulo, mensaje}.\nSin streaming, responde el JSON del evento fin.",
     "operationId": "mensaje_conversaciones__cid__mensajes_post",
     "parameters": [
      {

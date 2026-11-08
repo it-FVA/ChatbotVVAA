@@ -103,7 +103,7 @@ export default function Chat() {
       .conversacion(id)
       .then((c) => {
         if (!vivo) return;
-        setConv({ id: c.id, titulo: c.titulo, compartida: c.compartida || null, mensajes: c.mensajes.map((m) => ({ role: m.role, content: m.content, tarjetas: m.tarjetas || [], pieza: m.pieza || null })) });
+        setConv({ id: c.id, titulo: c.titulo, compartida: c.compartida || null, mensajes: c.mensajes.map((m) => ({ role: m.role, content: m.content, tarjetas: m.tarjetas || [], pieza: m.pieza || null, campana: m.campana || null })) });
         setAbajo(true);
       })
       .catch((e) => vivo && setErrorConv(e instanceof ErrorApi ? e.message : t("noCargo")))
@@ -214,12 +214,15 @@ export default function Chat() {
       case "pieza":
         actualizarUltimo((m) => ({ ...m, pieza: e.datos }));
         break;
+      case "campana":
+        actualizarUltimo((m) => ({ ...m, campana: e.datos }));
+        break;
       case "texto":
         actualizarUltimo((m) => ({ ...m, estado: null, content: m.content + e.datos.delta }));
         break;
       case "fin": {
         const d = e.datos;
-        actualizarUltimo(() => ({ role: "assistant", content: d.texto, tarjetas: d.tarjetas || [], pieza: d.pieza || null }));
+        actualizarUltimo(() => ({ role: "assistant", content: d.texto, tarjetas: d.tarjetas || [], pieza: d.pieza || null, campana: d.campana || null }));
         const nuevoId = d.conversacion_id;
         if (nuevoId) {
           setConv((c) => ({ ...c, id: nuevoId, titulo: d.titulo ?? c.titulo }));
