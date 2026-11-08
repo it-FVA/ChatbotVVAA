@@ -495,3 +495,140 @@ def capturar_si_toca(cfg):
             db.guardar_config(CLAVE_ULTIMA_CAPTURA, _iso(ahora), "cola")
     except Exception:
         return None
+
+
+# ---------------- lo que funcionó (para el chat) ----------------
+MAX_CARACTERES_MODELO = 1500        # tope del texto que ve el modelo del chat
+DIAS_QUE_FUNCIONO = 90
+_ALIAS_CANAL = {"newsletter": "mail", "mail": "mail", "wordpress": "sitio", "home": "sitio", "sitio": "sitio"}
+
+
+def _canal_clave(c):
+    c = (c or "").strip().lower()
+    return _ALIAS_CANAL.get(c, c)
+
+
+def _dia_ar(iso):
+    d = _fecha(iso)
+    if not d:
+        return "?"
+    a = d.astimezone(ZONA_AR)
+    return f"{a.day}/{a.month}"
+
+
+def _origen(fuente):
+    return "desde la plataforma" if fuente == "api" else "anotado a mano"
+
+
+def _clave_orden(m):
+    """Mayor alcance primero; las que no tienen alcance van después, por vistas; después por interacciones."""
+    for tier, k in ((2, "alcance"), (1, "vistas"), (0, "interacciones")):
+        if isinstance(m.get(k), (int, float)):
+            return (tier, m[k])
+    return (-1, 0)
+
+
+def _periodo_de_canal(f, dias_api=DIAS_CUENTA):
+    if f.get("fuente") == "manual" and f.get("periodo_desde"):
+        if f.get("periodo_hasta"):
+            return f"{_dia_ar(f['periodo_desde'])} al {_dia_ar(f['periodo_hasta'])}"
+        return f"desde el {_dia_ar(f['periodo_desde'])}"
+    return f"últimos {dias_api} días"
+
+
+def que_funciono(cfg, canal=None, formato=None, campana=None, dias=DIAS_QUE_FUNCIONO, tope=5):
+    """(8/11, Beto) Lo que Métricas sabe de cómo rindieron las piezas publicadas, compacto y serializable, para que el chat lo use.
+    Reutiliza campanas() y canales_estado(): mismas fuentes, mismas exclusiones de usuarios. «mejores» son solo piezas `publicada`
+    con números (de la plataforma o anotados a mano); las de prueba o que no salieron nunca llevan alcance. Nada inventado:
+    lo que falta queda en `sin_datos`. Puede levantar RuntimeError si la base falla (el que llama lo traduce)."""
+    try:
+        dias = max(1, min(int(dias or DIAS_QUE_FUNCIONO), 365))
+    except (TypeError, ValueError):
+        dias = DIAS_QUE_FUNCIONO
+    desde = (_ahora() - dt.timedelta(days=dias)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    periodo = {"tipo": "dias", "dias": dias, "desde": desde, "hasta": None, "texto": f"últimos {dias} días"}
+    ck = _canal_clave(canal) if canal else None
+    data = campanas(periodo)
+    buscado = " ".join((campana or "").lower().split())
+    camps, todas = [], []
+    for c in data["campanas"] + [data["sueltas"]]:
+        if buscado and buscado not in " ".join((c.get("nombre") or "").lower().split()):
+            continue
+        piezas = [p for p in c["piezas"] if (not ck or _canal_clave(p["canal"]) == ck) and (not formato or p.get("formato") == formato)]
+        hechas = [p for p in piezas if p["estado_grupo"] in GRUPOS_HECHAS]
+        if not hechas:
+            continue
+        por_canal = {}
+        for p in hechas:
+            por_canal[p["canal_texto"]] = por_canal.get(p["canal_texto"], 0) + 1
+        camps.append({"nombre": c.get("nombre"), "piezas_hechas": len(hechas), "por_canal": por_canal})
+        todas += [dict(p, _campana=c.get("nombre")) for p in piezas]
+    pub = [p for p in todas if p["estado_grupo"] == "publicada"]
+    con = sorted([p for p in pub if p.get("metricas")], key=lambda p: _clave_orden(p["metricas"]), reverse=True)
+    mejores = []
+    for p in con[:max(int(tope), 0)]:
+        m = p["metricas"]
+        mejores.append({"titulo": p.get("titulo") or "", "canal": p["canal_texto"], "formato": p.get("formato"), "fecha": p.get("fecha"),
+                        "campana": p["_campana"], "metricas": {k: m[k] for k in CLAVES_NORMALIZADAS if k in m},
+                        "fuente": _origen(m.get("fuente")), "ver_url": p.get("ver_url")})
+    sin = []
+    if not pub:
+        sin.append("No hay piezas publicadas en el período" + (" con ese filtro" if (ck or formato or campana) else ""))
+    else:
+        canales_con = {p["canal_texto"] for p in con}
+        for nombre in sorted({p["canal_texto"] for p in pub} - canales_con):
+            sin.append(f"{nombre}: ninguna pieza publicada tiene números")
+        faltan = sum(1 for p in pub if not p.get("metricas") and p["canal_texto"] in canales_con)
+        if faltan:
+            sin.append(f"{faltan} {'pieza publicada' if faltan == 1 else 'piezas publicadas'} sin números")
+    canales = []
+    try:
+        for c in (canales_estado(cfg)["canales"] if cfg is not None else []):
+            if ck and _canal_clave(c["clave"]) != ck:
+                continue
+            f = c.get("ultima") or c.get("manual")
+            if not f:
+                sin.append(f"{c['texto']}: sin números de la cuenta")
+                continue
+            nums = _numeros(f)
+            if not nums:
+                continue
+            canales.append(dict({k: nums[k] for k in ("alcance", "vistas", "interacciones", "seguidores") if k in nums}, canal=c["texto"],
+                                fuente=_origen(f.get("fuente")), periodo=_periodo_de_canal(f)))
+    except RuntimeError:
+        raise
+    except Exception:
+        sin.append("Los números de las cuentas no se pudieron leer")
+    return {"periodo": periodo["texto"], "desde": _dia_ar(desde), "campanas": camps, "mejores": mejores, "canales": canales, "sin_datos": sin}
+
+
+def _nums_texto(m):
+    return ", ".join(f"{k.replace('_', ' ')} {m[k]}" for k in CLAVES_NORMALIZADAS if k in m)
+
+
+def texto_para_el_modelo(d, tope=MAX_CARACTERES_MODELO):
+    """El resultado de la herramienta que_funciono, en texto compacto (≤ `tope` caracteres): cada número con su fuente y su período.
+    Si no entra todo, se recorta de lo menos importante (canales, campañas, piezas del final) y se avisa."""
+    cab = f"MÉTRICAS REALES (período: {d['periodo']}, desde el {d['desde']}). Usá solo estos números, con su fuente; no inventes otros."
+    bloques = [("Mejores piezas publicadas:", [
+                   f"- {_dia_ar(m['fecha'])} · {m['canal']}" + (f" · {m['formato']}" if m.get("formato") else "")
+                   + f" · «{(m['titulo'] or 'sin título')[:60]}» (campaña {m['campana']}): {_nums_texto(m['metricas'])} [{m['fuente']}]"
+                   for m in d["mejores"]]),
+               ("Campañas:", [f"- {c['nombre']}: {c['piezas_hechas']} piezas ({', '.join(f'{k} {v}' for k, v in c['por_canal'].items())})"
+                              for c in d["campanas"][:6]]),
+               ("Cuentas:", [f"- {c['canal']}: {_nums_texto(c)} [{c['fuente']}, {c['periodo']}]" for c in d["canales"]]),
+               ("Falta:", [f"- {s}" for s in d["sin_datos"]])]
+    if not d["mejores"] and not d["canales"]:
+        bloques = bloques[-1:]
+        cab += "\nNo hay números para apoyarse: decilo y recomendá solo con la guía de canales."
+    salida, pie = [cab], "(recortado)"
+    for titulo, lineas in bloques:
+        if not lineas:
+            continue
+        salida.append(titulo)
+        for ln in lineas:
+            if len("\n".join(salida + [ln, pie])) > tope:
+                salida.append(pie)
+                return "\n".join(salida)[:tope]
+            salida.append(ln)
+    return "\n".join(salida)[:tope]

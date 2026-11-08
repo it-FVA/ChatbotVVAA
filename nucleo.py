@@ -495,7 +495,14 @@ Tenés la herramienta proponer_publicacion: prepara, debajo de tu respuesta, un 
 Tenés la herramienta proponer_campana: crea el Proyecto de la campaña y deja una pieza borrador por canal, listas para abrir en Diseñar.
 - Llamala SOLO cuando la persona pide armar o guardar la campaña ("armá la campaña", "dejame las piezas", "guardalo como campaña"). Nunca mientras se piensa o se elige el plan: ahí conversá y recomendá formatos.
 - Una pieza por canal del plan (de 2 a 6), con el texto listo para publicar (mismas reglas que proponer_publicacion), la fuente textual del material YA ENCONTRADO (título y autor; no inventes citas) y en una línea por qué ese formato.
-- Después de llamarla, respondé en una o dos líneas ("Armé la campaña con N piezas, abajo las abrís en Diseñar"); no repitas las piezas."""
+- Después de llamarla, respondé en una o dos líneas ("Armé la campaña con N piezas, abajo las abrís en Diseñar"); no repitas las piezas.
+
+═══ QUÉ FUNCIONÓ (Métricas) ═══
+Tenés la herramienta que_funciono: trae los resultados reales de las piezas ya publicadas.
+- Usala para apoyar recomendaciones en resultados propios (qué formato o canal rindió, qué campaña llegó más), y antes de armar una campaña si hay datos.
+- Decí siempre la fuente de cada número («desde la plataforma» o «anotado a mano») y el período. Nunca inventes un número ni le des alcance a una pieza que no figura.
+- Si no hay datos, decilo y recomendá solo con la guía de canales.
+- Si la usaste antes de proponer_campana y hay datos, el campo porque de cada pieza menciona el dato que la apoya («el reel del 3/10 llegó a 2.100 cuentas, desde Instagram»)."""
 
 
 # Criterio de marketing digital del chat (8/11, Beto, tarjeta Trello 99). Resumen de
@@ -1242,6 +1249,17 @@ TOOLS = [
             "idioma": {"type": "string", "enum": ["es", "en", "de", "it"],
                        "description": "Con alcance 'todo': además del panorama, lista TODOS los documentos que están en ese idioma (título, autor, link). Usalo para 'what do you have in English?' / 'was gibt es auf Deutsch?'."}},
             "required": ["consulta"]}}},
+    {"type": "function", "function": {
+        "name": "que_funciono",
+        "description": ("Trae lo que Métricas sabe de cómo rindieron las piezas publicadas: por campaña y por canal, las mejores piezas "
+                        "con sus números y la fuente de cada número. Llamala cuando la persona pregunta qué funcionó, qué rindió mejor, "
+                        "qué formato o canal conviene según los resultados, o cuando va a armar una campaña y hay datos para apoyarse. "
+                        "No la llames si solo pide material de Br. David."),
+        "parameters": {"type": "object", "properties": {
+            "canal": {"type": "string", "enum": CANALES_CHAT + [""], "description": "Solo ese canal. Vacío = todos."},
+            "formato": {"type": "string", "enum": ["historia", "cuadrado", "reel", "carrusel", ""], "description": "Solo ese formato. Vacío = todos."},
+            "campana": {"type": "string", "description": "Nombre (o parte) de una campaña. Vacío = todas."},
+            "dias": {"type": "integer", "description": "Cuántos días hacia atrás mirar (por defecto 90)."}}}}},
 ]
 
 
@@ -1270,6 +1288,22 @@ def _campana_de_args(args):
     campana = {"nombre": nombre, "descripcion": (args.get("descripcion") or "").strip()[:600], "piezas": piezas}
     return (f"Campaña «{nombre}» preparada con {len(piezas)} piezas. Respondé en UNA o dos líneas: decile que abajo tiene la campaña "
             "guardada con cada pieza para abrir en Diseñar. NO repitas las piezas."), {"__campana__": campana}
+
+
+def _que_funciono(args):
+    """(8/11, Beto) La herramienta que_funciono: el texto de metricas.texto_para_el_modelo. Nunca rompe el chat."""
+    aviso = "Métricas no está disponible ahora. Decile a la persona que no tenés resultados a mano y recomendá solo con la guía de canales."
+    try:
+        import db
+        if not db.disponible():
+            return aviso
+        import metricas, publicar
+        d = metricas.que_funciono(publicar.Config(), canal=(args.get("canal") or "").strip() or None,
+                                  formato=(args.get("formato") or "").strip() or None,
+                                  campana=(args.get("campana") or "").strip() or None, dias=args.get("dias") or 90)
+        return metricas.texto_para_el_modelo(d)
+    except Exception:
+        return aviso
 
 
 def _ejecutar_tool(nombre, args, usuario=None):
@@ -1344,6 +1378,8 @@ def _ejecutar_tool(nombre, args, usuario=None):
         return aviso, {"__pieza__": pieza}
     if nombre == "proponer_campana":
         return _campana_de_args(args)
+    if nombre == "que_funciono":
+        return _que_funciono(args), []
     if nombre == "analizar_corpus":
         if (args.get("alcance") or "").lower() == "todo" or not consulta:
             txt = ("PANORAMA REAL del corpus entero (conteos exactos, NO los recalcules; son documentos, no fragmentos):\n"
