@@ -16,7 +16,10 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 
 import secretos
 SECRETS = secretos.ruta()      # (5/11) %USERPROFILE%\.fva\secrets.toml si existe; si no, .streamlit/secrets.toml
-SCOPES = ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube.readonly"]
+SCOPES = ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube.readonly",
+          # (8/11) estadísticas para Métricas; hay que volver a correr el script y pegar el JSON nuevo en Render (YOUTUBE_TOKEN_JSON)
+          # y en los secrets de GitHub
+          "https://www.googleapis.com/auth/yt-analytics.readonly"]
 
 s = tomllib.load(open(SECRETS, "rb"))
 cfg = {"installed": {"client_id": s["DRIVE_CLIENT_ID"], "client_secret": s["DRIVE_CLIENT_SECRET"],
@@ -37,3 +40,4 @@ open(SECRETS, "w", encoding="utf-8").write(t)
 print("OK: YOUTUBE_TOKEN_JSON guardado en", SECRETS)
 print("Para Render y GitHub (secret YOUTUBE_TOKEN_JSON):")
 print(json.dumps(tok, ensure_ascii=False))
+print("Permisos que quedaron:", ", ".join(tok["scopes"]))

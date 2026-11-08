@@ -278,7 +278,11 @@ def _chequear_google(nombre, variable, reautorizar):
         d = _json(cuerpo) or {}
         if st == 200 and d.get("access_token"):
             alcances = ", ".join(tok.get("scopes") or []) or d.get("scope", "?")
-            return _res(nombre, "ok", f"El permiso sigue vigente: Google entregó un access token ({ms} ms; alcances: {alcances}).", None, ms=ms)
+            det = f"El permiso sigue vigente: Google entregó un access token ({ms} ms; alcances: {alcances})."
+            # (8/11) YouTube sube y lee con el token viejo; solo faltan las estadísticas de Métricas: se avisa en el detalle, no es un error
+            if nombre == "youtube" and tok.get("scopes") and "https://www.googleapis.com/auth/yt-analytics.readonly" not in tok["scopes"]:
+                det += " Sin estadísticas: falta el permiso nuevo (volver a correr autorizar_youtube.py y pegar el JSON en Render y GitHub)."
+            return _res(nombre, "ok", det, None, ms=ms)
         err = d.get("error") or cuerpo[:120]
         hacer = reautorizar if err in ("invalid_grant", "unauthorized_client", "invalid_client") else "Puede ser un corte de Google: reintentar en unos minutos; si persiste, reautorizar."
         return _res(nombre, "error", f"Google rechazó el refresh_token ({st}): {err} {d.get('error_description', '')}".strip(), hacer, ms=ms)
