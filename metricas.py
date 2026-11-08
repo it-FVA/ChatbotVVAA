@@ -335,20 +335,23 @@ def _captura_canal(cfg, clave, por, todas, ahora, desde_pub):
             return {"ok": False, "piezas": 0, "error": permiso[0]}
         if errores and not hay_numeros:
             return {"ok": False, "piezas": 0, "error": errores[0]}
-        n, perm_pieza = 0, None
+        # (8/11, visto en vivo) una pieza que Meta rechaza (borrada, de otra cuenta, vencida) NO frena a las demás: se guarda con su
+        # error y se sigue. El permiso de verdad se detecta arriba, a nivel cuenta; acá solo se informa si ninguna pieza dio números.
+        n, con_numeros, perm_pieza = 0, 0, None
         for p in desde_pub:
             if p.get("canal") != clave:
                 continue
             res = (mm.insights_pieza_instagram(cfg, id_plataforma(p), historia=_formato(p) == "historia") if clave == "instagram"
                    else mm.insights_posteo_facebook(cfg, id_plataforma(p)))
-            if any(mm.es_error_de_permiso(e) for e in res.get("errores") or []):
-                perm_pieza = next(e for e in res["errores"] if mm.es_error_de_permiso(e))
-                break                                          # sin permiso no tiene sentido seguir pidiendo pieza por pieza
             db.guardar_metrica({"ambito": "pieza", "ref": str(p["id"]), "canal": clave, "fuente": "api", "datos": res, "por": por})
             n += 1
-        if perm_pieza:
-            return {"ok": False, "piezas": n, "error": perm_pieza}
-        return {"ok": True, "piezas": n, "error": None}
+            if _numeros({"datos": res}):
+                con_numeros += 1
+            elif perm_pieza is None:
+                perm_pieza = next((e for e in res.get("errores") or [] if mm.es_error_de_permiso(e)), None)
+        if perm_pieza and n and not con_numeros:
+            return {"ok": False, "piezas": 0, "error": perm_pieza}
+        return {"ok": True, "piezas": con_numeros, "error": None}
     except Exception as e:      # nunca un 500 por un error de Meta o de la base
         return {"ok": False, "piezas": 0, "error": f"No pude traer los números de {nombre}: {type(e).__name__}: {mm._limpiar(str(e), getattr(cfg, 'ig_token', ''), getattr(cfg, 'fb_token', ''))[:160]}"}
 

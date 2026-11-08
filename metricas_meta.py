@@ -33,14 +33,16 @@ METRICAS_IG_CUENTA = ["reach", "views", "accounts_engaged", "total_interactions"
 METRICAS_IG_PIEZA = ["reach", "views", "saved", "shares", "total_interactions"]
 METRICAS_IG_HISTORIA = ["reach", "views", "replies", "shares", "navigation"]
 METRICAS_IG_REEL = ["reach", "views", "saved", "shares", "total_interactions", "ig_reels_avg_watch_time"]
-METRICAS_FB_PAGINA = ["page_impressions", "page_post_engagements", "page_views_total", "page_daily_follows"]
-METRICAS_FB_POSTEO = ["post_impressions", "post_impressions_unique", "post_clicks", "post_reactions_by_type_total"]
+# (8/11, visto en vivo) Meta retiró `page_impressions` (11/2025) y las `*_impressions_unique` (6/2026): v25 las reemplaza por
+# page_media_view (vistas) y page_total_media_view_unique (alcance). Lo mismo a nivel posteo (post_media_view, post_total_media_view_unique).
+METRICAS_FB_PAGINA = ["page_media_view", "page_total_media_view_unique", "page_post_engagements", "page_views_total", "page_daily_follows"]
+METRICAS_FB_POSTEO = ["post_media_view", "post_total_media_view_unique", "post_clicks", "post_reactions_by_type_total"]
 
 # métrica de Meta → clave normalizada. Las que no están acá (accounts_engaged, navigation, ig_reels_avg_watch_time…) van solo al crudo.
 MAPA_IG = {"reach": "alcance", "views": "vistas", "saved": "guardados", "shares": "compartidos",
            "total_interactions": "interacciones", "replies": "respuestas"}
-MAPA_FB_PAGINA = {"page_impressions": "vistas", "page_post_engagements": "interacciones", "page_daily_follows": "seguidores_nuevos"}
-MAPA_FB_POSTEO = {"post_impressions": "vistas", "post_impressions_unique": "alcance", "post_clicks": "clics"}
+MAPA_FB_PAGINA = {"page_media_view": "vistas", "page_total_media_view_unique": "alcance", "page_post_engagements": "interacciones", "page_daily_follows": "seguidores_nuevos"}
+MAPA_FB_POSTEO = {"post_media_view": "vistas", "post_total_media_view_unique": "alcance", "post_clicks": "clics"}
 
 TEXTO_SIN_PERMISO_IG = "Falta el permiso instagram_manage_insights en la conexión con Instagram"
 TEXTO_SIN_PERMISO_FB = "Falta el permiso read_insights en la conexión con Facebook"
@@ -119,7 +121,7 @@ def _insights(host, ruta, metricas, extra, token, reintento, errores, texto_perm
     if r is not None and isinstance(r.get("data"), list):
         return r["data"], False
     if _es_permiso(err):
-        errores.append(texto_permiso)
+        errores.append(f"{texto_permiso} (Meta: {_texto_error(err, token)})")   # (8/11) con el motivo de Meta, para diagnosticar
         return [], True
     errores.append(f"Meta rechazó {', '.join(metricas)}: {_texto_error(err, token)}")
     items = []
@@ -129,7 +131,7 @@ def _insights(host, ruta, metricas, extra, token, reintento, errores, texto_perm
             items += r["data"]
         else:
             if _es_permiso(err):
-                errores.append(texto_permiso)
+                errores.append(f"{texto_permiso} (Meta: {_texto_error(err, token)})")
                 return items, True
             if len(reintento) > 1:
                 errores.append(f"Meta rechazó {', '.join(grupo)}: {_texto_error(err, token)}")
@@ -196,7 +198,7 @@ def insights_pieza_instagram(cfg, media_id, historia=False):
         normal["comentarios"] = _entero(r.get("comments_count"))
         tipo = r.get("media_type")
     else:
-        errores.append(TEXTO_SIN_PERMISO_IG if _es_permiso(err) else f"Instagram no dio los datos de la pieza: {_texto_error(err, tok)}")
+        errores.append(f"{TEXTO_SIN_PERMISO_IG} (Meta: {_texto_error(err, tok)})" if _es_permiso(err) else f"Instagram no dio los datos de la pieza: {_texto_error(err, tok)}")
     if historia:
         metricas = METRICAS_IG_HISTORIA
     elif str(tipo).upper() == "VIDEO":
@@ -228,7 +230,7 @@ def insights_pagina_facebook(cfg, dias=28):
         crudo["pagina"] = {k: r.get(k) for k in ("followers_count", "fan_count")}
         normal["seguidores"] = _entero(r.get("followers_count") if r.get("followers_count") is not None else r.get("fan_count"))
     else:
-        errores.append(TEXTO_SIN_PERMISO_FB if _es_permiso(err) else f"Facebook no dio los seguidores: {_texto_error(err, tok)}")
+        errores.append(f"{TEXTO_SIN_PERMISO_FB} (Meta: {_texto_error(err, tok)})" if _es_permiso(err) else f"Facebook no dio los seguidores: {_texto_error(err, tok)}")
     items, _perm = _insights(FB_HOST, f"{cfg.fb_page_id}/insights", METRICAS_FB_PAGINA, dict(period="day", **_ventana(dias)), tok,
                              [[m] for m in METRICAS_FB_PAGINA], errores, TEXTO_SIN_PERMISO_FB)
     crudo["insights"] = {}
@@ -256,7 +258,7 @@ def insights_posteo_facebook(cfg, post_id):
         crudo["posteo"] = {"compartidos": comp, "reacciones": reacc, "comentarios": coment}
         normal.update(me_gusta=_entero(reacc), comentarios=_entero(coment), compartidos=_entero(comp if comp is not None else 0))
     else:
-        errores.append(TEXTO_SIN_PERMISO_FB if _es_permiso(err) else f"Facebook no dio los datos del posteo: {_texto_error(err, tok)}")
+        errores.append(f"{TEXTO_SIN_PERMISO_FB} (Meta: {_texto_error(err, tok)})" if _es_permiso(err) else f"Facebook no dio los datos del posteo: {_texto_error(err, tok)}")
     items, _perm = _insights(FB_HOST, f"{post_id}/insights", METRICAS_FB_POSTEO, {}, tok, [[m] for m in METRICAS_FB_POSTEO], errores, TEXTO_SIN_PERMISO_FB)
     crudo["insights"] = {}
     for i in items:

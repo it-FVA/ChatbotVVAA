@@ -265,7 +265,7 @@ def test_actualizar(logueado, mundo, monkeypatch):
     assert r.status_code == 200, r.text
     d = r.json()
     assert d["instagram"] == {"ok": True, "piezas": 2, "error": None}                 # pub-1 y la historia: publicadas, reales, con id
-    assert d["facebook"]["ok"] is False and d["facebook"]["error"] == metricas_meta.TEXTO_SIN_PERMISO_FB and d["facebook"]["piezas"] == 0
+    assert d["facebook"]["ok"] is False and d["facebook"]["error"].startswith(metricas_meta.TEXTO_SIN_PERMISO_FB) and d["facebook"]["piezas"] == 0
     assert ("pieza_ig", "ig-1", False) in llamadas and ("pieza_ig", "ig-9", True) in llamadas and ("cuenta_ig", 28) in llamadas
     assert not any(x[0] == "posteo_fb" for x in llamadas)                              # sin permiso no se pide pieza por pieza
     filas = mundo["filas"]
@@ -357,7 +357,7 @@ def test_meta_rechazo_de_la_lista_reintenta_con_reach(monkeypatch):
 def test_meta_permiso_ig(monkeypatch, error):
     _sim_http(monkeypatch, [("/insights", (None, {"error": error})), ("fields=followers_count", ({"followers_count": 5}, None))])
     r = metricas_meta.insights_cuenta_instagram(Cfg())
-    assert metricas_meta.TEXTO_SIN_PERMISO_IG in r["errores"] and r["seguidores"] == 5
+    assert any(e.startswith(metricas_meta.TEXTO_SIN_PERMISO_IG) for e in r["errores"]) and r["seguidores"] == 5
     assert "Falta el permiso instagram_manage_insights en la conexión con Instagram" == metricas_meta.TEXTO_SIN_PERMISO_IG
 
 
@@ -388,13 +388,13 @@ def test_meta_pieza_instagram_y_historia_vencida(monkeypatch):
 
 def test_meta_facebook(monkeypatch):
     def pagina(url):
-        n = {"page_impressions": 100, "page_post_engagements": 10, "page_views_total": 7, "page_daily_follows": 2}
+        n = {"page_media_view": 100, "page_post_engagements": 10, "page_views_total": 7, "page_daily_follows": 2}
         return {"data": [{"name": k, "values": [{"value": v}, {"value": v}]} for k, v in n.items()]}, None
     _sim_http(monkeypatch, [("/999/insights", pagina), ("999?fields=followers_count", ({"followers_count": 800, "fan_count": 790}, None))])
     r = metricas_meta.insights_pagina_facebook(Cfg(), 28)
     assert (r["seguidores"], r["vistas"], r["interacciones"], r["seguidores_nuevos"]) == (800, 200, 20, 4)          # suma de los valores diarios
     assert r["crudo"]["insights"]["page_views_total"] == 14 and "alcance" not in r
-    _sim_http(monkeypatch, [("/insights", ({"data": [{"name": "post_impressions", "values": [{"value": 90}]}, {"name": "post_impressions_unique", "values": [{"value": 70}]},
+    _sim_http(monkeypatch, [("/insights", ({"data": [{"name": "post_media_view", "values": [{"value": 90}]}, {"name": "post_total_media_view_unique", "values": [{"value": 70}]},
                                                       {"name": "post_clicks", "values": [{"value": 6}]},
                                                       {"name": "post_reactions_by_type_total", "values": [{"value": {"like": 3}}]}]}, None)),
                             ("fields=shares", ({"shares": {"count": 2}, "reactions": {"summary": {"total_count": 11}}, "comments": {"summary": {"total_count": 4}}}, None))])
@@ -402,7 +402,7 @@ def test_meta_facebook(monkeypatch):
     assert (r["vistas"], r["alcance"], r["clics"], r["me_gusta"], r["comentarios"], r["compartidos"]) == (90, 70, 6, 11, 4, 2)
     assert r["crudo"]["insights"]["post_reactions_by_type_total"] == {"like": 3}
     _sim_http(monkeypatch, [("/insights", (None, {"error": {"code": 10, "message": "(#10) permission denied"}})), ("fields=shares", (None, {"error": {"code": 10, "message": "x"}}))])
-    assert metricas_meta.TEXTO_SIN_PERMISO_FB in metricas_meta.insights_posteo_facebook(Cfg(), "p")["errores"]
+    assert any(e.startswith(metricas_meta.TEXTO_SIN_PERMISO_FB) for e in metricas_meta.insights_posteo_facebook(Cfg(), "p")["errores"])
 
 
 # ---------------- resumen con IA ----------------
