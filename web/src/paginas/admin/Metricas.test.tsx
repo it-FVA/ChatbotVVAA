@@ -39,8 +39,10 @@ const CANALES = {
 };
 const RESUMEN = { ref: "c1", nombre: "Lo común nos convoca", texto: "Le fue **bien** en Instagram.", fuentes: ["Instagram (desde la plataforma, 8/11)"], falto: ["YouTube: sin datos"], comparado_con: "Polarizaciones", modelo: "gpt", capturado: ahora };
 
+const APERTURA = { texto: "Esta semana se movió **Lo común**.", fuentes: ["Instagram (desde la plataforma, 8/11)"], falto: [], capturado: ahora, nuevo: true };
+
 function abrir(extra: Record<string, unknown> = {}, ruta = "/administracion/metricas") {
-  const api = instalarApi({ "GET /admin/metricas/campanas": CAMPANAS, "GET /admin/metricas/canales": CANALES, "GET /admin/metricas/resumen/c1": null, "GET /admin/resumen": { salud: { estado: "ok" }, costo: null, registro_desde: "" }, ...extra });
+  const api = instalarApi({ "GET /admin/metricas/campanas": CAMPANAS, "GET /admin/metricas/canales": CANALES, "GET /admin/metricas/resumen/c1": null, "GET /admin/metricas/asesor/apertura": APERTURA, "GET /admin/resumen": { salud: { estado: "ok" }, costo: null, registro_desde: "" }, ...extra });
   render(
     <MemoryRouter initialEntries={[ruta]}>
       <Routes>
@@ -68,6 +70,18 @@ describe("Métricas", () => {
     expect(screen.getByText(/alcance 120 · me gusta 14 · desde Instagram/)).toBeInTheDocument();
   });
 
+  it("el asesor muestra la apertura al entrar y responde preguntas con el body esperado", async () => {
+    const u = userEvent.setup();
+    const api = abrir({ "POST /admin/metricas/asesor": { texto: "Conviene **Instagram**.", fuentes: ["Guía de canales"], falto: ["YouTube: sin datos"] } });
+    expect(await screen.findByText("Lo común")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "¿Qué campaña rindió mejor?" })).toBeInTheDocument();
+    await u.type(screen.getByLabelText("Tu pregunta"), "¿Qué canal conviene?{Enter}");
+    expect(await screen.findByText("Instagram", { selector: "strong" })).toBeInTheDocument();
+    expect(api.de("POST", "/admin/metricas/asesor")[0].cuerpo).toEqual({ mensajes: [{ rol: "usuario", texto: "¿Qué canal conviene?" }], dias: 90 });
+    expect(screen.getByText("Guía de canales")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "¿Qué campaña rindió mejor?" })).not.toBeInTheDocument();
+  });
+
   it("anotar números manda PUT /admin/metricas/manual y recarga", async () => {
     const u = userEvent.setup();
     const api = abrir({ "PUT /admin/metricas/manual": { id: "m1" } });
@@ -86,11 +100,12 @@ describe("Métricas", () => {
     const u = userEvent.setup();
     const api = abrir({ "POST /admin/metricas/resumen": RESUMEN });
     await u.click(await screen.findByRole("button", { name: "¿Cómo le fue?" }));
-    expect(await screen.findByText("bien")).toBeInTheDocument();
-    expect(screen.getByText("De dónde salen los números")).toBeInTheDocument();
-    expect(screen.getByText("Instagram (desde la plataforma, 8/11)")).toBeInTheDocument();
-    expect(screen.getByText("Lo que faltó")).toBeInTheDocument();
-    expect(screen.getByText("YouTube: sin datos")).toBeInTheDocument();
+    expect((await screen.findAllByText("bien")).length).toBeGreaterThan(0);
+    expect(screen.getByText("¿Cómo le fue a Lo común nos convoca?")).toBeInTheDocument(); // también queda en la conversación del asesor
+    expect(screen.getAllByText("De dónde salen los números").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Instagram (desde la plataforma, 8/11)").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Lo que faltó").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("YouTube: sin datos").length).toBeGreaterThan(0);
     expect(screen.getByText(/Polarizaciones/)).toBeInTheDocument();
     expect(api.de("POST", "/admin/metricas/resumen")[0].cuerpo).toEqual({ ref: "c1", dias: 90 });
     expect(screen.getByRole("button", { name: "Volver a resumir" })).toBeInTheDocument();

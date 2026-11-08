@@ -339,6 +339,24 @@ export interface MetricaManual {
   nota: string | null;
 }
 
+// (8/11, Franco) asesor de campañas (sección «Agregado del 8/11» del contrato)
+export interface Apertura {
+  texto: string;
+  fuentes: string[];
+  falto: string[];
+  capturado: string;
+  nuevo: boolean;
+}
+export interface MensajeAsesor {
+  rol: "usuario" | "asesor";
+  texto: string;
+}
+export interface RespuestaAsesor {
+  texto: string;
+  fuentes: string[];
+  falto: string[];
+}
+
 export interface ResumenCampana {
   ref: string;
   nombre: string;
@@ -370,6 +388,8 @@ export const adminApi = {
   canalesMetricas: () => pedir<CanalesMetricas>("/admin/metricas/canales"),
   actualizarMetricas: () => pedir<ResultadoActualizar>("/admin/metricas/actualizar", { method: "POST" }),
   anotarMetrica: (body: MetricaManual) => pedir<{ id: string }>("/admin/metricas/manual", { method: "PUT", body: JSON.stringify(body) }),
+  asesorApertura: (dias: number) => pedir<Apertura>(`/admin/metricas/asesor/apertura?dias=${dias}`),
+  preguntarAsesor: (mensajes: MensajeAsesor[], dias: number) => pedir<RespuestaAsesor>("/admin/metricas/asesor", { method: "POST", body: JSON.stringify({ mensajes: mensajes.slice(-12), dias }) }),
   resumenGuardado: (ref: string) => pedir<ResumenCampana | null>(`/admin/metricas/resumen/${encodeURIComponent(ref)}`),
   resumir: (ref: string, dias: number) => pedir<ResumenCampana>("/admin/metricas/resumen", { method: "POST", body: JSON.stringify({ ref, dias }) }),
   cambios: (limite = 200) => pedir<CambioRegistro[]>(`/admin/cambios?limite=${limite}`),

@@ -1149,3 +1149,16 @@ h2 .estado-chip {
   padding-left: 20px;
   font-size: 0.9rem;
 }
+
+/* Asesor de campañas (8/11, Franco) */
+.met-asesor { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; margin-bottom: 16px; }
+.met-asesor-titulo { margin: 0; font-size: 1.05rem; display: flex; align-items: center; gap: 6px; }
+.met-charla { display: flex; flex-direction: column; gap: 10px; max-height: 460px; overflow-y: auto; }
+.met-burbuja { padding: 10px 12px; border-radius: 12px; max-width: 100%; overflow-wrap: anywhere; }
+.met-burbuja.asesor { background: var(--crema); border: 1px solid var(--borde); }
+.met-burbuja.usuario { align-self: flex-end; background: var(--verde-claro); max-width: 85%; }
+.met-det { margin-top: 6px; font-size: 0.88rem; }
+.met-det summary { cursor: pointer; color: var(--suave); }
+.met-sugerencias { display: flex; flex-wrap: wrap; gap: 6px; }
+.met-pregunta { display: flex; gap: 8px; }
+.met-pregunta input { flex: 1; min-width: 0; min-height: 36px; padding: 4px 10px; }

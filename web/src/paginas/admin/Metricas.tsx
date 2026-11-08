@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { ErrorApi } from "../../api";
 import { definirAyuda } from "../../ayuda/registro";
 import ChipEstado from "../../componentes/ChipEstado";
@@ -7,7 +7,7 @@ import { Icono, type NombreIcono } from "../../componentes/Iconos";
 import { fechaCompleta, hace } from "../../util/fechas";
 import { aHtml } from "../../util/markdown";
 import { mesesRecientes } from "./Dashboard";
-import { adminApi, type Campana, type Campanas, type CanalMetricas, type CanalesMetricas, type DatosMetricas, type GrupoEstado, type PiezaCampana, type ResultadoActualizar, type ResumenCampana } from "./adminApi";
+import { adminApi, type Campana, type Apertura, type Campanas, type CanalMetricas, type CanalesMetricas, type DatosMetricas, type GrupoEstado, type MensajeAsesor, type PiezaCampana, type ResultadoActualizar, type ResumenCampana } from "./adminApi";
 import { AvisoError, Cargando, EstadoChip, IconoAdmin, Metrica, Plegable, diaCorto, miles } from "./comun";
 
 // (8/11, Franco) Administración → Métricas: la app como centro de métricas de campañas (pedido de Beto). Dos preguntas: «¿Cuánto llegó?»
@@ -18,16 +18,23 @@ definirAyuda("metricas", {
   titulo: "Métricas",
   que: "Cuánto llegó cada canal y cuánto hicimos en cada campaña.",
   pasos: [
+    { id: "asesor", texto: "Preguntale al asesor cómo vienen las campañas: te responde con los números y de dónde salen." },
     { id: "actualizar", texto: "Trae los números de Instagram y Facebook al momento." },
     { id: "canal", texto: "Cada canal muestra sus números y de dónde salen." },
     { id: "anotar", texto: "Si la plataforma no los da, anotalos a mano acá." },
-    { id: "periodo", texto: "Elegí el período de las campañas." },
     { id: "campana", texto: "Cada campaña muestra sus piezas por estado y por canal." },
     { id: "resumen", texto: "«¿Cómo le fue?» arma un resumen con los números que hay y avisa qué faltó." },
   ],
 });
 
 type Periodo = { dias?: number; mes?: string };
+
+/** Un mensaje de la conversación con el asesor (vive en el estado de la pantalla). */
+interface Turno extends MensajeAsesor {
+  fuentes?: string[];
+  falto?: string[];
+  capturado?: string;
+}
 
 const ICONO_CANAL: Record<string, NombreIcono> = { instagram: "imagen", facebook: "usuarios", youtube: "pelicula", mail: "sobre", sitio: "casa", whatsapp: "celular" };
 
@@ -109,6 +116,8 @@ export default function Metricas() {
   const [actualizando, setActualizando] = useState(false);
   const [resultado, setResultado] = useState<ResultadoActualizar | null>(null);
   const [errorActualizar, setErrorActualizar] = useState<string | null>(null);
+  const [charla, setCharla] = useState<Turno[]>([]);
+  const agregarCharla = useCallback((...t: Turno[]) => setCharla((c) => [...c, ...t]), []);
 
   const cargarCanales = useCallback(async () => {
     try {
@@ -158,6 +167,7 @@ export default function Metricas() {
 
   return (
     <>
+      <Asesor dias={periodo.dias ?? 90} charla={charla} agregar={agregarCharla} />
       <div className="seccion-cabecera">
         <h2>
           <IconoAdmin nombre="grafico" /> ¿Cuánto llegó?
@@ -195,7 +205,7 @@ export default function Metricas() {
         <h2>
           <IconoAdmin nombre="megafono" /> ¿Cuánto hicimos?
         </h2>
-        <div className="acciones periodo" role="group" aria-label="Período" data-ayuda="metricas.periodo">
+        <div className="acciones periodo" role="group" aria-label="Período">
           {[7, 28, 90].map((d) => (
             <button key={d} className={"boton chico" + (periodo.dias === d ? " activo" : "")} onClick={() => setPeriodo({ dias: d })} aria-pressed={periodo.dias === d}>
               {d} días
@@ -224,7 +234,12 @@ export default function Metricas() {
           {lista.length === 0 ? (
             <EstadoVacio icono="carpeta" titulo="No hay campañas con piezas en este período" texto="Probá con un período más largo, o armá piezas desde Diseñar." />
           ) : (
-            lista.map((c) => <TarjetaCampana key={c.id} campana={c} dias={dias} />)
+            lista.map((c) => <TarjetaCampana
+                key={c.id}
+                campana={c}
+                dias={dias}
+                alResumir={(r) => agregarCharla({ rol: "usuario", texto: `¿Cómo le fue a ${c.nombre}?` }, { rol: "asesor", texto: r.texto, fuentes: r.fuentes, falto: r.falto, capturado: r.capturado })}
+              />)
           )}
         </>
       )}
@@ -386,7 +401,7 @@ function lineaMetricas(p: PiezaCampana): string | null {
   return `${partes.join(" · ")} · ${fuente}`;
 }
 
-function TarjetaCampana({ campana, dias }: { campana: Campana; dias: number }) {
+function TarjetaCampana({ campana, dias, alResumir }: { campana: Campana; dias: number; alResumir: (r: ResumenCampana) => void }) {
   const [guardado, setGuardado] = useState<ResumenCampana | null>(null);
   const [cargando, setCargando] = useState(false);
   const [nuevo, setNuevo] = useState(false);
@@ -407,8 +422,10 @@ function TarjetaCampana({ campana, dias }: { campana: Campana; dias: number }) {
     setCargando(true);
     setError(null);
     try {
-      setGuardado(await adminApi.resumir(campana.id, dias));
+      const r = await adminApi.resumir(campana.id, dias);
+      setGuardado(r);
       setNuevo(true);
+      alResumir(r);
     } catch (e) {
       setError(mensaje(e, "No pude armar el resumen."));
     } finally {
@@ -505,6 +522,136 @@ function TarjetaCampana({ campana, dias }: { campana: Campana; dias: number }) {
         {guardado && !cargando && <ResumenVista key={guardado.capturado} r={guardado} abierto={nuevo} />}
       </div>
     </section>
+  );
+}
+
+const SUGERENCIAS = ["¿Cómo nos fue esta semana?", "¿Qué campaña rindió mejor?", "¿Qué canal conviene para la próxima campaña?"];
+
+function Asesor({ dias, charla, agregar }: { dias: number; charla: Turno[]; agregar: (...t: Turno[]) => void }) {
+  const [apertura, setApertura] = useState<Apertura | null>(null);
+  const [errorApertura, setErrorApertura] = useState<string | null>(null);
+  const [texto, setTexto] = useState("");
+  const [pensando, setPensando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fin = useRef<HTMLDivElement>(null);
+
+  // la apertura es una por día: se pide al entrar, no cada vez que cambia el período
+  useEffect(() => {
+    let vivo = true;
+    adminApi
+      .asesorApertura(dias)
+      .then((a) => vivo && setApertura(a))
+      .catch((e) => vivo && setErrorApertura(mensaje(e, "No pude armar el mensaje de hoy.")));
+    return () => {
+      vivo = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    fin.current?.scrollIntoView?.({ block: "nearest" });
+  }, [charla.length, pensando]);
+
+  async function preguntar(q: string) {
+    const pregunta = q.trim();
+    if (!pregunta || pensando) return;
+    const nuevo: Turno = { rol: "usuario", texto: pregunta };
+    const previos: MensajeAsesor[] = [...charla, nuevo].map((m) => ({ rol: m.rol, texto: m.texto }));
+    agregar(nuevo);
+    setTexto("");
+    setPensando(true);
+    setError(null);
+    try {
+      const r = await adminApi.preguntarAsesor(previos, dias);
+      agregar({ rol: "asesor", texto: r.texto, fuentes: r.fuentes, falto: r.falto });
+    } catch (e) {
+      setError(mensaje(e, "No pude responder."));
+    } finally {
+      setPensando(false);
+    }
+  }
+
+  return (
+    <section className="tarjeta met-asesor" data-ayuda="metricas.asesor" aria-label="Tu asesor de campañas">
+      <h2 className="met-asesor-titulo">
+        <IconoAdmin nombre="info" /> Tu asesor de campañas
+      </h2>
+      {!apertura && !errorApertura && (
+        <p className="suave chico" role="status">
+          Mirando las campañas y sus números…
+        </p>
+      )}
+      {errorApertura && <AvisoError texto={errorApertura} />}
+      <div className="met-charla" aria-live="polite">
+        {apertura && <BurbujaAsesor t={{ rol: "asesor", texto: apertura.texto, fuentes: apertura.fuentes, falto: apertura.falto }} cabecera={apertura.nuevo ? "hoy" : `del ${fechaCompleta(apertura.capturado, false)}`} />}
+        {charla.map((m, i) =>
+          m.rol === "usuario" ? (
+            <div key={i} className="met-burbuja usuario">
+              {m.texto}
+            </div>
+          ) : (
+            <BurbujaAsesor key={i} t={m} />
+          ),
+        )}
+        {pensando && (
+          <p className="suave chico" role="status">
+            Mirando las campañas y sus números…
+          </p>
+        )}
+        <div ref={fin} />
+      </div>
+      {error && <AvisoError texto={error} />}
+      {charla.length === 0 && (
+        <div className="met-sugerencias">
+          {SUGERENCIAS.map((s) => (
+            <button key={s} type="button" className="boton chico" onClick={() => preguntar(s)} disabled={pensando}>
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+      <form
+        className="met-pregunta"
+        onSubmit={(e) => {
+          e.preventDefault();
+          preguntar(texto);
+        }}
+      >
+        <input type="text" value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Preguntale algo sobre las campañas" aria-label="Tu pregunta" disabled={pensando} />
+        <button type="submit" className="boton chico primario" disabled={pensando || !texto.trim()}>
+          Preguntar
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function BurbujaAsesor({ t, cabecera }: { t: Turno; cabecera?: string }) {
+  return (
+    <div className="met-burbuja asesor">
+      {cabecera && <div className="suave chico">{cabecera}</div>}
+      <div className="msj-md met-texto" dangerouslySetInnerHTML={{ __html: aHtml(t.texto) }} />
+      {(t.fuentes?.length ?? 0) > 0 && (
+        <details className="met-det">
+          <summary>De dónde salen los números</summary>
+          <ul className="met-lista">
+            {t.fuentes!.map((f) => (
+              <li key={f}>{f}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {(t.falto?.length ?? 0) > 0 && (
+        <details className="met-det">
+          <summary>Lo que faltó</summary>
+          <ul className="met-lista">
+            {t.falto!.map((f) => (
+              <li key={f}>{f}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
   );
 }
 
