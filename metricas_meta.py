@@ -83,6 +83,8 @@ def _es_permiso(err):
     msg = str(e.get("message") or "").lower()
     if "not enough viewers" in msg:           # historias con pocas vistas: el código es el mismo (10) pero no es un permiso
         return False
+    if e.get("code") == 100:                  # (8/11, visto en vivo) «Unsupported get request… does not exist»: la pieza ya no está
+        return False                          # en Instagram (borrada o de otra cuenta); el mensaje nombra «permissions» pero no es eso
     return e.get("code") in CODIGOS_PERMISO or "permission" in msg
 
 
