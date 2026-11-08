@@ -16,6 +16,7 @@ Corre:
   - programado: .github/workflows/cola.yml lo ejecuta cada 15 min con los secrets del repo.
 Al final de cada pasada llama a programar_frases.main() (19/10): la «Frase del día» se encola desde ahí.
 (5/11) Y a banco.sincronizar_desde_config: si hay carpeta de Drive del banco de imágenes (config banco_drive_carpeta), sube lo nuevo a WordPress.
+(8/11) Y a metricas.capturar_si_toca: cada hora pide a Meta los números de Instagram y Facebook (no corre con --simular).
 """
 import os, sys, json, datetime
 
@@ -130,6 +131,14 @@ def main():
                     print(f"  ! {d}")
     except Exception as e:
         print(f"banco de imágenes: no pude sincronizar: {type(e).__name__}: {str(e)[:150]}")
+    try:   # (8/11, Franco) métricas de Instagram y Facebook: captura si pasó más de 1 hora (las historias pierden sus números a las 24 h). Nunca rompe la cola.
+        import metricas
+        if "--simular" not in sys.argv:
+            m = metricas.capturar_si_toca(cfg)
+            if m is not None:
+                print("métricas: " + " · ".join(f"{k}: {'ok, ' + str(m[k]['piezas']) + ' piezas' if m[k]['ok'] else m[k]['error']}" for k in ("instagram", "facebook")))
+    except Exception as e:
+        print(f"métricas: no pude capturar: {type(e).__name__}")
     return 0
 
 

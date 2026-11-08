@@ -92,6 +92,8 @@ from . import publicar_rutas as _pub   # noqa: E402  (22/10, fase 3: Publicar, M
 app.include_router(_pub.router)
 from . import admin_rutas as _admin_rutas   # noqa: E402  (22/10: Dashboard, Servicios y costos, Configuración de Administración)
 app.include_router(_admin_rutas.router)
+from . import metricas_rutas as _metricas_rutas   # noqa: E402  (8/11, Franco: pestaña Métricas de Administración, campañas y canales)
+app.include_router(_metricas_rutas.router)
 from . import proyectos as _proyectos   # noqa: E402  (22/10: carpetas colaborativas, compartir, «compartidos conmigo»)
 app.include_router(_proyectos.router)
 from . import newsletter_rutas as _newsletter   # noqa: E402  (22/10: el editor de Newsletter en la web)
