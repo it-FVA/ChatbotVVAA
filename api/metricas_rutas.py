@@ -4,7 +4,10 @@ metricas.py (campañas, canales, captura), metricas_meta.py (HTTP contra Meta) y
 
   GET  /admin/metricas/campanas?dias=90 | mes=AAAA-MM   campañas (Proyectos) con sus piezas por canal y por estado, y las métricas de cada pieza
   GET  /admin/metricas/canales                           una tarjeta por canal: estado de la conexión, últimos números, enlace y lo anotado a mano
-  POST /admin/metricas/actualizar                        captura ahora Instagram, Facebook y YouTube (cuenta de 28 días + piezas de los últimos 60); nunca 500 por Meta
+  POST /admin/metricas/actualizar                        captura ahora Instagram, Facebook, YouTube y el sitio (cuenta de 28 días + piezas de los últimos 60); nunca 500 por las plataformas
+  GET  /admin/metricas/wordpress/autorizar               (8/11) redirige (302) a WordPress.com para conectar el sitio; el `state` va firmado y vence a los 10 minutos
+  GET  /admin/metricas/wordpress/callback?code&state     (8/11) vuelve de WordPress.com: canjea el código, guarda el token y redirige a la web (?wordpress=ok | error&motivo=)
+  DELETE /admin/metricas/wordpress                       (8/11) desconecta el sitio (borra el token guardado)
   PUT  /admin/metricas/manual                            anota números a mano de un canal o de una pieza (queda en usuarios_cambios, clave metricas_manual:<ref>)
   GET  /admin/metricas/resumen/{ref}                     el último resumen con IA de una campaña (id de proyecto o «sueltas»), o null
   POST /admin/metricas/resumen                           genera uno nuevo con el modelo auxiliar y lo guarda
@@ -14,10 +17,11 @@ metricas.py (campañas, canales, captura), metricas_meta.py (HTTP contra Meta) y
 La tabla `metricas` se crea con api/migraciones/20261108_1200_metricas.sql (la corre Franco a mano). Sin ella, las lecturas dan 503
 con un texto que lo dice.
 """
-import os
+import os, secrets, urllib.parse
 from typing import Any, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
 from . import auth
@@ -129,6 +133,8 @@ class CanalMetricas(BaseModel):
     nota_api: str
     enlace: Optional[str] = None
     enlace_texto: Optional[str] = None
+    conectado: bool = False                       # (8/11) solo el sitio: ¿hay una conexión con WordPress.com guardada?
+    conectar_url: Optional[str] = None            # (8/11) solo el sitio: ruta de esta API que lleva a WordPress.com (la web la abre con un link normal)
     ultima: Optional[FilaMetrica] = None
     manual: Optional[FilaManual] = None
 
@@ -149,6 +155,7 @@ class ActualizarResp(BaseModel):
     instagram: ResultadoCanal
     facebook: ResultadoCanal
     youtube: ResultadoCanal                      # (8/11, Franco)
+    sitio: ResultadoCanal                        # (8/11, Franco) estadísticas de WordPress.com
 
 
 class ManualIn(BaseModel):
@@ -307,3 +314,96 @@ def preguntar_al_asesor(datos: AsesorIn, quien=Depends(auth.admin)):
     msgs = [m.model_dump() for m in datos.mensajes][-12:]
     r = _asesor(lambda m, *a: m.responder(*a), msgs, _periodo(datos.dias, None), quien, _config())
     return {k: r[k] for k in ("texto", "fuentes", "falto")}
+
+
+# ---------------- conectar el sitio con WordPress.com (8/11, Franco) ----------------
+# Flujo «authorization code» de WordPress.com (https://developer.wordpress.com/docs/oauth2/), dos clics desde la pantalla:
+#   1. la web abre GET /wordpress/autorizar (link normal, con la cookie de admin) → 302 a WordPress.com con un `state` firmado;
+#   2. la persona toca «Aprobar» allá y WordPress.com vuelve a GET /wordpress/callback?code&state.
+# El callback NO exige la cookie de admin: llega desde otro sitio y la cookie de sesión puede no viajar (SameSite). Lo que lo autoriza es
+# el `state`: lo firmamos nosotros con el secreto de sesión (auth.firmar_estado, otra «sal»), lleva el usuario admin que lo pidió y
+# vence a los 10 minutos. Sin un `state` válido → 400 y no se canjea nada. El token nunca se imprime ni se devuelve.
+PROPOSITO_WPCOM = "wpcom"
+VIGENCIA_STATE_SEG = 10 * 60
+
+
+def _base_api(request: Request):
+    """La dirección pública de la API: API_URL_PUBLICA si está, si no la del pedido. Tiene que dar la MISMA redirect URL al autorizar y al canjear."""
+    b = os.environ.get("API_URL_PUBLICA", "").strip().rstrip("/")
+    return b or str(request.base_url).rstrip("/")
+
+
+def _redirect_uri(request: Request):
+    return _base_api(request) + router.prefix + "/wordpress/callback"
+
+
+def _url_web():
+    """A dónde vuelve la persona: WEB_URL, si no el primer origen de CORS_ORIGENES."""
+    w = os.environ.get("WEB_URL", "").strip()
+    if not w:
+        w = next((o.strip() for o in os.environ.get("CORS_ORIGENES", "").split(",") if o.strip()), "")
+    return (w or "http://localhost:5173").rstrip("/")
+
+
+def _volver(ok=True, motivo=None):
+    q = {"wordpress": "ok"} if ok else {"wordpress": "error", "motivo": (motivo or "No pude conectar con WordPress.com.")[:140]}
+    return RedirectResponse(f"{_url_web()}/administracion/metricas?{urllib.parse.urlencode(q)}", status_code=302)
+
+
+@router.get("/wordpress/autorizar", include_in_schema=False)
+def wordpress_autorizar(request: Request, quien=Depends(auth.admin)):
+    """Primer clic: manda a la persona a WordPress.com a aprobar la lectura de las estadísticas del sitio."""
+    import metricas_wordpress as mw
+    cfg = _config()
+    if not (getattr(cfg, "wpcom_client_id", "") and getattr(cfg, "wpcom_client_secret", "")):
+        return _volver(False, mw.TEXTO_SIN_APP)
+    state = auth.firmar_estado({"u": quien, "n": secrets.token_urlsafe(8)}, PROPOSITO_WPCOM)
+    return RedirectResponse(mw.url_autorizacion(cfg, _redirect_uri(request), state), status_code=302)
+
+
+@router.get("/wordpress/callback", include_in_schema=False)
+def wordpress_callback(request: Request, code: str = "", state: str = "", error: str = "", error_description: str = ""):
+    """Segundo paso: WordPress.com vuelve acá. Valida el `state`, canjea el código, guarda el token y redirige a la web."""
+    import metricas_wordpress as mw
+    datos = auth.leer_estado(state, PROPOSITO_WPCOM, VIGENCIA_STATE_SEG) if state else None
+    quien = datos.get("u") if isinstance(datos, dict) else None
+    if not quien:
+        raise HTTPException(400, "El pedido de conexión venció o no es válido: volvé a tocar «Conectar con WordPress.com» en Métricas.")
+    try:                         # el usuario que lo pidió tiene que seguir siendo admin y estar activo
+        fila = auth._fila(quien)
+        if fila and (not fila.get("activo", True) or not auth.rol_sesion({"usuario": quien})["admin"]):
+            raise HTTPException(400, "El usuario que pidió la conexión ya no es administrador.")
+    except HTTPException:
+        raise
+    except Exception:
+        pass
+    if error:
+        return _volver(False, "WordPress.com no dio el permiso." if error == "access_denied" else f"WordPress.com respondió: {error_description or error}")
+    if not db.disponible():
+        return _volver(False, "Sin Supabase no hay dónde guardar la conexión.")
+    tok, err = mw.canjear_codigo(_config(), code, _redirect_uri(request))
+    if not tok:
+        return _volver(False, err)
+    try:
+        previo = mw.token_guardado()
+        reg = mw.guardar_token(tok, quien)
+        db.registrar_cambio_usuario(quien, "config", mw.CLAVE_TOKEN, {"de": "conectado" if previo else "sin conexión", "a": "conectado",
+                                                                     "sitio": reg.get("blog_url")})       # nunca el token
+    except Exception as e:
+        return _volver(False, f"No pude guardar la conexión: {type(e).__name__}")
+    return _volver(True)
+
+
+@router.delete("/wordpress")
+def wordpress_desconectar(quien=Depends(auth.admin)):
+    """Desconecta el sitio: borra el token guardado. Las estadísticas ya guardadas quedan; para volver a leer hay que conectar de nuevo."""
+    import metricas_wordpress as mw
+    if not db.disponible():
+        raise HTTPException(503, "Sin Supabase no hay dónde guardar.")
+    previo = mw.token_guardado()
+    try:
+        mw.borrar_token(quien)
+    except RuntimeError as e:
+        raise HTTPException(503, str(e)[:160])
+    db.registrar_cambio_usuario(quien, "config", mw.CLAVE_TOKEN, {"de": "conectado" if previo else "sin conexión", "a": "desconectado"})
+    return {"ok": True}

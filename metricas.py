@@ -1,13 +1,13 @@
 """
 metricas.py — Métricas de campañas y canales (8/11, Franco; pedido de Beto: «que la app sea el centro de métricas de evolución de
 campañas»). Contrato con la web: web/maquetas/metricas-contrato.md. Las rutas viven en api/metricas_rutas.py; el HTTP contra Meta,
-en metricas_meta.py (Instagram y Facebook) y metricas_youtube.py (YouTube, 8/11); el asesor de campañas con IA, en metricas_asesor.py; la tabla, en db/metricas.py (migración 20261108_1200_metricas.sql).
+en metricas_meta.py (Instagram y Facebook), metricas_youtube.py (YouTube, 8/11) y metricas_wordpress.py (el sitio, WordPress.com, 8/11); el asesor de campañas con IA, en metricas_asesor.py; la tabla, en db/metricas.py (migración 20261108_1200_metricas.sql).
 
 Dos preguntas, dos mitades:
   1. «Cuánto hicimos» sale de nuestra base, sin APIs: campanas(periodo) cruza proyectos + proyecto_items (tipo «pieza» →
      publicaciones.id) + publicaciones + la última métrica de cada pieza (de la API o cargada a mano; si hay las dos, la de la API).
-  2. «Cuánto llegó» depende de cada plataforma: canales_estado(cfg) arma una tarjeta por canal (Instagram, Facebook y YouTube por API;
-     mail, sitio y WhatsApp con enlace a la plataforma y carga a mano); capturar(cfg) pide los números a Meta y a Google y los guarda.
+  2. «Cuánto llegó» depende de cada plataforma: canales_estado(cfg) arma una tarjeta por canal (Instagram, Facebook, YouTube y el sitio por API;
+     mail y WhatsApp con enlace a la plataforma y carga a mano); capturar(cfg) pide los números a Meta, Google y WordPress.com y los guarda.
 
   GRUPO_ESTADO / grupo_de(estado)   el único lugar donde se agrupan los estados de una pieza (publicada, programada, en_aprobacion…)
   CLAVES_NORMALIZADAS               las claves de números que acepta la carga a mano y que usa la API
@@ -275,6 +275,30 @@ def _estado_api_youtube(configurado, fila):
     return "disponible", (f"Algo no se pudo traer: {errores[0]}" if errores else "")
 
 
+RUTA_CONECTAR_SITIO = "/admin/metricas/wordpress/autorizar"      # (8/11, Franco) la web navega acá (redirige a WordPress.com)
+
+
+def _estado_api_sitio(cfg, fila):
+    """(estado, nota, conectado, conectar_url) del sitio (8/11, Franco). 'disponible' con token y números en la última captura;
+    'pendiente' si hay app registrada pero falta conectar (o conectado y sin captura); 'no_hay' sin app; 'error' lo demás."""
+    import metricas_wordpress as mw
+    tok = mw.token_guardado()
+    app = bool(getattr(cfg, "wpcom_client_id", "") and getattr(cfg, "wpcom_client_secret", ""))
+    url = RUTA_CONECTAR_SITIO if app else None
+    if not tok:
+        if app:
+            return "pendiente", mw.TEXTO_SIN_TOKEN, False, url
+        return _NOTAS["sitio"][0], _NOTAS["sitio"][1], False, None
+    if not fila:
+        return "pendiente", "Todavía no se pidieron los números: tocá «Actualizar».", True, url
+    errores = (fila.get("datos") or {}).get("errores") or []
+    if any(mw.es_error_de_conexion(e) for e in errores):
+        return "error", next(e for e in errores if mw.es_error_de_conexion(e)), True, url
+    if errores and not _numeros(fila):
+        return "error", errores[0], True, url
+    return "disponible", (f"Algo no se pudo traer: {errores[0]}" if errores else ""), True, url
+
+
 def _fila_publica(f, con_nota=False):
     if not f:
         return None
@@ -293,6 +317,7 @@ def canales_estado(cfg):
     out, actualizado = [], None
     for clave in CLAVES_CANAL:
         fa, fm = api.get((clave, "api")), man.get((clave, "manual"))
+        conectado, conectar_url = False, None
         if clave in ("instagram", "facebook", "youtube"):
             if clave == "youtube":
                 estado, nota = _estado_api_youtube(cfg.configurado.get(clave, False), fa)
@@ -301,7 +326,10 @@ def canales_estado(cfg):
             texto, icono, mod = _canal_texto(clave), ("pelicula" if clave == "youtube" else clave), modo(clave)
             configurado = bool(cfg.configurado.get(clave))
         else:
-            estado, nota = _NOTAS[clave]
+            if clave == "sitio":
+                estado, nota, conectado, conectar_url = _estado_api_sitio(cfg, fa)
+            else:
+                (estado, nota), conectado, conectar_url = _NOTAS[clave], False, None
             texto = {"sitio": "Sitio web", "mail": "Mail (Newsletter y Frase del día)"}.get(clave) or _canal_texto(clave)
             icono = {"mail": "sobre", "sitio": "casa", "whatsapp": "celular"}[clave]
             mod = modo("wordpress" if clave == "sitio" else clave)
@@ -310,7 +338,7 @@ def canales_estado(cfg):
         if fa and fa.get("capturado") and (actualizado is None or fa["capturado"] > actualizado):
             actualizado = fa["capturado"]
         out.append({"clave": clave, "texto": texto, "icono": icono, "modo": mod, "configurado": configurado, "api": estado,
-                    "nota_api": nota, "enlace": url, "enlace_texto": url_texto, "ultima": _fila_publica(fa),
+                    "nota_api": nota, "enlace": url, "enlace_texto": url_texto, "conectado": conectado, "conectar_url": conectar_url, "ultima": _fila_publica(fa),
                     "manual": _fila_publica(fm, con_nota=True)})
     return {"actualizado": actualizado, "canales": out}
 
@@ -431,6 +459,46 @@ def _captura_youtube(cfg, por, ahora, desde_pub):
         return {"ok": False, "piezas": 0, "error": f"No pude traer los números de YouTube: {type(e).__name__}: {my._limpiar(str(e), secretos)[:160]}"}
 
 
+def _captura_sitio(cfg, por, ahora, desde_pub):
+    """El sitio (WordPress.com, 8/11): cuenta de 28 días + entradas de WordPress publicadas. Devuelve {"ok", "piezas", "error"}; nunca lanza.
+    Solo necesita el token guardado (no la app): así también corre en la cola, que no tiene WPCOM_CLIENT_*."""
+    import metricas_wordpress as mw
+    tok = None
+    try:
+        tok = mw.token_guardado()
+        if not tok:
+            app = bool(getattr(cfg, "wpcom_client_id", "") and getattr(cfg, "wpcom_client_secret", ""))
+            return {"ok": False, "piezas": 0, "error": mw.TEXTO_SIN_TOKEN if app else mw.TEXTO_SIN_APP}
+        t = tok["access_token"]
+        site = getattr(cfg, "wp_site", "") or tok.get("blog_id") or ""
+        cuenta = mw.insights_sitio(t, site, DIAS_CUENTA)
+        hoy = ahora.astimezone(ZONA_AR).date()
+        db.guardar_metrica({"ambito": "canal", "ref": "sitio", "canal": "sitio", "fuente": "api",
+                            "periodo_desde": (hoy - dt.timedelta(days=DIAS_CUENTA)).isoformat(), "periodo_hasta": hoy.isoformat(),
+                            "datos": cuenta, "por": por})
+        errores = cuenta.get("errores") or []
+        conexion = next((e for e in errores if mw.es_error_de_conexion(e)), None)
+        if conexion:
+            return {"ok": False, "piezas": 0, "error": conexion}
+        if errores and not _numeros({"datos": cuenta}):
+            return {"ok": False, "piezas": 0, "error": errores[0]}
+        n, con_numeros, otro = 0, 0, None
+        for p in desde_pub:
+            if p.get("canal") != "wordpress":
+                continue
+            res = mw.insights_entrada(t, site, id_plataforma(p), DIAS_PIEZAS)
+            db.guardar_metrica({"ambito": "pieza", "ref": str(p["id"]), "canal": "wordpress", "fuente": "api", "datos": res, "por": por})
+            n += 1
+            if _numeros({"datos": res}):
+                con_numeros += 1
+            otro = otro or next(iter(res.get("errores") or []), None)
+        if n and not con_numeros:
+            return {"ok": False, "piezas": 0, "error": otro}
+        return {"ok": True, "piezas": con_numeros, "error": None}
+    except Exception as e:      # nunca un 500 por un error de WordPress.com o de la base
+        return {"ok": False, "piezas": 0, "error": f"No pude traer los números del sitio: {type(e).__name__}: {mw._limpiar(str(e), mw._secretos(cfg, (tok or {}).get('access_token')))[:160]}"}
+
+
 def _piezas_a_capturar(todas, ahora):
     """Las publicadas en modo real de los últimos DIAS_PIEZAS días con id de la plataforma. Sin `todas` (la pasada de la cola)
     se saltean las que ya se capturaron hace menos de 20 h, salvo las historias (vencen a las 24 h: se piden cada hora mientras duren)."""
@@ -438,7 +506,7 @@ def _piezas_a_capturar(todas, ahora):
     cand = []
     for p in db.publicaciones_para_metricas(desde):
         modos = ("real", "privado") if p.get("canal") == "youtube" else ("real",)       # YouTube sube en privado hasta la auditoría
-        if p.get("estado") != "publicada" or p.get("modo") not in modos or p.get("canal") not in ("instagram", "facebook", "youtube"):
+        if p.get("estado") != "publicada" or p.get("modo") not in modos or p.get("canal") not in ("instagram", "facebook", "youtube", "wordpress"):
             continue
         d = _fecha(fecha_efectiva(p))
         if not id_plataforma(p) or not d or d < ahora - dt.timedelta(days=DIAS_PIEZAS):
@@ -461,8 +529,8 @@ def _piezas_a_capturar(todas, ahora):
 
 
 def capturar(cfg, por="api", todas=True):
-    """Pide a Instagram, Facebook y YouTube los números (cuenta de 28 días + cada pieza real publicada en los últimos 60) y los guarda
-    con fuente 'api'. Devuelve {"capturado", "instagram": {ok, piezas, error}, "facebook": {…}, "youtube": {…}}. No lanza por errores
+    """Pide a Instagram, Facebook, YouTube y WordPress.com los números (cuenta de 28 días + cada pieza real publicada en los últimos 60) y los guarda
+    con fuente 'api'. Devuelve {"capturado", "instagram": {ok, piezas, error}, "facebook": {…}, "youtube": {…}, "sitio": {…}}. No lanza por errores
     de las plataformas."""
     ahora = _ahora()
     try:
@@ -476,6 +544,7 @@ def capturar(cfg, por="api", todas=True):
                       {"ok": False, "piezas": 0, "error": f"Falta la conexión con {'Instagram' if clave == 'instagram' else 'Facebook'} en el servidor."})
     res["youtube"] = (_captura_youtube(cfg, por, ahora, cand) if getattr(cfg, "yt_token_json", "") else
                       {"ok": False, "piezas": 0, "error": "Falta la conexión con YouTube en el servidor."})
+    res["sitio"] = _captura_sitio(cfg, por, ahora, cand)
     return res
 
 
