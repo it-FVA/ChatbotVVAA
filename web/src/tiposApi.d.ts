@@ -322,6 +322,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/metricas/wordpress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Wordpress Desconectar
+         * @description Desconecta el sitio: borra el token guardado. Las estadísticas ya guardadas quedan; para volver a leer hay que conectar de nuevo.
+         */
+        delete: operations["wordpress_desconectar_admin_metricas_wordpress_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/resumen": {
         parameters: {
             query?: never;
@@ -2369,6 +2389,7 @@ export interface components {
             capturado: string;
             facebook: components["schemas"]["ResultadoCanal"];
             instagram: components["schemas"]["ResultadoCanal"];
+            sitio: components["schemas"]["ResultadoCanal"];
             youtube: components["schemas"]["ResultadoCanal"];
         };
         /** AperturaOut */
@@ -2513,6 +2534,13 @@ export interface components {
             api: string;
             /** Clave */
             clave: string;
+            /**
+             * Conectado
+             * @default false
+             */
+            conectado: boolean;
+            /** Conectar Url */
+            conectar_url?: string | null;
             /** Configurado */
             configurado: boolean;
             /** Enlace */
@@ -3927,6 +3955,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    wordpress_desconectar_admin_metricas_wordpress_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };
