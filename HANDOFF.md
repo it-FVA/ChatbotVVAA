@@ -1,4 +1,15 @@
 
+### 8/11 · Métricas (API)
+Pedido de Beto, decisión de Franco: la app como centro de métricas de campañas. Contrato en `web/maquetas/metricas-contrato.md`; la pantalla web la construye otra sesión contra el mismo contrato.
+
+**Quedó hecho (rama `claude/metricas-api-e073a1`):** migración `api/migraciones/20261108_1200_metricas.sql` (tabla `metricas`, índice, RLS, política `cola_todo`), `db/metricas.py`, `metricas.py` (campañas, canales, captura, carga a mano), `metricas_meta.py` (HTTP contra Meta), `metricas_resumen.py` (resumen con IA), `api/metricas_rutas.py` (`/admin/metricas/*`, solo admins), captura cada hora desde `procesar_cola.py` (no corre con `--simular`), 24 pruebas nuevas en `api/tests/test_metricas.py`, OpenAPI y `tiposApi.d.ts` regenerados.
+
+**Falta (en este orden):**
+1. **Correr la migración a mano** en el SQL Editor de Supabase y registrarla con `python api/migrar.py --registrar 20261108_1200_metricas`. Sin ella, `/campanas`, `/canales` y `/resumen` dan 503 con un texto que lo dice.
+2. **Verificar los permisos de Meta en vivo** (no se pudo probar acá): Instagram necesita `instagram_manage_insights` y la página de Facebook `read_insights`. Si faltan, la pantalla muestra «Falta el permiso…» (`api: "sin_permiso"`).
+3. **Confirmar los nombres de las métricas contra Meta:** cambian cada pocos meses (listas en constantes arriba de `metricas_meta.py`). Sin confirmar: `follows_and_unfollows` (solo se toman las altas si Meta abre el desglose), `page_impressions` y `page_views_total` de Facebook (Meta retiró varias `page_*`), las de historias y `ig_reels_avg_watch_time` (queda en el crudo).
+4. Destapar el ítem del menú (`MOSTRAR_METRICAS`) cuando Franco lo pida.
+
 ### 5/11 (03:30) · Cierre de la noche: auditoría de YouTube avanzada, housekeeping de repos y Drive, qué queda para mañana
 Franco se fue a dormir y pidió avanzar todo lo posible, dejar por escrito hasta dónde se llegó y apagar la computadora. Esto es el estado.
 
