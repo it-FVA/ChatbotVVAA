@@ -269,7 +269,7 @@ function TarjetaCanal({ canal, alGuardar }: { canal: CanalMetricas; alGuardar: (
   const nums = canal.ultima ? grandes(canal.ultima.datos) : [];
   const manual = canal.manual;
   const manualNums = manual ? Object.entries(manual.datos).filter(([k, v]) => typeof v === "number" && ETIQUETA[k]) : [];
-  const conectado = canal.api === "disponible"; // si la plataforma los lee sola, cargar a mano es la excepción
+  const conectado = canal.api === "disponible"; // si la plataforma los lee sola, no se carga a mano
   const boton = (
     <button className="boton chico" onClick={() => setAbierto((a) => !a)} aria-expanded={abierto} data-ayuda="metricas.anotar">
       <IconoAdmin nombre="lapiz" tam={14} /> Cargar números a mano
@@ -333,13 +333,7 @@ function TarjetaCanal({ canal, alGuardar }: { canal: CanalMetricas; alGuardar: (
         {!conectado && boton}
       </div>
       {!conectado && <p className="suave chico met-nota-carga">{NOTA_CARGA}</p>}
-      {conectado && (
-        <details className="met-det met-aparte">
-          <summary>¿Preferís cargarlos a mano?</summary>
-          <div className="met-acciones">{boton}</div>
-          <p className="suave chico met-nota-carga">{NOTA_CARGA}</p>
-        </details>
-      )}
+      {/* (8/11, Franco) si la plataforma los lee sola no se ofrece cargarlos a mano: confundía («¿para qué, si es automático?») */}
       {abierto && (
         <FormularioAnotar
           canal={canal}

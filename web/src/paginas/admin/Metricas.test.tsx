@@ -149,18 +149,15 @@ describe("Métricas", () => {
   });
 
   it("las tarjetas de canal: el enlace es el chip, y cargar a mano explica para qué", async () => {
-    const u = userEvent.setup();
     abrir();
     const mail = await screen.findByRole("article", { name: "Mail" });
     expect(within(mail).getAllByRole("link", { name: /Ver en Perfit/ })).toHaveLength(2); // el chip de arriba y el botón de siempre
     expect(within(mail).queryByText("se mira en la plataforma")).not.toBeInTheDocument();
     expect(within(mail).getByText(/Para lo que la plataforma no nos deja leer solo: copiá acá lo que ves en sus estadísticas, con el período\./)).toBeInTheDocument();
-    // conectado: el botón queda adentro de «¿Preferís cargarlos a mano?»
+    // (8/11, Franco) conectado: no se ofrece cargar a mano (la plataforma los lee sola)
     const fb = screen.getByRole("article", { name: "Facebook" });
-    expect(within(fb).getByText("¿Preferís cargarlos a mano?")).toBeInTheDocument();
-    expect(within(fb).getByText("¿Preferís cargarlos a mano?").closest("details")).not.toHaveAttribute("open");
-    await u.click(within(fb).getByText("¿Preferís cargarlos a mano?"));
-    expect(within(fb).getByRole("button", { name: /Cargar números a mano/ })).toBeVisible();
+    expect(within(fb).queryByText("¿Preferís cargarlos a mano?")).toBeNull();
+    expect(within(fb).queryByRole("button", { name: /Cargar números a mano/ })).toBeNull();
   });
 
   it("los borradores van plegados aparte y los totales no los cuentan", async () => {
