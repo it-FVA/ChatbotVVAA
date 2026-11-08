@@ -23,6 +23,7 @@ def normalizar(mensajes):
                     "content": m.get("content", m.get("texto", "")),
                     "mats": m.get("mats") or [],
                     "pieza": m.get("pieza") or None,     # (24/9) recuadro "Publicar esta pieza"
+                    "campana": m.get("campana") or None,  # (8/11) campaña guardada desde el chat (Proyecto + borradores)
                     "query": m.get("query", "")})
     return out
 
