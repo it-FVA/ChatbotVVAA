@@ -121,7 +121,10 @@ Canales listados (en este orden, todos siempre): instagram, facebook, youtube, m
 juntos como `sitio` (texto «Sitio web»), whatsapp. `api`:
 - instagram, facebook: `disponible` si hay token; `sin_permiso` si Meta devolvió error de permiso en la última captura; `error` si otro
   error; `pendiente` si nunca se capturó.
-- youtube: `pendiente`, nota «Se pide cuando Google responda la auditoría de la API (en curso)».
+- youtube (8/11, Franco): ya no es `pendiente` por defecto. `disponible` si hay token y la última captura trajo números; `sin_permiso` si
+  el token no tiene el permiso de YouTube Analytics (nota: «Falta autorizar la lectura de estadísticas de YouTube…»; igual vienen las
+  vistas, suscriptores, me gusta y comentarios de la Data API); `error` otro; `pendiente` si nunca se capturó. `POST /actualizar` suma la
+  clave `youtube` con la misma forma `{ok, piezas, error}`. Módulo: `metricas_youtube.py`.
 - mail: `no_hay`, nota «Perfit: los reportes se ven en la plataforma; la API de métricas por campaña está sin confirmar».
 - sitio: `no_hay`, nota «WordPress.com pide autorizar una app propia para leer las estadísticas; por ahora, el enlace».
 - whatsapp: `no_hay`, nota «WhatsApp no da métricas de grupos».

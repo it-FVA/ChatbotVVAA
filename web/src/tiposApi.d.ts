@@ -173,7 +173,7 @@ export interface paths {
         put?: never;
         /**
          * Actualizar
-         * @description Captura ahora los números de Instagram y Facebook. Un error de Meta no es un 500: vuelve en `error` de cada canal.
+         * @description Captura ahora los números de Instagram, Facebook y YouTube. Un error de la plataforma no es un 500: vuelve en `error` de cada canal.
          */
         post: operations["actualizar_admin_metricas_actualizar_post"];
         delete?: never;
@@ -251,7 +251,7 @@ export interface paths {
         };
         /**
          * Ver Canales
-         * @description Una tarjeta por canal: Instagram y Facebook por la plataforma; YouTube, mail, sitio y WhatsApp con enlace y carga a mano.
+         * @description Una tarjeta por canal: Instagram, Facebook y YouTube por la plataforma; mail, sitio y WhatsApp con enlace y carga a mano.
          */
         get: operations["ver_canales_admin_metricas_canales_get"];
         put?: never;
@@ -2369,6 +2369,7 @@ export interface components {
             capturado: string;
             facebook: components["schemas"]["ResultadoCanal"];
             instagram: components["schemas"]["ResultadoCanal"];
+            youtube: components["schemas"]["ResultadoCanal"];
         };
         /** AperturaOut */
         AperturaOut: {

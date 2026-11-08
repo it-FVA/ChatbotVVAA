@@ -327,6 +327,7 @@ export interface ResultadoActualizar {
   capturado: string;
   instagram: { ok: boolean; piezas: number; error: string | null };
   facebook: { ok: boolean; piezas: number; error: string | null };
+  youtube: { ok: boolean; piezas: number; error: string | null };
 }
 
 export interface MetricaManual {

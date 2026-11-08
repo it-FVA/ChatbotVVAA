@@ -19,7 +19,7 @@ definirAyuda("metricas", {
   que: "Cuánto llegó cada canal y cuánto hicimos en cada campaña.",
   pasos: [
     { id: "asesor", texto: "Preguntale al asesor cómo vienen las campañas: te responde con los números y de dónde salen." },
-    { id: "actualizar", texto: "Trae los números de Instagram y Facebook al momento." },
+    { id: "actualizar", texto: "Trae los números de Instagram, Facebook y YouTube al momento." },
     { id: "canal", texto: "Cada canal muestra sus números y de dónde salen." },
     { id: "anotar", texto: "Si la plataforma no los da, anotalos a mano acá." },
     { id: "campana", texto: "Cada campaña muestra sus piezas por estado y por canal." },
@@ -101,7 +101,7 @@ const GRUPOS: { clave: GrupoEstado; estado: string; texto: string; columna: stri
 
 function textoActualizar(nombre: string, r: { ok: boolean; piezas: number; error: string | null }) {
   if (r.ok) return `${nombre}: ${r.piezas} ${r.piezas === 1 ? "pieza leída" : "piezas leídas"}`;
-  return `${nombre}: ${/permiso/i.test(r.error ?? "") ? "falta un permiso en la conexión" : "no pude leer los números"}`;
+  return `${nombre}: ${/permiso|autorizar/i.test(r.error ?? "") ? "falta un permiso en la conexión" : "no pude leer los números"}`;
 }
 
 const mensaje = (e: unknown, defecto: string) => (e instanceof ErrorApi || e instanceof Error ? e.message : defecto);
@@ -175,7 +175,7 @@ export default function Metricas() {
         <div className="acciones">
           <span className="suave chico">Última lectura {canales?.actualizado ? hace(canales.actualizado) : "nunca"}</span>
           <button className="boton chico" onClick={actualizar} disabled={actualizando} data-ayuda="metricas.actualizar">
-            <IconoAdmin nombre="regenerar" tam={14} /> {actualizando ? "Leyendo…" : "Actualizar desde Instagram y Facebook"}
+            <IconoAdmin nombre="regenerar" tam={14} /> {actualizando ? "Leyendo…" : "Actualizar desde Instagram, Facebook y YouTube"}
           </button>
         </div>
       </div>
@@ -184,7 +184,7 @@ export default function Metricas() {
         <div className="aviso met-resultado" role="status">
           <IconoAdmin nombre="info" tam={18} />
           <span>
-            {textoActualizar("Instagram", resultado.instagram)}. {textoActualizar("Facebook", resultado.facebook)}.
+            {textoActualizar("Instagram", resultado.instagram)}. {textoActualizar("Facebook", resultado.facebook)}. {textoActualizar("YouTube", resultado.youtube)}.
           </span>
         </div>
       )}

@@ -1,13 +1,13 @@
 """
 metricas.py — Métricas de campañas y canales (8/11, Franco; pedido de Beto: «que la app sea el centro de métricas de evolución de
 campañas»). Contrato con la web: web/maquetas/metricas-contrato.md. Las rutas viven en api/metricas_rutas.py; el HTTP contra Meta,
-en metricas_meta.py; el asesor de campañas con IA, en metricas_asesor.py; la tabla, en db/metricas.py (migración 20261108_1200_metricas.sql).
+en metricas_meta.py (Instagram y Facebook) y metricas_youtube.py (YouTube, 8/11); el asesor de campañas con IA, en metricas_asesor.py; la tabla, en db/metricas.py (migración 20261108_1200_metricas.sql).
 
 Dos preguntas, dos mitades:
   1. «Cuánto hicimos» sale de nuestra base, sin APIs: campanas(periodo) cruza proyectos + proyecto_items (tipo «pieza» →
      publicaciones.id) + publicaciones + la última métrica de cada pieza (de la API o cargada a mano; si hay las dos, la de la API).
-  2. «Cuánto llegó» depende de cada plataforma: canales_estado(cfg) arma una tarjeta por canal (Instagram y Facebook por API;
-     YouTube, mail, sitio y WhatsApp con enlace a la plataforma y carga a mano); capturar(cfg) pide los números a Meta y los guarda.
+  2. «Cuánto llegó» depende de cada plataforma: canales_estado(cfg) arma una tarjeta por canal (Instagram, Facebook y YouTube por API;
+     mail, sitio y WhatsApp con enlace a la plataforma y carga a mano); capturar(cfg) pide los números a Meta y a Google y los guarda.
 
   GRUPO_ESTADO / grupo_de(estado)   el único lugar donde se agrupan los estados de una pieza (publicada, programada, en_aprobacion…)
   CLAVES_NORMALIZADAS               las claves de números que acepta la carga a mano y que usa la API
@@ -201,7 +201,6 @@ def campanas(periodo):
 
 # ---------------- canales ----------------
 _NOTAS = {
-    "youtube": ("pendiente", "Se pide cuando Google responda la auditoría de la API (en curso)."),
     "mail": ("no_hay", "Perfit: los reportes se ven en la plataforma; la API de métricas por campaña está sin confirmar."),
     "sitio": ("no_hay", "WordPress.com pide autorizar una app propia para leer las estadísticas; por ahora, el enlace."),
     "whatsapp": ("no_hay", "WhatsApp no da métricas de grupos."),
@@ -238,6 +237,21 @@ def _estado_api_meta(clave, configurado, fila):
     return "disponible", (f"Algo no se pudo traer: {errores[0]}" if errores else "")
 
 
+def _estado_api_youtube(configurado, fila):
+    """('disponible'|'sin_permiso'|'error'|'pendiente', nota) de YouTube, según la última captura por API."""
+    import metricas_youtube
+    if not configurado:
+        return "error", "Falta la conexión con YouTube en el servidor."
+    if not fila:
+        return "pendiente", "Todavía no se pidieron los números: tocá «Actualizar»."
+    errores = (fila.get("datos") or {}).get("errores") or []
+    if any(metricas_youtube.es_error_de_scope(e) for e in errores):
+        return "sin_permiso", next(e for e in errores if metricas_youtube.es_error_de_scope(e))
+    if errores and not _numeros(fila):
+        return "error", errores[0]
+    return "disponible", (f"Algo no se pudo traer: {errores[0]}" if errores else "")
+
+
 def _fila_publica(f, con_nota=False):
     if not f:
         return None
@@ -256,14 +270,17 @@ def canales_estado(cfg):
     out, actualizado = [], None
     for clave in CLAVES_CANAL:
         fa, fm = api.get((clave, "api")), man.get((clave, "manual"))
-        if clave in ("instagram", "facebook"):
-            estado, nota = _estado_api_meta(clave, cfg.configurado.get(clave, False), fa)
-            texto, icono, mod = _canal_texto(clave), clave, modo(clave)
+        if clave in ("instagram", "facebook", "youtube"):
+            if clave == "youtube":
+                estado, nota = _estado_api_youtube(cfg.configurado.get(clave, False), fa)
+            else:
+                estado, nota = _estado_api_meta(clave, cfg.configurado.get(clave, False), fa)
+            texto, icono, mod = _canal_texto(clave), ("pelicula" if clave == "youtube" else clave), modo(clave)
             configurado = bool(cfg.configurado.get(clave))
         else:
             estado, nota = _NOTAS[clave]
             texto = {"sitio": "Sitio web", "mail": "Mail (Newsletter y Frase del día)"}.get(clave) or _canal_texto(clave)
-            icono = {"mail": "sobre", "sitio": "casa", "youtube": "pelicula", "whatsapp": "celular"}[clave]
+            icono = {"mail": "sobre", "sitio": "casa", "whatsapp": "celular"}[clave]
             mod = modo("wordpress" if clave == "sitio" else clave)
             configurado = bool(cfg.configurado.get("wordpress" if clave == "sitio" else clave))
         url, url_texto = _enlace(clave, cfg)
@@ -356,13 +373,49 @@ def _captura_canal(cfg, clave, por, todas, ahora, desde_pub):
         return {"ok": False, "piezas": 0, "error": f"No pude traer los números de {nombre}: {type(e).__name__}: {mm._limpiar(str(e), getattr(cfg, 'ig_token', ''), getattr(cfg, 'fb_token', ''))[:160]}"}
 
 
+def _captura_youtube(cfg, por, ahora, desde_pub):
+    """Canal + videos de YouTube (8/11). Devuelve {"ok", "piezas", "error"}; nunca lanza. Si falta el permiso de Analytics el canal y los
+    videos igual se guardan con lo que dio la Data API (vistas, me gusta, comentarios) y `error` dice qué hacer."""
+    import metricas_youtube as my
+    secretos = my._secretos(cfg)
+    try:
+        cuenta = my.insights_canal_youtube(cfg, DIAS_CUENTA)
+        hoy = ahora.astimezone(ZONA_AR).date()
+        db.guardar_metrica({"ambito": "canal", "ref": "youtube", "canal": "youtube", "fuente": "api",
+                            "periodo_desde": (hoy - dt.timedelta(days=DIAS_CUENTA)).isoformat(), "periodo_hasta": hoy.isoformat(),
+                            "datos": cuenta, "por": por})
+        errores = cuenta.get("errores") or []
+        sin_scope = next((e for e in errores if my.es_error_de_scope(e)), None)
+        if errores and not _numeros({"datos": cuenta}):
+            return {"ok": False, "piezas": 0, "error": sin_scope or errores[0]}
+        n, con_numeros, otro = 0, 0, None
+        for p in desde_pub:
+            if p.get("canal") != "youtube":
+                continue
+            res = my.insights_video_youtube(cfg, id_plataforma(p), analytics=not sin_scope)
+            db.guardar_metrica({"ambito": "pieza", "ref": str(p["id"]), "canal": "youtube", "fuente": "api", "datos": res, "por": por})
+            n += 1
+            if _numeros({"datos": res}):
+                con_numeros += 1
+            sin_scope = sin_scope or next((e for e in res.get("errores") or [] if my.es_error_de_scope(e)), None)
+            otro = otro or next((e for e in res.get("errores") or [] if not my.es_error_de_scope(e)), None)
+        if sin_scope:
+            return {"ok": False, "piezas": con_numeros, "error": sin_scope}
+        if n and not con_numeros:
+            return {"ok": False, "piezas": 0, "error": otro}
+        return {"ok": True, "piezas": con_numeros, "error": None}
+    except Exception as e:      # nunca un 500 por un error de Google o de la base
+        return {"ok": False, "piezas": 0, "error": f"No pude traer los números de YouTube: {type(e).__name__}: {my._limpiar(str(e), secretos)[:160]}"}
+
+
 def _piezas_a_capturar(todas, ahora):
     """Las publicadas en modo real de los últimos DIAS_PIEZAS días con id de la plataforma. Sin `todas` (la pasada de la cola)
     se saltean las que ya se capturaron hace menos de 20 h, salvo las historias (vencen a las 24 h: se piden cada hora mientras duren)."""
     desde = _iso(ahora - dt.timedelta(days=DIAS_PIEZAS))
     cand = []
     for p in db.publicaciones_para_metricas(desde):
-        if p.get("estado") != "publicada" or p.get("modo") != "real" or p.get("canal") not in ("instagram", "facebook"):
+        modos = ("real", "privado") if p.get("canal") == "youtube" else ("real",)       # YouTube sube en privado hasta la auditoría
+        if p.get("estado") != "publicada" or p.get("modo") not in modos or p.get("canal") not in ("instagram", "facebook", "youtube"):
             continue
         d = _fecha(fecha_efectiva(p))
         if not id_plataforma(p) or not d or d < ahora - dt.timedelta(days=DIAS_PIEZAS):
@@ -385,8 +438,9 @@ def _piezas_a_capturar(todas, ahora):
 
 
 def capturar(cfg, por="api", todas=True):
-    """Pide a Instagram y Facebook los números (cuenta de 28 días + cada pieza real publicada en los últimos 60) y los guarda
-    con fuente 'api'. Devuelve {"capturado", "instagram": {ok, piezas, error}, "facebook": {…}}. No lanza por errores de Meta."""
+    """Pide a Instagram, Facebook y YouTube los números (cuenta de 28 días + cada pieza real publicada en los últimos 60) y los guarda
+    con fuente 'api'. Devuelve {"capturado", "instagram": {ok, piezas, error}, "facebook": {…}, "youtube": {…}}. No lanza por errores
+    de las plataformas."""
     ahora = _ahora()
     try:
         cand = _piezas_a_capturar(todas, ahora)
@@ -397,6 +451,8 @@ def capturar(cfg, por="api", todas=True):
         hay = bool(cfg.ig_token and cfg.ig_id) if clave == "instagram" else bool(cfg.fb_token and cfg.fb_page_id)
         res[clave] = (_captura_canal(cfg, clave, por, todas, ahora, cand) if hay else
                       {"ok": False, "piezas": 0, "error": f"Falta la conexión con {'Instagram' if clave == 'instagram' else 'Facebook'} en el servidor."})
+    res["youtube"] = (_captura_youtube(cfg, por, ahora, cand) if getattr(cfg, "yt_token_json", "") else
+                      {"ok": False, "piezas": 0, "error": "Falta la conexión con YouTube en el servidor."})
     return res
 
 

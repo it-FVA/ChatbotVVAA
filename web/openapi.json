@@ -25,12 +25,16 @@
      },
      "instagram": {
       "$ref": "#/components/schemas/ResultadoCanal"
+     },
+     "youtube": {
+      "$ref": "#/components/schemas/ResultadoCanal"
      }
     },
     "required": [
      "capturado",
      "instagram",
-     "facebook"
+     "facebook",
+     "youtube"
     ],
     "title": "ActualizarResp",
     "type": "object"
@@ -3652,7 +3656,7 @@
   },
   "/admin/metricas/actualizar": {
    "post": {
-    "description": "Captura ahora los números de Instagram y Facebook. Un error de Meta no es un 500: vuelve en `error` de cada canal.",
+    "description": "Captura ahora los números de Instagram, Facebook y YouTube. Un error de la plataforma no es un 500: vuelve en `error` de cada canal.",
     "operationId": "actualizar_admin_metricas_actualizar_post",
     "responses": {
      "200": {
@@ -3828,7 +3832,7 @@
   },
   "/admin/metricas/canales": {
    "get": {
-    "description": "Una tarjeta por canal: Instagram y Facebook por la plataforma; YouTube, mail, sitio y WhatsApp con enlace y carga a mano.",
+    "description": "Una tarjeta por canal: Instagram, Facebook y YouTube por la plataforma; mail, sitio y WhatsApp con enlace y carga a mano.",
     "operationId": "ver_canales_admin_metricas_canales_get",
     "responses": {
      "200": {

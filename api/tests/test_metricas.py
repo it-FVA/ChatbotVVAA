@@ -8,12 +8,14 @@ import pytest
 import db
 import metricas
 import metricas_meta
+import metricas_youtube
 import metricas_asesor
 import nucleo
 
 AHORA = dt.datetime.now(dt.timezone.utc)
 TOKEN_IG = "IGQVJ-TOKEN-SECRETO-IG"
 TOKEN_FB = "EAAB-TOKEN-SECRETO-FB"
+TOKEN_YT = json.dumps({"client_id": "cid", "client_secret": "SECRETO-CLIENTE-YT", "refresh_token": "REFRESH-SECRETO-YT", "scopes": []})
 
 
 def iso(d):
@@ -27,8 +29,9 @@ def hace(dias=0, horas=0):
 class Cfg:
     """Lo que usa metricas.py de publicar.Config."""
     ig_token, ig_id, fb_token, fb_page_id, wp_site = TOKEN_IG, "17841", TOKEN_FB, "999", "viviragradecidos.org"
-    configurado = {"instagram": True, "facebook": True, "youtube": False, "mail": True, "wordpress": True, "whatsapp": True}
-    modos = {"instagram": "real", "facebook": "real", "wordpress": "real", "youtube": "apagado", "mail": "apagado", "whatsapp": "simulado"}
+    yt_token_json = TOKEN_YT
+    configurado = {"instagram": True, "facebook": True, "youtube": True, "mail": True, "wordpress": True, "whatsapp": True}
+    modos = {"instagram": "real", "facebook": "real", "wordpress": "real", "youtube": "privado", "mail": "apagado", "whatsapp": "simulado"}
 
     def modo(self, c):
         return self.modos.get(c, "apagado")
@@ -156,7 +159,7 @@ def test_canales_sin_captura(logueado, mundo):
     assert [c["clave"] for c in d["canales"]] == ["instagram", "facebook", "youtube", "mail", "sitio", "whatsapp"]
     por = {c["clave"]: c for c in d["canales"]}
     assert por["instagram"]["api"] == "pendiente" and por["facebook"]["api"] == "pendiente"
-    assert por["youtube"]["api"] == "pendiente" and "auditoría" in por["youtube"]["nota_api"]
+    assert por["youtube"]["api"] == "pendiente" and "Actualizar" in por["youtube"]["nota_api"]
     assert por["mail"]["api"] == "no_hay" and por["sitio"]["api"] == "no_hay" and por["whatsapp"]["api"] == "no_hay"
     assert por["instagram"]["enlace"] == "https://business.facebook.com/latest/insights/overview"
     assert por["youtube"]["enlace"] == "https://studio.youtube.com/" and por["mail"]["enlace"] == "https://app.myperfit.com/"
@@ -227,8 +230,25 @@ def test_manual_guarda(logueado, mundo):
 
 
 # ---------------- actualizar (Meta simulado) ----------------
-def _meta_simulado(monkeypatch, facebook_sin_permiso=True):
+def _con_video_youtube(mundo):
+    mundo["pubs"].append(pub(20, "youtube", "publicada", 2, modo="privado", id="yt-1"))     # video subido en privado, con id de YouTube
+
+
+def _meta_simulado(monkeypatch, facebook_sin_permiso=True, youtube_sin_scope=False):
     llamadas = []
+
+    def canal_yt(cfg, dias=28):
+        llamadas.append(("canal_yt", dias))
+        if youtube_sin_scope:
+            return {"seguidores": 90, "vistas": 5000, "crudo": {}, "errores": [metricas_youtube.TEXTO_SIN_SCOPE]}
+        return {"seguidores": 90, "vistas": 700, "crudo": {}, "errores": []}
+
+    def video_yt(cfg, video_id, analytics=True):
+        llamadas.append(("video_yt", video_id, analytics))
+        return {"vistas": 40, "me_gusta": 3, "crudo": {}, "errores": []}
+
+    monkeypatch.setattr(metricas_youtube, "insights_canal_youtube", canal_yt)
+    monkeypatch.setattr(metricas_youtube, "insights_video_youtube", video_yt)
 
     def cuenta_ig(cfg, dias=28):
         llamadas.append(("cuenta_ig", dias))
@@ -257,6 +277,7 @@ def _meta_simulado(monkeypatch, facebook_sin_permiso=True):
 
 def test_actualizar(logueado, mundo, monkeypatch):
     llamadas = _meta_simulado(monkeypatch)
+    _con_video_youtube(mundo)
     mundo["pubs"][0]["resultado"]["formato"] = "cuadrado"                              # pub-1 ya no es una historia vencida
     h = pub(9, "instagram", "publicada", 0, ultimo={"id": "ig-9"}, formato="historia")
     h["procesado_en"] = hace(0, 2)                                                     # una historia de hace 2 h: todavía tiene métricas
@@ -269,11 +290,35 @@ def test_actualizar(logueado, mundo, monkeypatch):
     assert ("pieza_ig", "ig-1", False) in llamadas and ("pieza_ig", "ig-9", True) in llamadas and ("cuenta_ig", 28) in llamadas
     assert not any(x[0] == "posteo_fb" for x in llamadas)                              # sin permiso no se pide pieza por pieza
     filas = mundo["filas"]
-    assert {(f["ambito"], f["ref"], f["fuente"]) for f in filas} == {("canal", "instagram", "api"), ("pieza", "pub-1", "api"), ("pieza", "pub-9", "api"), ("canal", "facebook", "api")}
+    assert {(f["ambito"], f["ref"], f["fuente"]) for f in filas} == {("canal", "instagram", "api"), ("pieza", "pub-1", "api"), ("pieza", "pub-9", "api"), ("canal", "facebook", "api"),
+                                                                                  ("canal", "youtube", "api"), ("pieza", "pub-20", "api")}
     assert next(f for f in filas if f["ref"] == "instagram")["periodo_hasta"] and next(f for f in filas if f["ref"] == "instagram")["por"] == "franco"
     # la próxima carga de canales ya sabe que a Facebook le falta un permiso
     por = {c["clave"]: c for c in logueado.get("/admin/metricas/canales").json()["canales"]}
     assert por["facebook"]["api"] == "sin_permiso" and por["instagram"]["api"] == "disponible"
+    assert d["youtube"] == {"ok": True, "piezas": 1, "error": None}                    # el video de YouTube (modo privado, publicado, con id)
+    assert por["youtube"]["api"] == "disponible" and por["youtube"]["ultima"]["datos"]["seguidores"] == 90
+    assert ("video_yt", "yt-1", True) in llamadas and ("canal_yt", 28) in llamadas
+
+
+def test_actualizar_youtube_sin_scope(logueado, mundo, monkeypatch):
+    llamadas = _meta_simulado(monkeypatch, youtube_sin_scope=True)
+    _con_video_youtube(mundo)
+    r = logueado.post("/admin/metricas/actualizar")
+    assert r.status_code == 200, r.text
+    y = r.json()["youtube"]
+    assert y["ok"] is False and y["error"] == metricas_youtube.TEXTO_SIN_SCOPE and y["piezas"] == 1     # los videos igual se guardan
+    assert ("video_yt", "yt-1", False) in llamadas                                    # sin permiso no se piden las estadísticas por video
+    por = {c["clave"]: c for c in logueado.get("/admin/metricas/canales").json()["canales"]}
+    assert por["youtube"]["api"] == "sin_permiso" and "autorizar_youtube.py" in por["youtube"]["nota_api"]
+    assert por["youtube"]["ultima"]["datos"]["vistas"] == 5000
+
+
+def test_actualizar_youtube_sin_token(logueado, mundo, monkeypatch):
+    _meta_simulado(monkeypatch)
+    monkeypatch.setattr(Cfg, "yt_token_json", "")
+    r = logueado.post("/admin/metricas/actualizar")
+    assert r.json()["youtube"] == {"ok": False, "piezas": 0, "error": "Falta la conexión con YouTube en el servidor."}
 
 
 def test_actualizar_nunca_500(logueado, mundo, monkeypatch):

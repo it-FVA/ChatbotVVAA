@@ -4,7 +4,7 @@ metricas.py (campañas, canales, captura), metricas_meta.py (HTTP contra Meta) y
 
   GET  /admin/metricas/campanas?dias=90 | mes=AAAA-MM   campañas (Proyectos) con sus piezas por canal y por estado, y las métricas de cada pieza
   GET  /admin/metricas/canales                           una tarjeta por canal: estado de la conexión, últimos números, enlace y lo anotado a mano
-  POST /admin/metricas/actualizar                        captura ahora Instagram y Facebook (cuenta de 28 días + piezas de los últimos 60); nunca 500 por Meta
+  POST /admin/metricas/actualizar                        captura ahora Instagram, Facebook y YouTube (cuenta de 28 días + piezas de los últimos 60); nunca 500 por Meta
   PUT  /admin/metricas/manual                            anota números a mano de un canal o de una pieza (queda en usuarios_cambios, clave metricas_manual:<ref>)
   GET  /admin/metricas/resumen/{ref}                     el último resumen con IA de una campaña (id de proyecto o «sueltas»), o null
   POST /admin/metricas/resumen                           genera uno nuevo con el modelo auxiliar y lo guarda
@@ -148,6 +148,7 @@ class ActualizarResp(BaseModel):
     capturado: str
     instagram: ResultadoCanal
     facebook: ResultadoCanal
+    youtube: ResultadoCanal                      # (8/11, Franco)
 
 
 class ManualIn(BaseModel):
@@ -234,13 +235,13 @@ def ver_campanas(dias: Optional[int] = None, mes: Optional[str] = None, quien=De
 
 @router.get("/canales", response_model=CanalesResp)
 def ver_canales(quien=Depends(auth.admin)):
-    """Una tarjeta por canal: Instagram y Facebook por la plataforma; YouTube, mail, sitio y WhatsApp con enlace y carga a mano."""
+    """Una tarjeta por canal: Instagram, Facebook y YouTube por la plataforma; mail, sitio y WhatsApp con enlace y carga a mano."""
     return _leer(metricas.canales_estado, _config())
 
 
 @router.post("/actualizar", response_model=ActualizarResp)
 def actualizar(quien=Depends(auth.admin)):
-    """Captura ahora los números de Instagram y Facebook. Un error de Meta no es un 500: vuelve en `error` de cada canal."""
+    """Captura ahora los números de Instagram, Facebook y YouTube. Un error de la plataforma no es un 500: vuelve en `error` de cada canal."""
     if not db.disponible():
         raise HTTPException(503, "Sin Supabase no hay dónde guardar las métricas.")
     return metricas.capturar(_config(), por=quien)
