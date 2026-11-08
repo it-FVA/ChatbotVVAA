@@ -262,6 +262,94 @@ export interface CambioRegistro {
   detalle: Record<string, unknown> | null;
 }
 
+// (8/11, Franco) Métricas: contrato en web/maquetas/metricas-contrato.md. (8/11) provisionales: cuando la API esté mergeada se reemplazan por `components["schemas"]` de tiposApi.d.ts
+export type GrupoEstado = "publicada" | "programada" | "en_aprobacion" | "borrador" | "prueba" | "no_salio";
+export type PorGrupo = Record<GrupoEstado, number>;
+export type DatosMetricas = Partial<Record<string, number>> & { crudo?: Record<string, unknown>; errores?: string[] };
+
+export interface PiezaCampana {
+  id: string;
+  canal: string;
+  canal_texto: string;
+  titulo: string;
+  estado: string;
+  estado_grupo: GrupoEstado;
+  fecha: string;
+  ver_url: string | null;
+  formato: "historia" | "cuadrado" | "reel" | "carrusel" | null;
+  usuario: string;
+  modo: string;
+  metricas?: (Partial<Record<string, number>> & { fuente?: "api" | "manual"; capturado?: string }) | null;
+}
+
+export interface Campana {
+  id: string;
+  nombre: string;
+  emoji: string | null;
+  color: string | null;
+  dueno: string | null;
+  creado: string | null;
+  piezas_total: number;
+  por_canal: Record<string, PorGrupo>;
+  por_estado: PorGrupo;
+  primera: string | null;
+  ultima: string | null;
+  piezas: PiezaCampana[];
+}
+
+export interface Campanas {
+  periodo: Periodo;
+  campanas: Campana[];
+  sueltas: Campana;
+  totales: { piezas: number; por_canal: Record<string, number> } & PorGrupo;
+}
+
+export interface CanalMetricas {
+  clave: string;
+  texto: string;
+  icono: string;
+  modo: string;
+  configurado: boolean;
+  api: "disponible" | "sin_permiso" | "no_hay" | "pendiente" | "error";
+  nota_api: string | null;
+  enlace: string | null;
+  enlace_texto: string | null;
+  ultima: { datos: DatosMetricas; periodo_desde: string | null; periodo_hasta: string | null; capturado: string; fuente: string } | null;
+  manual: { datos: DatosMetricas; periodo_desde: string | null; periodo_hasta: string | null; capturado: string; nota: string | null; por: string | null } | null;
+}
+
+export interface CanalesMetricas {
+  actualizado: string | null;
+  canales: CanalMetricas[];
+}
+
+export interface ResultadoActualizar {
+  capturado: string;
+  instagram: { ok: boolean; piezas: number; error: string | null };
+  facebook: { ok: boolean; piezas: number; error: string | null };
+}
+
+export interface MetricaManual {
+  ambito: "canal" | "pieza";
+  ref: string;
+  canal: string;
+  periodo_desde: string | null;
+  periodo_hasta: string | null;
+  datos: Record<string, number>;
+  nota: string | null;
+}
+
+export interface ResumenCampana {
+  ref: string;
+  nombre: string;
+  texto: string;
+  fuentes: string[];
+  falto: string[];
+  comparado_con: string | null;
+  modelo: string;
+  capturado: string;
+}
+
 const q = (dias?: number, mes?: string) => (mes ? `?mes=${encodeURIComponent(mes)}` : dias ? `?dias=${dias}` : "");
 
 export const adminApi = {
@@ -278,5 +366,11 @@ export const adminApi = {
   sincronizarBanco: () => pedir<ResumenSincronizacion>("/admin/banco/sincronizar", { method: "POST" }),
   config: () => pedir<Config>("/admin/config"),
   guardarConfig: (cambios: Record<string, unknown>) => pedir<{ ok: boolean; guardadas: Record<string, unknown> }>("/admin/config", { method: "PUT", body: JSON.stringify({ cambios }) }),
+  campanas: (dias?: number, mes?: string) => pedir<Campanas>("/admin/metricas/campanas" + q(dias, mes)),
+  canalesMetricas: () => pedir<CanalesMetricas>("/admin/metricas/canales"),
+  actualizarMetricas: () => pedir<ResultadoActualizar>("/admin/metricas/actualizar", { method: "POST" }),
+  anotarMetrica: (body: MetricaManual) => pedir<{ id: string }>("/admin/metricas/manual", { method: "PUT", body: JSON.stringify(body) }),
+  resumenGuardado: (ref: string) => pedir<ResumenCampana | null>(`/admin/metricas/resumen/${encodeURIComponent(ref)}`),
+  resumir: (ref: string, dias: number) => pedir<ResumenCampana>("/admin/metricas/resumen", { method: "POST", body: JSON.stringify({ ref, dias }) }),
   cambios: (limite = 200) => pedir<CambioRegistro[]>(`/admin/cambios?limite=${limite}`),
 };
