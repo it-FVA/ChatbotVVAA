@@ -61,6 +61,7 @@ CLAVES_CONFIG = {
     "frase_mail_prueba": "Mails del equipo para las pruebas (10 a 15). Son los que reciben el envío en modo simulado y el botón «Probar el mail» de la Frase del día.",
     "banco_drive_carpeta": "Carpeta de Drive del banco de imágenes (pegá el link de la carpeta o su id). La cola la recorre cada 15 minutos, sube a WordPress lo nuevo (hasta 30 por pasada) con las etiquetas del nombre y las subcarpetas, y lo anota en la tabla banco_imagenes. Convención: etiqueta_etiqueta_1080x1920.jpg.",
     "banco_solo": "Prendido, las pantallas que buscan fotos (Diseñar, Publicar, Newsletter, Frase del día) buscan SOLO en el banco de imágenes (lo subido desde Drive). Si no hay nada para esa búsqueda, muestran las últimas del banco, no toda la biblioteca de WordPress. Apagado (por defecto): buscan en toda la biblioteca.",
+    "metricas_excluir_usuarios": "Piezas de estas cuentas no cuentan en Métricas: son pruebas o desarrollo interno. Las de la Frase del día y la cola tienen su propia campaña.",
     "clips_estilo": "Estilo por defecto de los subtítulos de los recortes verticales nuevos (se edita con los controles del editor).",
 }
 AVISOS_PRECIOS = {"gpt-5.6-sol": "Precio promocional vigente al menos hasta el 21/11/2026 (según la fuente cargada el 21/10): revisarlo después de esa fecha."}
@@ -678,6 +679,26 @@ def _validar(clave, v):
         if not isinstance(v, bool):
             raise HTTPException(400, "banco_solo tiene que ser true o false.")
         return v
+    if clave == "metricas_excluir_usuarios":
+        # (8/11, Franco) lista de usuarios (una por línea o separados por coma); tienen que existir en la tabla usuarios. Vacía = nadie.
+        if isinstance(v, str):
+            v = re.split(r"[\s,;]+", v)
+        if not isinstance(v, list):
+            raise HTTPException(400, "La lista tiene que ser una lista de usuarios.")
+        pedidos = []
+        for u in v:
+            u = (u or "").strip() if isinstance(u, str) else ""
+            if u and u not in pedidos:
+                pedidos.append(u)
+        if pedidos:
+            try:
+                existentes = {f.get("usuario") for f in db.listar_usuarios()}
+            except Exception as e:
+                raise HTTPException(503, f"No pude leer los usuarios para validar la lista: {str(e)[:120]}")
+            for u in pedidos:
+                if u not in existentes:
+                    raise HTTPException(400, f"No existe el usuario «{u}».")
+        return pedidos
     if clave == "frase_pie":
         if not isinstance(v, str):
             raise HTTPException(400, "El pie tiene que ser texto.")

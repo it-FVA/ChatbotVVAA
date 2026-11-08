@@ -3,7 +3,7 @@ metricas_asesor.py — El asesor de campañas de la pestaña Métricas (8/11, Fr
 «¿Cómo le fue?» es ahora un caso particular de un asesor con el que se conversa. Contrato: web/maquetas/metricas-contrato.md
 («Agregado del 8/11 (Franco, 12:30): el asesor de campañas»).
 
-  responder(mensajes, periodo, usuario, cfg)       el asesor: contesta la conversación (los últimos 12 mensajes) sabiendo todo lo que la
+  responder(mensajes, periodo, usuario, cfg)       el asesor (8/11: nombra las piezas; la apertura, hasta 350 palabras): contesta la conversación (los últimos 12 mensajes) sabiendo todo lo que la
                                                    pestaña muestra. Devuelve {texto, fuentes, falto, modelo}
   apertura(dias, usuario, cfg)                     el mensaje proactivo al abrir la pestaña: UNA vez por día (hora Argentina), guardado
                                                    como ambito='resumen', ref='apertura'; si ya hay uno de hoy no llama al modelo
@@ -30,6 +30,10 @@ MAX_TRAMO = 2200            # caracteres por tramo de la guía
 MAX_MENSAJES = 12           # de la conversación, los últimos
 MAX_CAMPANAS = 15           # campañas que entran al system prompt (las de `ultima` más reciente)
 MAX_PIEZAS_CAMPANA = 40     # piezas por campaña (las más recientes)
+MAX_NOMBRADAS = 15          # piezas por lista nombrada (programadas, en aprobación, publicadas de la semana) y por campaña
+DIAS_SEMANA = 7             # «esta semana»: las publicadas de los últimos 7 días se nombran
+LIMITE_PALABRAS = 250       # respuestas a preguntas libres
+LIMITE_APERTURA = 350       # el mensaje de apertura, que nombra piezas por campaña (8/11, Franco)
 SIN_IA = "El resumen con IA no está disponible ahora"
 
 SISTEMA = ("Sos el asesor de campañas del equipo de la Fundación Vivir Agradecidos. Conocés las campañas, sus piezas, los números que hay "
@@ -38,7 +42,11 @@ SISTEMA = ("Sos el asesor de campañas del equipo de la Fundación Vivir Agradec
            "causas. Decí siempre de dónde sale cada número y qué faltó. Comparás contra algo (otra campaña, otro canal, el período anterior) "
            "cuando se pueda, sin exagerar. Las piezas en estado «prueba» o «no_salio» no llegaron a nadie: no les atribuyas alcance. Si no hay "
            "métricas, igual respondé: resumí lo hecho y decí qué habría que cargar. Las sugerencias se apoyan en la guía de canales. "
-           "Máximo 250 palabras. Respondés únicamente con JSON válido.")
+           "NOMBRÁ LAS PIEZAS: no digas solo «15 publicadas y 2 programadas»; decí cuáles son, con su título, canal, día y hora y de quién "
+           "son, tal como figuran en los datos (por ejemplo «quedan programadas X (Instagram, mañana 10:00, de Pato)»). Las piezas en estado "
+           "«borrador» todavía no son trabajo hecho: no las cuentes como publicadas ni programadas, mencionalas aparte y solo si importa. "
+           "«Frase del día (automática)» es una campaña que arma la plataforma sola, no un equipo: tratala como una campaña más y comparala "
+           "con las hechas por personas cuando sirva (p. ej. sus historias contra las de otra campaña). Respondés únicamente con JSON válido.")
 
 
 class ResumenNoDisponible(Exception):
@@ -48,6 +56,18 @@ class ResumenNoDisponible(Exception):
 def _dia(iso):
     d = metricas._fecha(iso)
     return d.astimezone(metricas.ZONA_AR).strftime("%d/%m").lstrip("0") if d else "?"
+
+
+def _cuando(iso, ahora=None):
+    """«mañana 10:00 (9/11)», «hoy 15:30 (8/11)», «ayer 09:00 (7/11)» o «12/11 10:00»: día relativo, hora y fecha en hora Argentina."""
+    d = metricas._fecha(iso)
+    if not d:
+        return "sin fecha"
+    ar = d.astimezone(metricas.ZONA_AR)
+    hoy = (ahora or dt.datetime.now(metricas.ZONA_AR)).astimezone(metricas.ZONA_AR).date()
+    rel = {0: "hoy", 1: "mañana", -1: "ayer", 2: "pasado mañana"}.get((ar.date() - hoy).days)
+    fecha = f"{ar.day}/{ar.month}"
+    return f"{rel} {ar:%H:%M} ({fecha})" if rel else f"{fecha} {ar:%H:%M}"
 
 
 def tramos_guia(canales_usados, texto=None):
@@ -88,7 +108,7 @@ def _linea_pieza(p):
     else:
         mt = "sin métricas"
     return (f"- {_dia(p.get('fecha'))} · {p.get('canal_texto')} · {p.get('formato') or 'formato sin dato'} · «{p.get('titulo') or 'sin título'}» "
-            f"· {p.get('estado_grupo')} · {mt}")
+            f"· {p.get('estado_grupo')}" + (f" · de {p['usuario']}" if p.get("usuario") else "") + f" · {mt}")
 
 
 def totales_de(camp):
@@ -133,13 +153,40 @@ def _anterior(camp, data):
 
 
 # ---------------- el contexto del asesor ----------------
-def _bloque_campana(c, tope=MAX_PIEZAS_CAMPANA):
-    est = ", ".join(f"{n} {g}" for g, n in c["por_estado"].items() if n) or "sin piezas"
-    canales = "; ".join(f"{k}: " + ", ".join(f"{n} {g}" for g, n in v.items() if n) for k, v in c["por_canal"].items())
-    cab = (f"### {c['nombre']}" + (f" (de {c['dueno']})" if c.get("dueno") else "") + f" · {c['piezas_total']} piezas en el período ({est})"
+def _linea_nombrada(p, con_hora):
+    quien = f", de {p['usuario']}" if p.get("usuario") else ""
+    cuando = _cuando(p.get("fecha")) if con_hora else _dia(p.get("fecha"))
+    return f"- «{p.get('titulo') or 'sin título'}» ({p.get('canal_texto')}, {cuando}{quien})"
+
+
+def _lista_nombrada(titulo, piezas, con_hora):
+    if not piezas:
+        return []
+    extra = f" (y {len(piezas) - MAX_NOMBRADAS} más)" if len(piezas) > MAX_NOMBRADAS else ""
+    return [f"{titulo}{extra}:"] + [_linea_nombrada(p, con_hora) for p in piezas[:MAX_NOMBRADAS]]
+
+
+def _bloque_campana(c, tope=MAX_PIEZAS_CAMPANA, ahora=None):
+    """Una campaña para el modelo: cabecera, suma de métricas, las piezas NOMBRADAS (programadas y en aprobación con título, canal,
+    fecha/hora y quién; publicadas de la última semana con título, canal y fecha) y el detalle de piezas con sus números.
+    (8/11, Franco) Los borradores van solo como un conteo aparte: no son trabajo hecho."""
+    ahora = ahora or metricas._ahora()
+    por = c["por_estado"]
+    hechas = sum(n for g, n in por.items() if g in metricas.GRUPOS_HECHAS)
+    est = ", ".join(f"{n} {g}" for g, n in por.items() if n and g != "borrador") or "sin piezas"
+    aparte = f" · aparte: {por['borrador']} {'borrador' if por['borrador'] == 1 else 'borradores'} (no cuentan como hechas)" if por.get("borrador") else ""
+    canales = "; ".join(f"{k}: " + ", ".join(f"{n} {g}" for g, n in v.items() if n and g != "borrador") for k, v in c["por_canal"].items())
+    cab = (f"### {c['nombre']}" + (f" (de {c['dueno']})" if c.get("dueno") else "") + f" · {hechas} piezas hechas en el período ({est}){aparte}"
            + (f" · del {_dia(c['primera'])} al {_dia(c['ultima'])}" if c.get("primera") else "") + (f" · por canal: {canales}" if canales else ""))
-    piezas = sorted(c["piezas"], key=lambda p: p["fecha"] or "", reverse=True)[:tope]
-    return "\n".join([cab, "Suma de métricas: " + (_nums(totales_de(c)) or "ninguna cargada")] + [_linea_pieza(p) for p in piezas])
+    todas = sorted((p for p in c["piezas"] if p["estado_grupo"] != "borrador"), key=lambda p: p["fecha"] or "", reverse=True)
+    desde = metricas._iso(ahora - dt.timedelta(days=DIAS_SEMANA))
+    prox = sorted((p for p in todas if p["estado_grupo"] == "programada"), key=lambda p: p["fecha"] or "")
+    aprob = sorted((p for p in todas if p["estado_grupo"] == "en_aprobacion"), key=lambda p: p["fecha"] or "")
+    semana = [p for p in todas if p["estado_grupo"] == "publicada" and (p["fecha"] or "") >= desde]
+    nombradas = (_lista_nombrada("Programadas", prox, True) + _lista_nombrada("En aprobación", aprob, True)
+                 + _lista_nombrada(f"Publicadas en los últimos {DIAS_SEMANA} días", semana, False))
+    return "\n".join([cab, "Suma de métricas: " + (_nums(totales_de(c)) or "ninguna cargada")] + nombradas
+                      + (["Detalle de piezas con sus números:"] if todas[:tope] else []) + [_linea_pieza(p) for p in todas[:tope]])
 
 
 def _bloque_canales(canales):
@@ -156,22 +203,23 @@ def _bloque_canales(canales):
     return "\n".join(out)
 
 
-def contexto(data, canales, extra=None):
+def contexto(data, canales, extra=None, limite=LIMITE_PALABRAS):
     """El system prompt completo: reglas + hoy + campañas + canales + guía (+ `extra`)."""
     todas = data["campanas"] + [data["sueltas"]]
     usados = list(dict.fromkeys(p["canal"] for c in todas for p in c["piezas"])) or ["instagram", "facebook"]
     hoy = dt.datetime.now(metricas.ZONA_AR).strftime("%d/%m/%Y")
     t = data["totales"]
     camps = sorted(data["campanas"], key=lambda c: c["ultima"] or "", reverse=True)[:MAX_CAMPANAS]
-    partes = [SISTEMA, f"Hoy es {hoy} (hora Argentina). Período mirado: {data['periodo']['texto']}.",
-              f"Totales del período: {t['piezas']} piezas ({', '.join(f'{t[g]} {g}' for g in metricas.GRUPOS if t[g]) or 'ninguna'}).",
+    partes = [SISTEMA + f" Máximo {limite} palabras.", f"Hoy es {hoy} (hora Argentina). Período mirado: {data['periodo']['texto']}.",
+              f"Totales del período: {t['piezas']} piezas hechas ({', '.join(f'{t[g]} {g}' for g in metricas.GRUPOS_HECHAS if t[g]) or 'ninguna'}). "
+              f"Aparte, sin contar como hechas: {t['borrador']} borradores, {t['prueba']} de prueba, {t['no_salio']} que no salieron.",
               "CAMPAÑAS:\n" + ("\n\n".join(_bloque_campana(c) for c in camps) or "(no hay campañas con piezas)"),
               "PIEZAS SIN CAMPAÑA:\n" + _bloque_campana(data["sueltas"]),
               "CANALES (números de cada cuenta):\n" + _bloque_canales(canales)]
     if extra:
         partes.append(extra)
     partes.append("GUÍA DE CANALES de la Fundación (criterio de qué se espera de cada formato):\n" + (tramos_guia(usados) or "(no disponible)"))
-    partes.append('Devolvé SOLO un JSON con: "texto" (markdown corto, hasta 250 palabras), "fuentes" (lista de textos: de dónde sale cada número), '
+    partes.append('Devolvé SOLO un JSON con: "texto" (markdown corto, hasta ' + str(limite) + ' palabras), "fuentes" (lista de textos: de dónde sale cada número), '
                   '"falto" (lista de textos: qué datos faltaron).')
     return "\n\n".join(partes)
 
@@ -196,7 +244,7 @@ def _preguntas(mensajes):
 
 
 # ---------------- el asesor ----------------
-def responder(mensajes, periodo, usuario, cfg=None, extra=None, alcance=None):
+def responder(mensajes, periodo, usuario, cfg=None, extra=None, alcance=None, limite=LIMITE_PALABRAS):
     """Contesta la conversación (`mensajes` = [{rol: usuario|asesor, texto}], la última del usuario). `periodo` es el dict de
     api.admin_rutas.periodo(). `extra` agrega contexto al system prompt y `alcance` (una campaña) limita fuentes y faltantes a ella.
     Devuelve {texto, fuentes, falto, modelo}. Levanta ResumenNoDisponible, ValueError (sin pregunta) o RuntimeError (falló el modelo)."""
@@ -205,11 +253,11 @@ def responder(mensajes, periodo, usuario, cfg=None, extra=None, alcance=None):
     preguntas = _preguntas(mensajes)
     data = metricas.campanas(periodo)
     canales = metricas.canales_estado(cfg) if cfg is not None else {"canales": []}
-    msgs = [{"role": "system", "content": contexto(data, canales, extra)}] + preguntas
+    msgs = [{"role": "system", "content": contexto(data, canales, extra, limite)}] + preguntas
     import nucleo
     tok = nucleo.USUARIO.set(usuario)                 # el uso de OpenAI queda a nombre de quien preguntó
     try:
-        r = nucleo._chat(nucleo._get_client(), msgs, max_tokens=1500, temperature=0.4)    # registra el uso con que='auxiliar'
+        r = nucleo._chat(nucleo._get_client(), msgs, max_tokens=1800, temperature=0.4)    # registra el uso con que='auxiliar'
         bruto = r.choices[0].message.content or ""
     except Exception as e:
         raise RuntimeError(f"No pude responder: {str(e)[:160]}")
@@ -250,9 +298,11 @@ def apertura(dias, usuario, cfg):
         return {"texto": d.get("texto") or "", "fuentes": d.get("fuentes") or [], "falto": d.get("falto") or [], "capturado": ya["capturado"], "nuevo": False}
     from api.admin_rutas import periodo            # recién acá: la cola no carga FastAPI
     per = periodo(dias, None)
-    pregunta = ("Armá el mensaje de apertura de hoy: qué pasó en los últimos 7 días, qué campaña se mueve, qué números faltan cargar y una "
-                "sugerencia concreta. Que sea breve.")
-    r = responder([{"rol": "usuario", "texto": pregunta}], per, usuario, cfg)
+    pregunta = ("Armá el mensaje de apertura de hoy, campaña por campaña, NOMBRANDO las piezas: qué pasó en los últimos 7 días («esta semana "
+                "salieron…» con título y canal) y qué viene («quedan programadas X (Instagram, mañana 10:00, de Pato) y Y…», más lo que "
+                "está en aprobación). Después los números que hay, cada uno con su fuente, y lo que falta cargar. Cerrá con una sugerencia "
+                f"concreta. Hasta {LIMITE_APERTURA} palabras.")
+    r = responder([{"rol": "usuario", "texto": pregunta}], per, usuario, cfg, limite=LIMITE_APERTURA)
     fila = _guardar("apertura", per, dict(r, dias=per["dias"]))
     return {"texto": r["texto"], "fuentes": r["fuentes"], "falto": r["falto"],
             "capturado": (fila or {}).get("capturado") or metricas._iso(metricas._ahora()), "nuevo": True}

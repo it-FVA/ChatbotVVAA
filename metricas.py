@@ -170,10 +170,29 @@ def _armar_campana(proyecto, piezas):
                 piezas=sorted(piezas, key=lambda p: p["fecha"] or "", reverse=True))
 
 
+FRASE_DEL_DIA = {"id": "frase_del_dia", "nombre": "Frase del día (automática)", "emoji": "📅", "color": None, "dueno": None, "creado": None}
+GRUPOS_HECHAS = ("publicada", "programada", "en_aprobacion")      # lo que cuenta como «hecho» en los totales (8/11, Franco)
+CLAVE_EXCLUIR = "metricas_excluir_usuarios"
+
+
+def usuarios_excluidos():
+    """Los usuarios cuyas piezas no cuentan en Métricas (config metricas_excluir_usuarios; vacía por defecto). Nunca lanza."""
+    try:
+        v = db.obtener_config(CLAVE_EXCLUIR, [])
+    except Exception:
+        return set()
+    return {str(u) for u in v if u} if isinstance(v, list) else set()
+
+
 def campanas(periodo):
-    """La respuesta de GET /campanas. `periodo` es el dict de api.admin_rutas.periodo() (desde/hasta ISO UTC)."""
+    """La respuesta de GET /campanas. `periodo` es el dict de api.admin_rutas.periodo() (desde/hasta ISO UTC).
+    (8/11, Franco) Las piezas de los usuarios de metricas_excluir_usuarios no entran en nada. Las piezas de los usuarios de servicio
+    (frase_del_dia, bot, cola, prueba) que no están en ningún Proyecto forman la campaña virtual «Frase del día (automática)», que va
+    después de las reales y antes de «Sin campaña». Los totales suman solo publicada + programada + en_aprobacion."""
+    from api.admin_rutas import SERVICIO           # recién acá: la cola no carga FastAPI
     vacia = {"id": "sueltas", "nombre": "Sin campaña", "emoji": None, "color": None, "dueno": None, "creado": None}
-    pubs = [p for p in db.publicaciones_para_metricas(periodo["desde"]) if _en_periodo(fecha_efectiva(p), periodo)]
+    excluidos = usuarios_excluidos()
+    pubs = [p for p in db.publicaciones_para_metricas(periodo["desde"]) if _en_periodo(fecha_efectiva(p), periodo) and p.get("usuario") not in excluidos]
     items = db.piezas_de_proyectos()
     proyecto_de = {}
     for it in items:                                   # una pieza vive en una sola carpeta; si hubiera dos, vale la primera
@@ -186,16 +205,20 @@ def campanas(periodo):
         pieza = {"id": pid, "canal": p.get("canal"), "canal_texto": _canal_texto(p.get("canal")), "titulo": p.get("titulo") or "",
                  "estado": estado, "estado_grupo": grupo_de(estado), "fecha": fecha_efectiva(p), "ver_url": _ver_url(p),
                  "formato": _formato(p), "usuario": p.get("usuario"), "modo": p.get("modo"), "metricas": mets.get(pid)}
-        piezas_de.setdefault(proyecto_de.get(pid, "sueltas"), []).append(pieza)
+        clave = proyecto_de.get(pid) or ("frase_del_dia" if p.get("usuario") in SERVICIO else "sueltas")
+        piezas_de.setdefault(clave, []).append(pieza)
     ids_proyecto = {v for v in proyecto_de.values()}
     proyectos = db.proyectos.proyectos_por_ids(ids_proyecto) if ids_proyecto else []
     camps = [_armar_campana(pr, piezas_de.get(str(pr["id"]), [])) for pr in proyectos]
     camps.sort(key=lambda c: (c["ultima"] or "", c["nombre"] or ""), reverse=True)
+    if piezas_de.get("frase_del_dia"):
+        camps.append(_armar_campana(FRASE_DEL_DIA, piezas_de["frase_del_dia"]))
     sueltas = _armar_campana(vacia, piezas_de.get("sueltas", []))
     todas = [p for c in camps + [sueltas] for p in c["piezas"]]
-    totales = {"piezas": len(todas), **{g: sum(1 for p in todas if p["estado_grupo"] == g) for g in GRUPOS}, "por_canal": {}}
+    totales = {"piezas": sum(1 for p in todas if p["estado_grupo"] in GRUPOS_HECHAS), **{g: sum(1 for p in todas if p["estado_grupo"] == g) for g in GRUPOS}, "por_canal": {}}
     for p in todas:
-        totales["por_canal"][p["canal"]] = totales["por_canal"].get(p["canal"], 0) + 1
+        if p["estado_grupo"] in GRUPOS_HECHAS:
+            totales["por_canal"][p["canal"]] = totales["por_canal"].get(p["canal"], 0) + 1
     return {"periodo": periodo, "campanas": camps, "sueltas": sueltas, "totales": totales}
 
 

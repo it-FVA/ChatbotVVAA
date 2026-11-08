@@ -117,11 +117,11 @@ def test_campanas(logueado, mundo):
     assert r.status_code == 200, r.text
     d = r.json()
     assert d["periodo"]["tipo"] == "dias" and d["periodo"]["dias"] == 90 and d["periodo"]["hasta"] is None
-    # totales: 7 piezas en el período (la de 200 días queda afuera)
+    # totales (8/11): 7 piezas en el período (la de 200 días queda afuera), pero «piezas» suma solo publicada + programada + en aprobación
     t = d["totales"]
-    assert t["piezas"] == 7 and t["publicada"] == 1 and t["programada"] == 1 and t["en_aprobacion"] == 1 and t["borrador"] == 1
+    assert t["piezas"] == 3 and t["publicada"] == 1 and t["programada"] == 1 and t["en_aprobacion"] == 1 and t["borrador"] == 1
     assert t["prueba"] == 2 and t["no_salio"] == 1                    # whatsapp simulada + algo_raro / error
-    assert t["por_canal"] == {"instagram": 4, "facebook": 2, "whatsapp": 1}
+    assert t["por_canal"] == {"instagram": 2, "facebook": 1}                    # solo las piezas que cuentan como hechas
     nombres = [c["nombre"] for c in d["campanas"]]
     assert nombres == ["Lo común nos convoca", "Polarizaciones", "Vieja"]        # por `ultima` descendente; la sin piezas del período al final
     a, b, c = d["campanas"]
@@ -593,3 +593,108 @@ def test_solo_admins(cliente, mundo):
         kw = {"json": {"ambito": "canal", "ref": "instagram", "datos": {"alcance": 1}}} if m == "put" else ({"json": {"mensajes": [{"rol": "usuario", "texto": "hola"}]}} if ruta.endswith("/asesor") else ({"json": {"ref": "A"}} if m == "post" else {}))
         assert getattr(cliente, m)(ruta, **kw).status_code == 403, ruta
     assert mundo["filas"] == []
+
+
+# ---------------- Métricas v2 (8/11, Franco) ----------------
+def test_frase_del_dia_es_una_campana_virtual(logueado, mundo, monkeypatch):
+    for i, usuario in enumerate(("frase_del_dia", "frase_del_dia", "cola")):
+        p = pub(30 + i, "instagram", "publicada", 1 + i, formato="historia")
+        p["usuario"] = usuario
+        mundo["pubs"].append(p)
+    en_proyecto = pub(33, "instagram", "publicada", 2)               # de la Frase del día, pero ya está en una campaña: se queda ahí
+    en_proyecto["usuario"] = "frase_del_dia"
+    mundo["pubs"].append(en_proyecto)
+    antes = db.piezas_de_proyectos()
+    monkeypatch.setattr(db, "piezas_de_proyectos", lambda: [dict(i) for i in antes] + [{"proyecto_id": "A", "item_id": "pub-33"}])
+    d = logueado.get("/admin/metricas/campanas").json()
+    assert [c["id"] for c in d["campanas"]] == ["A", "B", "C", "frase_del_dia"]      # después de las reales; «Sin campaña» va aparte
+    f = d["campanas"][-1]
+    assert f["nombre"] == "Frase del día (automática)" and f["emoji"] == "📅" and f["dueno"] is None
+    assert f["piezas_total"] == 3 and f["por_estado"]["publicada"] == 3 and f["por_canal"]["instagram"]["publicada"] == 3
+    assert {p["id"] for p in f["piezas"]} == {"pub-30", "pub-31", "pub-32"}
+    assert "pub-33" in {p["id"] for p in d["campanas"][0]["piezas"]}
+    assert "pub-30" not in {p["id"] for p in d["sueltas"]["piezas"]}
+    assert d["totales"]["publicada"] == 5                              # pub-1 + 3 de la Frase + pub-33
+
+
+def test_frase_del_dia_sin_piezas_no_aparece(logueado, mundo):
+    assert "frase_del_dia" not in [c["id"] for c in logueado.get("/admin/metricas/campanas").json()["campanas"]]
+
+
+def test_excluir_usuarios(logueado, mundo):
+    p = pub(40, "instagram", "publicada", 1)
+    p["usuario"] = "desarrollo"
+    q = pub(41, "instagram", "pendiente", 1)
+    q["usuario"] = "frase_del_dia"
+    mundo["pubs"] += [p, q]
+    mundo["config"]["metricas_excluir_usuarios"] = ["desarrollo", "frase_del_dia"]
+    d = logueado.get("/admin/metricas/campanas").json()
+    todas = {x["id"] for c in d["campanas"] + [d["sueltas"]] for x in c["piezas"]}
+    assert "pub-40" not in todas and "pub-41" not in todas
+    assert "frase_del_dia" not in [c["id"] for c in d["campanas"]]
+    assert d["totales"]["piezas"] == 3                                  # igual que sin esas piezas
+    mundo["config"]["metricas_excluir_usuarios"] = []
+    d = logueado.get("/admin/metricas/campanas").json()
+    assert {x["id"] for c in d["campanas"] + [d["sueltas"]] for x in c["piezas"]} >= {"pub-40", "pub-41"}
+    # los canales no se ven afectados
+    mundo["config"]["metricas_excluir_usuarios"] = ["pato"]
+    assert [c["clave"] for c in logueado.get("/admin/metricas/canales").json()["canales"]][0] == "instagram"
+
+
+def test_totales_sin_borradores_ni_pruebas(logueado, mundo):
+    d = logueado.get("/admin/metricas/campanas").json()
+    t = d["totales"]
+    assert t["piezas"] == t["publicada"] + t["programada"] + t["en_aprobacion"] == 3
+    assert t["borrador"] == 1 and t["prueba"] == 2                      # se informan aparte
+    b = d["campanas"][1]
+    assert b["nombre"] == "Polarizaciones" and b["por_estado"]["borrador"] == 1 and b["piezas_total"] == 2
+
+
+def test_cuando():
+    ahora = dt.datetime(2026, 11, 8, 15, 0, tzinfo=metricas.ZONA_AR)
+    assert metricas_asesor._cuando("2026-11-09T13:00:00Z", ahora) == "mañana 10:00 (9/11)"
+    assert metricas_asesor._cuando("2026-11-08T21:30:00Z", ahora) == "hoy 18:30 (8/11)"
+    assert metricas_asesor._cuando("2026-11-07T12:00:00Z", ahora) == "ayer 09:00 (7/11)"
+    assert metricas_asesor._cuando("2026-11-12T13:00:00Z", ahora) == "12/11 10:00"
+    assert metricas_asesor._cuando(None, ahora) == "sin fecha"
+
+
+def test_asesor_nombra_las_piezas(logueado, mundo, monkeypatch):
+    cl, usos = _asesor_listo(monkeypatch)
+    manana = dt.datetime.now(metricas.ZONA_AR).replace(hour=10, minute=0, second=0, microsecond=0) + dt.timedelta(days=1)
+    mundo["pubs"][1]["fecha_programada"] = iso(manana.astimezone(dt.timezone.utc))     # pub-2: programada, de pato
+    mundo["pubs"][1]["titulo"] = "Mañana sale"
+    mundo["pubs"][2]["titulo"] = "Espera aprobación"
+    f = pub(50, "instagram", "publicada", 0, formato="historia")
+    f["usuario"], f["titulo"] = "frase_del_dia", "Frase de hoy"
+    mundo["pubs"].append(f)
+    r = logueado.get("/admin/metricas/asesor/apertura")
+    assert r.status_code == 200, r.text
+    ped = cl.pedidos[0]
+    ctx = ped["messages"][0]["content"]
+    assert "Programadas:" in ctx and "«Mañana sale» (Instagram, mañana 10:00 (" in ctx and ", de pato)" in ctx
+    assert "En aprobación:" in ctx and "«Espera aprobación» (Facebook" in ctx
+    assert "Publicadas en los últimos 7 días:" in ctx and "«Pieza 1» (Instagram" in ctx
+    assert "### Frase del día (automática)" in ctx and "«Frase de hoy»" in ctx
+    assert "aparte: 1 borrador" in ctx and "Pieza 4" not in ctx                         # el borrador no se nombra, solo se cuenta
+    assert "Máximo 350 palabras" in ctx and "hasta 350 palabras" in ctx
+    assert "NOMBRÁ LAS PIEZAS" in ctx and "Frase del día (automática)" in metricas_asesor.SISTEMA
+    pregunta = ped["messages"][-1]["content"]
+    assert "NOMBRANDO las piezas" in pregunta and "últimos 7 días" in pregunta and "quedan programadas" in pregunta and "350" in pregunta
+    # las preguntas libres también ven las piezas pero con el límite normal
+    logueado.post("/admin/metricas/asesor", json={"mensajes": [{"rol": "usuario", "texto": "¿Qué sale mañana?"}]})
+    libre = cl.pedidos[1]["messages"][0]["content"]
+    assert "«Mañana sale»" in libre and "Máximo 250 palabras" in libre and "hasta 250 palabras" in libre
+
+
+def test_resumen_de_la_frase_del_dia(logueado, mundo, monkeypatch):
+    cl, usos = _asesor_listo(monkeypatch)
+    f = pub(51, "instagram", "publicada", 1, formato="historia")
+    f["usuario"], f["titulo"] = "frase_del_dia", "Frase de ayer"
+    mundo["pubs"].append(f)
+    assert logueado.get("/admin/metricas/resumen/frase_del_dia").json() is None
+    r = logueado.post("/admin/metricas/resumen", json={"ref": "frase_del_dia"})
+    assert r.status_code == 200, r.text
+    assert r.json()["ref"] == "frase_del_dia" and r.json()["nombre"] == "Frase del día (automática)" and r.json()["comparado_con"] is None
+    assert "CAMPAÑA DE LA PREGUNTA: Frase del día (automática)" in cl.pedidos[0]["messages"][0]["content"]
+    assert logueado.get("/admin/metricas/resumen/frase_del_dia").json()["texto"]

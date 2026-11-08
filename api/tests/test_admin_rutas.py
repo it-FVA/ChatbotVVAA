@@ -246,3 +246,17 @@ def test_config_mail(logueado, mundo):
     assert logueado.put("/admin/config", json={"cambios": {"frase_mail_inicio": "25:00"}}).status_code == 400
     assert logueado.put("/admin/config", json={"cambios": {"frase_mail_prueba": ["esto no es un mail"]}}).status_code == 400
     assert "mail" in logueado.get("/admin/config").json()["frase_canales_posibles"]
+
+
+def test_config_metricas_excluir_usuarios(logueado, mundo):
+    # (8/11, Franco) lista de usuarios que no cuentan en Métricas: tienen que existir en la tabla usuarios; vacía por defecto
+    assert "metricas_excluir_usuarios" in logueado.get("/admin/config").json()["explicaciones"]
+    assert "metricas_excluir_usuarios" not in mundo["config"]
+    r = logueado.put("/admin/config", json={"cambios": {"metricas_excluir_usuarios": "lizzie, beto\nlizzie"}})
+    assert r.status_code == 200, r.text
+    assert mundo["config"]["metricas_excluir_usuarios"] == ["lizzie", "beto"]
+    assert logueado.put("/admin/config", json={"cambios": {"metricas_excluir_usuarios": []}}).status_code == 200
+    assert mundo["config"]["metricas_excluir_usuarios"] == []
+    r = logueado.put("/admin/config", json={"cambios": {"metricas_excluir_usuarios": ["lizzie", "fantasma"]}})
+    assert r.status_code == 400 and "fantasma" in r.json()["detail"]
+    assert logueado.put("/admin/config", json={"cambios": {"metricas_excluir_usuarios": 5}}).status_code == 400
