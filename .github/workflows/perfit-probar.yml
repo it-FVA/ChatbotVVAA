@@ -1,0 +1,21 @@
+# (8/11, Franco) Prueba a mano del endpoint de métricas por campaña de Perfit: imprime códigos de estado y la forma de las respuestas,
+# nunca la clave ni datos de contactos. Se corre desde Actions → «perfit-probar» → Run workflow.
+name: perfit-probar
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Probar los endpoints de campañas de Perfit
+        env:
+          PERFIT_API_KEY: ${{ secrets.PERFIT_API_KEY }}
+          PERFIT_CUENTA: "viviragradecido"
+        run: python herramientas/perfit_probar.py

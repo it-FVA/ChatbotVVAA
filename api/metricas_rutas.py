@@ -302,9 +302,10 @@ def generar_resumen(datos: ResumenIn, quien=Depends(auth.admin)):
 
 
 @router.get("/asesor/apertura", response_model=AperturaOut)
-def apertura_asesor(dias: int = Query(DIAS_DEFECTO, ge=1, le=365), quien=Depends(auth.admin)):
-    """El mensaje proactivo del asesor al abrir la pestaña. Se genera una vez por día (hora Argentina); el resto del día devuelve el guardado."""
-    return _asesor(lambda m, *a: m.apertura(*a), dias, quien, _config())
+def apertura_asesor(dias: int = Query(DIAS_DEFECTO, ge=1, le=365), forzar: bool = False, quien=Depends(auth.admin)):
+    """El mensaje proactivo del asesor al abrir la pestaña. Se reutiliza el guardado de hoy mientras los datos no cambien (campañas,
+    piezas, números por canal); si cambió algo, o con `forzar=1` («Volver a mirar»), se arma de nuevo. (8/11, Franco)"""
+    return _asesor(lambda m, *a: m.apertura(*a, forzar=forzar), dias, quien, _config())
 
 
 @router.post("/asesor", response_model=AsesorOut)

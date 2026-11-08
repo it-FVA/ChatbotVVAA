@@ -288,22 +288,38 @@ def _guardar(ref, per, datos):
                                "periodo_desde": (hoy - dt.timedelta(days=per["dias"])).isoformat(), "periodo_hasta": hoy.isoformat()})
 
 
-def apertura(dias, usuario, cfg):
-    """El mensaje con que el asesor recibe al abrir la pestaña. Una vez por día (hora Argentina): si la última guardada es de hoy se
-    devuelve sin llamar al modelo. {texto, fuentes, falto, capturado, nuevo}."""
+def huella(dias, cfg):
+    """(8/11, Franco) Una firma de lo que la apertura resume: campañas (nombre y piezas con su estado y fecha) y los números de cada
+    canal. Si cambia (se borró una campaña, salió una pieza, se leyeron números nuevos), la apertura guardada quedó vieja."""
+    import hashlib, json
+    from api.admin_rutas import periodo            # recién acá: la cola no carga FastAPI
+    per = periodo(dias, None)
+    data = metricas.campanas(per)
+    camps = [(c["id"], c["nombre"], sorted((p["id"], p["estado"], p["fecha"]) for p in c["piezas"]))
+             for c in data["campanas"] + [data["sueltas"]]]
+    canales = [(c["clave"], metricas._numeros(c.get("ultima")), metricas._numeros(c.get("manual"))) for c in metricas.canales_estado(cfg)["canales"]]
+    return hashlib.sha1(json.dumps([camps, canales], sort_keys=True, default=str).encode("utf-8")).hexdigest()[:16]
+
+
+def apertura(dias, usuario, cfg, forzar=False):
+    """El mensaje con que el asesor recibe al abrir la pestaña. Se reutiliza la última guardada mientras sea de hoy (hora Argentina) Y los
+    datos no hayan cambiado (`huella`); si cambió algo (8/11, Franco: «la carpeta Dios no está más y la apertura la sigue nombrando»)
+    o se pide `forzar`, se arma de nuevo. {texto, fuentes, falto, capturado, nuevo}."""
     ya = db.ultimas_metricas("resumen", refs=["apertura"], fuente="ia").get(("apertura", "ia"))
     cap = metricas._fecha(ya.get("capturado")) if ya else None
-    if cap and cap.astimezone(metricas.ZONA_AR).date() == dt.datetime.now(metricas.ZONA_AR).date():
-        d = ya.get("datos") or {}
+    firma = huella(dias, cfg)
+    d = (ya or {}).get("datos") or {}
+    if (not forzar and cap and cap.astimezone(metricas.ZONA_AR).date() == dt.datetime.now(metricas.ZONA_AR).date()
+            and d.get("huella") == firma):
         return {"texto": d.get("texto") or "", "fuentes": d.get("fuentes") or [], "falto": d.get("falto") or [], "capturado": ya["capturado"], "nuevo": False}
-    from api.admin_rutas import periodo            # recién acá: la cola no carga FastAPI
+    from api.admin_rutas import periodo
     per = periodo(dias, None)
     pregunta = ("Armá el mensaje de apertura de hoy, campaña por campaña, NOMBRANDO las piezas: qué pasó en los últimos 7 días («esta semana "
                 "salieron…» con título y canal) y qué viene («quedan programadas X (Instagram, mañana 10:00, de Pato) y Y…», más lo que "
                 "está en aprobación). Después los números que hay, cada uno con su fuente, y lo que falta cargar. Cerrá con una sugerencia "
                 f"concreta. Hasta {LIMITE_APERTURA} palabras.")
     r = responder([{"rol": "usuario", "texto": pregunta}], per, usuario, cfg, limite=LIMITE_APERTURA)
-    fila = _guardar("apertura", per, dict(r, dias=per["dias"]))
+    fila = _guardar("apertura", per, dict(r, dias=per["dias"], huella=firma))
     return {"texto": r["texto"], "fuentes": r["fuentes"], "falto": r["falto"],
             "capturado": (fila or {}).get("capturado") or metricas._iso(metricas._ahora()), "nuevo": True}
 

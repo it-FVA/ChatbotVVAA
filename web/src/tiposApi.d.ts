@@ -211,7 +211,8 @@ export interface paths {
         };
         /**
          * Apertura Asesor
-         * @description El mensaje proactivo del asesor al abrir la pestaña. Se genera una vez por día (hora Argentina); el resto del día devuelve el guardado.
+         * @description El mensaje proactivo del asesor al abrir la pestaña. Se reutiliza el guardado de hoy mientras los datos no cambien (campañas,
+         *     piezas, números por canal); si cambió algo, o con `forzar=1` («Volver a mirar»), se arma de nuevo. (8/11, Franco)
          */
         get: operations["apertura_asesor_admin_metricas_asesor_apertura_get"];
         put?: never;
@@ -3783,6 +3784,7 @@ export interface operations {
         parameters: {
             query?: {
                 dias?: number;
+                forzar?: boolean;
             };
             header?: never;
             path?: never;

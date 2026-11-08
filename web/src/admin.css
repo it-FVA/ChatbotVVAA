@@ -1180,3 +1180,8 @@ h2 .estado-chip {
 .met-sugerencias { display: flex; flex-wrap: wrap; gap: 6px; }
 .met-pregunta { display: flex; gap: 8px; }
 .met-pregunta input { flex: 1; min-width: 0; min-height: 36px; padding: 4px 10px; }
+
+/* (8/11, Franco) «Volver a mirar ahora» debajo de la apertura del asesor */
+.met-remirar { margin: 4px 0 10px; }
+.met-remirar .enlace { background: none; border: 0; padding: 0; color: var(--verde, #3a6b35); text-decoration: underline; cursor: pointer; font: inherit; }
+.met-remirar .enlace:disabled { opacity: 0.6; cursor: default; }

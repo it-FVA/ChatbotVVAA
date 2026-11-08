@@ -3740,7 +3740,7 @@
   },
   "/admin/metricas/asesor/apertura": {
    "get": {
-    "description": "El mensaje proactivo del asesor al abrir la pestaña. Se genera una vez por día (hora Argentina); el resto del día devuelve el guardado.",
+    "description": "El mensaje proactivo del asesor al abrir la pestaña. Se reutiliza el guardado de hoy mientras los datos no cambien (campañas,\npiezas, números por canal); si cambió algo, o con `forzar=1` («Volver a mirar»), se arma de nuevo. (8/11, Franco)",
     "operationId": "apertura_asesor_admin_metricas_asesor_apertura_get",
     "parameters": [
      {
@@ -3753,6 +3753,16 @@
        "minimum": 1,
        "title": "Dias",
        "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "forzar",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Forzar",
+       "type": "boolean"
       }
      }
     ],

@@ -699,16 +699,23 @@ function Asesor({ dias, charla, agregar }: { dias: number; charla: Turno[]; agre
   const [error, setError] = useState<string | null>(null);
   const fin = useRef<HTMLDivElement>(null);
 
-  // la apertura es una por día: se pide al entrar, no cada vez que cambia el período
-  useEffect(() => {
+  // la apertura se pide al entrar (la API la rehace sola si cambiaron los datos) y con «Volver a mirar» (8/11, Franco)
+  const [remirando, setRemirando] = useState(false);
+  const pedirApertura = useCallback((forzar = false) => {
     let vivo = true;
+    if (forzar) setRemirando(true);
     adminApi
-      .asesorApertura(dias)
+      .asesorApertura(dias, forzar)
       .then((a) => vivo && setApertura(a))
-      .catch((e) => vivo && setErrorApertura(mensaje(e, "No pude armar el mensaje de hoy.")));
+      .catch((e) => vivo && setErrorApertura(mensaje(e, "No pude armar el mensaje de hoy.")))
+      .finally(() => vivo && setRemirando(false));
     return () => {
       vivo = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    return pedirApertura(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -748,6 +755,14 @@ function Asesor({ dias, charla, agregar }: { dias: number; charla: Turno[]; agre
       {errorApertura && <AvisoError texto={errorApertura} />}
       <div className="met-charla" aria-live="polite">
         {apertura && <BurbujaAsesor t={{ rol: "asesor", texto: apertura.texto, fuentes: apertura.fuentes, falto: apertura.falto }} cabecera={apertura.nuevo ? "hoy" : `del ${fechaCompleta(apertura.capturado, false)}`} />}
+        {apertura && (
+          <p className="suave chico met-remirar">
+            Se rehace sola cuando cambian las campañas o los números.{" "}
+            <button type="button" className="enlace" onClick={() => pedirApertura(true)} disabled={remirando}>
+              {remirando ? "Mirando de nuevo…" : "Volver a mirar ahora"}
+            </button>
+          </p>
+        )}
         {charla.map((m, i) =>
           m.rol === "usuario" ? (
             <div key={i} className="met-burbuja usuario">

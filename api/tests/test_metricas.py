@@ -575,10 +575,21 @@ def test_apertura_una_vez_por_dia(logueado, mundo, monkeypatch):
     # segunda vez, mismo día: sin modelo
     d2 = logueado.get("/admin/metricas/asesor/apertura").json()
     assert d2["nuevo"] is False and d2["texto"] == d["texto"] and len(cl.pedidos) == 1 and len(usos) == 1
-    # si la guardada es de ayer, genera una nueva
-    f[0]["capturado"] = hace(1, 1)
+    # (8/11, Franco) si cambiaron los datos (una campaña menos, una pieza nueva…), se rehace aunque sea de hoy
+    f[0]["datos"]["huella"] = "otra-huella"
+    d_cambio = logueado.get("/admin/metricas/asesor/apertura").json()
+    assert d_cambio["nuevo"] is True and len(cl.pedidos) == 2
+    f = [x for x in mundo["filas"] if x["ambito"] == "resumen"]
+    # y con forzar=1 («Volver a mirar ahora») también
+    d_forzada = logueado.get("/admin/metricas/asesor/apertura?forzar=1").json()
+    assert d_forzada["nuevo"] is True and len(cl.pedidos) == 3
+    f = [x for x in mundo["filas"] if x["ambito"] == "resumen"]
+    cl.pedidos.clear(); usos.clear()
+    # si la guardada es de ayer, genera una nueva (aunque los datos no hayan cambiado)
+    for x in f:
+        x["capturado"] = hace(1, 1)
     d3 = logueado.get("/admin/metricas/asesor/apertura").json()
-    assert d3["nuevo"] is True and len(cl.pedidos) == 2
+    assert d3["nuevo"] is True and len(cl.pedidos) == 1
 
 
 # ---------------- permisos ----------------
