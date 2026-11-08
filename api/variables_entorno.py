@@ -51,6 +51,7 @@ VARIABLES = [
     _v("CORS_ORIGENES", "https://chatbot-vvaa.vercel.app"),
     _v("WEB_URL", "https://chatbot-vvaa.vercel.app"),
     _v("SESION_SECRETO", generar=True),
+    _v("API_URL_PUBLICA", "https://fva-api.onrender.com", requerida=False, nota="(8/11, Franco) Dirección pública de esta API. La usa el «Conectar con WordPress.com» de Métricas para armar la redirect URL (<esto>/admin/metricas/wordpress/callback), que tiene que ser idéntica a la registrada en developer.wordpress.com/apps. Sin ella se usa la del pedido."),
     _v("GOOGLE_CLIENT_ID", "975482475680-o1clpt1idim34dormtuecg58knnga3ol.apps.googleusercontent.com"),
     _v("DOMINIO_FVA", "viviragradecidos.org"),
     # --- Salud ---
@@ -69,6 +70,8 @@ VARIABLES = [
     _v("WP_SITE", "viviragradecidos.org", cola=SECRET),
     _v("WP_USER", "adminviviragradecidos", cola=SECRET),
     _v("WP_APP_PASSWORD", secreto=True, cola=SECRET),
+    _v("WPCOM_CLIENT_ID", requerida=False, valor=None, nota="(8/11, Franco) Estadísticas del sitio en Métricas: app registrada por Franco en developer.wordpress.com/apps (tipo Web). Redirect URL = <API>/admin/metricas/wordpress/callback (https://fva-api.onrender.com/admin/metricas/wordpress/callback). Es el «Client ID»: no es secreto, pero se carga a mano."),
+    _v("WPCOM_CLIENT_SECRET", secreto=True, requerida=False, nota="(8/11, Franco) El «Client Secret» de esa misma app de WordPress.com. Con las dos variables aparece el botón «Conectar con WordPress.com» en Métricas."),
     # --- Meta, YouTube, Drive ---
     _v("META_IG_USER_ID", "17841406237571284", cola=SECRET),
     _v("META_FB_PAGE_ID", "267335090073960", cola=SECRET),

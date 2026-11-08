@@ -58,6 +58,9 @@ services:
         value: "https://chatbot-vvaa.vercel.app"
       - key: SESION_SECRETO
         generateValue: true
+      # (8/11, Franco) Dirección pública de esta API. La usa el «Conectar con WordPress.com» de Métricas para armar la redirect URL (<esto>/admin/metricas/wordpress/callback), que tiene que ser idéntica a la registrada en developer.wordpress.com/apps. Sin ella se usa la del pedido.
+      - key: API_URL_PUBLICA
+        value: "https://fva-api.onrender.com"
       - key: GOOGLE_CLIENT_ID
         value: "975482475680-o1clpt1idim34dormtuecg58knnga3ol.apps.googleusercontent.com"
       - key: DOMINIO_FVA
@@ -94,6 +97,12 @@ services:
       - key: WP_USER
         value: "adminviviragradecidos"
       - key: WP_APP_PASSWORD
+        sync: false
+      # (8/11, Franco) Estadísticas del sitio en Métricas: app registrada por Franco en developer.wordpress.com/apps (tipo Web). Redirect URL = <API>/admin/metricas/wordpress/callback (https://fva-api.onrender.com/admin/metricas/wordpress/callback). Es el «Client ID»: no es secreto, pero se carga a mano.
+      - key: WPCOM_CLIENT_ID
+        sync: false
+      # (8/11, Franco) El «Client Secret» de esa misma app de WordPress.com. Con las dos variables aparece el botón «Conectar con WordPress.com» en Métricas.
+      - key: WPCOM_CLIENT_SECRET
         sync: false
       - key: META_IG_USER_ID
         value: "17841406237571284"

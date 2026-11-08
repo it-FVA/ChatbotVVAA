@@ -106,6 +106,8 @@ class Config:
         self.wp_site = g("WP_SITE").replace("https://", "").replace("http://", "").strip("/")
         self.wp_user = g("WP_USER")
         self.wp_pass = g("WP_APP_PASSWORD")
+        self.wpcom_client_id = g("WPCOM_CLIENT_ID")          # (8/11, Franco) app de WordPress.com para leer las estadísticas (metricas_wordpress.py)
+        self.wpcom_client_secret = g("WPCOM_CLIENT_SECRET")
         self.ig_token = g("META_IG_TOKEN")
         if fuente is os.environ:       # (5/11) el token vigente vive en config.meta_ig_token (se renueva solo); META_IG_TOKEN es la semilla
             try:
