@@ -606,6 +606,19 @@ def test_solo_admins(cliente, mundo):
     assert mundo["filas"] == []
 
 
+def test_aprobadora_ve_metricas_y_creadora_no(cliente, mundo, tabla_usuarios):
+    """(8/11, Franco) Métricas está en Gestión: la ve quien aprueba (sin ser admin) y no quien solo crea."""
+    from api import cuentas
+    tabla_usuarios.crear_usuario("vero", rol="aprobador", clave_hash=cuentas.hashear("clave-vero"))
+    assert cliente.post("/login", json={"usuario": "vero", "clave": "clave-vero"}).status_code == 200
+    assert cliente.get("/admin/metricas/campanas").status_code == 200
+    assert cliente.get("/admin/metricas/canales").status_code == 200
+    cliente.post("/logout")
+    cliente.post("/login", json={"usuario": "lizzie", "clave": "clave-lizzie"})
+    assert cliente.get("/admin/metricas/campanas").status_code == 403
+    assert cliente.get("/admin/metricas/canales").json()["detail"] == "Solo para quienes aprueban o administran."
+
+
 # ---------------- Métricas v2 (8/11, Franco) ----------------
 def test_frase_del_dia_es_una_campana_virtual(logueado, mundo, monkeypatch):
     for i, usuario in enumerate(("frase_del_dia", "frase_del_dia", "cola")):

@@ -146,7 +146,7 @@ def test_autorizar_redirige_con_state_firmado(logueado, con_app):
 def test_autorizar_sin_app_vuelve_a_la_web_con_el_motivo(logueado, mundo, monkeypatch):
     monkeypatch.setenv("WEB_URL", "https://web.test")
     r = logueado.get("/admin/metricas/wordpress/autorizar", follow_redirects=False)
-    assert r.status_code == 302 and r.headers["location"].startswith("https://web.test/administracion/metricas?wordpress=error&motivo=")
+    assert r.status_code == 302 and r.headers["location"].startswith("https://web.test/aprobacion/metricas?wordpress=error&motivo=")
 
 
 def test_autorizar_solo_admins(cliente, con_app):
@@ -181,7 +181,7 @@ def test_callback_ok_guarda_y_redirige(logueado, con_app, monkeypatch):
     visto = sim(monkeypatch, [("/oauth2/token", ({"access_token": TOKEN, "blog_id": "777", "blog_url": "https://viviragradecidos.org", "scope": "global"}, None))])
     logueado.cookies.clear()                                # el callback no depende de la cookie: lo autoriza el state
     r = logueado.get("/admin/metricas/wordpress/callback", params={"code": CODIGO, "state": state}, follow_redirects=False)
-    assert r.status_code == 302 and r.headers["location"] == "https://web.test/administracion/metricas?wordpress=ok"
+    assert r.status_code == 302 and r.headers["location"] == "https://web.test/aprobacion/metricas?wordpress=ok"
     g = con_app["config"]["wpcom_token"]
     assert g["access_token"] == TOKEN and g["blog_id"] == "777" and g["por"] == "franco"
     assert urllib.parse.parse_qs(visto[0][3].decode())["redirect_uri"] == ["https://api.test/admin/metricas/wordpress/callback"]
@@ -192,7 +192,7 @@ def test_callback_ok_guarda_y_redirige(logueado, con_app, monkeypatch):
 def test_callback_con_error_de_wordpress(logueado, con_app, monkeypatch):
     state = _state_de(logueado.get("/admin/metricas/wordpress/autorizar", follow_redirects=False))
     r = logueado.get("/admin/metricas/wordpress/callback", params={"error": "access_denied", "state": state}, follow_redirects=False)
-    assert r.status_code == 302 and r.headers["location"].startswith("https://web.test/administracion/metricas?wordpress=error&motivo=")
+    assert r.status_code == 302 and r.headers["location"].startswith("https://web.test/aprobacion/metricas?wordpress=error&motivo=")
     sim(monkeypatch, [("/oauth2/token", (None, {"error": "invalid_grant", "error_description": "malo"}))])
     r = logueado.get("/admin/metricas/wordpress/callback", params={"code": CODIGO, "state": state}, follow_redirects=False)
     assert "wordpress=error" in r.headers["location"] and "wpcom_token" not in con_app["config"] and CODIGO not in r.headers["location"]

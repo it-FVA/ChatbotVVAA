@@ -114,6 +114,15 @@ def aprobador(request: Request):
     return s["usuario"]
 
 
+def aprobador_o_admin(request: Request):
+    """(8/11, Franco) Métricas está en Gestión: la ven quienes aprueban y los admins (un admin siempre aprueba, pero se chequean los dos)."""
+    s = sesion(request)
+    r = rol_sesion(s)
+    if not (r["aprueba"] or r["admin"]):
+        raise HTTPException(403, "Solo para quienes aprueban o administran.")
+    return s["usuario"]
+
+
 def admin(request: Request):
     """Configuración (estilo por defecto de los subtítulos, etc.): solo admins (ADMINS)."""
     s = sesion(request)

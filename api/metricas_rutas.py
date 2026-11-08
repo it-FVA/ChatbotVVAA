@@ -1,5 +1,5 @@
 """Métricas de campañas y canales (8/11, Franco; pedido de Beto: «que la app sea el centro de métricas de evolución de campañas»).
-Pestaña «Métricas» de Administración, solo admins. Contrato con la web: web/maquetas/metricas-contrato.md. La lógica está en
+Pestaña «Métricas» de Gestión (Aprobación; 8/11, Franco): quienes aprueban y admins. Contrato con la web: web/maquetas/metricas-contrato.md. La lógica está en
 metricas.py (campañas, canales, captura), metricas_meta.py (HTTP contra Meta) y metricas_asesor.py (el asesor de campañas con IA).
 
   GET  /admin/metricas/campanas?dias=90 | mes=AAAA-MM   campañas (Proyectos) con sus piezas por canal y por estado, y las métricas de cada pieza
@@ -235,20 +235,20 @@ def _leer(fn, *a):
 
 # ---------------- rutas ----------------
 @router.get("/campanas", response_model=CampanasResp)
-def ver_campanas(dias: Optional[int] = None, mes: Optional[str] = None, quien=Depends(auth.admin)):
+def ver_campanas(dias: Optional[int] = None, mes: Optional[str] = None, quien=Depends(auth.aprobador_o_admin)):
     """Campañas con sus piezas del período (90 días por defecto), agrupadas por estado y canal, y la última métrica de cada pieza."""
     p = periodo(DIAS_DEFECTO if (dias is None and not mes) else dias, mes)
     return _leer(metricas.campanas, p)
 
 
 @router.get("/canales", response_model=CanalesResp)
-def ver_canales(quien=Depends(auth.admin)):
+def ver_canales(quien=Depends(auth.aprobador_o_admin)):
     """Una tarjeta por canal: Instagram, Facebook y YouTube por la plataforma; mail, sitio y WhatsApp con enlace y carga a mano."""
     return _leer(metricas.canales_estado, _config())
 
 
 @router.post("/actualizar", response_model=ActualizarResp)
-def actualizar(quien=Depends(auth.admin)):
+def actualizar(quien=Depends(auth.aprobador_o_admin)):
     """Captura ahora los números de Instagram, Facebook y YouTube. Un error de la plataforma no es un 500: vuelve en `error` de cada canal."""
     if not db.disponible():
         raise HTTPException(503, "Sin Supabase no hay dónde guardar las métricas.")
@@ -256,7 +256,7 @@ def actualizar(quien=Depends(auth.admin)):
 
 
 @router.put("/manual", response_model=ManualOut)
-def anotar_a_mano(datos: ManualIn, quien=Depends(auth.admin)):
+def anotar_a_mano(datos: ManualIn, quien=Depends(auth.aprobador_o_admin)):
     """Anota números a mano (fuente 'manual'). Las claves y los enteros ≥ 0 se validan acá; queda en usuarios_cambios."""
     if not db.disponible():
         raise HTTPException(503, "Sin Supabase no hay dónde guardar.")
@@ -290,27 +290,27 @@ def _asesor(fn, *a):
 
 
 @router.get("/resumen/{ref}", response_model=Optional[ResumenOut])
-def ver_resumen(ref: str, quien=Depends(auth.admin)):
+def ver_resumen(ref: str, quien=Depends(auth.aprobador_o_admin)):
     """El último resumen con IA guardado de la campaña (id de proyecto o «sueltas»), o null si todavía no hay."""
     import metricas_asesor
     return _leer(metricas_asesor.ultimo, ref)
 
 
 @router.post("/resumen", response_model=ResumenOut)
-def generar_resumen(datos: ResumenIn, quien=Depends(auth.admin)):
+def generar_resumen(datos: ResumenIn, quien=Depends(auth.aprobador_o_admin)):
     """Genera un resumen nuevo de «¿cómo le fue a esta campaña?» (una pregunta fija al asesor) y lo guarda. El uso queda a nombre de quien lo pidió."""
     return _asesor(lambda m, *a: m.resumen_campana(*a), datos.ref, datos.dias, quien, _config())
 
 
 @router.get("/asesor/apertura", response_model=AperturaOut)
-def apertura_asesor(dias: int = Query(DIAS_DEFECTO, ge=1, le=365), forzar: bool = False, quien=Depends(auth.admin)):
+def apertura_asesor(dias: int = Query(DIAS_DEFECTO, ge=1, le=365), forzar: bool = False, quien=Depends(auth.aprobador_o_admin)):
     """El mensaje proactivo del asesor al abrir la pestaña. Se reutiliza el guardado de hoy mientras los datos no cambien (campañas,
     piezas, números por canal); si cambió algo, o con `forzar=1` («Volver a mirar»), se arma de nuevo. (8/11, Franco)"""
     return _asesor(lambda m, *a: m.apertura(*a, forzar=forzar), dias, quien, _config())
 
 
 @router.post("/asesor", response_model=AsesorOut)
-def preguntar_al_asesor(datos: AsesorIn, quien=Depends(auth.admin)):
+def preguntar_al_asesor(datos: AsesorIn, quien=Depends(auth.aprobador_o_admin)):
     """Conversa con el asesor de campañas. La conversación no se guarda: la web manda los últimos mensajes cada vez."""
     from .admin_rutas import periodo as _periodo
     msgs = [m.model_dump() for m in datos.mensajes][-12:]
@@ -323,7 +323,7 @@ def preguntar_al_asesor(datos: AsesorIn, quien=Depends(auth.admin)):
 #   1. la web abre GET /wordpress/autorizar (link normal, con la cookie de admin) → 302 a WordPress.com con un `state` firmado;
 #   2. la persona toca «Aprobar» allá y WordPress.com vuelve a GET /wordpress/callback?code&state.
 # El callback NO exige la cookie de admin: llega desde otro sitio y la cookie de sesión puede no viajar (SameSite). Lo que lo autoriza es
-# el `state`: lo firmamos nosotros con el secreto de sesión (auth.firmar_estado, otra «sal»), lleva el usuario admin que lo pidió y
+# el `state`: lo firmamos nosotros con el secreto de sesión (auth.firmar_estado, otra «sal»), lleva el usuario (aprobador o admin) que lo pidió y
 # vence a los 10 minutos. Sin un `state` válido → 400 y no se canjea nada. El token nunca se imprime ni se devuelve.
 PROPOSITO_WPCOM = "wpcom"
 VIGENCIA_STATE_SEG = 10 * 60
@@ -349,11 +349,11 @@ def _url_web():
 
 def _volver(ok=True, motivo=None):
     q = {"wordpress": "ok"} if ok else {"wordpress": "error", "motivo": (motivo or "No pude conectar con WordPress.com.")[:140]}
-    return RedirectResponse(f"{_url_web()}/administracion/metricas?{urllib.parse.urlencode(q)}", status_code=302)
+    return RedirectResponse(f"{_url_web()}/aprobacion/metricas?{urllib.parse.urlencode(q)}", status_code=302)
 
 
 @router.get("/wordpress/autorizar", include_in_schema=False)
-def wordpress_autorizar(request: Request, quien=Depends(auth.admin)):
+def wordpress_autorizar(request: Request, quien=Depends(auth.aprobador_o_admin)):
     """Primer clic: manda a la persona a WordPress.com a aprobar la lectura de las estadísticas del sitio."""
     import metricas_wordpress as mw
     cfg = _config()
@@ -371,10 +371,11 @@ def wordpress_callback(request: Request, code: str = "", state: str = "", error:
     quien = datos.get("u") if isinstance(datos, dict) else None
     if not quien:
         raise HTTPException(400, "El pedido de conexión venció o no es válido: volvé a tocar «Conectar con WordPress.com» en Métricas.")
-    try:                         # el usuario que lo pidió tiene que seguir siendo admin y estar activo
+    try:                         # el usuario que lo pidió tiene que seguir aprobando o administrando, y estar activo (8/11, Franco)
         fila = auth._fila(quien)
-        if fila and (not fila.get("activo", True) or not auth.rol_sesion({"usuario": quien})["admin"]):
-            raise HTTPException(400, "El usuario que pidió la conexión ya no es administrador.")
+        r = auth.rol_sesion({"usuario": quien}) if fila else None
+        if fila and (not fila.get("activo", True) or not (r["admin"] or r["aprueba"])):
+            raise HTTPException(400, "El usuario que pidió la conexión ya no aprueba ni administra.")
     except HTTPException:
         raise
     except Exception:
@@ -397,7 +398,7 @@ def wordpress_callback(request: Request, code: str = "", state: str = "", error:
 
 
 @router.delete("/wordpress")
-def wordpress_desconectar(quien=Depends(auth.admin)):
+def wordpress_desconectar(quien=Depends(auth.aprobador_o_admin)):
     """Desconecta el sitio: borra el token guardado. Las estadísticas ya guardadas quedan; para volver a leer hay que conectar de nuevo."""
     import metricas_wordpress as mw
     if not db.disponible():
