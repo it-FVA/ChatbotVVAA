@@ -121,3 +121,26 @@ def test_analizar_modo_supabase(juguete, monkeypatch):
     monkeypatch.setenv("VECTORES", "supabase")
     resumen, res = nucleo.analizar("gratitud")
     assert "Br. David: 2" in resumen and juguete["vectores"][0] == (1, 500)
+
+
+def test_rpc_arma_la_llamada(monkeypatch):
+    """(8/11) Regresión: desde el 5/11 _rpc usaba db._cabeceras, que el paquete no reexportaba → AttributeError en cada búsqueda
+    del chat con VECTORES=supabase (lo vio Beto en producción). Se simula urlopen y se verifica que la llamada sale armada."""
+    import io, json
+    import db
+    monkeypatch.setenv("SUPABASE_URL", "https://x.supabase.co")
+    monkeypatch.setenv("SUPABASE_KEY", "k")
+    visto = {}
+
+    class R(io.BytesIO):
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    def urlopen(req, timeout=30):
+        visto["url"] = req.full_url
+        visto["auth"] = req.get_header("Authorization")
+        return R(json.dumps([{"idx": 3}]).encode())
+
+    monkeypatch.setattr(db.urllib.request, "urlopen", urlopen)
+    assert db._rpc("match_lexico", {"consulta": "gratitud", "k": 5}) == [{"idx": 3}]
+    assert visto["url"].endswith("/rest/v1/rpc/match_lexico") and visto["auth"]

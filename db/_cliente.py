@@ -127,7 +127,7 @@ def ping():
 def _rpc(nombre, body, timeout=30):
     url, key = _db._cfg()
     req = urllib.request.Request(f"{url}/rest/v1/rpc/{nombre}", data=json.dumps(body).encode("utf-8"), method="POST",
-                                 headers=_db._cabeceras(key, {"Content-Type": "application/json"}))
+                                 headers=_cabeceras(key, {"Content-Type": "application/json"}))   # (8/11) local: el paquete no reexporta _cabeceras
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
             txt = r.read().decode("utf-8")

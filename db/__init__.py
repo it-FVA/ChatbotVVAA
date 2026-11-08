@@ -16,7 +16,7 @@ Para una tabla nueva: una migración (python api/migrar.py --nueva nombre), un m
 consulta/insertar/actualizar/borrar, y una línea `from .<tabla> import *` acá.
 """
 import urllib.request, urllib.error   # noqa: F401  (las pruebas reemplazan db.urllib.request.urlopen)
-from ._cliente import _cfg, _req, _rpc, _q, _ahora_iso, disponible, consulta, insertar, actualizar, borrar, filtros_a_params, ping   # noqa: F401
+from ._cliente import _cfg, _cabeceras, _req, _rpc, _q, _ahora_iso, disponible, consulta, insertar, actualizar, borrar, filtros_a_params, ping   # noqa: F401
 from .conversaciones import *   # noqa: F401,F403
 from .publicaciones import *    # noqa: F401,F403
 from .clips import *            # noqa: F401,F403
