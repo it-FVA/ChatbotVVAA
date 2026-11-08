@@ -189,3 +189,39 @@ qué habría que cargar. Registra el uso en `uso_openai` con `que='auxiliar'` y 
 - Tipos: en `adminApi.ts` a mano según este contrato, con comentario «provisional: se reemplaza por tiposApi.d.ts tras `npm run tipos`».
 - Vocabulario de usuario: «campaña» (no proyecto), «alcance», «vistas», «anotado a mano», «desde la plataforma». Nada de «API»,
   «endpoint», «token» en pantalla: en su lugar «la conexión con Instagram», «falta un permiso en la conexión».
+
+## Agregado del 8/11 (Franco, 12:30): el asesor de campañas
+
+El botón «¿Cómo le fue?» pasa a ser un caso particular de un **asesor de campañas con el que se conversa**. Conoce todo lo que esta
+pestaña muestra (campañas, piezas, métricas por API y anotadas a mano, la guía de canales) y responde preguntas libres: «¿cómo nos
+fue?», «¿esta campaña rindió mejor que la anterior?», «¿qué canal conviene para la próxima?». Es el asesor de marketing del equipo.
+
+### API
+
+- `GET /admin/metricas/asesor/apertura?dias=90` → el mensaje proactivo con que recibe al abrir la pestaña: resumen del momento
+  (qué pasó en los últimos 7 días, qué campaña se mueve, qué números faltan cargar, una sugerencia). Se genera **una vez por día**
+  (se guarda como `ambito='resumen'`, `ref='apertura'`, fuente `ia`; si la última es de hoy, hora Argentina, se devuelve esa sin
+  llamar al modelo). Respuesta: `{ "texto": "markdown corto", "fuentes": [...], "falto": [...], "capturado": "iso", "nuevo": true|false }`.
+- `POST /admin/metricas/asesor` body `{ "mensajes": [{ "rol": "usuario" | "asesor", "texto": "..." }], "dias": 90 }` (los últimos
+  hasta 12 mensajes de la conversación, el último es del usuario) → `{ "texto": "markdown", "fuentes": [...], "falto": [...] }`.
+  Contexto que recibe el modelo en el system prompt: la salida completa de `campanas(periodo)` compactada (por campaña: nombre,
+  dueño, fechas, totales por canal y estado, y por pieza: canal, formato, fecha, estado, métricas con fuente), la de `canales_estado`
+  (números de cuenta por canal con fuente y período), y la guía de canales. Reglas: las mismas del resumen (rioplatense, sin jerga,
+  cada número con su fuente, decir qué falta, no inventar, comparar contra algo cuando se pueda, sugerencias apoyadas en la guía).
+  Registra el uso con `que='auxiliar'`. No se guarda la conversación (vive en la pantalla). Si falta `OPENAI_API_KEY` → 503 como el resumen.
+- `POST /admin/metricas/resumen` se mantiene (el botón por campaña): internamente es una pregunta fija al mismo asesor
+  («¿Cómo le fue a la campaña X?») con el mismo contexto. `metricas_resumen.py` → renombrar a `metricas_asesor.py` con una función
+  `responder(mensajes, periodo, usuario)` y las dos envolturas (`apertura`, `resumen_campana`).
+
+### Web
+
+- Panel «Tu asesor de campañas» arriba de todo en Métricas (debajo de la cabecera), ancho completo: al abrir muestra el mensaje de
+  `apertura` (con «hoy» o la fecha), debajo la conversación y una entrada de texto con botón «Preguntar» (Enter envía). Tres
+  sugerencias clicables como chips la primera vez: «¿Cómo nos fue esta semana?», «¿Qué campaña rindió mejor?», «¿Qué canal conviene
+  para la próxima campaña?». Cada respuesta se renderiza como markdown saneado, con «De dónde salen los números» y «Lo que faltó»
+  plegados si vienen. Mientras responde: «Mirando las campañas y sus números…». La conversación vive en el estado de la pantalla
+  (se pierde al salir; está bien).
+- El botón «¿Cómo le fue?» de cada campaña sigue, y además su respuesta se agrega a la conversación del asesor como si la hubiera
+  preguntado el usuario.
+- Ayuda: el panel del asesor es el primer paso de la guía («Preguntale al asesor cómo vienen las campañas: te responde con los
+  números y de dónde salen»). Sigue valiendo el límite de 6 pasos / 120 palabras.
