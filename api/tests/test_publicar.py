@@ -268,6 +268,8 @@ def test_ver_simulado_instagram_del_admin(logueado, base, monkeypatch):
 
 
 def test_simulado_wordpress_y_youtube(logueado, base, monkeypatch):
+    import datetime as _dt
+    MANANA = (_dt.date.today() + _dt.timedelta(days=1)).isoformat()
     hecho = {}
 
     def _wp(cfg, titulo, contenido, imagen_id=None, categorias=None, quien="", fecha=None):
@@ -275,8 +277,9 @@ def test_simulado_wordpress_y_youtube(logueado, base, monkeypatch):
         return {"ok": True, "modo": cfg.modo_wp, "estado": "draft", "id": 1, "pieza": {}, "aviso": "Simulado."}
     monkeypatch.setattr(publicar, "publicar_wordpress", _wp)
     r = logueado.post("/publicar/enviar", json={"modo": "simulado", "canal": "wordpress", "titulo": "Entrada", "texto": "<p>**md** se conserva</p>",
-                                                "fecha": "2026-11-10", "hora": "07:30", "video_url": "https://wp/clip.mp4"})
-    assert r.status_code == 200 and hecho["titulo"] == "Entrada" and hecho["fecha"] == "2026-11-10T07:30:00" and hecho["modo"] == "simulado"
+                                                "fecha": MANANA, "hora": "07:30", "video_url": "https://wp/clip.mp4"})
+    # (12/11) la fecha es relativa: con una fija («2026-11-10») la prueba vencía y la pieza dejaba de ser «programada»
+    assert r.status_code == 200 and hecho["titulo"] == "Entrada" and hecho["fecha"] == f"{MANANA}T07:30:00" and hecho["modo"] == "simulado"
     assert hecho["contenido"].startswith("<!-- wp:video -->") and "**md** se conserva" in hecho["contenido"]
     # YouTube simulado: no baja el mp4
     monkeypatch.setattr(publicar, "publicar_youtube", lambda cfg, datos, titulo, desc, **k: hecho.update(yt=(len(datos), titulo, cfg.modo_yt)) or {"ok": True, "modo": cfg.modo_yt, "pieza": {}})
