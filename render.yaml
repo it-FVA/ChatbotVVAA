@@ -10,7 +10,7 @@ services:
   - type: web
     name: fva-api
     runtime: docker
-    plan: free
+    plan: starter   # (12/11, Franco; aprobado por finanzas) US$ 7/mes, 0.5 CPU y 512 MB, sin dormirse a los 15 min. Antes: free.
     region: oregon
     branch: main
     dockerfilePath: ./api/Dockerfile
