@@ -1043,7 +1043,7 @@ h2 .estado-chip {
 }
 .met-numeros {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
   gap: 8px 12px;
 }
 .met-numero .metrica-valor {
@@ -1148,6 +1148,27 @@ h2 .estado-chip {
 /* (8/11) «Desconectar» del sitio: un enlace chico, no un botón */
 .met-desconectar { align-self: flex-start; background: none; border: 0; padding: 0; font: inherit; font-size: 0.8rem; color: var(--suave, inherit); text-decoration: underline; cursor: pointer; }
 .met-aparte summary { font-size: 0.85rem; }
+/* Métricas v4 (12/11, Franco): tarjetas de canal que cuentan algo */
+.met-periodo { margin: 0; }
+.met-numero { min-width: 0; overflow-wrap: anywhere; }
+.met-var { display: block; font-size: 0.8rem; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.met-var.sube { color: var(--verde-oscuro); }
+.met-var.baja { color: var(--rojo); }
+.met-var.igual, .met-var.sin { color: var(--suave); }
+.met-tendencia { display: flex; flex-direction: column; gap: 2px; }
+.linea { width: 100%; height: auto; max-height: 56px; display: block; overflow: visible; }
+.linea-trazo { stroke: var(--verde); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.linea-ultimo { fill: var(--verde); }
+.linea-toque { fill: transparent; }
+.met-bloque { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.met-bloque h4 { margin: 0; font-size: 0.85rem; color: var(--suave); font-weight: 600; }
+.met-lista-piezas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.met-lista-piezas li { min-width: 0; overflow-wrap: anywhere; }
+.met-lista-piezas a { font-weight: 600; }
+.met-pieza-nums { font-size: 0.85rem; color: var(--suave); font-variant-numeric: tabular-nums; }
+.met-pieza-titulo { font-weight: 600; }
+.met-mas-piezas { margin-top: 8px; }
+.met-piezas-titulo { margin: 4px 0 0; font-size: 0.9rem; color: var(--suave); font-weight: 600; }
 .met-aparte-total { margin: 0 0 10px; }
 .met-mover { margin-top: 4px; }
 .met-mover-form { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
@@ -1185,3 +1206,4 @@ h2 .estado-chip {
 .met-remirar { margin: 4px 0 10px; }
 .met-remirar .enlace { background: none; border: 0; padding: 0; color: var(--verde, #3a6b35); text-decoration: underline; cursor: pointer; font: inherit; }
 .met-remirar .enlace:disabled { opacity: 0.6; cursor: default; }
+.met-pie { display: flex; flex-direction: column; gap: 2px; }

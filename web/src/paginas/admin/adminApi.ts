@@ -297,11 +297,18 @@ export type Campanas = Omit<Esq["CampanasResp"], "campanas" | "sueltas" | "perio
 // (8/11) ajustes sobre CanalMetricas: `api` literal y `datos` tipado (ver DatosMetricas)
 export type CanalMetricas = Omit<Esq["CanalMetricas"], "api" | "ultima" | "manual" | "anterior"> & {
   api: "disponible" | "sin_permiso" | "no_hay" | "pendiente" | "error";
+  /** (12/11) Métricas v4: hasta 3 piezas publicadas del canal y la que mejor anduvo (ver PiezaCanal) */
+  ultimas_piezas?: PiezaCanal[];
+  mejor_pieza?: PiezaCanal | null;
   /** (12/11) la captura de hace ~28 días, solo con números (el esquema trae `datos` como diccionario de float) */
   anterior?: (Omit<Esq["FilaAnterior"], "datos"> & { datos: Record<string, number> }) | null;
   ultima?: (Omit<Esq["FilaMetrica"], "datos"> & { datos: DatosMetricas }) | null;
   manual?: (Omit<Esq["FilaManual"], "datos"> & { datos: DatosMetricas }) | null;
 };
+/** (12/11) una pieza publicada de un canal: `metricas` trae alcance, vistas, enviados… según lo que haya (el esquema lo deja abierto) */
+export type PiezaCanal = Esq["PiezaCanal"];
+/** (12/11) la tendencia de un canal: un punto por día con los números de la última captura de ese día */
+export type SerieCanal = Esq["SerieResp"];
 export type CanalesMetricas = Omit<Esq["CanalesResp"], "canales"> & { canales: CanalMetricas[] };
 
 export type ResultadoActualizar = Esq["ActualizarResp"];
@@ -333,6 +340,7 @@ export const adminApi = {
   guardarConfig: (cambios: Record<string, unknown>) => pedir<{ ok: boolean; guardadas: Record<string, unknown> }>("/admin/config", { method: "PUT", body: JSON.stringify({ cambios }) }),
   campanas: (dias?: number, mes?: string) => pedir<Campanas>("/admin/metricas/campanas" + q(dias, mes)),
   canalesMetricas: () => pedir<CanalesMetricas>("/admin/metricas/canales"),
+  serieMetricas: (canal: string, dias = 28) => pedir<SerieCanal>(`/admin/metricas/serie?canal=${encodeURIComponent(canal)}&dias=${dias}`),
   actualizarMetricas: () => pedir<ResultadoActualizar>("/admin/metricas/actualizar", { method: "POST" }),
   desconectarWordpress: () => pedir<{ ok: boolean }>("/admin/metricas/wordpress", { method: "DELETE" }),
   anotarMetrica: (body: MetricaManual) => pedir<{ id: string }>("/admin/metricas/manual", { method: "PUT", body: JSON.stringify(body) }),

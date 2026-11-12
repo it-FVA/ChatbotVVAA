@@ -106,3 +106,34 @@ export function Medidor({ porcentaje, umbral, estado, etiqueta }: { porcentaje: 
     </div>
   );
 }
+
+export interface PuntoLinea {
+  etiqueta: string; // ej. «12/11»
+  valor: number;
+  titulo?: string; // el detalle del <title> de ese punto
+}
+
+/** (12/11, Franco) Línea chica tipo sparkline para las tarjetas de Métricas: una sola línea, sin ejes, el último punto marcado.
+ *  Cada punto lleva su <title> (se ve al pasar el mouse o con lector de pantalla). Con un solo punto dibuja solo el punto. */
+export function Linea({ puntos, titulo, formato = (n) => String(n), alto = 44 }: { puntos: PuntoLinea[]; titulo: string; formato?: (n: number) => string; alto?: number }) {
+  if (!puntos.length) return null;
+  const ANCHO_L = 200;
+  const m = 5;
+  const valores = puntos.map((p) => p.valor);
+  const min = Math.min(...valores);
+  const max = Math.max(...valores);
+  const x = (i: number) => (puntos.length === 1 ? ANCHO_L / 2 : m + (i * (ANCHO_L - 2 * m)) / (puntos.length - 1));
+  const y = (v: number) => (max === min ? alto / 2 : alto - m - ((v - min) / (max - min)) * (alto - 2 * m));
+  const ultimo = puntos.length - 1;
+  return (
+    <svg className="linea" viewBox={`0 0 ${ANCHO_L} ${alto}`} role="img" aria-label={titulo}>
+      {puntos.length > 1 && <polyline className="linea-trazo" fill="none" points={puntos.map((p, i) => `${x(i).toFixed(1)},${y(p.valor).toFixed(1)}`).join(" ")} />}
+      {puntos.map((p, i) => (
+        <g key={p.etiqueta + i}>
+          <title>{p.titulo ?? `${p.etiqueta}: ${formato(p.valor)}`}</title>
+          <circle cx={x(i)} cy={y(p.valor)} r={i === ultimo ? 3.2 : 5} className={i === ultimo ? "linea-ultimo" : "linea-toque"} />
+        </g>
+      ))}
+    </svg>
+  );
+}

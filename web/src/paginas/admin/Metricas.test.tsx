@@ -193,7 +193,6 @@ describe("Métricas", () => {
     const u = userEvent.setup();
     const api = abrir({ "POST /proyectos/pr1/items": { ok: true, ya: false, item: {} } });
     const suelta = await screen.findByRole("region", { name: "Sin campaña" });
-    await u.click(within(suelta).getByText("Piezas"));
     await u.click(within(suelta).getByRole("button", { name: /Mover a campaña/ }));
     const sel = await within(suelta).findByLabelText("Campaña de destino");
     await waitFor(() => expect(within(sel).getByRole("option", { name: "🤝 Lo común nos convoca" })).toBeInTheDocument());
@@ -209,7 +208,6 @@ describe("Métricas", () => {
     const u = userEvent.setup();
     const api = abrir({ "POST /proyectos": { id: "pr9", nombre: "Noviembre" }, "POST /proyectos/pr9/items": { ok: true, ya: false, item: {} } });
     const frase = await screen.findByRole("region", { name: "Frase del día (automática)" });
-    await u.click(within(frase).getByText("Piezas"));
     await u.click(within(frase).getByRole("button", { name: /Mover a campaña/ }));
     await u.selectOptions(await within(frase).findByLabelText("Campaña de destino"), "__nueva");
     await u.type(within(frase).getByLabelText("Nombre de la campaña nueva"), "Noviembre");
@@ -223,7 +221,6 @@ describe("Métricas", () => {
     const u = userEvent.setup();
     const api = abrir({ "POST /proyectos/pr1/items": new Response(JSON.stringify({ detail: "Este proyecto lo tenés solo para ver: no podés cambiarlo." }), { status: 403, headers: { "Content-Type": "application/json" } }) });
     const suelta = await screen.findByRole("region", { name: "Sin campaña" });
-    await u.click(within(suelta).getByText("Piezas"));
     await u.click(within(suelta).getByRole("button", { name: /Mover a campaña/ }));
     await u.selectOptions(await within(suelta).findByLabelText("Campaña de destino"), "pr1");
     await u.click(within(suelta).getByRole("button", { name: "Mover" }));
@@ -314,20 +311,32 @@ describe("Métricas v3: tarjetas con números coherentes", () => {
     expect(within(yt).getByText("40")).toBeInTheDocument();
   });
 
-  it("la línea «vs. período anterior» usa solo las claves de los dos períodos y la tasa va en chico", async () => {
+  it("cada número lleva su variación contra el período anterior (flecha y color) y la tasa va en chico", async () => {
     abrir({ "GET /admin/metricas/canales": { actualizado: ahora, canales: [canal("instagram", "Instagram", {
       ultima: fila({ alcance: 3360, seguidores: 10100, vistas: 500 }),
       anterior: { datos: { alcance: 3000, seguidores: 9999, me_gusta: 4 }, periodo_desde: "2026-09-17", periodo_hasta: "2026-10-15", capturado: ahora },
       tasas: { alcance_sobre_seguidores: 0.333, interacciones_sobre_alcance: null } })] } });
     const ig = await screen.findByRole("article", { name: "Instagram" });
-    expect(within(ig).getByText("vs. período anterior: alcance +12 %, seguidores +101")).toBeInTheDocument();    // me gusta no está en los dos: no aparece
+    expect(within(ig).getByText("Últimos 28 días (15/10 al 12/11) · vs. los 28 anteriores")).toBeInTheDocument();
+    expect(within(ig).getByText("↑ +12 %")).toHaveClass("sube"); // alcance: porcentaje
+    expect(within(ig).getByText("↑ +101")).toHaveClass("sube"); // seguidores: cantidad
+    expect(within(ig).getByText("sin comparación todavía")).toHaveClass("sin"); // vistas no estaba en el anterior
     expect(within(ig).getByText("alcance = 33,3 % de los seguidores")).toBeInTheDocument();
+  });
+
+  it("baja en rojo, igual en gris", async () => {
+    abrir({ "GET /admin/metricas/canales": { actualizado: ahora, canales: [canal("sitio", "Sitio web", {
+      ultima: fila({ visitas: 800, visitantes: 400 }), anterior: { datos: { visitas: 1000, visitantes: 400 }, periodo_desde: "2026-09-17", periodo_hasta: "2026-10-15", capturado: ahora } })] } });
+    const sitio = await screen.findByRole("article", { name: "Sitio web" });
+    expect(within(sitio).getByText("↓ -20 %")).toHaveClass("baja");
+    expect(within(sitio).getByText("= igual que antes")).toHaveClass("igual");
   });
 
   it("sin período anterior no hay línea de comparación", async () => {
     abrir();
     const fb = await screen.findByRole("article", { name: "Facebook" });
-    expect(within(fb).queryByText(/vs\. período anterior/)).toBeNull();
+    expect(within(fb).queryByText(/vs\. los \d+ anteriores/)).toBeNull();
+    expect(within(fb).getAllByText("sin comparación todavía").length).toBeGreaterThan(0);
   });
 });
 
@@ -349,7 +358,6 @@ describe("Métricas v3: estados y campañas", () => {
     expect(within(r).getByRole("columnheader", { name: "Saliendo" })).toBeInTheDocument();
     expect(within(r).getByRole("columnheader", { name: "Canceladas" })).toBeInTheDocument();
     expect(within(r).getByText("La plataforma la arma y la manda sola cada día: historia de Instagram y mail")).toBeInTheDocument();
-    await userEvent.setup().click(within(r).getByText("Piezas"));
     expect(within(r).getByText("saliendo", { selector: ".estado" })).toBeInTheDocument();
   });
 
@@ -361,5 +369,107 @@ describe("Métricas v3: estados y campañas", () => {
     expect(within(r).getByText("Todavía no salió nada de esta campaña")).toBeInTheDocument();
     expect(within(r).getByText("2 borradores · 1 cancelada · 3 no salieron")).toBeInTheDocument();
     expect(within(r).queryByRole("table")).toBeNull();
+  });
+});
+
+// ---------------- Métricas v4: tarjetas que cuentan algo (12/11, Franco) ----------------
+const dia = (n: number) => new Date(Date.UTC(2026, 10, 12 - n)).toISOString().slice(0, 10);
+const serie = (canal: string, valores: number[], clave = "alcance") => ({ canal, dias: 28, puntos: valores.map((v, i) => ({ dia: dia(valores.length - 1 - i), datos: { [clave]: v } })) });
+const piezaC = (id: string, titulo: string, extra: Record<string, unknown> = {}) => ({ id, titulo, formato: "cuadrado", fecha: "2026-11-10T12:00:00+00:00", campana: null, ver_url: null, metricas: null, ...extra });
+
+describe("Métricas v4: la tarjeta cuenta algo", () => {
+  it("tarjeta completa: período, variación, tendencia, lo último que salió y la mejor pieza", async () => {
+    const mejor = piezaC("p1", "Gratitud en casa", { ver_url: "https://instagram.com/p/x", campana: "Lo común nos convoca", metricas: { alcance: 955, vistas: 1173, fuente: "api" } });
+    const api = abrir({
+      "GET /admin/metricas/canales": { actualizado: ahora, canales: [canal("instagram", "Instagram", {
+        ultima: fila({ alcance: 3360, vistas: 17195, seguidores: 10100 }),
+        anterior: { datos: { alcance: 3000, vistas: 17195, seguidores: 10000 }, periodo_desde: "2026-09-17", periodo_hasta: "2026-10-15", capturado: ahora },
+        ultimas_piezas: [mejor, piezaC("p2", "Sin números aún"), piezaC("p3", "Otra", { formato: null, metricas: { alcance: 40, fuente: "api" } })], mejor_pieza: mejor })] },
+      "GET /admin/metricas/serie": serie("instagram", [100, 120, 110, 150, 160, 155, 170, 180]),
+    });
+    const ig = await screen.findByRole("article", { name: "Instagram" });
+    expect(within(ig).getByText("Últimos 28 días (15/10 al 12/11) · vs. los 28 anteriores")).toBeInTheDocument();
+    expect(within(ig).getByText("17.195")).toBeInTheDocument();
+    expect(within(ig).getByText("= igual que antes")).toBeInTheDocument();
+    // la tendencia: 8 puntos (7 o más) → ya no dice «desde que empezamos a medir»
+    await waitFor(() => expect(within(ig).getByRole("img", { name: /Tendencia: alcance/ })).toBeInTheDocument());
+    expect(api.de("GET", "/admin/metricas/serie")[0].consulta.get("canal")).toBe("instagram");
+    expect(within(ig).queryByText("tendencia desde que empezamos a medir")).toBeNull();
+    expect(within(ig).getByText(/alcance: total de 28 días, medido cada día/)).toBeInTheDocument();
+    // lo último y la mejor
+    expect(within(ig).getByText("Lo último que salió")).toBeInTheDocument();
+    expect(within(ig).getAllByRole("link", { name: "Gratitud en casa" })).toHaveLength(2); // en «lo último» y en «la mejor»
+    expect(within(ig).getAllByText("alcance 955 · vistas 1.173")).toHaveLength(2);
+    expect(within(ig).getByText("sin números todavía")).toBeInTheDocument();
+    expect(within(ig).getByText("La que mejor anduvo")).toBeInTheDocument();
+    expect(within(ig).getAllByText(/Lo común nos convoca/).length).toBeGreaterThan(0);
+  });
+
+  it("sin anterior: «sin comparación todavía» y el subtítulo no habla de comparar", async () => {
+    abrir({ "GET /admin/metricas/canales": { actualizado: ahora, canales: [canal("facebook", "Facebook", { ultima: fila({ alcance: 1200, seguidores: 3400 }) })] } });
+    const fb = await screen.findByRole("article", { name: "Facebook" });
+    expect(within(fb).getByText("Últimos 28 días (15/10 al 12/11)")).toBeInTheDocument();
+    expect(within(fb).getAllByText("sin comparación todavía")).toHaveLength(2);
+    expect(within(fb).queryByText("Lo último que salió")).toBeNull();
+    expect(within(fb).queryByText("La que mejor anduvo")).toBeNull();
+  });
+
+  it("con menos de 7 puntos la tendencia dice «desde que empezamos a medir»", async () => {
+    abrir({ "GET /admin/metricas/canales": { actualizado: ahora, canales: [canal("youtube", "YouTube", { ultima: fila({ vistas: 3100 }) })] }, "GET /admin/metricas/serie": serie("youtube", [100, 150, 140], "vistas") });
+    const yt = await screen.findByRole("article", { name: "YouTube" });
+    expect(await within(yt).findByText("tendencia desde que empezamos a medir")).toBeInTheDocument();
+    const linea = within(yt).getByRole("img", { name: /Tendencia: vistas/ });
+    expect(linea.querySelectorAll("title")).toHaveLength(3); // un <title> por punto
+    expect(linea.querySelector("title")?.textContent).toMatch(/^10\/11: 100 vistas/);
+  });
+
+  it("un solo punto no es una tendencia", async () => {
+    abrir({ "GET /admin/metricas/canales": { actualizado: ahora, canales: [canal("youtube", "YouTube", { ultima: fila({ vistas: 3100 }) })] }, "GET /admin/metricas/serie": serie("youtube", [100], "vistas") });
+    const yt = await screen.findByRole("article", { name: "YouTube" });
+    expect(await within(yt).findByText(/Un solo día medido por ahora/)).toBeInTheDocument();
+    expect(within(yt).queryByRole("img")).toBeNull();
+  });
+
+  it("si la serie falla, la tarjeta sale igual", async () => {
+    abrir({ "GET /admin/metricas/canales": { actualizado: ahora, canales: [canal("youtube", "YouTube", { ultima: fila({ vistas: 3100 }) })] } }); // la serie no está simulada: 404
+    const yt = await screen.findByRole("article", { name: "YouTube" });
+    expect(within(yt).getByText("3.100")).toBeInTheDocument();
+    expect(within(yt).queryByText(/tendencia/)).toBeNull();
+  });
+
+  it("mail: la Frase del día lleva la tendencia de los mails enviados y sus piezas muestran los enviados", async () => {
+    const f = piezaC("f1", "Frase de hoy", { formato: null, campana: "Frase del día (automática)", metricas: { enviados: 2100, fuente: "api" } });
+    const n = piezaC("n1", "Newsletter de noviembre", { formato: "newsletter" });
+    const api = abrir({
+      "GET /admin/metricas/canales": { actualizado: ahora, canales: [canal("mail", "Mail (Newsletter y Frase del día)", { ultima: fila({ enviados: 0, enviados_frase: 18867, lista_contactos: 2241 }), ultimas_piezas: [f, n] })] },
+      "GET /admin/metricas/serie": serie("mail", [17000, 18000, 18867], "enviados_frase"),
+    });
+    const mail = await screen.findByRole("article", { name: /Mail/ });
+    expect(await within(mail).findByRole("img", { name: /Tendencia: Frase del día: mails enviados/ })).toBeInTheDocument();
+    expect(api.de("GET", "/admin/metricas/serie")[0].consulta.get("canal")).toBe("mail");
+    expect(within(mail).getByText("enviados 2.100")).toBeInTheDocument();
+    expect(within(mail).getByText("sin números todavía")).toBeInTheDocument();
+    expect(within(mail).getByText(/Frase del día \(automática\)/)).toBeInTheDocument();
+    expect(within(mail).queryByText("La que mejor anduvo")).toBeNull();
+  });
+});
+
+describe("Métricas v4: números en las piezas de las campañas", () => {
+  const pz = (i: number, extra: Record<string, unknown> = {}) => ({ id: `q${i}`, canal: "instagram", canal_texto: "Instagram", titulo: `Pieza número ${i}`, estado: "publicada", estado_grupo: "publicada", fecha: "2026-11-10T12:00:00+00:00", ver_url: null, formato: null, usuario: "pato", modo: "real", metricas: null, ...extra });
+
+  it("las primeras 5 se ven sin abrir nada con sus números; el resto va plegado", async () => {
+    const piezas = [pz(1, { metricas: { alcance: 955, vistas: 1173, me_gusta: 3, fuente: "api", capturado: ahora } }), pz(2, { canal: "mail", canal_texto: "Mail", metricas: { enviados: 2100, fuente: "api", capturado: ahora } }), pz(3), pz(4), pz(5), pz(6), pz(7)];
+    const G = { ...G0, saliendo: 0, cancelada: 0 };
+    const camp = { id: "c7", nombre: "Muchas piezas", emoji: null, color: null, dueno: null, creado: null, descripcion: null, piezas_total: 7, por_canal: { instagram: { ...G, publicada: 7 } }, por_estado: { ...G, publicada: 7 }, primera: ahora, ultima: ahora, piezas };
+    abrir({ "GET /admin/metricas/campanas": { ...CAMPANAS, campanas: [camp] } });
+    const r = await screen.findByRole("region", { name: "Muchas piezas" });
+    expect(within(r).getByText("Pieza número 1")).toBeVisible();
+    expect(within(r).getByText("alcance 955 · vistas 1.173")).toBeInTheDocument(); // al lado del título
+    expect(within(r).getByText("enviados 2.100")).toBeInTheDocument();
+    expect(within(r).getByText("Pieza número 5")).toBeVisible();
+    const resto = within(r).getByText("Ver las 2 restantes");
+    expect(resto.closest("details")).not.toHaveAttribute("open");
+    await userEvent.setup().click(resto);
+    expect(within(r).getByText("Pieza número 7")).toBeVisible();
   });
 });

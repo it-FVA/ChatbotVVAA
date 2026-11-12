@@ -10,8 +10,9 @@ import { fechaCompleta, hace } from "../../util/fechas";
 import { aHtml } from "../../util/markdown";
 import { mesesRecientes } from "./Dashboard";
 import type { Proyecto } from "../../tiposProyectos";
-import { adminApi, type Campana, type Apertura, type Campanas, type CanalMetricas, type CanalesMetricas, type DatosMetricas, type GrupoEstado, type MensajeAsesor, type PiezaCampana, type ResultadoActualizar, type ResumenCampana } from "./adminApi";
+import { adminApi, type PiezaCanal, type SerieCanal, type Campana, type Apertura, type Campanas, type CanalMetricas, type CanalesMetricas, type DatosMetricas, type GrupoEstado, type MensajeAsesor, type PiezaCampana, type ResultadoActualizar, type ResumenCampana } from "./adminApi";
 import { AvisoError, Cargando, EstadoChip, IconoAdmin, Metrica, Plegable, diaCorto, miles } from "./comun";
+import { Linea } from "./Graficos";
 
 // (8/11, Franco) Administración → Métricas: la app como centro de métricas de campañas (pedido de Beto). Dos preguntas: «¿Cuánto llegó?»
 // (una tarjeta por canal: números desde la plataforma donde se puede, enlace y números anotados a mano donde no) y «¿Cuánto hicimos?»
@@ -23,7 +24,7 @@ definirAyuda("metricas", {
   pasos: [
     { id: "asesor", texto: "Preguntale al asesor cómo vienen las campañas: te nombra las piezas y de dónde salen los números." },
     { id: "actualizar", texto: "Trae los números de Instagram, Facebook y YouTube al momento." },
-    { id: "canal", texto: "Cada canal muestra sus números y un enlace para verlos en la plataforma." },
+    { id: "canal", texto: "Cada canal muestra sus números contra los 28 días anteriores, su tendencia y lo último que salió." },
     { id: "anotar", texto: "Lo que la plataforma no deja leer, cargalo a mano con el período." },
     { id: "campana", texto: "Cada campaña muestra sus piezas por estado y canal. Las sueltas se mueven a una campaña." },
     { id: "resumen", texto: "«¿Cómo le fue?» arma un resumen con los números que hay y avisa qué faltó." },
@@ -86,41 +87,76 @@ const API_CHIP: Record<CanalMetricas["api"], { estado: string; texto: string }> 
   error: { estado: "error", texto: "no pude leer" },
 };
 
-/** Hasta 4 números grandes según el canal; los que falten no se inventan.
- *  (12/11, Franco) Mail: sin campañas de Perfit (enviados 0) se muestran los mails de la Frase del día y los contactos de la lista.
+/** Hasta 3 números grandes según el canal; los que falten no se inventan.
+ *  (12/11, Franco) Mail: sin campañas de Perfit (enviados 0) se muestran los mails de la Frase del día y los contactos de la lista, sin los ceros de las campañas.
  *  YouTube: minutos vistos y suscriptores nuevos entran entre los grandes. */
 function grandes(d: DatosMetricas, canal = ""): [string, number][] {
   const out: [string, number][] = [];
   const v = (k: string) => (typeof d[k] === "number" ? (d[k] as number) : null);
-  let claves = ["alcance", "vistas", "interacciones", "me_gusta", "seguidores", "visitas", "visitantes", "enviados", "aperturas", "clics"];
-  if (canal === "youtube") claves = ["vistas", "minutos_vistos", "seguidores", "seguidores_nuevos", "me_gusta", "comentarios"];
+  let claves = ["alcance", "vistas", "seguidores", "interacciones", "me_gusta", "visitas", "visitantes", "enviados", "aperturas", "clics"];
+  if (canal === "youtube") claves = ["vistas", "minutos_vistos", "seguidores_nuevos", "seguidores", "me_gusta", "comentarios"];
   if (canal === "mail") {
     const hayCampanas = (v("enviados") ?? 0) > 0;
-    claves = hayCampanas ? ["enviados", "aperturas", "clics", "enviados_frase", "lista_contactos"] : ["enviados_frase", "lista_contactos", "enviados", "aperturas", "clics"];
+    const hayFrase = v("enviados_frase") !== null || v("lista_contactos") !== null;
+    claves = hayCampanas ? ["enviados", "aperturas", "clics", "enviados_frase", "lista_contactos"] : hayFrase ? ["enviados_frase", "lista_contactos"] : ["enviados", "aperturas", "clics"];
   }
   for (const k of claves) {
-    if (k === "me_gusta" && v("interacciones") !== null) continue;
     const n = v(k);
     if (n !== null) out.push([k, n]);
-    if (out.length === 4) break;
+    if (out.length === 3) break;
   }
   return out;
 }
 
-/** (12/11, Franco) «vs. período anterior: alcance +12 %, seguidores +101»: solo las claves presentes en los dos períodos; con el anterior en 0 no hay porcentaje. */
-function comparacion(actual: DatosMetricas, anterior?: Record<string, number> | null): string | null {
-  if (!anterior) return null;
-  const partes: string[] = [];
-  for (const k of Object.keys(anterior)) {
-    const ahora = actual[k], antes = anterior[k];
-    if (typeof ahora !== "number" || typeof antes !== "number" || !ETIQUETA[k]) continue;
-    const dif = ahora - antes;
-    const signo = dif > 0 ? "+" : dif < 0 ? "-" : "";
-    const nombre = (ETIQUETA_GRANDE[k] ?? ETIQUETA[k]).toLowerCase();
-    // los números chicos (seguidores, suscriptores) se leen mejor en cantidad; el resto, en porcentaje cuando se puede
-    partes.push(k.startsWith("seguidores") || k === "lista_contactos" || antes === 0 ? `${nombre} ${signo}${miles(Math.abs(dif))}` : `${nombre} ${signo}${Math.round((Math.abs(dif) / antes) * 100)} %`);
+/** (12/11, Franco) El número principal de cada canal, el que se dibuja en la tendencia: alcance en Instagram y Facebook, vistas en YouTube,
+ *  visitas en el sitio, mails de la Frase del día (o enviados) en el mail. */
+function clavePrincipal(canal: string, d?: DatosMetricas | null): string | null {
+  if (canal === "instagram" || canal === "facebook") return "alcance";
+  if (canal === "youtube") return "vistas";
+  if (canal === "sitio") return "visitas";
+  if (canal === "mail") return d && typeof d.enviados_frase === "number" ? "enviados_frase" : d && typeof d.enviados === "number" && d.enviados > 0 ? "enviados" : "enviados_frase";
+  return null;
+}
+
+type Variacion = { tipo: "sube" | "baja" | "igual" | "sin"; texto: string; detalle: string };
+
+/** (12/11, Franco) Cuánto cambió un número contra el período anterior: flecha y texto corto. Los chicos (seguidores, lista) o con anterior en 0 van en cantidad;
+ *  el resto, en porcentaje. Sin anterior (o sin esa clave en el anterior): «sin comparación todavía». */
+function variacion(k: string, ahora: number, anterior?: Record<string, number> | null): Variacion {
+  const antes = anterior?.[k];
+  if (typeof antes !== "number") return { tipo: "sin", texto: "sin comparación todavía", detalle: "Todavía no hay una lectura de hace unos 28 días para comparar" };
+  const dif = ahora - antes;
+  const cantidad = k.startsWith("seguidores") || k === "lista_contactos" || antes === 0;
+  const pct = cantidad ? 0 : Math.round((Math.abs(dif) / antes) * 100);
+  if (dif === 0 || (!cantidad && pct === 0)) return { tipo: "igual", texto: "= igual que antes", detalle: "Casi igual que en los 28 días anteriores" };
+  const sube = dif > 0;
+  const cuanto = cantidad ? miles(Math.abs(dif)) : `${pct} %`;
+  return { tipo: sube ? "sube" : "baja", texto: `${sube ? "↑ +" : "↓ -"}${cuanto}`, detalle: `${sube ? "Subió" : "Bajó"} ${cuanto} respecto de los 28 días anteriores (antes: ${miles(antes)})` };
+}
+
+/** (12/11, Franco) Cuántos días cubren los números del canal (por defecto 28). */
+function diasDelPeriodo(desde?: string | null, hasta?: string | null): number {
+  if (desde && hasta) {
+    const n = Math.round((Date.parse(hasta.slice(0, 10)) - Date.parse(desde.slice(0, 10))) / 86400000);
+    if (Number.isFinite(n) && n > 0) return n;
   }
-  return partes.length ? `vs. período anterior: ${partes.slice(0, 4).join(", ")}` : null;
+  return 28;
+}
+
+/** (12/11, Franco) «Últimos 28 días (15/10 al 12/11) · vs. los 28 anteriores» */
+function subtituloPeriodo(canal: CanalMetricas): string | null {
+  const u = canal.ultima;
+  if (!u) return null;
+  const dias = diasDelPeriodo(u.periodo_desde, u.periodo_hasta);
+  const r = rango(u.periodo_desde, u.periodo_hasta);
+  return `Últimos ${dias} días${u.periodo_desde && u.periodo_hasta && r ? ` (${r})` : ""}${canal.anterior ? ` · vs. los ${dias} anteriores` : ""}`;
+}
+
+/** (12/11, Franco) Los números de una pieza en una línea: «alcance 955 · vistas 1.173», o null si no tiene ninguno de esos. */
+function numerosPieza(m: Record<string, unknown> | null | undefined, claves = ["alcance", "vistas", "enviados", "aperturas", "me_gusta", "comentarios", "compartidos", "clics"], tope = 3): string | null {
+  if (!m) return null;
+  const partes = claves.filter((k) => typeof m[k] === "number").slice(0, tope).map((k) => `${ETIQUETA[k]} ${miles(m[k] as number)}`);
+  return partes.length ? partes.join(" · ") : null;
 }
 
 /** (12/11, Franco) La tasa principal del canal, en una frase corta; null si no se pudo calcular. */
@@ -348,8 +384,24 @@ function TarjetaCanal({ canal, alGuardar, alDesconectar }: { canal: CanalMetrica
   const [abierto, setAbierto] = useState(false);
   const chip = API_CHIP[canal.api] ?? API_CHIP.error;
   const nums = canal.ultima ? grandes(canal.ultima.datos, canal.clave) : [];
-  const vsAnterior = canal.ultima ? comparacion(canal.ultima.datos, canal.anterior?.datos) : null;
   const tasa = tasaPrincipal(canal);
+  const subtitulo = subtituloPeriodo(canal);
+  const [serie, setSerie] = useState<SerieCanal | null>(null);
+  const principal = clavePrincipal(canal.clave, canal.ultima?.datos);
+  const capturado = canal.ultima?.capturado;
+  useEffect(() => {
+    // la tendencia es un extra: si no se puede leer, la tarjeta sale igual sin ella
+    if (!principal || !capturado) return;
+    let vivo = true;
+    adminApi
+      .serieMetricas(canal.clave, 28)
+      .then((r) => vivo && setSerie(r))
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, [canal.clave, principal, capturado]);
+  const ultimas = canal.ultimas_piezas ?? [];
   const manual = canal.manual;
   const manualNums = manual ? Object.entries(manual.datos).filter(([k, v]) => typeof v === "number" && ETIQUETA[k]) : [];
   const conectado = canal.api === "disponible"; // si la plataforma los lee sola, no se carga a mano
@@ -375,24 +427,41 @@ function TarjetaCanal({ canal, alGuardar, alDesconectar }: { canal: CanalMetrica
       {canal.api !== "disponible" && canal.nota_api && <p className="suave chico met-nota">{canal.nota_api}</p>}
       {canal.ultima && nums.length > 0 && (
         <>
+          {subtitulo && <div className="suave chico met-periodo">{subtitulo}</div>}
           <div className="met-numeros">
-            {nums.map(([k, n]) => (
-              <div key={k} className="met-numero">
-                <div className="metrica-valor">{miles(n)}</div>
-                <div className="metrica-etiqueta">{ETIQUETA_GRANDE[k] ?? ETIQUETA[k]}</div>
-              </div>
-            ))}
+            {nums.map(([k, n]) => {
+              const v = variacion(k, n, canal.anterior?.datos);
+              return (
+                <div key={k} className="met-numero">
+                  <div className="metrica-valor">{miles(n)}</div>
+                  <div className="metrica-etiqueta">{ETIQUETA_GRANDE[k] ?? ETIQUETA[k]}</div>
+                  <span className={"met-var " + v.tipo} title={v.detalle}>
+                    {v.texto}
+                  </span>
+                </div>
+              );
+            })}
           </div>
-          {vsAnterior && <div className="suave chico met-vs">{vsAnterior}</div>}
-          {tasa && <div className="suave chico met-tasa">{tasa}</div>}
-          {canal.clave === "mail" && (canal.ultima.datos.enviados_frase !== undefined || canal.ultima.datos.lista_contactos !== undefined) && (
-            <div className="suave chico met-nota">Las aperturas de la Frase del día no las da Perfit por ahora; las campañas sí.</div>
-          )}
-          <div className="suave chico">
-            Leído {hace(canal.ultima.capturado)}
-            {rango(canal.ultima.periodo_desde, canal.ultima.periodo_hasta) && ` · ${rango(canal.ultima.periodo_desde, canal.ultima.periodo_hasta)}`}
-          </div>
+          {principal && <Tendencia serie={serie} clave={principal} dias={diasDelPeriodo(canal.ultima.periodo_desde, canal.ultima.periodo_hasta)} />}
         </>
+      )}
+      {ultimas.length > 0 && (
+        <div className="met-bloque">
+          <h4>Lo último que salió</h4>
+          <ul className="met-lista-piezas">
+            {ultimas.map((p) => (
+              <FilaPiezaCanal key={p.id} pieza={p} />
+            ))}
+          </ul>
+        </div>
+      )}
+      {canal.mejor_pieza && (
+        <div className="met-bloque">
+          <h4>La que mejor anduvo</h4>
+          <ul className="met-lista-piezas">
+            <FilaPiezaCanal pieza={canal.mejor_pieza} />
+          </ul>
+        </div>
       )}
       {manual && manualNums.length > 0 && (
         <div className="met-manual">
@@ -410,6 +479,15 @@ function TarjetaCanal({ canal, alGuardar, alDesconectar }: { canal: CanalMetrica
             el {fechaCompleta(manual.capturado, false)}
           </div>
           {manual.nota && <div className="chico">{manual.nota}</div>}
+        </div>
+      )}
+      {canal.ultima && nums.length > 0 && (
+        <div className="met-pie">
+          {tasa && <div className="suave chico met-tasa">{tasa}</div>}
+          {canal.clave === "mail" && (canal.ultima.datos.enviados_frase !== undefined || canal.ultima.datos.lista_contactos !== undefined) && (
+            <div className="suave chico met-nota">Las aperturas de la Frase del día no las da Perfit por ahora; las campañas sí.</div>
+          )}
+          <div className="suave chico">Leído {hace(canal.ultima.capturado)}</div>
         </div>
       )}
       <div className="met-acciones">
@@ -449,6 +527,42 @@ function TarjetaCanal({ canal, alGuardar, alDesconectar }: { canal: CanalMetrica
         />
       )}
     </article>
+  );
+}
+
+/** (12/11, Franco) La tendencia del número principal: una línea chica, un punto por día. Con menos de 7 puntos se dice que es lo que se mide desde que empezamos. */
+function Tendencia({ serie, clave, dias }: { serie: SerieCanal | null; clave: string; dias: number }) {
+  const nombre = ETIQUETA_GRANDE[clave] ?? ETIQUETA[clave];
+  const puntos = (serie?.puntos ?? [])
+    .filter((p) => typeof p.datos[clave] === "number")
+    .map((p) => ({ etiqueta: diaCorto(p.dia), valor: p.datos[clave], titulo: `${diaCorto(p.dia)}: ${miles(p.datos[clave])} ${nombre} en los ${dias} días hasta ese día` }));
+  if (puntos.length === 0) return null;
+  if (puntos.length === 1) return <div className="suave chico met-tendencia">Un solo día medido por ahora: la tendencia aparece con el siguiente.</div>;
+  return (
+    <div className="met-tendencia">
+      <Linea puntos={puntos} titulo={`Tendencia: ${nombre}, un punto por día`} formato={miles} />
+      <div className="suave chico">{puntos.length < 7 ? "tendencia desde que empezamos a medir" : `${nombre}: total de ${dias} días, medido cada día`}</div>
+    </div>
+  );
+}
+
+/** (12/11, Franco) Una pieza en «Lo último que salió» / «La que mejor anduvo»: título (con link si lo hay), formato y fecha, y sus números en una línea. */
+function FilaPiezaCanal({ pieza }: { pieza: PiezaCanal }) {
+  const nums = numerosPieza(pieza.metricas as Record<string, unknown> | null);
+  const fecha = pieza.fecha ? diaCorto(pieza.fecha.slice(0, 10)) : null;
+  const detalle = [pieza.formato, fecha, pieza.campana].filter(Boolean).join(" · ");
+  return (
+    <li>
+      {pieza.ver_url ? (
+        <a href={pieza.ver_url} target="_blank" rel="noopener noreferrer">
+          {pieza.titulo || "(sin título)"}
+        </a>
+      ) : (
+        <span className="met-pieza-titulo">{pieza.titulo || "(sin título)"}</span>
+      )}
+      {detalle && <span className="suave chico"> · {detalle}</span>}
+      <div className="met-pieza-nums">{nums ?? "sin números todavía"}</div>
+    </li>
   );
 }
 
@@ -532,6 +646,9 @@ function lineaMetricas(p: PiezaCampana): string | null {
   const fuente = m.fuente === "manual" ? "anotado a mano" : `desde ${p.canal_texto}${m.capturado ? ", " + hace(m.capturado) : ""}`;
   return `${partes.join(" · ")} · ${fuente}`;
 }
+
+/** (12/11, Franco) Cuántas piezas de una campaña se ven sin abrir nada; el resto va plegado. */
+const PIEZAS_A_LA_VISTA = 5;
 
 /** Las campañas que no son un Proyecto: sus piezas se pueden mover a una campaña de verdad. */
 const MOVIBLES = ["sueltas", "frase_del_dia"];
@@ -640,9 +757,15 @@ function TarjetaCampana({ campana, dias, alResumir, alMover }: { campana: Campan
         </div>
       )}
       {piezas.length > 0 && (
-        <Plegable titulo="Piezas" resumen={`${piezas.length}`}>
-          <ListaPiezas piezas={piezas} movible={movible} alMover={alMover} />
-        </Plegable>
+        <>
+          <h4 className="met-piezas-titulo">Piezas ({piezas.length})</h4>
+          <ListaPiezas piezas={piezas.slice(0, PIEZAS_A_LA_VISTA)} movible={movible} alMover={alMover} />
+          {piezas.length > PIEZAS_A_LA_VISTA && (
+            <Plegable titulo={`Ver las ${piezas.length - PIEZAS_A_LA_VISTA} restantes`}>
+              <ListaPiezas piezas={piezas.slice(PIEZAS_A_LA_VISTA)} movible={movible} alMover={alMover} />
+            </Plegable>
+          )}
+        </>
       )}
       {borradores.length > 0 && (
         <Plegable titulo={`${borradores.length} ${borradores.length === 1 ? "borrador" : "borradores"}`} resumen="sin contar como hechas">
@@ -676,6 +799,7 @@ function ListaPiezas({ piezas, movible, alMover }: { piezas: PiezaCampana[]; mov
           <li key={p.id}>
             <div className="met-pieza-cab">
               <strong>{p.titulo || "(sin título)"}</strong>
+              {numerosPieza(p.metricas, ["alcance", "vistas", "enviados"], 3) && <span className="met-pieza-nums">{numerosPieza(p.metricas, ["alcance", "vistas", "enviados"], 3)}</span>}
               <span className="suave chico">
                 {p.canal_texto} · {diaCorto((p.fecha ?? "").slice(0, 10))}
               </span>
