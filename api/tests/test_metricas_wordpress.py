@@ -29,11 +29,13 @@ def sim(monkeypatch, respuestas):
     return visto
 
 
-RESUMEN = ({"date": "2026-11-08", "period": "day", "views": 2400, "visitors": 900, "likes": 31, "reblogs": 0, "comments": 7, "followers": 120}, None)
+RESUMEN = ({"date": "2026-11-08", "period": "day", "views": 2400, "visitors": 72, "likes": 31, "reblogs": 0, "comments": 7, "followers": 120}, None)
 TOP = ({"summary": {"postviews": [{"id": 11, "title": "Gratitud en casa", "views": 300}, {"id": 12, "title": "Otra", "views": 120}]}}, None)
 REFS = ({"summary": {"groups": [{"group": "google", "name": "Google Search", "total": 410}, {"group": "facebook.com", "name": "Facebook", "total": 80}]}}, None)
 CLICS = ({"summary": {"groups": [{"name": "instagram.com", "total": 25}]}}, None)
-TODO = [("/stats/summary", RESUMEN), ("/stats/top-posts", TOP), ("/stats/referrers", REFS), ("/stats/clicks", CLICS)]
+# (12/11, Franco) stats/visits?unit=day: una fila por día, alineada con `fields` (forma de la documentación, sin confirmar en vivo)
+VISITAS = ({"unit": "day", "fields": ["period", "views", "visitors"], "data": [["2026-11-06", 800, 300], ["2026-11-07", 900, 350], ["2026-11-08", 700, 250]]}, None)
+TODO = [("/stats/visits", VISITAS), ("/stats/summary", RESUMEN), ("/stats/top-posts", TOP), ("/stats/referrers", REFS), ("/stats/clicks", CLICS)]
 
 
 # ---------------- autorización ----------------
@@ -71,13 +73,31 @@ def test_canjear_codigo_con_error(monkeypatch):
 def test_insights_sitio(monkeypatch):
     visto = sim(monkeypatch, TODO)
     d = mw.insights_sitio(TOKEN, "viviragradecidos.org", 28)
-    assert (d["visitas"], d["visitantes"], d["me_gusta"], d["comentarios"]) == (2400, 900, 31, 7) and d["errores"] == []
+    assert (d["visitas"], d["visitantes"], d["me_gusta"], d["comentarios"]) == (2400, 900, 31, 7) and d["errores"] == []     # los visitantes son los del período (suma de días), no el 72 del summary
+    assert d["crudo"]["visitantes_es"] == "suma de los visitantes de cada día"
     assert d["crudo"]["top_posts"] == [{"titulo": "Gratitud en casa", "vistas": 300}, {"titulo": "Otra", "vistas": 120}]
     assert d["crudo"]["referentes"][0] == {"nombre": "Google Search", "vistas": 410} and d["crudo"]["clics"] == [{"nombre": "instagram.com", "vistas": 25}]
     assert d["crudo"]["periodo_dias"] == 28
+    assert any("/sites/viviragradecidos.org/stats/visits?unit=day&quantity=28" in h[0] for h in visto)
     assert all(h[2]["Authorization"] == f"Bearer {TOKEN}" for h in visto)
     assert "/sites/viviragradecidos.org/stats/summary?period=day&num=28" in visto[0][0]
     assert TOKEN not in json.dumps(d) and all(TOKEN not in h[0] for h in visto)           # el token va en el encabezado, no en la URL ni en el resultado
+
+
+def test_insights_sitio_si_visits_falla_no_hay_visitantes(monkeypatch):
+    """Sin stats/visits `visitas` queda la del summary y `visitantes` NO se pone: el 72 del summary es del último día, no del período."""
+    for visits in ((None, {"error": "boom", "message": f"falló con {TOKEN}"}), ({"unit": "day", "fields": ["period"], "data": "raro"}, None)):
+        sim(monkeypatch, [("/stats/visits", visits), ("/stats/summary", RESUMEN)])
+        d = mw.insights_sitio(TOKEN, "viviragradecidos.org", 28)
+        assert d["visitas"] == 2400 and "visitantes" not in d and (d["me_gusta"], d["comentarios"]) == (31, 7)
+        assert any("visitantes del período" in e for e in d["errores"]) and TOKEN not in json.dumps(d)
+
+
+def test_visitas_por_dia_lee_filas_de_listas_y_de_objetos():
+    assert mw._visitas_por_dia(VISITAS[0]) == (2400, 900)
+    objetos = {"data": [{"period": "2026-11-07", "views": 5, "visitors": 2}, {"period": "2026-11-08", "views": 7, "visitors": 3}, {"period": "x"}]}
+    assert mw._visitas_por_dia(objetos) == (12, 5)
+    assert mw._visitas_por_dia({"data": []}) is None and mw._visitas_por_dia(None) is None
 
 
 def test_insights_sitio_top_sin_resumir_y_secundarios_que_fallan(monkeypatch):

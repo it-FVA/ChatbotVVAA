@@ -27,6 +27,9 @@ Endpoints usados (WordPress.com REST API v1.1; todos GET con `Authorization: Bea
                      Doc: https://developer.wordpress.com/docs/oauth2/
   · Resumen     GET  /rest/v1.1/sites/{site}/stats/summary?period=day&num=28      → views, visitors, likes, comments (suma del período)
                      Doc: https://developer.wordpress.com/docs/api/1.1/get/sites/%24site/stats/summary/
+  · Visitas     GET  /rest/v1.1/sites/{site}/stats/visits?unit=day&quantity=<dias>   (12/11, Franco) → {unit, fields:[period, views, visitors, …],
+                     data:[[«2026-11-12», views, visitors, …], …]}: una fila por día; `visitas` y `visitantes` del período = suma de views y de
+                     visitors de las filas. Doc: https://developer.wordpress.com/docs/api/1.1/get/sites/%24site/stats/visits/
   · Top         GET  /rest/v1.1/sites/{site}/stats/top-posts?period=day&num=28&summarize=1&max=5   → entradas más vistas
                      Doc: https://developer.wordpress.com/docs/api/1.1/get/sites/%24site/stats/top-posts/
   · Referentes  GET  /rest/v1.1/sites/{site}/stats/referrers?period=day&num=28&summarize=1&max=5  → de dónde llegan
@@ -40,6 +43,12 @@ Endpoints usados (WordPress.com REST API v1.1; todos GET con `Authorization: Bea
 El token NUNCA va en `crudo` ni en `errores` (se le saca a cualquier texto que venga de WordPress.com, igual que el client_secret).
 
 SIN CONFIRMAR (acá no hay app registrada ni token; la forma de las respuestas sale de la documentación):
+  · (12/11, Franco) `stats/summary` devuelve visitors del ÚLTIMO día (en producción dio «72 visitantes» contra 12.352 visitas), no del período:
+    por eso `visitas` y `visitantes` salen de `stats/visits?unit=day&quantity=<dias>`. NO se confirmó en vivo la forma de esa respuesta: se lee
+    `data` como lista de filas alineadas con `fields` (period, views, visitors) y, si viniera como lista de objetos, por nombre. Si falla o no
+    se entiende, `visitas` queda la de summary y `visitantes` NO se pone (un visitante del último día no es del período; `errores` lo dice).
+    Tampoco se confirmó que los «visitantes» de días distintos se puedan sumar: un lector que vuelve cuenta una vez por día (es la suma de
+    visitantes diarios, no personas únicas del período). El crudo lo dice en `visitantes_es`.
   · Que el token del flujo «authorization code» no expire hasta que se revoque: la doc de OAuth2 lo da a entender (solo el flujo
     «implicit» dura 2 semanas), pero no se probó. Si venciera, el sitio pasa a «Falta conectar con WordPress.com» y se reconecta con un clic.
   · Que `scope=global` sea necesario: sin `scope` el token queda atado al sitio elegido en `blog`, que alcanzaría para las estadísticas.
@@ -235,6 +244,28 @@ def _grupos(r):
     return [{"nombre": i["nombre"], "vistas": i["vistas"]} for i in items]
 
 
+def _visitas_por_dia(r):
+    """(views, visitors) sumados de la respuesta de stats/visits, o None si no se entiende. `data` es una lista de filas alineadas con
+    `fields` (period, views, visitors, …) o, por las dudas, de objetos con esas claves. Los días sin número no suman."""
+    if not isinstance(r, dict) or not isinstance(r.get("data"), list):
+        return None
+    campos = r.get("fields") if isinstance(r.get("fields"), list) else []
+    ver, vis = (campos.index(c) if c in campos else None for c in ("views", "visitors"))
+    vistas = visitantes = 0
+    hubo = False
+    for fila in r["data"]:
+        if isinstance(fila, dict):
+            v, u = _entero(fila.get("views")), _entero(fila.get("visitors"))
+        elif isinstance(fila, list) and ver is not None and vis is not None and len(fila) > max(ver, vis):
+            v, u = _entero(fila[ver]), _entero(fila[vis])
+        else:
+            continue
+        if v is None or u is None:
+            continue
+        vistas, visitantes, hubo = vistas + v, visitantes + u, True
+    return (vistas, visitantes) if hubo else None
+
+
 def _falla(err, secretos, errores, que):
     if _es_token_invalido(err):
         if TEXTO_TOKEN_INVALIDO not in errores:
@@ -244,7 +275,7 @@ def _falla(err, secretos, errores, que):
 
 
 def insights_sitio(token, site, dias=28):
-    """El sitio en los últimos `dias` días: visitas (views), visitantes, me gusta y comentarios (stats/summary) + top de entradas,
+    """El sitio en los últimos `dias` días: visitas (views) y visitantes (stats/visits, sumando los días), me gusta y comentarios (stats/summary) + top de entradas,
     referentes y clics (crudo). Si falla lo secundario, igual devuelve lo de summary y anota el motivo en `errores`."""
     if not token:
         return _salida({}, {}, [TEXTO_SIN_TOKEN])
@@ -258,8 +289,19 @@ def insights_sitio(token, site, dias=28):
     if r is None:
         _falla(err, secretos, errores, "las estadísticas del sitio")
         return _salida({}, crudo, errores)
-    for clave, campo in (("visitas", "views"), ("visitantes", "visitors"), ("me_gusta", "likes"), ("comentarios", "comments")):
+    for clave, campo in (("visitas", "views"), ("me_gusta", "likes"), ("comentarios", "comments")):
         normal[clave] = _suma(r.get(campo))
+    # (12/11, Franco) visitantes: summary da los del último día, no los del período. Se suman los diarios de stats/visits; si no se puede, no hay.
+    rv, errv = _get(token, f"{base}/visits", {"unit": "day", "quantity": dias})
+    dia = _visitas_por_dia(rv) if rv is not None else None
+    if dia is not None:
+        normal["visitas"], normal["visitantes"] = dia
+        crudo["visitantes_es"] = "suma de los visitantes de cada día"
+    else:
+        if rv is None:
+            _falla(errv, secretos, errores, "los visitantes del período")
+        else:
+            errores.append("WordPress.com no dio los visitantes del período en una forma que se entienda.")
     if r.get("date"):
         crudo["fecha"] = str(r["date"])[:10]
     if not any(v is not None for v in normal.values()):
