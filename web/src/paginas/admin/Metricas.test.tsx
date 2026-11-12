@@ -281,17 +281,18 @@ const canal = (clave: string, texto: string, extra: Record<string, unknown>) => 
 
 describe("Métricas v3: tarjetas con números coherentes", () => {
   it("el mail sin campañas muestra la Frase del día y la lista, y avisa que las aperturas no las da Perfit", async () => {
-    abrir({ "GET /admin/metricas/canales": { actualizado: ahora, canales: [canal("mail", "Mail (Newsletter y Frase del día)", { ultima: fila({ enviados: 0, aperturas: 0, clics: 0, enviados_frase: 18867, lista_contactos: 2241 }), tasas: { aperturas_sobre_enviados: null, clics_sobre_enviados: null } })] } });
+    abrir({ "GET /admin/metricas/canales": { actualizado: ahora, canales: [canal("mail", "Mail (Newsletter y Frase del día)", { ultima: fila({ enviados: 0, aperturas: 0, clics: 0, enviados_frase: 18867, envios_frase: 8, lista_contactos: 2241 }), tasas: { aperturas_sobre_enviados: null, clics_sobre_enviados: null } })] } });
     const mail = await screen.findByRole("article", { name: /Mail/ });
     expect(within(mail).getByText("18.867")).toBeInTheDocument();
-    expect(within(mail).getByText("Frase del día: mails enviados")).toBeInTheDocument();
+    expect(within(mail).getByText("Frase del día: envíos (días)")).toBeInTheDocument();
+    expect(within(mail).getByText("Frase del día: correos en total")).toBeInTheDocument();
     expect(within(mail).getByText("2.241")).toBeInTheDocument();
     expect(within(mail).getByText("Lista: contactos")).toBeInTheDocument();
     expect(within(mail).getByText("Las aperturas de la Frase del día no las da Perfit por ahora; las campañas sí.")).toBeInTheDocument();
     expect(within(mail).queryByText(/aperturas =/)).toBeNull();               // sin enviados de campañas no hay tasa
     // los ceros de las campañas no tapan a la Frase del día: salen detrás
     const etiquetas = within(mail).getAllByText(/./, { selector: ".metrica-etiqueta" }).map((e) => e.textContent);
-    expect(etiquetas.slice(0, 2)).toEqual(["Frase del día: mails enviados", "Lista: contactos"]);
+    expect(etiquetas.slice(0, 3)).toEqual(["Frase del día: envíos (días)", "Lista: contactos", "Frase del día: correos en total"]);   // (12/11) primero los envíos y la lista
   });
 
   it("el sitio muestra visitas y visitantes del período con las visitas por día", async () => {
@@ -445,7 +446,7 @@ describe("Métricas v4: la tarjeta cuenta algo", () => {
       "GET /admin/metricas/serie": serie("mail", [17000, 18000, 18867], "enviados_frase"),
     });
     const mail = await screen.findByRole("article", { name: /Mail/ });
-    expect(await within(mail).findByRole("img", { name: /Tendencia: Frase del día: mails enviados/ })).toBeInTheDocument();
+    expect(await within(mail).findByRole("img", { name: /Tendencia: Frase del día: correos en total/ })).toBeInTheDocument();
     expect(api.de("GET", "/admin/metricas/serie")[0].consulta.get("canal")).toBe("mail");
     expect(within(mail).getByText("enviados 2.100")).toBeInTheDocument();
     expect(within(mail).getByText("sin números todavía")).toBeInTheDocument();
