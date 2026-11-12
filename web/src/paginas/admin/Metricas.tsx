@@ -57,6 +57,17 @@ const ETIQUETA: Record<string, string> = {
   enviados: "enviados",
   aperturas: "aperturas",
   respuestas: "respuestas",
+  // (12/11, Franco) claves nuevas
+  enviados_frase: "mails de la Frase del día",
+  lista_contactos: "contactos en la lista",
+  minutos_vistos: "minutos vistos",
+};
+// (12/11, Franco) cómo se lee cada número en la línea «vs. período anterior» y en las tarjetas (ETIQUETA va en minúscula; esto es lo que se ve grande)
+const ETIQUETA_GRANDE: Record<string, string> = {
+  enviados_frase: "Frase del día: mails enviados",
+  lista_contactos: "Lista: contactos",
+  minutos_vistos: "Minutos vistos",
+  seguidores_nuevos: "Suscriptores nuevos",
 };
 
 /** Las claves que se pueden anotar según el canal. */
@@ -75,17 +86,51 @@ const API_CHIP: Record<CanalMetricas["api"], { estado: string; texto: string }> 
   error: { estado: "error", texto: "no pude leer" },
 };
 
-/** Hasta 4 números grandes: alcance, vistas, interacciones (o me gusta) y seguidores; los que falten no se inventan. */
-function grandes(d: DatosMetricas): [string, number][] {
+/** Hasta 4 números grandes según el canal; los que falten no se inventan.
+ *  (12/11, Franco) Mail: sin campañas de Perfit (enviados 0) se muestran los mails de la Frase del día y los contactos de la lista.
+ *  YouTube: minutos vistos y suscriptores nuevos entran entre los grandes. */
+function grandes(d: DatosMetricas, canal = ""): [string, number][] {
   const out: [string, number][] = [];
   const v = (k: string) => (typeof d[k] === "number" ? (d[k] as number) : null);
-  for (const k of ["alcance", "vistas", "interacciones", "me_gusta", "seguidores", "visitas", "visitantes", "enviados", "aperturas", "clics"]) {
+  let claves = ["alcance", "vistas", "interacciones", "me_gusta", "seguidores", "visitas", "visitantes", "enviados", "aperturas", "clics"];
+  if (canal === "youtube") claves = ["vistas", "minutos_vistos", "seguidores", "seguidores_nuevos", "me_gusta", "comentarios"];
+  if (canal === "mail") {
+    const hayCampanas = (v("enviados") ?? 0) > 0;
+    claves = hayCampanas ? ["enviados", "aperturas", "clics", "enviados_frase", "lista_contactos"] : ["enviados_frase", "lista_contactos", "enviados", "aperturas", "clics"];
+  }
+  for (const k of claves) {
     if (k === "me_gusta" && v("interacciones") !== null) continue;
     const n = v(k);
     if (n !== null) out.push([k, n]);
     if (out.length === 4) break;
   }
   return out;
+}
+
+/** (12/11, Franco) «vs. período anterior: alcance +12 %, seguidores +101»: solo las claves presentes en los dos períodos; con el anterior en 0 no hay porcentaje. */
+function comparacion(actual: DatosMetricas, anterior?: Record<string, number> | null): string | null {
+  if (!anterior) return null;
+  const partes: string[] = [];
+  for (const k of Object.keys(anterior)) {
+    const ahora = actual[k], antes = anterior[k];
+    if (typeof ahora !== "number" || typeof antes !== "number" || !ETIQUETA[k]) continue;
+    const dif = ahora - antes;
+    const signo = dif > 0 ? "+" : dif < 0 ? "-" : "";
+    const nombre = (ETIQUETA_GRANDE[k] ?? ETIQUETA[k]).toLowerCase();
+    // los números chicos (seguidores, suscriptores) se leen mejor en cantidad; el resto, en porcentaje cuando se puede
+    partes.push(k.startsWith("seguidores") || k === "lista_contactos" || antes === 0 ? `${nombre} ${signo}${miles(Math.abs(dif))}` : `${nombre} ${signo}${Math.round((Math.abs(dif) / antes) * 100)} %`);
+  }
+  return partes.length ? `vs. período anterior: ${partes.slice(0, 4).join(", ")}` : null;
+}
+
+/** (12/11, Franco) La tasa principal del canal, en una frase corta; null si no se pudo calcular. */
+function tasaPrincipal(canal: CanalMetricas): string | null {
+  const t = (canal.tasas ?? {}) as Record<string, number | null>;
+  const pct = (x: number) => `${Math.round(x * 1000) / 10} %`.replace(".", ",");
+  if (t.alcance_sobre_seguidores != null) return `alcance = ${pct(t.alcance_sobre_seguidores)} de los seguidores`;
+  if (t.aperturas_sobre_enviados != null) return `aperturas = ${pct(t.aperturas_sobre_enviados)} de los enviados`;
+  if (t.visitas_por_dia != null) return `${miles(Math.round(t.visitas_por_dia))} visitas por día`;
+  return null;
 }
 
 function rango(desde?: string | null, hasta?: string | null) {
@@ -95,10 +140,12 @@ function rango(desde?: string | null, hasta?: string | null) {
 
 const GRUPOS: { clave: GrupoEstado; estado: string; texto: string; columna: string }[] = [
   { clave: "publicada", estado: "publicada", texto: "publicadas", columna: "Publicadas" },
+  { clave: "saliendo", estado: "enviando", texto: "saliendo", columna: "Saliendo" },
   { clave: "programada", estado: "programada", texto: "programadas", columna: "Programadas" },
   { clave: "en_aprobacion", estado: "a_aprobar", texto: "en aprobación", columna: "En aprobación" },
   { clave: "borrador", estado: "borrador", texto: "borradores", columna: "Borradores" },
   { clave: "prueba", estado: "prueba", texto: "de prueba", columna: "De prueba" },
+  { clave: "cancelada", estado: "cancelada", texto: "canceladas", columna: "Canceladas" },
   { clave: "no_salio", estado: "error", texto: "no salieron", columna: "No salieron" },
 ];
 
@@ -300,7 +347,9 @@ const NOTA_CARGA = "Para lo que la plataforma no nos deja leer solo: copiá acá
 function TarjetaCanal({ canal, alGuardar, alDesconectar }: { canal: CanalMetricas; alGuardar: () => Promise<void>; alDesconectar: () => void }) {
   const [abierto, setAbierto] = useState(false);
   const chip = API_CHIP[canal.api] ?? API_CHIP.error;
-  const nums = canal.ultima ? grandes(canal.ultima.datos) : [];
+  const nums = canal.ultima ? grandes(canal.ultima.datos, canal.clave) : [];
+  const vsAnterior = canal.ultima ? comparacion(canal.ultima.datos, canal.anterior?.datos) : null;
+  const tasa = tasaPrincipal(canal);
   const manual = canal.manual;
   const manualNums = manual ? Object.entries(manual.datos).filter(([k, v]) => typeof v === "number" && ETIQUETA[k]) : [];
   const conectado = canal.api === "disponible"; // si la plataforma los lee sola, no se carga a mano
@@ -330,10 +379,15 @@ function TarjetaCanal({ canal, alGuardar, alDesconectar }: { canal: CanalMetrica
             {nums.map(([k, n]) => (
               <div key={k} className="met-numero">
                 <div className="metrica-valor">{miles(n)}</div>
-                <div className="metrica-etiqueta">{ETIQUETA[k]}</div>
+                <div className="metrica-etiqueta">{ETIQUETA_GRANDE[k] ?? ETIQUETA[k]}</div>
               </div>
             ))}
           </div>
+          {vsAnterior && <div className="suave chico met-vs">{vsAnterior}</div>}
+          {tasa && <div className="suave chico met-tasa">{tasa}</div>}
+          {canal.clave === "mail" && (canal.ultima.datos.enviados_frase !== undefined || canal.ultima.datos.lista_contactos !== undefined) && (
+            <div className="suave chico met-nota">Las aperturas de la Frase del día no las da Perfit por ahora; las campañas sí.</div>
+          )}
           <div className="suave chico">
             Leído {hace(canal.ultima.capturado)}
             {rango(canal.ultima.periodo_desde, canal.ultima.periodo_hasta) && ` · ${rango(canal.ultima.periodo_desde, canal.ultima.periodo_hasta)}`}
@@ -517,6 +571,15 @@ function TarjetaCampana({ campana, dias, alResumir, alMover }: { campana: Campan
   // (8/11, Franco) los borradores no son trabajo hecho: van plegados aparte y no entran en los chips ni en la tabla
   const hechas = GRUPOS.filter((g) => g.clave !== "borrador");
   const grupos = hechas.filter((g) => (campana.por_estado[g.clave] ?? 0) > 0);
+  // (12/11, Franco) sin nada hecho (ni publicada, ni saliendo, ni programada, ni en aprobación) no se arma tabla: se dice y se cuentan aparte los otros estados
+  const piezasHechas = (["publicada", "saliendo", "programada", "en_aprobacion"] as GrupoEstado[]).reduce((n, g) => n + (campana.por_estado[g] ?? 0), 0);
+  const nBorradores = campana.por_estado.borrador ?? 0;
+  const aparte = [
+    [nBorradores, nBorradores === 1 ? "borrador" : "borradores"],
+    [campana.por_estado.cancelada ?? 0, (campana.por_estado.cancelada ?? 0) === 1 ? "cancelada" : "canceladas"],
+    [campana.por_estado.no_salio ?? 0, (campana.por_estado.no_salio ?? 0) === 1 ? "no salió" : "no salieron"],
+    [campana.por_estado.prueba ?? 0, "de prueba"],
+  ].filter(([n]) => (n as number) > 0).map(([n, t]) => `${n} ${t}`);
   const filas = Object.entries(campana.por_canal);
   const columnas = hechas.filter((g) => filas.some(([, f]) => (f[g.clave] ?? 0) > 0));
   const borradores = campana.piezas.filter((p) => p.estado_grupo === "borrador");
@@ -533,14 +596,22 @@ function TarjetaCampana({ campana, dias, alResumir, alMover }: { campana: Campan
         </h3>
         {campana.dueno && <span className="suave chico">de {campana.dueno}</span>}
       </header>
-      <div className="met-chips">
-        {grupos.length === 0 ? (
-          <span className="suave chico">{borradores.length > 0 ? "Todavía sin piezas hechas en este período." : `Sin piezas en este período (${campana.piezas_total} en total).`}</span>
-        ) : (
-          grupos.map((g) => <ChipEstado key={g.clave} estado={g.estado} texto={`${campana.por_estado[g.clave]} ${g.texto}`} />)
-        )}
-      </div>
-      {filas.length > 0 && columnas.length > 0 && (
+      {campana.descripcion && <p className="suave chico met-descripcion">{campana.descripcion}</p>}
+      {piezasHechas === 0 && campana.piezas_total > 0 ? (
+        <div className="met-chips met-vacia">
+          <span>Todavía no salió nada de esta campaña</span>
+          {aparte.length > 0 && <span className="suave chico">{aparte.join(" · ")}</span>}
+        </div>
+      ) : (
+        <div className="met-chips">
+          {grupos.length === 0 ? (
+            <span className="suave chico">{`Sin piezas en este período (${campana.piezas_total} en total).`}</span>
+          ) : (
+            grupos.map((g) => <ChipEstado key={g.clave} estado={g.estado} texto={`${campana.por_estado[g.clave]} ${g.texto}`} />)
+          )}
+        </div>
+      )}
+      {piezasHechas > 0 && filas.length > 0 && columnas.length > 0 && (
         <div className="met-tabla-caja">
           <table className="met-tabla">
             <thead>

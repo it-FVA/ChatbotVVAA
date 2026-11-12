@@ -277,3 +277,89 @@ describe("Métricas · Sitio web (WordPress.com)", () => {
     expect(await screen.findByText("WordPress.com no dio el permiso.")).toBeInTheDocument();
   });
 });
+
+// ---------------- Métricas v3: datos (12/11, Franco) ----------------
+const fila = (datos: Record<string, unknown>) => ({ datos, periodo_desde: "2026-10-15", periodo_hasta: "2026-11-12", capturado: ahora, fuente: "api" });
+const canal = (clave: string, texto: string, extra: Record<string, unknown>) => ({ clave, texto, icono: clave, modo: "real", configurado: true, api: "disponible", nota_api: "", enlace: null, enlace_texto: null, manual: null, anterior: null, tasas: {}, ...extra });
+
+describe("Métricas v3: tarjetas con números coherentes", () => {
+  it("el mail sin campañas muestra la Frase del día y la lista, y avisa que las aperturas no las da Perfit", async () => {
+    abrir({ "GET /admin/metricas/canales": { actualizado: ahora, canales: [canal("mail", "Mail (Newsletter y Frase del día)", { ultima: fila({ enviados: 0, aperturas: 0, clics: 0, enviados_frase: 18867, lista_contactos: 2241 }), tasas: { aperturas_sobre_enviados: null, clics_sobre_enviados: null } })] } });
+    const mail = await screen.findByRole("article", { name: /Mail/ });
+    expect(within(mail).getByText("18.867")).toBeInTheDocument();
+    expect(within(mail).getByText("Frase del día: mails enviados")).toBeInTheDocument();
+    expect(within(mail).getByText("2.241")).toBeInTheDocument();
+    expect(within(mail).getByText("Lista: contactos")).toBeInTheDocument();
+    expect(within(mail).getByText("Las aperturas de la Frase del día no las da Perfit por ahora; las campañas sí.")).toBeInTheDocument();
+    expect(within(mail).queryByText(/aperturas =/)).toBeNull();               // sin enviados de campañas no hay tasa
+    // los ceros de las campañas no tapan a la Frase del día: salen detrás
+    const etiquetas = within(mail).getAllByText(/./, { selector: ".metrica-etiqueta" }).map((e) => e.textContent);
+    expect(etiquetas.slice(0, 2)).toEqual(["Frase del día: mails enviados", "Lista: contactos"]);
+  });
+
+  it("el sitio muestra visitas y visitantes del período con las visitas por día", async () => {
+    abrir({ "GET /admin/metricas/canales": { actualizado: ahora, canales: [canal("sitio", "Sitio web", { ultima: fila({ visitas: 12352, visitantes: 4100 }), tasas: { visitas_por_dia: 441.143 } })] } });
+    const sitio = await screen.findByRole("article", { name: "Sitio web" });
+    expect(within(sitio).getByText("12.352")).toBeInTheDocument();
+    expect(within(sitio).getByText("4.100")).toBeInTheDocument();
+    expect(within(sitio).getByText("441 visitas por día")).toBeInTheDocument();
+  });
+
+  it("YouTube muestra los minutos vistos y los suscriptores nuevos", async () => {
+    abrir({ "GET /admin/metricas/canales": { actualizado: ahora, canales: [canal("youtube", "YouTube", { ultima: fila({ vistas: 3100, minutos_vistos: 9400, seguidores: 1200, seguidores_nuevos: 40, me_gusta: 210 }) })] } });
+    const yt = await screen.findByRole("article", { name: "YouTube" });
+    expect(within(yt).getByText("Minutos vistos")).toBeInTheDocument();
+    expect(within(yt).getByText("9.400")).toBeInTheDocument();
+    expect(within(yt).getByText("Suscriptores nuevos")).toBeInTheDocument();
+    expect(within(yt).getByText("40")).toBeInTheDocument();
+  });
+
+  it("la línea «vs. período anterior» usa solo las claves de los dos períodos y la tasa va en chico", async () => {
+    abrir({ "GET /admin/metricas/canales": { actualizado: ahora, canales: [canal("instagram", "Instagram", {
+      ultima: fila({ alcance: 3360, seguidores: 10100, vistas: 500 }),
+      anterior: { datos: { alcance: 3000, seguidores: 9999, me_gusta: 4 }, periodo_desde: "2026-09-17", periodo_hasta: "2026-10-15", capturado: ahora },
+      tasas: { alcance_sobre_seguidores: 0.333, interacciones_sobre_alcance: null } })] } });
+    const ig = await screen.findByRole("article", { name: "Instagram" });
+    expect(within(ig).getByText("vs. período anterior: alcance +12 %, seguidores +101")).toBeInTheDocument();    // me gusta no está en los dos: no aparece
+    expect(within(ig).getByText("alcance = 33,3 % de los seguidores")).toBeInTheDocument();
+  });
+
+  it("sin período anterior no hay línea de comparación", async () => {
+    abrir();
+    const fb = await screen.findByRole("article", { name: "Facebook" });
+    expect(within(fb).queryByText(/vs\. período anterior/)).toBeNull();
+  });
+});
+
+describe("Métricas v3: estados y campañas", () => {
+  const G = { ...G0, saliendo: 0, cancelada: 0 };
+  const pieza = (id: string, estado: string, grupo: string, titulo: string) => ({ id, canal: "mail", canal_texto: "Mail", titulo, estado, estado_grupo: grupo, fecha: "2026-11-10T12:00:00+00:00", ver_url: null, formato: null, usuario: "frase_del_dia", modo: "real", metricas: null });
+  const camp = (id: string, nombre: string, por: Record<string, number>, piezas: ReturnType<typeof pieza>[], extra: Record<string, unknown> = {}) => ({
+    id, nombre, emoji: null, color: null, dueno: null, creado: null, descripcion: null, piezas_total: piezas.length, por_canal: { mail: { ...G, ...por } }, por_estado: { ...G, ...por }, primera: ahora, ultima: ahora, piezas, ...extra });
+
+  it("saliendo y cancelada tienen su chip y su columna, con su texto", async () => {
+    const f = camp("frase_del_dia", "Frase del día (automática)", { publicada: 3, saliendo: 1, cancelada: 5 },
+      [pieza("a", "enviando", "saliendo", "Sale ahora"), pieza("b", "cancelada", "cancelada", "Cancelada por Franco"), pieza("c", "publicada", "publicada", "Ya salió")],
+      { descripcion: "La plataforma la arma y la manda sola cada día: historia de Instagram y mail" });
+    abrir({ "GET /admin/metricas/campanas": { ...CAMPANAS, campanas: [f], totales: { piezas: 4, ...G, publicada: 3, saliendo: 1, cancelada: 5, por_canal: { mail: 4 } } } });
+    const r = await screen.findByRole("region", { name: "Frase del día (automática)" });
+    expect(within(r).getByText("1 saliendo")).toBeInTheDocument();
+    expect(within(r).getByText("5 canceladas")).toBeInTheDocument();
+    expect(within(r).queryByText(/no salieron/)).toBeNull();                       // las canceladas no son «no salió»
+    expect(within(r).getByRole("columnheader", { name: "Saliendo" })).toBeInTheDocument();
+    expect(within(r).getByRole("columnheader", { name: "Canceladas" })).toBeInTheDocument();
+    expect(within(r).getByText("La plataforma la arma y la manda sola cada día: historia de Instagram y mail")).toBeInTheDocument();
+    await userEvent.setup().click(within(r).getByText("Piezas"));
+    expect(within(r).getByText("saliendo", { selector: ".estado" })).toBeInTheDocument();
+  });
+
+  it("una campaña sin nada hecho dice que todavía no salió nada y cuenta lo demás aparte", async () => {
+    const v = camp("c9", "Recién empieza", { borrador: 2, cancelada: 1, no_salio: 3 },
+      [pieza("d1", "borrador", "borrador", "Idea"), pieza("d2", "cancelada", "cancelada", "Se canceló"), pieza("d3", "error", "no_salio", "Falló")], { usuario: "pato" });
+    abrir({ "GET /admin/metricas/campanas": { ...CAMPANAS, campanas: [v] } });
+    const r = await screen.findByRole("region", { name: "Recién empieza" });
+    expect(within(r).getByText("Todavía no salió nada de esta campaña")).toBeInTheDocument();
+    expect(within(r).getByText("2 borradores · 1 cancelada · 3 no salieron")).toBeInTheDocument();
+    expect(within(r).queryByRole("table")).toBeNull();
+  });
+});

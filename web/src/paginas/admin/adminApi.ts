@@ -267,7 +267,7 @@ export interface CambioRegistro {
 type Esq = components["schemas"];
 
 // (8/11) el esquema trae `estado_grupo` como `string`; la pantalla indexa `PorGrupo` con él, así que la unión literal se mantiene acá
-export type GrupoEstado = "publicada" | "programada" | "en_aprobacion" | "borrador" | "prueba" | "no_salio";
+export type GrupoEstado = "publicada" | "saliendo" | "programada" | "en_aprobacion" | "borrador" | "prueba" | "cancelada" | "no_salio";
 export type PorGrupo = Record<GrupoEstado, number>;
 // (8/11) `datos` viene como `{[k]: unknown}` (números normalizados + `crudo` + `errores`); la pantalla lee números, `crudo` y `errores`
 export type DatosMetricas = Partial<Record<string, number>> & { crudo?: Record<string, unknown>; errores?: string[] };
@@ -295,8 +295,10 @@ export type Campanas = Omit<Esq["CampanasResp"], "campanas" | "sueltas" | "perio
 };
 
 // (8/11) ajustes sobre CanalMetricas: `api` literal y `datos` tipado (ver DatosMetricas)
-export type CanalMetricas = Omit<Esq["CanalMetricas"], "api" | "ultima" | "manual"> & {
+export type CanalMetricas = Omit<Esq["CanalMetricas"], "api" | "ultima" | "manual" | "anterior"> & {
   api: "disponible" | "sin_permiso" | "no_hay" | "pendiente" | "error";
+  /** (12/11) la captura de hace ~28 días, solo con números (el esquema trae `datos` como diccionario de float) */
+  anterior?: (Omit<Esq["FilaAnterior"], "datos"> & { datos: Record<string, number> }) | null;
   ultima?: (Omit<Esq["FilaMetrica"], "datos"> & { datos: DatosMetricas }) | null;
   manual?: (Omit<Esq["FilaManual"], "datos"> & { datos: DatosMetricas }) | null;
 };

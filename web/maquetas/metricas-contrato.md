@@ -75,9 +75,10 @@ si no `fecha_programada`, si no `creado`.
   "campanas": [
     {
       "id": "uuid", "nombre": "Lo común nos convoca", "emoji": "🤝", "color": "#…", "dueno": "pato", "creado": "iso",
+      "descripcion": "la del Proyecto|null",   // (12/11) la «Frase del día (automática)» lleva: «La plataforma la arma y la manda sola cada día: historia de Instagram y mail»
       "piezas_total": 3,
-      "por_canal": { "instagram": { "publicada": 1, "programada": 1, "en_aprobacion": 1, "borrador": 0, "prueba": 0, "no_salio": 0 } },
-      "por_estado": { "publicada": 1, "programada": 1, "en_aprobacion": 1, "borrador": 0, "prueba": 0, "no_salio": 0 },
+      "por_canal": { "instagram": { "publicada": 1, "saliendo": 0, "programada": 1, "en_aprobacion": 1, "borrador": 0, "prueba": 0, "cancelada": 0, "no_salio": 0 } },
+      "por_estado": { "publicada": 1, "saliendo": 0, "programada": 1, "en_aprobacion": 1, "borrador": 0, "prueba": 0, "cancelada": 0, "no_salio": 0 },
       "primera": "iso|null", "ultima": "iso|null",
       "piezas": [
         { "id": "uuid", "canal": "instagram", "canal_texto": "Instagram", "titulo": "…", "estado": "publicada", "estado_grupo": "publicada",
@@ -87,13 +88,13 @@ si no `fecha_programada`, si no `creado`.
     }
   ],
   "sueltas": { "id": "sueltas", "nombre": "Sin campaña", "emoji": null, "color": null, "dueno": null, "creado": null, "piezas_total": 0, "por_canal": {}, "por_estado": {}, "primera": null, "ultima": null, "piezas": [] },
-  "totales": { "piezas": 12, "publicada": 5, "programada": 2, "en_aprobacion": 3, "borrador": 1, "prueba": 1, "no_salio": 0, "por_canal": { "instagram": 7, "facebook": 5 } }
+  "totales": { "piezas": 12, "publicada": 5, "saliendo": 0, "programada": 2, "en_aprobacion": 3, "borrador": 1, "prueba": 1, "cancelada": 0, "no_salio": 0, "por_canal": { "instagram": 7, "facebook": 5 } }
 }
 ```
 
 `estado_grupo` (único lugar donde se define: `metricas.GRUPO_ESTADO`):
-`publicada` ← publicada · `programada` ← pendiente, lista, procesando, enviando · `en_aprobacion` ← a_aprobar · `borrador` ← borrador ·
-`prueba` ← simulada, prueba, registrada · `no_salio` ← rechazada, cancelada, error. Cualquier otro estado → `prueba`.
+`publicada` ← publicada · `saliendo` ← enviando (12/11: el mail que sale en tandas) · `programada` ← pendiente, lista, procesando · `en_aprobacion` ← a_aprobar · `borrador` ← borrador ·
+`prueba` ← simulada, prueba, registrada · `cancelada` ← cancelada (12/11: a propósito; ni hecha ni «no salió») · `no_salio` ← rechazada, error. Cualquier otro estado → `prueba`.
 Las campañas van ordenadas por `ultima` descendente; adentro, las piezas por `fecha` descendente. Campañas sin piezas en el período
 igual aparecen (con `piezas: []`) si tienen piezas en total; subproyectos cuentan dentro del padre (`padre_id`) y además aparecen
 como propios: NO. Simplificación del 8/11: cada proyecto es una campaña, sin anidar; las piezas de un subproyecto cuentan para el
@@ -112,7 +113,11 @@ subproyecto y no para el padre.
       "enlace": "https://business.facebook.com/latest/insights/overview", "enlace_texto": "Ver en Meta Business Suite",
       "conectado": false, "conectar_url": null,   // (8/11) solo el sitio los usa: ¿hay token de WordPress.com? y la ruta de la API que lleva a conectarlo («/admin/metricas/wordpress/autorizar»; la web le antepone la base de la API); null si no hay app registrada
       "ultima": { "datos": { "alcance": 1200, "seguidores": 3400, "crudo": {…}, "errores": [] }, "periodo_desde": "2026-10-10", "periodo_hasta": "2026-11-08", "capturado": "iso", "fuente": "api" } | null,
-      "manual": { "datos": { "alcance": 1500 }, "periodo_desde": "…", "periodo_hasta": "…", "capturado": "iso", "nota": "…", "por": "franco" } | null
+      "manual": { "datos": { "alcance": 1500 }, "periodo_desde": "…", "periodo_hasta": "…", "capturado": "iso", "nota": "…", "por": "franco" } | null,
+      // (12/11, Franco) la captura por API de hace ~28 días (la más cercana a 28 días antes de `ultima.capturado`, entre 20 y 40 días antes), solo números normalizados; null si no hay
+      "anterior": { "datos": { "alcance": 2000, "seguidores": 9900 }, "periodo_desde": "…", "periodo_hasta": "…", "capturado": "iso" } | null,
+      // (12/11, Franco) cocientes con 3 decimales o null (nunca inventados); sin `ultima` queda {}
+      "tasas": { "alcance_sobre_seguidores": 0.31, "interacciones_sobre_alcance": null }
     }
   ]
 }
@@ -273,9 +278,21 @@ una lista o texto separado por líneas/comas, y valida que cada usuario exista e
 `metricas.campanas` (y por lo tanto el asesor) ignora las piezas de esos usuarios, en campañas y en totales; `canales_estado` no cambia.
 Pantalla: Configuración → bloque «Métricas» (un usuario por línea).
 
+### Métricas v3: datos (12/11, Franco: la revisión «con ojos de Beto»)
+
+- **Estados**: `enviando` → grupo `saliendo` (cuenta como hecha; chip propio, texto «saliendo»); `cancelada` → grupo `cancelada` (texto «cancelada»; no cuenta como hecha ni como «no salió»). `no_salio` queda para `rechazada` y `error`. `GRUPOS_HECHAS` = publicada, saliendo, programada, en_aprobacion. `totales` y `por_estado`/`por_canal` suman las claves `saliendo` y `cancelada`.
+- **`Campana.descripcion`**: la del Proyecto o null.
+- **Mail coherente**: `canales[mail].ultima.datos` suma, además de lo de las campañas de Perfit (`enviados`, `aperturas`, `clics`…, que valen 0 si en 28 días no se lanzó ninguna), `enviados_frase` (suma del `enviados` de cada pieza `mail` real y publicada del período: nuestro registro `frase_envios`, no Perfit; las piezas que la pasada de la cola no relee usan su última captura), `lista_contactos` (`activeContacts` de la lista `PERFIT_LISTA_FRASE`, por `perfit.lista_frase`: `GET /lists/{id}` o `GET /lists?q=`; si falla, la clave no está y `errores` dice «No pude leer la lista de la Frase del día…»; sin la variable no hay número ni error) y `crudo.campanas_en_periodo`. La web, sin enviados de campañas, muestra «Frase del día: mails enviados» y «Lista: contactos» como números grandes y la línea gris «Las aperturas de la Frase del día no las da Perfit por ahora; las campañas sí.».
+- **Sitio**: `visitas` y `visitantes` salen de `GET /sites/{site}/stats/visits?unit=day&quantity=<dias>` (suma de `views` y de `visitors` por día; `crudo.visitantes_es` lo aclara). `stats/summary` daba `visitors` del último día (72 contra 12.352 visitas). Si `visits` falla, `visitas` queda la del summary y `visitantes` NO se pone. Sin confirmar en vivo: la forma exacta de la respuesta de `visits` (se leen filas alineadas con `fields`, o filas con claves) y que sumar visitantes diarios es lo que la persona espera (no son personas únicas del período).
+- **YouTube**: `minutos_vistos` pasa al normalizado del canal (sigue también en `crudo`). La tarjeta muestra «Minutos vistos» y «Suscriptores nuevos».
+- **Claves nuevas de `CLAVES_NORMALIZADAS`**: `enviados_frase`, `lista_contactos`, `minutos_vistos`. Ojo: también las acepta la carga a mano (`validar_manual`), aunque la web no las ofrece.
+- **Período anterior** (`anterior`): `db.metricas.captura_cerca_de(ambito, ref, fecha, desde, hasta)` devuelve la captura por API más cercana a `fecha` dentro de la ventana; `canales_estado` la pide con fecha = `ultima.capturado` − 28 días y ventana de 40 a 20 días antes. La tabla `metricas` guarda todas las capturas, así que hay historia desde que la cola captura cada hora (12/11). Si la base falla, `anterior` es null y la tarjeta sigue.
+- **Tasas** (`tasas`): `alcance_sobre_seguidores` y `interacciones_sobre_alcance` (Instagram, Facebook, YouTube), `aperturas_sobre_enviados` y `clics_sobre_enviados` (mail, solo con `enviados` de campañas > 0), `visitas_por_dia` (sitio: `visitas` ÷ días del período). Divisor 0 o ausente → null.
+- **Web**: bajo los números grandes, «vs. período anterior: alcance +12 %, seguidores +101» (solo claves presentes en los dos períodos; seguidores y contactos en cantidad, el resto en %) y la tasa principal en chico («alcance = 31 % de los seguidores», «aperturas = 40 % de los enviados», «441 visitas por día»). La tarjeta de campaña con 0 piezas hechas (publicada + saliendo + programada + en aprobación) no arma tabla: dice «Todavía no salió nada de esta campaña» y cuenta aparte borradores, canceladas, no salieron y de prueba.
+
 ### `totales` y borradores
 
-`totales.piezas` = publicada + programada + en_aprobacion («piezas hechas»). `borrador`, `prueba` y `no_salio` siguen viniendo como conteos y la
+`totales.piezas` = publicada + saliendo + programada + en_aprobacion («piezas hechas»; `saliendo` desde el 12/11). `borrador`, `prueba`, `cancelada` y `no_salio` siguen viniendo como conteos y la
 web los muestra aparte («Aparte: N en prueba, M borradores.»). `totales.por_canal` cuenta solo las piezas hechas. En cada tarjeta de campaña los
 borradores van en un plegable propio («3 borradores») y no entran en los chips ni en la tabla por canal. `Campana.piezas_total` sigue incluyéndolos.
 
