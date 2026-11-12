@@ -35,9 +35,11 @@ def guardar_config(clave, valor, usuario=None):
     url, key = _db._cfg()
     data = json.dumps({"clave": clave, "valor": valor, "por": usuario,
                        "actualizado": datetime.now(timezone.utc).isoformat()}).encode("utf-8")
-    req = urllib.request.Request(f"{url}/rest/v1/config", data=data, method="POST", headers={
-        "apikey": key, "Authorization": "Bearer " + key, "Content-Type": "application/json",
-        "Prefer": "resolution=merge-duplicates,return=representation"})
+    # (12/11) cabeceras con el helper del paquete: con la clave acotada de la cola el `apikey` tiene que ser la anon, no el JWT
+    # propio (el gateway daba «Invalid API key» y la cola no podía guardar config: ni metricas_ultima_captura ni el token de IG).
+    from ._cliente import _cabeceras
+    req = urllib.request.Request(f"{url}/rest/v1/config", data=data, method="POST", headers=_cabeceras(key, {
+        "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=representation"}))
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
             return json.loads(r.read().decode("utf-8") or "[]")

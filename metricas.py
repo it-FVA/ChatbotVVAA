@@ -612,7 +612,8 @@ def capturar_si_toca(cfg):
             return capturar(cfg, por="cola", todas=False)
         finally:
             db.guardar_config(CLAVE_ULTIMA_CAPTURA, _iso(ahora), "cola")
-    except Exception:
+    except Exception as e:      # (12/11) se dice en el log de la cola: antes se tragaba y nadie se enteró de que no capturaba
+        print(f"métricas: no pude capturar: {type(e).__name__}: {str(e)[:160]}")
         return None
 
 

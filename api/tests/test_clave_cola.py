@@ -58,3 +58,28 @@ def test_el_sql_manual_no_lo_aplica_migrar_y_da_permisos_solo_sobre_las_tablas_a
     assert tablas == {"publicaciones", "frases", "frase_envios", "config", "clips", "banco_imagenes", "presencia", "migraciones"}
     assert "usuarios" not in activo and "conversaciones" not in activo
     assert re.search(r"grant select\s+on public\.migraciones\s+to cola", activo)      # migraciones: solo lectura
+
+
+def test_guardar_config_con_clave_de_cola_usa_anon_como_apikey(monkeypatch):
+    """(12/11) Regresión: guardar_config armaba las cabeceras a mano con el JWT de la cola como `apikey` y el gateway respondía
+    «Invalid API key»: la cola no guardaba metricas_ultima_captura ni el token renovado de Instagram."""
+    import io, json
+    import db
+    monkeypatch.setenv("SUPABASE_URL", "https://x.supabase.co")
+    monkeypatch.setenv("SUPABASE_KEY", "service")
+    monkeypatch.setenv("SUPABASE_KEY_COLA", "jwt-cola")
+    monkeypatch.setenv("SUPABASE_ANON_KEY", "anon-publica")
+    visto = {}
+
+    class R(io.BytesIO):
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    def urlopen(req, timeout=30):
+        visto["apikey"] = req.get_header("Apikey")
+        visto["auth"] = req.get_header("Authorization")
+        return R(b"[]")
+
+    monkeypatch.setattr(db.config.urllib.request, "urlopen", urlopen)
+    db.guardar_config("metricas_ultima_captura", "2026-11-12T00:00:00Z", "cola")
+    assert visto["apikey"] == "anon-publica" and visto["auth"] == "Bearer jwt-cola"
