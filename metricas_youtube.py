@@ -4,7 +4,7 @@ web/maquetas/metricas-contrato.md. Misma forma que metricas_meta.py.
 
 SOLO HTTP contra Google: no toca la base de datos (eso lo hace metricas.py). Cada función devuelve el dict NORMALIZADO del contrato:
 
-    {"vistas", "me_gusta", "comentarios", "compartidos", "seguidores", "seguidores_nuevos"   (enteros; la clave está SOLO si Google
+    {"vistas", "me_gusta", "comentarios", "compartidos", "seguidores", "seguidores_nuevos", "minutos_vistos" (solo el canal)   (enteros; la clave está SOLO si Google
      dio el número: nunca un 0 inventado),
      "crudo": {lo que devolvió Google, chico, sin series},
      "errores": [textos en castellano: qué no se pudo traer y por qué]}
@@ -221,6 +221,8 @@ def insights_canal_youtube(cfg, dias=28):
                            ("subscribersLost", "seguidores_perdidos")):
             if _entero(fila.get(col)) is not None:
                 crudo[clave] = _entero(fila[col])
+        if "minutos_vistos" in crudo:         # (12/11, Franco) también normalizado: la tarjeta de YouTube lo muestra («Minutos vistos»)
+            normal["minutos_vistos"] = crudo["minutos_vistos"]
         if not fila:
             crudo["analytics"] = "sin filas: Google todavía no tiene los números del período (demora 48-72 horas)"
     return _salida(normal, crudo, errores)

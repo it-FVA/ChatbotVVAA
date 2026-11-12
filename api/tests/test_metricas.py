@@ -82,6 +82,12 @@ def mundo(monkeypatch):
 
     monkeypatch.setattr(db, "guardar_metrica", guardar)
     monkeypatch.setattr(db, "ultimas_metricas", ultimas)
+    def cerca(ambito, ref, fecha, desde=None, hasta=None):      # (12/11) como db.metricas.captura_cerca_de, sobre las filas simuladas
+        cand = [f for f in st["filas"] if f["ambito"] == ambito and f["ref"] == str(ref) and f["fuente"] == "api"
+                and (desde is None or f["capturado"] >= iso(desde)) and (hasta is None or f["capturado"] <= iso(hasta))]
+        return min(cand, key=lambda f: abs(metricas._fecha(f["capturado"]) - fecha), default=None)
+
+    monkeypatch.setattr(db, "captura_cerca_de", cerca)
     monkeypatch.setattr(db, "publicaciones_para_metricas", lambda desde: [p for p in st["pubs"]])
     monkeypatch.setattr(db, "piezas_de_proyectos", lambda: [dict(i) for i in items])
     monkeypatch.setattr(db, "publicacion_por_id", lambda pid: next((p for p in st["pubs"] if p["id"] == pid), None))
@@ -97,13 +103,16 @@ def mundo(monkeypatch):
 # ---------------- estados ----------------
 def test_grupo_de():
     assert metricas.grupo_de("publicada") == "publicada"
-    for e in ("pendiente", "lista", "procesando", "enviando"):
+    for e in ("pendiente", "lista", "procesando"):
         assert metricas.grupo_de(e) == "programada"
+    assert metricas.grupo_de("enviando") == "saliendo"         # (12/11) el mail que sale en tandas ya no es «programada»
+    assert metricas.grupo_de("cancelada") == "cancelada"       # (12/11) cancelada a propósito: ni hecha ni «no salió»
     assert metricas.grupo_de("a_aprobar") == "en_aprobacion" and metricas.grupo_de("borrador") == "borrador"
     for e in ("simulada", "prueba", "registrada", "lo-que-sea", None):
         assert metricas.grupo_de(e) == "prueba"
-    for e in ("rechazada", "cancelada", "error"):
+    for e in ("rechazada", "error"):
         assert metricas.grupo_de(e) == "no_salio"
+    assert "saliendo" in metricas.GRUPOS_HECHAS and "cancelada" not in metricas.GRUPOS_HECHAS and "no_salio" not in metricas.GRUPOS_HECHAS
 
 
 # ---------------- campañas ----------------
@@ -126,7 +135,7 @@ def test_campanas(logueado, mundo):
     assert nombres == ["Lo común nos convoca", "Polarizaciones", "Vieja"]        # por `ultima` descendente; la sin piezas del período al final
     a, b, c = d["campanas"]
     assert a["piezas_total"] == 3 and a["emoji"] == "🤝" and a["dueno"] == "pato"
-    assert a["por_estado"] == {"publicada": 1, "programada": 1, "en_aprobacion": 1, "borrador": 0, "prueba": 0, "no_salio": 0}
+    assert a["por_estado"] == {"publicada": 1, "saliendo": 0, "programada": 1, "en_aprobacion": 1, "borrador": 0, "prueba": 0, "cancelada": 0, "no_salio": 0}
     assert a["por_canal"]["instagram"]["publicada"] == 1 and a["por_canal"]["instagram"]["programada"] == 1 and a["por_canal"]["facebook"]["en_aprobacion"] == 1
     assert [p["id"] for p in a["piezas"]] == sorted([p["id"] for p in a["piezas"]], key=lambda i: {p["id"]: p["fecha"] for p in a["piezas"]}[i], reverse=True)
     p1 = next(p for p in a["piezas"] if p["id"] == "pub-1")

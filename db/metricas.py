@@ -6,6 +6,7 @@ Migración: api/migraciones/20261108_1200_metricas.sql. Contrato: web/maquetas/m
 
   guardar_metrica(fila)                         inserta una captura y devuelve la fila guardada
   ultimas_metricas(ambito, refs, fuente)        la última de cada (ref, fuente), una sola consulta
+  captura_cerca_de(ambito, ref, fecha, …)       (12/11) la captura por API más cercana a una fecha, dentro de una ventana (el «período anterior»)
   publicaciones_para_metricas(desde_iso)        las piezas desde una fecha, con lo que hace falta para las campañas
   publicacion_por_id(pid)                       una pieza (id, canal, usuario, titulo) para validar la carga a mano
   piezas_de_proyectos()                         proyecto_items de tipo «pieza»: a qué campaña pertenece cada publicación
@@ -43,6 +44,41 @@ def ultimas_metricas(ambito, refs=None, fuente=None):
     for f in _db.consulta("metricas", filtros, COLS, order="capturado.desc", limite=5000):
         out.setdefault((str(f.get("ref")), f.get("fuente")), f)
     return out
+
+
+def captura_cerca_de(ambito, ref, fecha, desde=None, hasta=None):
+    """(12/11, Franco) La captura por API (fuente 'api') de (ambito, ref) cuyo `capturado` está más cerca de `fecha` (datetime o ISO),
+    dentro de la ventana [desde, hasta] (datetimes o ISO; sin ellas, sin límite). None si no hay ninguna (o no hay Supabase).
+    Sirve para comparar con «hace 28 días»: la tabla guarda todas las capturas, así que hay historia."""
+    import datetime as dt
+
+    def a_dt(v):
+        if isinstance(v, dt.datetime):
+            return v if v.tzinfo else v.replace(tzinfo=dt.timezone.utc)
+        try:
+            d = dt.datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        return d if d.tzinfo else d.replace(tzinfo=dt.timezone.utc)
+
+    if not _db.disponible():
+        return None
+    objetivo = a_dt(fecha)
+    if objetivo is None:
+        return None
+    filtros = [("ambito", ("eq", ambito)), ("ref", ("eq", str(ref))), ("fuente", ("eq", "api"))]
+    for op, v in (("gte", desde), ("lte", hasta)):
+        if v is not None and a_dt(v) is not None:
+            filtros.append(("capturado", (op, a_dt(v).strftime("%Y-%m-%dT%H:%M:%SZ"))))
+    mejor, dist = None, None
+    for f in _db.consulta("metricas", filtros, COLS, order="capturado.desc", limite=2000):
+        c = a_dt(f.get("capturado"))
+        if c is None:
+            continue
+        d = abs((c - objetivo).total_seconds())
+        if dist is None or d < dist:
+            mejor, dist = f, d
+    return mejor
 
 
 def publicaciones_para_metricas(desde_iso):

@@ -306,6 +306,17 @@
       ],
       "title": "Creado"
      },
+     "descripcion": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Descripcion"
+     },
      "dueno": {
       "anyOf": [
        {
@@ -434,6 +445,16 @@
    },
    "CanalMetricas": {
     "properties": {
+     "anterior": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/FilaAnterior"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "api": {
       "title": "Api",
       "type": "string"
@@ -505,6 +526,21 @@
      "nota_api": {
       "title": "Nota Api",
       "type": "string"
+     },
+     "tasas": {
+      "additionalProperties": {
+       "anyOf": [
+        {
+         "type": "number"
+        },
+        {
+         "type": "null"
+        }
+       ]
+      },
+      "default": {},
+      "title": "Tasas",
+      "type": "object"
      },
      "texto": {
       "title": "Texto",
@@ -1020,6 +1056,56 @@
      "estilo"
     ],
     "title": "EstiloDefecto",
+    "type": "object"
+   },
+   "FilaAnterior": {
+    "description": "(12/11) La captura por API de hace ~28 días (entre 20 y 40), con solo los números normalizados.",
+    "properties": {
+     "capturado": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Capturado"
+     },
+     "datos": {
+      "additionalProperties": {
+       "type": "number"
+      },
+      "title": "Datos",
+      "type": "object"
+     },
+     "periodo_desde": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Periodo Desde"
+     },
+     "periodo_hasta": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Periodo Hasta"
+     }
+    },
+    "required": [
+     "datos"
+    ],
+    "title": "FilaAnterior",
     "type": "object"
    },
    "FilaManual": {
@@ -2975,6 +3061,10 @@
       "title": "Borrador",
       "type": "integer"
      },
+     "cancelada": {
+      "title": "Cancelada",
+      "type": "integer"
+     },
      "en_aprobacion": {
       "title": "En Aprobacion",
       "type": "integer"
@@ -3005,15 +3095,21 @@
      "publicada": {
       "title": "Publicada",
       "type": "integer"
+     },
+     "saliendo": {
+      "title": "Saliendo",
+      "type": "integer"
      }
     },
     "required": [
      "piezas",
      "publicada",
+     "saliendo",
      "programada",
      "en_aprobacion",
      "borrador",
      "prueba",
+     "cancelada",
      "no_salio",
      "por_canal"
     ],

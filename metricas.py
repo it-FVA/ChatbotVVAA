@@ -31,16 +31,19 @@ ZONA_AR = dt.timezone(dt.timedelta(hours=-3))      # igual que api.admin_rutas.Z
 # (8/11) Único lugar donde se define a qué grupo pertenece cada estado de una pieza. Cualquier otro estado → «prueba».
 GRUPO_ESTADO = {
     "publicada": "publicada",
-    "pendiente": "programada", "lista": "programada", "procesando": "programada", "enviando": "programada",
+    "pendiente": "programada", "lista": "programada", "procesando": "programada",
+    "enviando": "saliendo",              # (12/11, Franco) el mail que sale en tandas: ya no es «programada», está saliendo
     "a_aprobar": "en_aprobacion",
     "borrador": "borrador",
     "simulada": "prueba", "prueba": "prueba", "registrada": "prueba",
-    "rechazada": "no_salio", "cancelada": "no_salio", "error": "no_salio",
+    "cancelada": "cancelada",            # (12/11, Franco) cancelada a propósito: no es «no salió» ni cuenta como hecha
+    "rechazada": "no_salio", "error": "no_salio",
 }
-GRUPOS = ("publicada", "programada", "en_aprobacion", "borrador", "prueba", "no_salio")
+GRUPOS = ("publicada", "saliendo", "programada", "en_aprobacion", "borrador", "prueba", "cancelada", "no_salio")
 
 CLAVES_NORMALIZADAS = ("alcance", "vistas", "me_gusta", "comentarios", "guardados", "compartidos", "clics", "interacciones",
-                       "seguidores", "seguidores_nuevos", "visitas", "visitantes", "enviados", "aperturas", "respuestas")
+                       "seguidores", "seguidores_nuevos", "visitas", "visitantes", "enviados", "aperturas", "respuestas",
+                       "enviados_frase", "lista_contactos", "minutos_vistos")      # (12/11, Franco) las tres últimas, nuevas
 
 # Los canales de la pantalla, en este orden. «sitio» junta home + wordpress.
 CLAVES_CANAL = ("instagram", "facebook", "youtube", "mail", "sitio", "whatsapp")
@@ -164,14 +167,17 @@ def _armar_campana(proyecto, piezas):
         por_estado[p["estado_grupo"]] += 1
     fechas = [p["fecha"] for p in piezas if p["fecha"]]
     base = {"id": proyecto.get("id"), "nombre": proyecto.get("nombre"), "emoji": proyecto.get("emoji"), "color": proyecto.get("color"),
-            "dueno": proyecto.get("dueno"), "creado": proyecto.get("creado")}
+            "dueno": proyecto.get("dueno"), "creado": proyecto.get("creado"),
+            "descripcion": (proyecto.get("descripcion") or "").strip() or None}      # (12/11, Franco) la del Proyecto; null si no tiene
     return dict(base, piezas_total=len(piezas), por_canal=por_canal, por_estado=por_estado,
                 primera=min(fechas) if fechas else None, ultima=max(fechas) if fechas else None,
                 piezas=sorted(piezas, key=lambda p: p["fecha"] or "", reverse=True))
 
 
-FRASE_DEL_DIA = {"id": "frase_del_dia", "nombre": "Frase del día (automática)", "emoji": "📅", "color": None, "dueno": None, "creado": None}
-GRUPOS_HECHAS = ("publicada", "programada", "en_aprobacion")      # lo que cuenta como «hecho» en los totales (8/11, Franco)
+DESCRIPCION_FRASE = "La plataforma la arma y la manda sola cada día: historia de Instagram y mail"
+FRASE_DEL_DIA = {"id": "frase_del_dia", "nombre": "Frase del día (automática)", "emoji": "📅", "color": None, "dueno": None, "creado": None,
+                 "descripcion": DESCRIPCION_FRASE}
+GRUPOS_HECHAS = ("publicada", "saliendo", "programada", "en_aprobacion")      # lo que cuenta como «hecho» en los totales (8/11, Franco)
 CLAVE_EXCLUIR = "metricas_excluir_usuarios"
 
 
@@ -323,6 +329,55 @@ def _fila_publica(f, con_nota=False):
     return r
 
 
+VENTANA_ANTERIOR = (40, 20)        # (12/11, Franco) el «período anterior» es la captura de entre 40 y 20 días antes de la última (la más cercana a 28)
+
+
+def _anterior(clave, ultima):
+    """(12/11, Franco) La captura por API más cercana a DIAS_CUENTA días antes de la última, con solo los números normalizados; None si no hay
+    (o si la base falla: la comparación es un extra y no tumba la tarjeta)."""
+    c = _fecha((ultima or {}).get("capturado"))
+    if not c:
+        return None
+    try:
+        f = db.captura_cerca_de("canal", clave, c - dt.timedelta(days=DIAS_CUENTA),
+                                desde=c - dt.timedelta(days=VENTANA_ANTERIOR[0]), hasta=c - dt.timedelta(days=VENTANA_ANTERIOR[1]))
+    except Exception:
+        return None
+    nums = _numeros(f) if f else {}
+    if not nums:
+        return None
+    return {"datos": nums, "periodo_desde": f.get("periodo_desde"), "periodo_hasta": f.get("periodo_hasta"), "capturado": f.get("capturado")}
+
+
+def _cociente(a, b):
+    """a / b con 3 decimales; None si falta alguno o b no es positivo (nunca un número inventado)."""
+    if not all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in (a, b)) or b <= 0:
+        return None
+    return round(a / b, 3)
+
+
+def _tasas(clave, ultima):
+    """(12/11, Franco) Las tasas del canal a partir de la última captura por API (floats de 3 decimales o null).
+    alcance_sobre_seguidores y interacciones_sobre_alcance (Instagram, Facebook, YouTube); aperturas_sobre_enviados y clics_sobre_enviados
+    (mail, solo con los enviados de las campañas de Perfit: no con los de la Frase del día); visitas_por_dia (sitio)."""
+    d = (ultima or {}).get("datos") or {}
+    if clave in ("instagram", "facebook", "youtube"):
+        return {"alcance_sobre_seguidores": _cociente(d.get("alcance"), d.get("seguidores")),
+                "interacciones_sobre_alcance": _cociente(d.get("interacciones"), d.get("alcance"))}
+    if clave == "mail":
+        return {"aperturas_sobre_enviados": _cociente(d.get("aperturas"), d.get("enviados")),
+                "clics_sobre_enviados": _cociente(d.get("clics"), d.get("enviados"))}
+    if clave == "sitio":
+        dias = (d.get("crudo") or {}).get("periodo_dias")
+        if not isinstance(dias, (int, float)) or isinstance(dias, bool) or dias <= 0:
+            try:
+                dias = (dt.date.fromisoformat(str(ultima["periodo_hasta"])[:10]) - dt.date.fromisoformat(str(ultima["periodo_desde"])[:10])).days
+            except (KeyError, TypeError, ValueError):
+                dias = DIAS_CUENTA
+        return {"visitas_por_dia": _cociente(d.get("visitas"), dias)}
+    return {}
+
+
 def canales_estado(cfg):
     """La respuesta de GET /canales: los seis canales siempre, en orden, con la última captura por API y la última carga a mano."""
     api = db.ultimas_metricas("canal", refs=list(CLAVES_CANAL), fuente="api")
@@ -355,7 +410,8 @@ def canales_estado(cfg):
             actualizado = fa["capturado"]
         out.append({"clave": clave, "texto": texto, "icono": icono, "modo": mod, "configurado": configurado, "api": estado,
                     "nota_api": nota, "enlace": url, "enlace_texto": url_texto, "conectado": conectado, "conectar_url": conectar_url, "ultima": _fila_publica(fa),
-                    "manual": _fila_publica(fm, con_nota=True)})
+                    "manual": _fila_publica(fm, con_nota=True), "anterior": _anterior(clave, fa) if fa else None,
+                    "tasas": _tasas(clave, fa) if fa else {}})
     return {"actualizado": actualizado, "canales": out}
 
 
@@ -515,34 +571,75 @@ def _captura_sitio(cfg, por, ahora, desde_pub):
         return {"ok": False, "piezas": 0, "error": f"No pude traer los números del sitio: {type(e).__name__}: {mw._limpiar(str(e), mw._secretos(cfg, (tok or {}).get('access_token')))[:160]}"}
 
 
+def _enviados_de_frase(desde_pub, ahora, res_por_pieza):
+    """(12/11, Franco) Los mails de la Frase del día enviados en los últimos DIAS_CUENTA días: la suma de `enviados` de cada pieza `mail`
+    real y publicada del período. Las piezas que se acaban de leer traen su número fresco (`res_por_pieza`); las que la pasada de la cola
+    salteó usan su última captura por API. None si no se pudo (nunca un 0 inventado); 0 solo si en el período no hubo ninguna pieza."""
+    desde = ahora - dt.timedelta(days=DIAS_CUENTA)
+    piezas = [p for p in db.publicaciones_para_metricas(_iso(desde - dt.timedelta(days=1)))
+              if p.get("canal") == "mail" and p.get("estado") == "publicada" and p.get("modo") == "real"
+              and (d := _fecha(fecha_efectiva(p))) and desde <= d <= ahora]
+    if not piezas:
+        return 0
+    previas = {}
+    for tanda in _chunks([str(p["id"]) for p in piezas if str(p["id"]) not in res_por_pieza], 40):
+        previas.update(db.ultimas_metricas("pieza", refs=tanda, fuente="api"))
+    total, con_numero = 0, 0
+    for p in piezas:
+        pid = str(p["id"])
+        datos = res_por_pieza.get(pid) or (previas.get((pid, "api")) or {}).get("datos") or {}
+        n = datos.get("enviados")
+        if isinstance(n, (int, float)) and not isinstance(n, bool):
+            total, con_numero = total + int(n), con_numero + 1
+    return total if con_numero else None
+
+
 def _captura_mail(por, ahora, desde_pub, fuente_env=None):
     """El mail (Perfit, 8/11, Franco): cuenta de 28 días + las piezas `mail` (Frase del día) publicadas, con el conteo de envíos de frase_envios.
-    Devuelve {"ok", "piezas", "error"}; nunca lanza. Las piezas `newsletter` no se leen por pieza: se pegan a mano en Perfit y no guardan el id de campaña."""
+    Devuelve {"ok", "piezas", "error"}; nunca lanza. Las piezas `newsletter` no se leen por pieza: se pegan a mano en Perfit y no guardan el id de campaña.
+    (12/11, Franco) A `datos` de la cuenta se suman `enviados_frase` (mails de la Frase del día enviados en el período, de nuestro registro) y
+    `lista_contactos` (contactos activos de la lista de la Frase del día en Perfit): la tarjeta no puede decir «0 enviados» mientras la Frase
+    manda miles por día. Si alguno no se pudo traer, no está y `errores` lo dice."""
     import metricas_perfit as mp
     env = os.environ if fuente_env is None else fuente_env
     try:
         if not mp.hay_clave(env):
             return {"ok": False, "piezas": 0, "error": mp.TEXTO_SIN_CLAVE}
         cuenta = mp.insights_cuenta_mail(env, DIAS_CUENTA, ahora)
-        hoy = ahora.astimezone(ZONA_AR).date()
-        db.guardar_metrica({"ambito": "canal", "ref": "mail", "canal": "mail", "fuente": "api",
-                            "periodo_desde": (hoy - dt.timedelta(days=DIAS_CUENTA)).isoformat(), "periodo_hasta": hoy.isoformat(),
-                            "datos": cuenta, "por": por})
         errores = cuenta.get("errores") or []
         clave = next((e for e in errores if mp.es_error_de_clave(e)), None)
+        hoy = ahora.astimezone(ZONA_AR).date()
+        fila = {"ambito": "canal", "ref": "mail", "canal": "mail", "fuente": "api",
+                "periodo_desde": (hoy - dt.timedelta(days=DIAS_CUENTA)).isoformat(), "periodo_hasta": hoy.isoformat(), "por": por}
         if clave:
+            db.guardar_metrica(dict(fila, datos=cuenta))
             return {"ok": False, "piezas": 0, "error": clave}
-        if errores and not _numeros({"datos": cuenta}):
-            return {"ok": False, "piezas": 0, "error": errores[0]}
-        n, con_numeros = 0, 0
+        n, con_numeros, res_por_pieza = 0, 0, {}
         for p in desde_pub:
             if p.get("canal") != "mail":
                 continue
             res = mp.insights_frase_mail(db, p["id"])
             db.guardar_metrica({"ambito": "pieza", "ref": str(p["id"]), "canal": "mail", "fuente": "api", "datos": res, "por": por})
+            res_por_pieza[str(p["id"])] = res
             n += 1
             if _numeros({"datos": res}):
                 con_numeros += 1
+        try:
+            enviados_frase = _enviados_de_frase(desde_pub, ahora, res_por_pieza)
+        except Exception as e:
+            enviados_frase = None
+            errores.append(f"No pude sumar los mails de la Frase del día: {type(e).__name__}")
+        if enviados_frase is not None:
+            cuenta["enviados_frase"] = enviados_frase
+        contactos, err_lista = mp.contactos_lista_frase(env)
+        if contactos is not None:
+            cuenta["lista_contactos"] = contactos
+        elif err_lista:
+            errores.append(err_lista)
+        cuenta["errores"] = errores
+        db.guardar_metrica(dict(fila, datos=cuenta))
+        if errores and not _numeros({"datos": cuenta}):
+            return {"ok": False, "piezas": 0, "error": errores[0]}
         return {"ok": True, "piezas": con_numeros, "error": None}
     except Exception as e:      # nunca un 500 por un error de Perfit o de la base
         return {"ok": False, "piezas": 0, "error": f"No pude traer los números del mail: {type(e).__name__}: {mp._limpiar(str(e), env)[:160]}"}

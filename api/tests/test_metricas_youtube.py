@@ -49,7 +49,7 @@ def test_canal_con_analytics(monkeypatch):
     d = my.insights_canal_youtube(Cfg(), 28)
     assert d["seguidores"] == 1200 and d["vistas"] == 3100                  # las vistas del período pisan las históricas
     assert (d["me_gusta"], d["comentarios"], d["compartidos"], d["seguidores_nuevos"]) == (210, 33, 17, 40)
-    assert d["crudo"]["minutos_vistos"] == 9400 and d["crudo"]["duracion_promedio_seg"] == 182 and d["crudo"]["videos_total"] == 55
+    assert d["minutos_vistos"] == 9400 and d["crudo"]["minutos_vistos"] == 9400 and d["crudo"]["duracion_promedio_seg"] == 182 and d["crudo"]["videos_total"] == 55
     assert d["crudo"]["vistas_es_historico"] is False and d["crudo"]["vistas_total_historico"] == 98000
     assert d["errores"] == []
     url_canal = visto[0][0]

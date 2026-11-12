@@ -2495,6 +2495,8 @@ export interface components {
             color?: string | null;
             /** Creado */
             creado?: string | null;
+            /** Descripcion */
+            descripcion?: string | null;
             /** Dueno */
             dueno?: string | null;
             /** Emoji */
@@ -2532,6 +2534,7 @@ export interface components {
         };
         /** CanalMetricas */
         CanalMetricas: {
+            anterior?: components["schemas"]["FilaAnterior"] | null;
             /** Api */
             api: string;
             /** Clave */
@@ -2556,6 +2559,13 @@ export interface components {
             modo: string;
             /** Nota Api */
             nota_api: string;
+            /**
+             * Tasas
+             * @default {}
+             */
+            tasas: {
+                [key: string]: number | null;
+            };
             /** Texto */
             texto: string;
             ultima?: components["schemas"]["FilaMetrica"] | null;
@@ -2728,6 +2738,22 @@ export interface components {
             estilo: {
                 [key: string]: unknown;
             };
+        };
+        /**
+         * FilaAnterior
+         * @description (12/11) La captura por API de hace ~28 días (entre 20 y 40), con solo los números normalizados.
+         */
+        FilaAnterior: {
+            /** Capturado */
+            capturado?: string | null;
+            /** Datos */
+            datos: {
+                [key: string]: number;
+            };
+            /** Periodo Desde */
+            periodo_desde?: string | null;
+            /** Periodo Hasta */
+            periodo_hasta?: string | null;
         };
         /** FilaManual */
         FilaManual: {
@@ -3317,6 +3343,8 @@ export interface components {
         Totales: {
             /** Borrador */
             borrador: number;
+            /** Cancelada */
+            cancelada: number;
             /** En Aprobacion */
             en_aprobacion: number;
             /** No Salio */
@@ -3333,6 +3361,8 @@ export interface components {
             prueba: number;
             /** Publicada */
             publicada: number;
+            /** Saliendo */
+            saliendo: number;
         };
         /** Vaciar */
         Vaciar: {

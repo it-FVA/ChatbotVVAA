@@ -77,19 +77,24 @@ def _pedir(ruta, fuente_env):
     """(respuesta, None) o (None, texto de error en castellano). Traduce los errores de perfit._req; no filtra la clave."""
     try:
         return perfit._req("GET", ruta, fuente=fuente_env, timeout=30), None
-    except RuntimeError as e:
+    except (RuntimeError, urllib.error.URLError, OSError, TimeoutError, ValueError) as e:
+        return None, _traducir(e, fuente_env)
+
+
+def _traducir(e, fuente_env):
+    """El texto en castellano de un error de perfit._req (la clave nunca sale)."""
+    if isinstance(e, RuntimeError):
         m = str(e)
         if " 401 " in m or " 403 " in m:
-            return None, f"{TEXTO_CLAVE_RECHAZADA}: revisá PERFIT_API_KEY y PERFIT_CUENTA."
+            return f"{TEXTO_CLAVE_RECHAZADA}: revisá PERFIT_API_KEY y PERFIT_CUENTA."
         if " 404 " in m:
-            return None, "Perfit no encontró lo que se pidió (¿la campaña ya no existe?)."
+            return "Perfit no encontró lo que se pidió (¿ya no existe?)."
         if " 429 " in m:
-            return None, "Perfit pidió esperar un rato antes de volver a preguntar."
-        return None, _limpiar(f"Perfit respondió con un error: {m}", fuente_env)[:200]
-    except (urllib.error.URLError, OSError, TimeoutError):
-        return None, f"{TEXTO_SIN_RESPUESTA}: no pude conectarme."
-    except ValueError:
-        return None, "Perfit devolvió algo que no se entiende."
+            return "Perfit pidió esperar un rato antes de volver a preguntar."
+        return _limpiar(f"Perfit respondió con un error: {m}", fuente_env)[:200]
+    if isinstance(e, ValueError) and not isinstance(e, urllib.error.URLError):
+        return "Perfit devolvió algo que no se entiende."
+    return f"{TEXTO_SIN_RESPUESTA}: no pude conectarme."
 
 
 def _salida(normal, crudo, errores):
@@ -216,6 +221,26 @@ def insights_campana_mail(fuente_env, campaign_id):
             crudo[k] = _num(d[k])
     return _salida({"enviados": _entero(d.get("sent")), "aperturas": _entero(d.get("opened")), "clics": _entero(d.get("clicked")),
                     "compartidos": _entero(d.get("shared"))}, crudo, [])
+
+
+def contactos_lista_frase(fuente_env):
+    """(12/11, Franco: «el objetivo es ganar gente propia») Los contactos activos de la lista de la Frase del día en Perfit
+    (PERFIT_LISTA_FRASE, id o nombre): (n, None), (None, texto de error) o (None, None) si la lista no está configurada.
+    Usa perfit.lista_frase (GET /lists/{id}, o GET /lists?q= si es un nombre) y lee `activeContacts`."""
+    if not hay_clave(fuente_env):
+        return None, TEXTO_SIN_CLAVE
+    if not ((fuente_env or {}).get("PERFIT_LISTA_FRASE") or "").strip():
+        return None, None
+    try:
+        lista = perfit.lista_frase(fuente_env)
+    except (RuntimeError, urllib.error.URLError, OSError, TimeoutError, ValueError) as e:
+        return None, "No pude leer la lista de la Frase del día: " + _traducir(e, fuente_env)
+    if not isinstance(lista, dict):
+        return None, "Perfit no encontró la lista de la Frase del día."
+    n = _entero(lista.get("activeContacts"))
+    if n is None:
+        return None, "Perfit no dio cuántos contactos tiene la lista de la Frase del día."
+    return n, None
 
 
 def insights_frase_mail(db, publicacion_id):

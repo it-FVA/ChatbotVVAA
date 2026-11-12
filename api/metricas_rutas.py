@@ -83,6 +83,7 @@ class Campana(BaseModel):
     color: Optional[str] = None
     dueno: Optional[str] = None
     creado: Optional[str] = None
+    descripcion: Optional[str] = None             # (12/11) la del Proyecto, o null; la Frase del día automática lleva la suya
     piezas_total: int
     por_canal: dict[str, dict[str, int]]
     por_estado: dict[str, int]
@@ -94,10 +95,12 @@ class Campana(BaseModel):
 class Totales(BaseModel):
     piezas: int
     publicada: int
+    saliendo: int                  # (12/11) mail que está saliendo en tandas; cuenta como hecha
     programada: int
     en_aprobacion: int
     borrador: int
     prueba: int
+    cancelada: int                 # (12/11) canceladas a propósito; no cuentan como hechas ni como «no salió»
     no_salio: int
     por_canal: dict[str, int]
 
@@ -116,6 +119,14 @@ class FilaMetrica(BaseModel):
     periodo_hasta: Optional[str] = None
     capturado: Optional[str] = None
     fuente: Optional[str] = None
+
+
+class FilaAnterior(BaseModel):
+    """(12/11) La captura por API de hace ~28 días (entre 20 y 40), con solo los números normalizados."""
+    datos: dict[str, float]
+    periodo_desde: Optional[str] = None
+    periodo_hasta: Optional[str] = None
+    capturado: Optional[str] = None
 
 
 class FilaManual(FilaMetrica):
@@ -137,6 +148,8 @@ class CanalMetricas(BaseModel):
     conectar_url: Optional[str] = None            # (8/11) solo el sitio: ruta de esta API que lleva a WordPress.com (la web la abre con un link normal)
     ultima: Optional[FilaMetrica] = None
     manual: Optional[FilaManual] = None
+    anterior: Optional[FilaAnterior] = None       # (12/11) null si no hay captura de hace 20-40 días
+    tasas: dict[str, Optional[float]] = {}        # (12/11) cocientes con 3 decimales o null: alcance_sobre_seguidores, interacciones_sobre_alcance, aperturas_sobre_enviados, clics_sobre_enviados, visitas_por_dia
 
 
 class CanalesResp(BaseModel):
