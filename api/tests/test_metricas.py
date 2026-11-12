@@ -569,7 +569,7 @@ def test_apertura_una_vez_por_dia(logueado, mundo, monkeypatch):
     assert r.status_code == 200, r.text
     d = r.json()
     assert d["nuevo"] is True and d["texto"].startswith("Esta semana") and d["capturado"]
-    assert len(cl.pedidos) == 1 and "últimos 7 días" in cl.pedidos[0]["messages"][-1]["content"]
+    assert len(cl.pedidos) == 1 and "En una línea:" in cl.pedidos[0]["messages"][-1]["content"]
     f = [x for x in mundo["filas"] if x["ambito"] == "resumen"]
     assert len(f) == 1 and f[0]["ref"] == "apertura" and f[0]["fuente"] == "ia"
     # segunda vez, mismo día: sin modelo
@@ -699,12 +699,12 @@ def test_asesor_nombra_las_piezas(logueado, mundo, monkeypatch):
     assert "Programadas:" in ctx and "«Mañana sale» (Instagram, mañana 10:00 (" in ctx and ", de pato)" in ctx
     assert "En aprobación:" in ctx and "«Espera aprobación» (Facebook" in ctx
     assert "Publicadas en los últimos 7 días:" in ctx and "«Pieza 1» (Instagram" in ctx
-    assert "### Frase del día (automática)" in ctx and "«Frase de hoy»" in ctx
-    assert "aparte: 1 borrador" in ctx and "Pieza 4" not in ctx                         # el borrador no se nombra, solo se cuenta
-    assert "Máximo 350 palabras" in ctx and "hasta 350 palabras" in ctx
+    assert "### Frase del día (automática)" in ctx and "Publicadas por canal: Instagram, historia: 1" in ctx
+    assert "Pieza 4" not in ctx and "borrador" not in ctx.split("CAMPAÑAS:")[1]            # (12/11) los borradores no entran al contexto
+    assert "Máximo 300 palabras" in ctx and "hasta 300 palabras" in ctx
     assert "NOMBRÁ LAS PIEZAS" in ctx and "Frase del día (automática)" in metricas_asesor.SISTEMA
     pregunta = ped["messages"][-1]["content"]
-    assert "NOMBRANDO las piezas" in pregunta and "últimos 7 días" in pregunta and "quedan programadas" in pregunta and "350" in pregunta
+    assert "NOMBRANDO" in pregunta and "300" in pregunta and "Sugerencia:" in pregunta
     # las preguntas libres también ven las piezas pero con el límite normal
     logueado.post("/admin/metricas/asesor", json={"mensajes": [{"rol": "usuario", "texto": "¿Qué sale mañana?"}]})
     libre = cl.pedidos[1]["messages"][0]["content"]
@@ -722,3 +722,113 @@ def test_resumen_de_la_frase_del_dia(logueado, mundo, monkeypatch):
     assert r.json()["ref"] == "frase_del_dia" and r.json()["nombre"] == "Frase del día (automática)" and r.json()["comparado_con"] is None
     assert "CAMPAÑA DE LA PREGUNTA: Frase del día (automática)" in cl.pedidos[0]["messages"][0]["content"]
     assert logueado.get("/admin/metricas/resumen/frase_del_dia").json()["texto"]
+
+
+# ---------------- Métricas v3: el asesor con veredicto (12/11, Franco) ----------------
+def _p(i, canal, grupo, estado, formato=None, usuario="pato", dias=1, titulo=None, alcance=None, hora=None):
+    fecha = hora or hace(dias)
+    return {"id": f"p{i}", "canal": canal, "canal_texto": {"instagram": "Instagram", "mail": "Mail"}.get(canal, canal), "formato": formato, "fecha": fecha,
+            "estado": estado, "estado_grupo": grupo, "usuario": usuario, "titulo": titulo or f"Pieza {i}",
+            "metricas": {"alcance": alcance, "fuente": "api", "capturado": hace(0)} if alcance is not None else None}
+
+
+def _camp(id_, nombre, piezas, **kw):
+    return dict({"id": id_, "nombre": nombre, "dueno": kw.pop("dueno", "pato"), "piezas": piezas, "primera": hace(10), "ultima": hace(0),
+                 "por_estado": {}, "por_canal": {}}, **kw)
+
+
+def _data(camps, sueltas=()):
+    return {"periodo": {"texto": "últimos 90 días", "dias": 90}, "campanas": camps, "sueltas": _camp("sueltas", "Sin campaña", list(sueltas), dueno=None),
+            "totales": {}}
+
+
+def _canales(**por):
+    base = {"instagram": "Instagram", "mail": "Mail (Newsletter y Frase del día)", "whatsapp": "WhatsApp"}
+    return {"canales": [dict({"clave": k, "texto": t, "api": "conectado", "ultima": None, "manual": None}, **por.get(k, {})) for k, t in base.items()]}
+
+
+def _fila(datos, desde="2026-10-15", hasta="2026-11-11"):
+    return {"datos": datos, "periodo_desde": desde, "periodo_hasta": hasta, "capturado": hace(0)}
+
+
+def test_apertura_pide_la_estructura_con_veredicto(logueado, mundo, monkeypatch):
+    cl, usos = _asesor_listo(monkeypatch)
+    assert logueado.get("/admin/metricas/asesor/apertura").status_code == 200
+    q = cl.pedidos[0]["messages"][-1]["content"]
+    for rotulo in ("**En una línea:**", "**Gente propia:**", "**Campañas:**", "**Falta cargar:**", "**Sugerencia:**"):
+        assert rotulo in q
+    assert q.index("En una línea") < q.index("Gente propia") < q.index("Campañas:") < q.index("Falta cargar") < q.index("Sugerencia")
+    assert "todavía no medimos la lista" in q and "UNA sola línea" in q and "Hasta 300 palabras" in q
+    ctx = cl.pedidos[0]["messages"][0]["content"]
+    assert "NO hables de lo que no figura" in ctx and "COMPARÁ con el período anterior" in ctx and "gente propia" in ctx
+
+
+def test_contexto_con_los_campos_nuevos():
+    c = _camp("A", "Lo común", [_p(1, "instagram", "publicada", "publicada", alcance=500)], descripcion="Una semana de gratitud en las escuelas")
+    canales = _canales(
+        instagram={"ultima": _fila({"alcance": 1240, "seguidores": 4000}), "anterior": _fila({"alcance": 1000, "seguidores": 3900}, "2026-09-17", "2026-10-14"),
+                   "tasas": {"alcance_sobre_seguidores": 0.31, "interacciones_sobre_alcance": 0.035, "visitas_por_dia": None}},
+        mail={"ultima": _fila({"enviados": 900, "enviados_frase": 800, "lista_contactos": 10500}),
+              "anterior": _fila({"enviados": 900, "lista_contactos": 10000}), "tasas": {"aperturas_sobre_enviados": 0.42}})
+    ctx = metricas_asesor.contexto(_data([c]), canales)
+    assert "De qué trata: Una semana de gratitud en las escuelas" in ctx
+    assert "período anterior: alcance 1000, seguidores 3900" in ctx
+    assert "alcance = 31 % de los seguidores" in ctx and "interacciones = 3,5 % del alcance" in ctx and "aperturas = 42 % de los enviados" in ctx
+    assert "enviados de la Frase del día 800" in ctx and "contactos en la lista 10500" in ctx
+    assert "Lista de mail: 10500 contactos" in ctx and "eran 10000 (+5 %, +500 contactos)" in ctx
+    assert "Instagram, alcance: de 1000 a 1240 (+24 %)" in ctx           # el cambio lo calcula el módulo, no el modelo
+
+
+def test_contexto_tolera_que_falten_los_campos_nuevos():
+    c = _camp("A", "Lo común", [_p(1, "instagram", "publicada", "publicada")])           # sin descripcion
+    ctx = metricas_asesor.contexto(_data([c]), _canales(instagram={"ultima": _fila({"alcance": 10})}))      # sin anterior ni tasas ni lista
+    assert "De qué trata" not in ctx and "tasas:" not in ctx and " · período anterior:" not in ctx
+    assert "PERÍODO ANTERIOR: todavía no hay" in ctx and "todavía no medimos la lista" in ctx
+    assert "Canales sin ningún número" in ctx
+    assert metricas_asesor.contexto(_data([]), {"canales": []})                              # ni campañas ni canales
+
+
+def test_la_frase_del_dia_va_resumida():
+    pubs = [_p(i, "instagram", "publicada", "publicada", "historia", usuario="frase_del_dia", dias=i + 1, titulo=f"Historia número {i}", alcance=100 + i)
+            for i in range(14)] + [_p(100 + i, "mail", "publicada", "publicada", None, usuario="frase_del_dia", dias=i + 1, titulo=f"Mail número {i}") for i in range(14)]
+    f = _camp(metricas_asesor.CLAVE_FRASE, "Frase del día (automática)", pubs, dueno=None)
+    ctx = metricas_asesor.contexto(_data([f]), _canales())
+    assert sum(ctx.count(f"«Historia número {i}»") for i in range(14)) <= 3
+    assert "«Mail número" not in ctx
+    assert "Publicadas por canal: Instagram, historia: 14; Mail: 14" in ctx and "Las 3 de más alcance" in ctx and "«Historia número 13»" in ctx
+    assert "0 hechas por personas y 28 automáticas" in ctx and "Salió en 14 de 14 días corridos" in ctx and "(todos los días)" in ctx
+
+
+def test_saliendo_y_cancelada_se_dicen_bien():
+    a = _p(1, "mail", "saliendo", "enviando", titulo="Mail de la semana", hora=hace(0, 1))
+    b = _p(2, "instagram", "cancelada", "cancelada", titulo="La que se cortó")
+    c = _p(3, "instagram", "no_salio", "rechazada", titulo="La rechazada")
+    d = _p(4, "instagram", "no_salio", "error", titulo="La del error")
+    e = _p(5, "instagram", "no_salio", "cancelada", titulo="Cancelada vieja")        # metricas.py aún la junta con no_salio: se reclasifica
+    ctx = metricas_asesor.contexto(_data([_camp("A", "Campaña", [a, b, c, d, e])]), _canales())
+    assert "Saliendo en tandas ahora (ya cuentan como hechas, no están programadas):" in ctx and "«Mail de la semana» (Mail, hoy" in ctx
+    assert "Programadas:" not in ctx
+    assert "Canceladas a propósito (no es un fallo):" in ctx and "«La que se cortó»" in ctx and "«Cancelada vieja»" in ctx
+    assert "no salió (rechazada)" in ctx and "no salió (con error)" in ctx
+    assert "2 canceladas a propósito" in ctx and "2 no salieron (rechazadas o con error)" in ctx
+    assert "1 saliendo en tandas" in ctx                                                  # cuenta como hecha
+    assert metricas_asesor._dicho(b) == "cancelada a propósito" and metricas_asesor._dicho(c) == "no salió (rechazada)"
+
+
+def test_borradores_y_pruebas_no_entran_al_contexto():
+    c = _camp("A", "Campaña", [_p(1, "instagram", "publicada", "publicada"), _p(2, "instagram", "borrador", "borrador", titulo="Secreto borrador"),
+                               _p(3, "instagram", "prueba", "simulada", titulo="Secreta prueba")])
+    ctx = metricas_asesor.contexto(_data([c]), _canales())
+    assert "Secreto borrador" not in ctx and "Secreta prueba" not in ctx and "borrador" not in ctx.split("CAMPAÑAS:")[1].split("GUÍA DE CANALES")[0]
+
+
+def test_huella_cambia_con_la_lista_y_el_anterior(mundo, monkeypatch):
+    estado = {"canales": [{"clave": "mail", "ultima": _fila({"lista_contactos": 100}), "manual": None, "anterior": _fila({"lista_contactos": 90}), "tasas": None}]}
+    monkeypatch.setattr(metricas, "canales_estado", lambda cfg: estado)
+    h0 = metricas_asesor.huella(90, Cfg())
+    assert metricas_asesor.huella(90, Cfg()) == h0
+    estado["canales"][0]["ultima"] = _fila({"lista_contactos": 101})
+    h1 = metricas_asesor.huella(90, Cfg())
+    assert h1 != h0
+    estado["canales"][0]["anterior"] = _fila({"lista_contactos": 95})
+    assert metricas_asesor.huella(90, Cfg()) != h1
