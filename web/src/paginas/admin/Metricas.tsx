@@ -60,12 +60,14 @@ const ETIQUETA: Record<string, string> = {
   respuestas: "respuestas",
   // (12/11, Franco) claves nuevas
   enviados_frase: "mails de la Frase del día",
+  envios_frase: "envíos de la Frase del día",
   lista_contactos: "contactos en la lista",
   minutos_vistos: "minutos vistos",
 };
 // (12/11, Franco) cómo se lee cada número en la línea «vs. período anterior» y en las tarjetas (ETIQUETA va en minúscula; esto es lo que se ve grande)
 const ETIQUETA_GRANDE: Record<string, string> = {
-  enviados_frase: "Frase del día: mails enviados",
+  enviados_frase: "Frase del día: correos en total",
+  envios_frase: "Frase del día: envíos (días)",
   lista_contactos: "Lista: contactos",
   minutos_vistos: "Minutos vistos",
   seguidores_nuevos: "Suscriptores nuevos",
@@ -98,7 +100,7 @@ function grandes(d: DatosMetricas, canal = ""): [string, number][] {
   if (canal === "mail") {
     const hayCampanas = (v("enviados") ?? 0) > 0;
     const hayFrase = v("enviados_frase") !== null || v("lista_contactos") !== null;
-    claves = hayCampanas ? ["enviados", "aperturas", "clics", "enviados_frase", "lista_contactos"] : hayFrase ? ["enviados_frase", "lista_contactos"] : ["enviados", "aperturas", "clics"];
+    claves = hayCampanas ? ["enviados", "aperturas", "clics", "envios_frase", "lista_contactos"] : hayFrase ? ["envios_frase", "lista_contactos", "enviados_frase"] : ["enviados", "aperturas", "clics"];   // (12/11, Franco) primero los envíos (días) y la lista; el total de correos hacía ruido
   }
   if (canal === "sitio") claves = ["visitas", "visitantes", "comentarios", "me_gusta"];
   // (12/11, Franco) un cero grande no dice nada («0 me gusta» en el sitio): va primero lo que tiene valor; los ceros solo si no hay otra cosa

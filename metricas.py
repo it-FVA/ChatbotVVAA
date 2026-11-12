@@ -43,7 +43,7 @@ GRUPOS = ("publicada", "saliendo", "programada", "en_aprobacion", "borrador", "p
 
 CLAVES_NORMALIZADAS = ("alcance", "vistas", "me_gusta", "comentarios", "guardados", "compartidos", "clics", "interacciones",
                        "seguidores", "seguidores_nuevos", "visitas", "visitantes", "enviados", "aperturas", "respuestas",
-                       "enviados_frase", "lista_contactos", "minutos_vistos")      # (12/11, Franco) las tres últimas, nuevas
+                       "enviados_frase", "lista_contactos", "minutos_vistos", "envios_frase")      # (12/11, Franco) las cuatro últimas, nuevas
 
 # Los canales de la pantalla, en este orden. «sitio» junta home + wordpress.
 CLAVES_CANAL = ("instagram", "facebook", "youtube", "mail", "sitio", "whatsapp")
@@ -673,6 +673,15 @@ def _enviados_de_frase(desde_pub, ahora, res_por_pieza):
     return total if con_numero else None
 
 
+def _envios_de_frase(desde_pub, ahora):
+    """(12/11, Franco) Cuántos ENVÍOS diarios de la Frase del día hubo en el período (días en que salió el mail): el número que se entiende
+    («8 envíos a 2.2 mil personas»), al lado del total de correos, que hacía ruido (18.867 contra una lista de 2.223)."""
+    desde = ahora - dt.timedelta(days=DIAS_CUENTA)
+    return sum(1 for p in db.publicaciones_para_metricas(_iso(desde - dt.timedelta(days=1)))
+               if p.get("canal") == "mail" and p.get("estado") == "publicada" and p.get("modo") == "real"
+               and (d := _fecha(fecha_efectiva(p))) and desde <= d <= ahora)
+
+
 def _captura_mail(por, ahora, desde_pub, fuente_env=None):
     """El mail (Perfit, 8/11, Franco): cuenta de 28 días + las piezas `mail` (Frase del día) publicadas, con el conteo de envíos de frase_envios.
     Devuelve {"ok", "piezas", "error"}; nunca lanza. Las piezas `newsletter` no se leen por pieza: se pegan a mano en Perfit y no guardan el id de campaña.
@@ -710,6 +719,10 @@ def _captura_mail(por, ahora, desde_pub, fuente_env=None):
             errores.append(f"No pude sumar los mails de la Frase del día: {type(e).__name__}")
         if enviados_frase is not None:
             cuenta["enviados_frase"] = enviados_frase
+            try:
+                cuenta["envios_frase"] = _envios_de_frase(desde_pub, ahora)
+            except Exception:
+                pass
         contactos, err_lista = mp.contactos_lista_frase(env)
         if contactos is not None:
             cuenta["lista_contactos"] = contactos
