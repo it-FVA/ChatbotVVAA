@@ -965,7 +965,11 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
             {canal && info && (
               <div className={"pub-aviso " + modo}>
                 <Icono nombre={modo === "real" ? "alerta" : "info"} tam={16} />
-                <span>{textoAviso(info, fechaIso)}</span>
+                <span>
+                  {textoAviso(info, fechaIso)}
+                  {/* (12/11, Franco) YouTube no tiene un «tipo Short» que se elija: un video vertical de hasta 3 minutos se muestra como Short solo */}
+                  {canal === "youtube" && conVideo && f.video_url && (f.video_formato === "vertical" ? " YouTube lo va a mostrar como Short (video vertical de menos de 3 minutos)." : " YouTube lo va a mostrar como video normal (horizontal).")}
+                </span>
               </div>
             )}
             <p className="suave chico">
