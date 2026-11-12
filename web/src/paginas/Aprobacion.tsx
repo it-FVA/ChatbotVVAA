@@ -22,7 +22,7 @@ import { TarjetaPublicacion, descargarHtml } from "./Publicaciones";
 import "../publicar.css";
 import "../admin.css"; // (5/11) el menú lateral con íconos y badge es el de Administración
 
-const MOSTRAR_METRICAS = false; // (8/11, Franco) oculta hasta que lo pida; /aprobacion/metricas funciona por URL
+const MOSTRAR_METRICAS = true; // (12/11, Franco) destapada: «desocultá el botón de métricas». Si hay que esconderla otra vez, acá
 const TODAS: { a: string; texto: string; icono: string; fin?: boolean }[] = [
   { a: "/aprobacion", texto: "Para aprobar", icono: "reloj", fin: true },
   { a: "/aprobacion/cola", texto: "Programadas", icono: "calendario" },

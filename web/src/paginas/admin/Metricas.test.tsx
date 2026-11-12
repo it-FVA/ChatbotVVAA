@@ -78,10 +78,10 @@ function abrir(extra: Record<string, unknown> = {}, ruta = "/aprobacion/metricas
 }
 
 describe("Métricas", () => {
-  it("vive en Gestión: /aprobacion/metricas muestra la pantalla y el menú no ofrece «Métricas» (oculto)", async () => {
+  it("vive en Gestión: /aprobacion/metricas muestra la pantalla y el menú ofrece «Métricas» (destapada el 12/11)", async () => {
     abrir();
     expect(await screen.findByRole("article", { name: "Instagram" })).toBeInTheDocument();
-    expect(within(screen.getByRole("navigation", { name: "Aprobación" })).queryByText("Métricas")).toBeNull();
+    expect(within(screen.getByRole("navigation", { name: "Aprobación" })).getByText("Métricas")).toBeInTheDocument();
   });
 
   it("/administracion/metricas redirige a /aprobacion/metricas conservando la consulta", async () => {
