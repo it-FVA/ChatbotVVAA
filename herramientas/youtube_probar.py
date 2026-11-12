@@ -5,7 +5,7 @@ Google cerró la revisión de cumplimiento el 12/11 diciendo que «los videos su
 «no listado» (no aparece en el canal ni en búsquedas; solo con el link) y muestra qué privacidad devolvió YouTube.
 
 Correr desde ChatbotVVAA:  python herramientas/youtube_probar.py
-Lee YOUTUBE_TOKEN_JSON de %USERPROFILE%\.fva\secrets.toml (secretos.ruta()). No imprime el token.
+Lee YOUTUBE_TOKEN_JSON del secrets.toml local (secretos.ruta()). No imprime el token.
 Después: borrar el video desde YouTube Studio (la API no puede borrarlo con los permisos que tenemos).
 """
 import json, sys, os, tomllib, urllib.request

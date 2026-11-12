@@ -827,8 +827,8 @@ def publicar_youtube(cfg, video_bytes, titulo, descripcion, quien="", fecha=None
        simulado -> arma la ficha (título, descripción) y la muestra; no sube
        privado  -> sube el video como PRIVADO (se revisa y se publica desde YouTube Studio)
        real     -> sube como PÚBLICO; con fecha futura lo deja privado con publishAt (YouTube lo publica solo)
-    Con la app de Google en modo Prueba, YouTube deja los videos subidos por API en privado
-    hasta que la app pase la verificación, aunque se pida público."""
+    (12/11) Google confirmó al cerrar la revisión de cumplimiento que la API no fuerza «privado»: lo que se pide es lo que queda
+    (probado el 12/11 con herramientas/youtube_probar.py: «unlisted» respetado)."""
     modo = cfg.modo_yt
     pieza = {"title": (titulo or "")[:100], "description": (descripcion or "")[:5000],
              "tags": list(etiquetas or [])[:20], "fecha_programada": fecha}

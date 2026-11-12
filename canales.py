@@ -273,8 +273,8 @@ def aviso(clave, modo, con_fecha):
             a = "Se programa en Facebook para el {cuando} (mínimo 10 minutos de anticipación)."
         if con_fecha and clave == "youtube":
             a = "Se sube ahora y YouTube lo publica solo el {cuando}."
-    if clave == "youtube" and modo in ("privado", "real"):
-        a += " (Hasta que Google audite el proyecto, YouTube deja los videos subidos por API en privado: se publican desde YouTube Studio.)"
+    # (12/11) Google cerró la revisión: la API NO fuerza privado (probado con herramientas/youtube_probar.py: «unlisted» respetado).
+    # Quedó sin el aviso «hasta que Google audite…» que venía de documentación de terceros desactualizada.
     if con_fecha and c and c.va_a_la_cola(modo):
         a = f"Queda programada para el {{cuando}}: no sale ahora. Ese día sale sola por {nombre}"
         a += " (el canal está en prueba: ese día se arma y se muestra, no sale de verdad)." if modo == "simulado" else "."
