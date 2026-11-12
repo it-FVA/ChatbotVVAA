@@ -57,6 +57,7 @@ grant select, insert, update, delete on public.config        to cola;
 grant select, insert, update, delete on public.clips         to cola;
 grant select, insert, update, delete on public.banco_imagenes to cola;   -- (5/11) la cola sincroniza el banco de imágenes desde Drive
 grant select, delete                 on public.presencia     to cola;   -- (5/11) la cola borra los latidos de más de 10 minutos
+grant select, insert, update         on public.metricas      to cola;   -- (12/11) la cola captura las métricas cada hora (20261112_1200_metricas_grant_cola)
 grant select                         on public.migraciones   to cola;
 
 -- Si alguna de esas tablas tiene un id con secuencia (serial o identity), el INSERT necesita usarla.
