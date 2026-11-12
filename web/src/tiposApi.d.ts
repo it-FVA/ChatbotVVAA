@@ -323,6 +323,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/metricas/serie": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ver Serie
+         * @description (12/11, Franco) La tendencia de un canal: un punto por día (la última captura por API de ese día), de los últimos `dias`. Cada punto trae el total
+         *     de los 28 días que terminaban ese día. Vacía si todavía no hay capturas.
+         */
+        get: operations["ver_serie_admin_metricas_serie_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/metricas/wordpress": {
         parameters: {
             query?: never;
@@ -2555,6 +2576,7 @@ export interface components {
             /** Icono */
             icono: string;
             manual?: components["schemas"]["FilaManual"] | null;
+            mejor_pieza?: components["schemas"]["PiezaCanal"] | null;
             /** Modo */
             modo: string;
             /** Nota Api */
@@ -2569,6 +2591,11 @@ export interface components {
             /** Texto */
             texto: string;
             ultima?: components["schemas"]["FilaMetrica"] | null;
+            /**
+             * Ultimas Piezas
+             * @default []
+             */
+            ultimas_piezas: components["schemas"]["PiezaCanal"][];
         };
         /** Canales */
         Canales: {
@@ -3165,6 +3192,25 @@ export interface components {
             /** Ver Url */
             ver_url?: string | null;
         };
+        /**
+         * PiezaCanal
+         * @description (12/11, Franco) Una pieza publicada de un canal, para «Lo último que salió» y «La que mejor anduvo» de la tarjeta.
+         */
+        PiezaCanal: {
+            /** Campana */
+            campana?: string | null;
+            /** Fecha */
+            fecha?: string | null;
+            /** Formato */
+            formato?: string | null;
+            /** Id */
+            id: string;
+            metricas?: components["schemas"]["MetricasPieza"] | null;
+            /** Titulo */
+            titulo: string;
+            /** Ver Url */
+            ver_url?: string | null;
+        };
         /** PrimeraVez */
         PrimeraVez: {
             /** Clave */
@@ -3206,6 +3252,15 @@ export interface components {
             emails?: string[] | null;
             /** Fecha */
             fecha?: string | null;
+        };
+        /** PuntoSerie */
+        PuntoSerie: {
+            /** Datos */
+            datos: {
+                [key: string]: number;
+            };
+            /** Dia */
+            dia: string;
         };
         /** Rechazar */
         Rechazar: {
@@ -3292,6 +3347,15 @@ export interface components {
             ref: string;
             /** Texto */
             texto: string;
+        };
+        /** SerieResp */
+        SerieResp: {
+            /** Canal */
+            canal: string;
+            /** Dias */
+            dias: number;
+            /** Puntos */
+            puntos: components["schemas"]["PuntoSerie"][];
         };
         /** Servicio */
         Servicio: {
@@ -3979,6 +4043,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResumenOut"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ver_serie_admin_metricas_serie_get: {
+        parameters: {
+            query: {
+                canal: string;
+                dias?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SerieResp"];
                 };
             };
             /** @description Validation Error */

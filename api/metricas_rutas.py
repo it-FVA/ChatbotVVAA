@@ -3,7 +3,8 @@ Pestaña «Métricas» de Gestión (Aprobación; 8/11, Franco): quienes aprueban
 metricas.py (campañas, canales, captura), metricas_meta.py (HTTP contra Meta) y metricas_asesor.py (el asesor de campañas con IA).
 
   GET  /admin/metricas/campanas?dias=90 | mes=AAAA-MM   campañas (Proyectos) con sus piezas por canal y por estado, y las métricas de cada pieza
-  GET  /admin/metricas/canales                           una tarjeta por canal: estado de la conexión, últimos números, enlace y lo anotado a mano
+  GET  /admin/metricas/canales                           una tarjeta por canal: estado de la conexión, últimos números, enlace y lo anotado a mano, últimas piezas y la mejor (12/11)
+  GET  /admin/metricas/serie?canal=instagram&dias=28     (12/11) un punto por día de los números del canal: la tendencia de la tarjeta
   POST /admin/metricas/actualizar                        captura ahora Instagram, Facebook, YouTube, el sitio y el mail (Perfit) (cuenta de 28 días + piezas de los últimos 60); nunca 500 por las plataformas
   GET  /admin/metricas/wordpress/autorizar               (8/11) redirige (302) a WordPress.com para conectar el sitio; el `state` va firmado y vence a los 10 minutos
   GET  /admin/metricas/wordpress/callback?code&state     (8/11) vuelve de WordPress.com: canjea el código, guarda el token y redirige a la web (?wordpress=ok | error&motivo=)
@@ -129,6 +130,17 @@ class FilaAnterior(BaseModel):
     capturado: Optional[str] = None
 
 
+class PiezaCanal(BaseModel):
+    """(12/11, Franco) Una pieza publicada de un canal, para «Lo último que salió» y «La que mejor anduvo» de la tarjeta."""
+    id: str
+    titulo: str
+    formato: Optional[str] = None
+    fecha: Optional[str] = None
+    campana: Optional[str] = None                 # nombre de la campaña, o null si es suelta
+    ver_url: Optional[str] = None
+    metricas: Optional[MetricasPieza] = None
+
+
 class FilaManual(FilaMetrica):
     nota: Optional[str] = None
     por: Optional[str] = None
@@ -149,12 +161,25 @@ class CanalMetricas(BaseModel):
     ultima: Optional[FilaMetrica] = None
     manual: Optional[FilaManual] = None
     anterior: Optional[FilaAnterior] = None       # (12/11) null si no hay captura de hace 20-40 días
+    ultimas_piezas: list[PiezaCanal] = []         # (12/11) hasta 3 piezas publicadas, las más recientes (sin los usuarios excluidos)
+    mejor_pieza: Optional[PiezaCanal] = None      # (12/11) la de mayor alcance (si no, vistas, si no, aperturas) de los últimos 28 días; null si ninguna tiene números
     tasas: dict[str, Optional[float]] = {}        # (12/11) cocientes con 3 decimales o null: alcance_sobre_seguidores, interacciones_sobre_alcance, aperturas_sobre_enviados, clics_sobre_enviados, visitas_por_dia
 
 
 class CanalesResp(BaseModel):
     actualizado: Optional[str] = None
     canales: list[CanalMetricas]
+
+
+class PuntoSerie(BaseModel):
+    dia: str                                      # AAAA-MM-DD, hora Argentina
+    datos: dict[str, float]                       # los números normalizados de la última captura de ese día
+
+
+class SerieResp(BaseModel):
+    canal: str
+    dias: int
+    puntos: list[PuntoSerie]
 
 
 class ResultadoCanal(BaseModel):
@@ -258,6 +283,15 @@ def ver_campanas(dias: Optional[int] = None, mes: Optional[str] = None, quien=De
 def ver_canales(quien=Depends(auth.aprobador_o_admin)):
     """Una tarjeta por canal: Instagram, Facebook y YouTube por la plataforma; mail, sitio y WhatsApp con enlace y carga a mano."""
     return _leer(metricas.canales_estado, _config())
+
+
+@router.get("/serie", response_model=SerieResp)
+def ver_serie(canal: str, dias: int = Query(28, ge=1, le=120), quien=Depends(auth.aprobador_o_admin)):
+    """(12/11, Franco) La tendencia de un canal: un punto por día (la última captura por API de ese día), de los últimos `dias`. Cada punto trae el total
+    de los 28 días que terminaban ese día. Vacía si todavía no hay capturas."""
+    if canal not in metricas.CLAVES_CANAL:
+        raise HTTPException(400, "Ese canal no existe: " + ", ".join(metricas.CLAVES_CANAL) + ".")
+    return {"canal": canal, "dias": dias, "puntos": _leer(metricas.serie, canal, dias)}
 
 
 @router.post("/actualizar", response_model=ActualizarResp)

@@ -519,6 +519,16 @@
        }
       ]
      },
+     "mejor_pieza": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PiezaCanal"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "modo": {
       "title": "Modo",
       "type": "string"
@@ -555,6 +565,14 @@
         "type": "null"
        }
       ]
+     },
+     "ultimas_piezas": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/PiezaCanal"
+      },
+      "title": "Ultimas Piezas",
+      "type": "array"
      }
     },
     "required": [
@@ -2498,6 +2516,79 @@
     "title": "PiezaCampana",
     "type": "object"
    },
+   "PiezaCanal": {
+    "description": "(12/11, Franco) Una pieza publicada de un canal, para «Lo último que salió» y «La que mejor anduvo» de la tarjeta.",
+    "properties": {
+     "campana": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Campana"
+     },
+     "fecha": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Fecha"
+     },
+     "formato": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Formato"
+     },
+     "id": {
+      "title": "Id",
+      "type": "string"
+     },
+     "metricas": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/MetricasPieza"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "titulo": {
+      "title": "Titulo",
+      "type": "string"
+     },
+     "ver_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ver Url"
+     }
+    },
+    "required": [
+     "id",
+     "titulo"
+    ],
+    "title": "PiezaCanal",
+    "type": "object"
+   },
    "PrimeraVez": {
     "properties": {
      "clave": {
@@ -2668,6 +2759,27 @@
      }
     },
     "title": "PruebaMail",
+    "type": "object"
+   },
+   "PuntoSerie": {
+    "properties": {
+     "datos": {
+      "additionalProperties": {
+       "type": "number"
+      },
+      "title": "Datos",
+      "type": "object"
+     },
+     "dia": {
+      "title": "Dia",
+      "type": "string"
+     }
+    },
+    "required": [
+     "dia",
+     "datos"
+    ],
+    "title": "PuntoSerie",
     "type": "object"
    },
    "Rechazar": {
@@ -2874,6 +2986,32 @@
      "modelo"
     ],
     "title": "ResumenOut",
+    "type": "object"
+   },
+   "SerieResp": {
+    "properties": {
+     "canal": {
+      "title": "Canal",
+      "type": "string"
+     },
+     "dias": {
+      "title": "Dias",
+      "type": "integer"
+     },
+     "puntos": {
+      "items": {
+       "$ref": "#/components/schemas/PuntoSerie"
+      },
+      "title": "Puntos",
+      "type": "array"
+     }
+    },
+    "required": [
+     "canal",
+     "dias",
+     "puntos"
+    ],
+    "title": "SerieResp",
     "type": "object"
    },
    "Servicio": {
@@ -4112,6 +4250,61 @@
      }
     },
     "summary": "Ver Resumen",
+    "tags": [
+     "metricas"
+    ]
+   }
+  },
+  "/admin/metricas/serie": {
+   "get": {
+    "description": "(12/11, Franco) La tendencia de un canal: un punto por día (la última captura por API de ese día), de los últimos `dias`. Cada punto trae el total\nde los 28 días que terminaban ese día. Vacía si todavía no hay capturas.",
+    "operationId": "ver_serie_admin_metricas_serie_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "canal",
+      "required": true,
+      "schema": {
+       "title": "Canal",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "dias",
+      "required": false,
+      "schema": {
+       "default": 28,
+       "maximum": 120,
+       "minimum": 1,
+       "title": "Dias",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SerieResp"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Ver Serie",
     "tags": [
      "metricas"
     ]

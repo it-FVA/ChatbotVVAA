@@ -378,11 +378,89 @@ def _tasas(clave, ultima):
     return {}
 
 
+# ---------------- piezas y serie de cada canal (12/11, Franco: Métricas v4, tarjetas que cuentan algo) ----------------
+CANALES_DE_PUBLICACION = {"instagram": ("instagram",), "facebook": ("facebook",), "youtube": ("youtube",),
+                          "mail": ("mail", "newsletter"), "sitio": ("wordpress", "home")}      # clave de la tarjeta → canales de publicaciones.canal
+ULTIMAS_PIEZAS = 3
+RANKING_MEJOR = ("alcance", "vistas", "aperturas")       # la mejor pieza: por alcance; si ninguna lo tiene, por vistas; si no, por aperturas (mail)
+
+
+def serie(ref, dias):
+    """(12/11, Franco) GET /serie: [{dia: 'AAAA-MM-DD' (hora Argentina), datos: {números normalizados}}], de la más vieja a la más nueva, un punto por día
+    (la última captura por API de cada día). Cada punto es el total de los 28 días que terminaban ese día, no el de un solo día."""
+    out = []
+    for f in db.serie_canal(ref, dias):
+        c, nums = _fecha(f.get("capturado")), _numeros(f)
+        if c and nums:
+            out.append({"dia": c.astimezone(ZONA_AR).date().isoformat(), "datos": nums})
+    return out
+
+
+def _pieza_de_canal(p, mets, campana):
+    return {"id": str(p["id"]), "titulo": p.get("titulo") or "", "formato": "newsletter" if p.get("canal") == "newsletter" else _formato(p),
+            "fecha": fecha_efectiva(p), "campana": campana, "ver_url": _ver_url(p), "metricas": mets.get(str(p["id"]))}
+
+
+def piezas_por_canal():
+    """(12/11, Franco) {clave de canal: {"ultimas_piezas": [hasta 3], "mejor_pieza": pieza | None}} para las tarjetas de canal.
+    Las piezas son las publicadas (estado «publicada») de los últimos DIAS_PIEZAS días, de cualquier campaña o sin campaña, sin las de
+    metricas_excluir_usuarios. «Las últimas» son las más recientes; «la mejor» sale de las de los últimos DIAS_CUENTA días con números (ver RANKING_MEJOR).
+    Mail: la Frase del día y los newsletters. Los newsletters no traen números (se pegan a mano en Perfit y no guardan el id de campaña)."""
+    from api.admin_rutas import SERVICIO           # recién acá: la cola no carga FastAPI
+    ahora = _ahora()
+    desde = ahora - dt.timedelta(days=DIAS_PIEZAS)
+    excluidos = usuarios_excluidos()
+    pubs = []
+    for p in db.publicaciones_para_metricas(_iso(desde)):
+        d = _fecha(fecha_efectiva(p))
+        if p.get("estado") == "publicada" and p.get("usuario") not in excluidos and d and d >= desde:
+            pubs.append((d, p))
+    pubs.sort(key=lambda x: x[0], reverse=True)
+    corte = ahora - dt.timedelta(days=DIAS_CUENTA)
+    por_clave = {c: [(d, p) for d, p in pubs if p.get("canal") in canales] for c, canales in CANALES_DE_PUBLICACION.items()}
+    ids = {str(p["id"]) for lista in por_clave.values() for i, (d, p) in enumerate(lista) if d >= corte or i < ULTIMAS_PIEZAS}
+    mets = metricas_de_piezas(ids)
+    elegidas, mejores = {}, {}
+    for clave, lista in por_clave.items():
+        elegidas[clave] = [p for d, p in lista[:ULTIMAS_PIEZAS]]
+        candidatas = [p for d, p in lista if d >= corte and mets.get(str(p["id"]))]
+        mejores[clave] = None
+        for k in RANKING_MEJOR:
+            con = [p for p in candidatas if (mets[str(p["id"])].get(k) or 0) > 0]
+            if con:
+                mejores[clave] = max(con, key=lambda p: mets[str(p["id"])][k])
+                break
+    usadas = {str(p["id"]): p for ps in elegidas.values() for p in ps} | {str(p["id"]): p for p in mejores.values() if p}
+    proyecto_de = {}
+    for it in db.piezas_de_proyectos():
+        if str(it.get("item_id")) in usadas:
+            proyecto_de.setdefault(str(it["item_id"]), str(it.get("proyecto_id")))
+    nombres = {str(pr["id"]): pr.get("nombre") for pr in (db.proyectos.proyectos_por_ids(set(proyecto_de.values())) if proyecto_de else [])}
+
+    def campana(p):
+        pid = str(p["id"])
+        if proyecto_de.get(pid):
+            return nombres.get(proyecto_de[pid])
+        return FRASE_DEL_DIA["nombre"] if p.get("usuario") in SERVICIO else None
+
+    return {c: {"ultimas_piezas": [_pieza_de_canal(p, mets, campana(p)) for p in elegidas[c]],
+                "mejor_pieza": _pieza_de_canal(mejores[c], mets, campana(mejores[c])) if mejores[c] else None} for c in por_clave}
+
+
+def _piezas_por_canal_seguro():
+    """Las piezas son un extra de la tarjeta: si la base falla, la tarjeta sale igual sin ellas."""
+    try:
+        return piezas_por_canal()
+    except Exception:
+        return {}
+
+
 def canales_estado(cfg):
     """La respuesta de GET /canales: los seis canales siempre, en orden, con la última captura por API y la última carga a mano."""
     api = db.ultimas_metricas("canal", refs=list(CLAVES_CANAL), fuente="api")
     man = db.ultimas_metricas("canal", refs=list(CLAVES_CANAL), fuente="manual")
     modo = lambda c: cfg.modo(c)
+    piezas = _piezas_por_canal_seguro()
     out, actualizado = [], None
     for clave in CLAVES_CANAL:
         fa, fm = api.get((clave, "api")), man.get((clave, "manual"))
@@ -411,7 +489,8 @@ def canales_estado(cfg):
         out.append({"clave": clave, "texto": texto, "icono": icono, "modo": mod, "configurado": configurado, "api": estado,
                     "nota_api": nota, "enlace": url, "enlace_texto": url_texto, "conectado": conectado, "conectar_url": conectar_url, "ultima": _fila_publica(fa),
                     "manual": _fila_publica(fm, con_nota=True), "anterior": _anterior(clave, fa) if fa else None,
-                    "tasas": _tasas(clave, fa) if fa else {}})
+                    "tasas": _tasas(clave, fa) if fa else {},
+                    "ultimas_piezas": piezas.get(clave, {}).get("ultimas_piezas", []), "mejor_pieza": piezas.get(clave, {}).get("mejor_pieza")})
     return {"actualizado": actualizado, "canales": out}
 
 

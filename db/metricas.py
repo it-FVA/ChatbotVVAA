@@ -7,6 +7,7 @@ Migración: api/migraciones/20261108_1200_metricas.sql. Contrato: web/maquetas/m
   guardar_metrica(fila)                         inserta una captura y devuelve la fila guardada
   ultimas_metricas(ambito, refs, fuente)        la última de cada (ref, fuente), una sola consulta
   captura_cerca_de(ambito, ref, fecha, …)       (12/11) la captura por API más cercana a una fecha, dentro de una ventana (el «período anterior»)
+  serie_canal(ref, dias)                        (12/11) las capturas por API de un canal en los últimos días, una por día (la última, hora Argentina)
   publicaciones_para_metricas(desde_iso)        las piezas desde una fecha, con lo que hace falta para las campañas
   publicacion_por_id(pid)                       una pieza (id, canal, usuario, titulo) para validar la carga a mano
   piezas_de_proyectos()                         proyecto_items de tipo «pieza»: a qué campaña pertenece cada publicación
@@ -79,6 +80,30 @@ def captura_cerca_de(ambito, ref, fecha, desde=None, hasta=None):
         if dist is None or d < dist:
             mejor, dist = f, d
     return mejor
+
+
+def serie_canal(ref, dias):
+    """(12/11, Franco) Las capturas por API (ambito 'canal', fuente 'api') de `ref` de los últimos `dias` días, UNA POR DÍA: la última de cada día
+    en hora Argentina (UTC-3), de la más vieja a la más nueva. La cola captura cada hora; para la tendencia alcanza un punto por día.
+    Cada elemento es la fila de la tabla (con `datos`, `capturado`…). [] sin Supabase o sin capturas."""
+    import datetime as dt
+    if not _db.disponible():
+        return []
+    ar = dt.timezone(dt.timedelta(hours=-3))
+    desde = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=int(dias))).strftime("%Y-%m-%dT%H:%M:%SZ")
+    filtros = [("ambito", ("eq", "canal")), ("ref", ("eq", str(ref))), ("fuente", ("eq", "api")), ("capturado", ("gte", desde))]
+    por_dia = {}
+    for f in _db.consulta("metricas", filtros, COLS, order="capturado.asc", limite=5000):
+        try:
+            c = dt.datetime.fromisoformat(str(f.get("capturado")).replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        c = c if c.tzinfo else c.replace(tzinfo=dt.timezone.utc)
+        dia = c.astimezone(ar).date().isoformat()
+        previa = por_dia.get(dia)
+        if previa is None or c >= previa[0]:
+            por_dia[dia] = (c, f)
+    return [por_dia[d][1] for d in sorted(por_dia)]
 
 
 def publicaciones_para_metricas(desde_iso):
