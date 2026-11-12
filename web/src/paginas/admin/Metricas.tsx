@@ -100,12 +100,16 @@ function grandes(d: DatosMetricas, canal = ""): [string, number][] {
     const hayFrase = v("enviados_frase") !== null || v("lista_contactos") !== null;
     claves = hayCampanas ? ["enviados", "aperturas", "clics", "enviados_frase", "lista_contactos"] : hayFrase ? ["enviados_frase", "lista_contactos"] : ["enviados", "aperturas", "clics"];
   }
+  if (canal === "sitio") claves = ["visitas", "visitantes", "comentarios", "me_gusta"];
+  // (12/11, Franco) un cero grande no dice nada («0 me gusta» en el sitio): va primero lo que tiene valor; los ceros solo si no hay otra cosa
+  const ceros: [string, number][] = [];
   for (const k of claves) {
     const n = v(k);
-    if (n !== null) out.push([k, n]);
+    if (n === null) continue;
+    (n === 0 ? ceros : out).push([k, n]);
     if (out.length === 3) break;
   }
-  return out;
+  return out.length ? out : ceros.slice(0, 3);
 }
 
 /** (12/11, Franco) El número principal de cada canal, el que se dibuja en la tendencia: alcance en Instagram y Facebook, vistas en YouTube,
