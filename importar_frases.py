@@ -47,7 +47,9 @@ def leer_csv(texto):
             continue
         vistos.add(texto)
         fuente = g(ci_f)
-        if ci_v is not None:
+        # (13/11) Si hay columna Validada, manda lo que diga en esa fila; si la celda está vacía, vale la regla de
+        # siempre por Fuente. Así Pato solo tiene que marcar las 87 nuevas, sin tocar las 491 que ya salieron.
+        if ci_v is not None and g(ci_v):
             validada = g(ci_v).lower() in SI
         else:
             validada = fuente.lower().startswith(FUENTE_VALIDADA)
