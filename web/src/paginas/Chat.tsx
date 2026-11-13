@@ -64,6 +64,13 @@ export default function Chat() {
   const [aMover, setAMover] = useState<ConversacionResumen | null>(null);
   const [compartiendo, setCompartiendo] = useState(false);
   const [abajo, setAbajo] = useState(true);
+  const [soloDavid, setSoloDavid] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("chat.soloDavid") === "1";
+    } catch {
+      return false;
+    }
+  });
   const abortar = useRef<AbortController | null>(null);
   const saltarCarga = useRef<string | null>(null); // el id al que navegamos nosotros al terminar una respuesta: ya está en pantalla
   const entrada = useRef<EntradaRef>(null);
@@ -188,7 +195,7 @@ export default function Chat() {
         return;
       }
       actualizarUltimo((m) => ({ ...m, estado: t("pensando") }));
-      await enviarMensaje(convId, texto, (e) => alEvento(e, convId), ctl.signal);
+      await enviarMensaje(convId, texto, (e) => alEvento(e, convId), ctl.signal, soloDavid);
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") {
         actualizarUltimo((m) => ({ ...m, estado: null, error: t("detenido") }));
@@ -452,7 +459,24 @@ export default function Chat() {
             <Icono nombre="ojo" tam={15} /> Esta conversación es de {conv.compartida?.por} y la tenés solo para ver.
           </div>
         ) : (
-          <Entrada ref={entrada} placeholder={t("placeholder")} ayuda={t("ayudaEntrada")} enviando={generando} textoEnviar={t("enviar")} textoDetener={t("detener")} onEnviar={enviar} onDetener={detener} />
+          <>
+            <label className="chat-filtro" title={t("soloDavidAyuda")}>
+              <input
+                type="checkbox"
+                checked={soloDavid}
+                onChange={(e) => {
+                  setSoloDavid(e.target.checked);
+                  try {
+                    localStorage.setItem("chat.soloDavid", e.target.checked ? "1" : "0");
+                  } catch {
+                    /* sin almacenamiento: queda solo en esta sesión */
+                  }
+                }}
+              />
+              {t("soloDavid")}
+            </label>
+            <Entrada ref={entrada} placeholder={t("placeholder")} ayuda={t("ayudaEntrada")} enviando={generando} textoEnviar={t("enviar")} textoDetener={t("detener")} onEnviar={enviar} onDetener={detener} />
+          </>
         )}
       </section>
 

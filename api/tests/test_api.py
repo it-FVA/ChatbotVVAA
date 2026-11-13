@@ -230,3 +230,10 @@ def test_chat_conversacion_ajena(logueado, monkeypatch):
     monkeypatch.setattr(db, "cargar_conversacion_de", lambda cid, u: None)
     assert logueado.post("/conversaciones/otra-id/mensajes", json={"texto": "hola"}).status_code == 404
     assert logueado.get("/conversaciones/otra-id").status_code == 404
+
+
+def test_tarjetas_copia_la_procedencia():
+    mats = [{"titulo": "Una charla", "texto": "x", "autor": "Br. David y Hugo", "fuente": "web", "doc": "d9",
+             "procedencia": "mixta", "autor_real": "Hugo", "nota": "habla Hugo en la mitad"}]
+    t = chat.tarjetas(mats)[0]
+    assert t["procedencia"] == "mixta" and t["autor_real"] == "Hugo" and t["nota"] == "habla Hugo en la mitad"

@@ -46,9 +46,77 @@ def cargar():
     global _FRS, _EMB
     if _FRS is None:
         _FRS = [json.loads(l) for l in open(os.path.join(HERE, "fragmentos.jsonl"), encoding="utf-8")]
+        _anotar_procedencia(_FRS)
     if _EMB is None and _vectores_modo() != "supabase":
         _EMB = np.load(os.path.join(HERE, "fragmentos_openai.npy"))
     return _FRS, _EMB
+
+
+# ---------------------------------------------------------------------------
+# (13/11) PROCEDENCIA: de quién es la palabra en cada fragmento. Decisión de Franco a partir de la validación de
+# facetas de Pato (90 de sus 92 «no» eran «no es de Br. David»): las facetas quedan para todos los autores, pero
+# Br. David sale primero, el autor se ve en cada resultado y hay un interruptor «solo Br. David».
+#   directa   -> el autor es Br. David (libros, artículos y clips suyos)
+#   coautoria -> Br. David con alguien más ("David Steindl-Rast y Hugo Mujica", "Br. David y equipo FVA"…)
+#   cita      -> palabra de Br. David dentro de material de otro autor (lo marca procedencia.json)
+#   mixta     -> Br. David y un tercero en el mismo fragmento (los capítulos de «Confiar plenamente en la vida»)
+#   tercero   -> otro autor, o un comentario de un tercero firmado como Br. David (Alberto Rizzo)
+#   sin-autor -> sin autor identificado
+# Lo normal sale del campo `autor`; las excepciones a mano viven en procedencia.json (herramientas/armar_procedencia.py).
+_PROC_DAVID = ("directa", "coautoria", "cita", "mixta")
+_PROC_PESOS = {"directa": 1.0, "coautoria": 0.95, "cita": 0.9, "mixta": 0.85, "tercero": 0.8, "sin-autor": 0.8}
+_PROC_ROTULO = {"coautoria": "coautoría con Br. David", "cita": "cita de Br. David dentro de material de otro autor",
+                "mixta": "Br. David y un tercero en el mismo fragmento", "tercero": "no es palabra de Br. David",
+                "sin-autor": "sin autor identificado"}
+
+
+def _procedencia_de(f):
+    a = (f.get("autor") or "").strip()
+    if not a or a == "—":
+        return "sin-autor"
+    al = a.lower()
+    if "david" not in al and "steindl" not in al:
+        return "tercero"
+    return "directa" if re.fullmatch(r"(br\.?|brother|hermano|hno\.?)\s*david(\s+steindl[- ]rast)?", al) or al == "david steindl-rast" else "coautoria"
+
+
+def _anotar_procedencia(frs):
+    extra = {}
+    try:
+        with open(os.path.join(HERE, "procedencia.json"), encoding="utf-8") as fh:
+            extra = json.load(fh)
+    except FileNotFoundError:
+        pass
+    for f in frs:
+        f["procedencia"] = _procedencia_de(f)
+        e = extra.get(f.get("fragmento_id"))
+        if e:
+            f["procedencia"] = e.get("procedencia") or f["procedencia"]
+            if e.get("autor_real"):
+                f["autor_real"] = e["autor_real"]
+            if e.get("nota"):
+                f["nota_procedencia"] = e["nota"]
+
+
+def _es_de_david(f):
+    return f.get("procedencia", "tercero") in _PROC_DAVID
+
+
+def _ponderar_procedencia(orden, FRS):
+    """Reordena el ranking dándole más peso a la palabra directa de Br. David: puntaje = 1/(60+rango) · peso.
+    Con los pesos de _PROC_PESOS un texto de un tercero que estaba 1º queda detrás de unos 15 de Br. David; más
+    abajo la diferencia se achica. PESO_PROCEDENCIA=0 lo apaga; PROCEDENCIA_PESOS (JSON) cambia los pesos."""
+    if os.environ.get("PESO_PROCEDENCIA", "1").strip() == "0":
+        return orden
+    pesos = dict(_PROC_PESOS)
+    try:
+        pesos.update(json.loads(os.environ.get("PROCEDENCIA_PESOS") or "{}"))
+    except Exception:
+        pass
+    top = _env_int("PROCEDENCIA_TOP", 300)
+    cabeza = sorted(range(min(top, len(orden))),
+                    key=lambda r: -(1.0 / (60 + r)) * pesos.get(FRS[int(orden[r])].get("procedencia"), 0.8))
+    return [orden[r] for r in cabeza] + list(orden[top:])
 
 
 # ---------------------------------------------------------------------------
@@ -177,7 +245,7 @@ QUIÉN HABLA. Hay facilitadores (Gawel, Fondevila, Mujica, Grehan, Saporiti, Mor
 - OJO con la VOZ dentro de un video: puede estar etiquetado "Br. David" y adentro hablar varias personas. Cuando te pidan una cita TEXTUAL de Br. David, NO uses un fragmento donde alguien habla SOBRE él en tercera persona ("sus palabras me ayudaron", "él dijo", "el Hermano David nos enseñó…"): eso no es Br. David hablando. Usá solo fragmentos donde la voz es la de él. Si no estás seguro, decilo en vez de atribuírselo.
 - En videos de HOMENAJE, CUMPLEAÑOS, celebraciones, presentaciones o entrevistas, presumí que la voz NO es la de Br. David salvo que el fragmento exponga una idea suya en primera persona. Un texto en segunda persona dirigido a él ("si alguna vez te fueras…", "gracias por…", "vos nos enseñaste…") es alguien hablándole, no él. En esos casos mostrá el clip como "de un video sobre Br. David" y aclará quién parece hablar, o decí que no se puede determinar.
 - Autor "—" significa SIN AUTOR IDENTIFICADO. No lo atribuyas a Br. David ni a nadie, y no lo disfraces con rótulos como "desde la práctica" o "desde la Fundación": decí que es material sin autor atribuido. Si el texto mismo nombra a quien habla, podés mencionarlo aclarando que lo tomás del texto.
-- La palabra directa de Br. David (libros, fragmentos donde habla en primera persona) vale más que la paráfrasis de un tercero. Cuando tengas las dos, preferí la directa.
+- La palabra directa de Br. David (libros, fragmentos donde habla en primera persona) vale más que la paráfrasis de un tercero. Cuando tengas las dos, preferí la directa. Si un material trae «PROCEDENCIA: …», hacele caso: dice si habla un tercero (por ejemplo un comentario de Alberto Rizzo dentro de un libro de Br. David), si es una cita de Br. David dentro de material ajeno o si el fragmento mezcla las dos voces; no atribuyas a Br. David lo que esa marca dice que no es suyo.
 - Si la persona pide material de un autor puntual y solo hay de otros, decilo; NO lo hagas pasar como del autor pedido.
 - Si la persona no aclaró autor, buscá sin filtro, pero al mostrar dejá claro quién es quién: qué es de Br. David y qué es de un facilitador.
 - Si la consulta fue en español y un fragmento que vas a mostrar está en inglés, avisalo.
@@ -699,18 +767,20 @@ def _rerank(consulta, candidatos, n):
     return orden[:n]
 
 
-def buscar(consulta, n=6, excluir=None, fuente=None, autor=None, max_seg=None, rerank=True, idioma=None):
+def buscar(consulta, n=6, excluir=None, fuente=None, autor=None, max_seg=None, rerank=True, idioma=None, solo_david=False):
     """idioma (7/10): 'en' o 'es' trae PRIMERO los fragmentos en ese idioma; si no alcanzan para n,
     completa con el resto. No es un filtro duro: una persona de habla inglesa que pregunta por un tema
-    que solo está en español igual recibe material (el system message le avisa el idioma)."""
+    que solo está en español igual recibe material (el system message le avisa el idioma).
+    solo_david (13/11): filtro duro por procedencia, solo palabra de Br. David (directa, coautoría, cita o mixta);
+    deja afuera a los facilitadores y los comentarios de terceros firmados como Br. David."""
     if idioma:
-        pref = _buscar(consulta, n, excluir, fuente, autor, max_seg, rerank, idioma)
+        pref = _buscar(consulta, n, excluir, fuente, autor, max_seg, rerank, idioma, solo_david)
         if len(pref) >= n:
             return pref
         vistos = {r["doc"] for r in pref}
-        resto = [r for r in _buscar(consulta, n, excluir, fuente, autor, max_seg, rerank, None) if r["doc"] not in vistos]
+        resto = [r for r in _buscar(consulta, n, excluir, fuente, autor, max_seg, rerank, None, solo_david) if r["doc"] not in vistos]
         return (pref + resto)[:n]
-    return _buscar(consulta, n, excluir, fuente, autor, max_seg, rerank, None)
+    return _buscar(consulta, n, excluir, fuente, autor, max_seg, rerank, None, solo_david)
 
 
 def _agrupar_por_documento(orden, FRS):
@@ -744,7 +814,7 @@ def _agrupar_por_documento(orden, FRS):
     return list(cabeza) + list(cola)
 
 
-def _buscar(consulta, n, excluir, fuente, autor, max_seg, rerank, idioma):
+def _buscar(consulta, n, excluir, fuente, autor, max_seg, rerank, idioma, solo_david=False):
     FRS, EMB = cargar()
     excluir = set(excluir or [])
     textos = [consulta]                    # las consultas que entran al embedding, fusionadas por máximo
@@ -793,6 +863,7 @@ def _buscar(consulta, n, excluir, fuente, autor, max_seg, rerank, idioma):
         except Exception:
             pass                           # si falta rank_bm25 o falla Postgres, sigue vectorial como siempre
     orden = _agrupar_por_documento(orden, FRS)
+    orden = _ponderar_procedencia(orden, FRS)
     cand, vistos, huellas = [], set(), set()
     limpieza = _limpieza_extra_activa()
     # Cuántos candidatos ve el reranker. Default 15 -> con n=6 da 18, igual que antes.
@@ -805,6 +876,8 @@ def _buscar(consulta, n, excluir, fuente, autor, max_seg, rerank, idioma):
         if idioma and (f.get("idioma") or "es") != idioma:
             continue
         if autor and not _coincide_autor(f.get("autor"), autor):
+            continue
+        if solo_david and not _es_de_david(f):
             continue
         if max_seg and f.get("fuente") == "youtube":
             dur = ((f.get("fin_ms") or 0) - (f.get("inicio_ms") or 0)) / 1000
@@ -839,6 +912,8 @@ def _buscar(consulta, n, excluir, fuente, autor, max_seg, rerank, idioma):
             "autor": f.get("autor") or "—", "fuente": fu,
             "url": f.get("url"), "doc": doc, "score": round(sim(int(k)), 2),
             "inicio_ms": f.get("inicio_ms"), "fin_ms": f.get("fin_ms"), "pagina": f.get("pagina"),
+            "procedencia": f.get("procedencia", "tercero"), "autor_real": f.get("autor_real"),
+            "nota": f.get("nota_procedencia"),
         }
         d["ir"] = link_fuente(d)
         cand.append(d)
@@ -858,9 +933,24 @@ def contexto(res):
     lines = ["MATERIAL DISPONIBLE (usá solo esto):"]
     for i, r in enumerate(res, 1):
         ref = r.get("ir") or r.get("url") or r["tag"]
-        lines.append(f'[{i}] {r["tag"]} · {r["autor"]} · "{r["titulo"]}" · {ref}')
+        lines.append(f'[{i}] {r["tag"]} · {r["autor"]} · "{r["titulo"]}" · {ref}{rotulo_procedencia(r)}')
         lines.append(f'    "{r["texto"][:tope]}"')
     return "\n".join(lines)
+
+
+def rotulo_procedencia(r):
+    """(13/11) Qué se le dice al modelo (y a la interfaz) sobre de quién es la palabra, cuando no es la directa de
+    Br. David: ' · PROCEDENCIA: comentario introductorio de Alberto Rizzo (no es palabra de Br. David)'."""
+    p = r.get("procedencia") or "tercero"
+    if p == "directa":
+        return ""
+    if p == "tercero" and not r.get("nota") and "david" not in (r.get("autor") or "").lower():
+        return ""                          # un facilitador con su propio nombre no necesita aclaración
+    partes = [r["nota"]] if r.get("nota") else []
+    if r.get("autor_real"):
+        partes.append(f"habla {r['autor_real']}")
+    partes.append(_PROC_ROTULO.get(p, p))
+    return " · PROCEDENCIA: " + "; ".join(partes)
 
 
 _TRAD_CACHE = {}
@@ -1353,7 +1443,7 @@ def _ejecutar_tool(nombre, args, usuario=None):
         idioma = (args.get("idioma") or "").lower()
         idioma = idioma if idioma in ("es", "en") else None
         res = buscar(consulta, n, fuente=fuente, autor=(args.get("autor") or None), max_seg=args.get("max_seg"),
-                     idioma=idioma)
+                     idioma=idioma, solo_david=bool(args.get("solo_david")))
         return contexto(res), res
     if nombre == "proponer_publicacion":
         import datetime
@@ -1417,16 +1507,19 @@ _NOTA_IDIOMA = {
 }
 
 
-def responder_con_pieza(historial, idioma=None):
+def responder_con_pieza(historial, idioma=None, solo_david=False):
     """historial: lista de {'role','content'} (los mensajes del asistente pueden traer
     'mats' con el material que ya se mostró en la charla). El modelo decide si buscar,
     conversar o proponer publicar. Devuelve (texto, materiales_para_mostrar, query_usada, pieza):
     pieza es None o el dict para el recuadro 'Publicar esta pieza' (24/9).
-    idioma (7/10): 'en' o 'de' cuando la cuenta es de una comunidad; agrega una nota al system message."""
+    idioma (7/10): 'en' o 'de' cuando la cuenta es de una comunidad; agrega una nota al system message.
+    solo_david (13/11): la persona prendió el filtro «solo Br. David». Las búsquedas traen solo su palabra."""
     mensajes = [{"role": "system", "content": system_msg()}] + [
         {"role": m["role"], "content": m["content"]} for m in historial]
     if idioma in _NOTA_IDIOMA:
         mensajes.insert(1, {"role": "system", "content": _NOTA_IDIOMA[idioma]})
+    if solo_david:
+        mensajes.insert(1, {"role": "system", "content": "La persona activó el filtro «solo Br. David»: todo el material que recibas es palabra de Br. David (directa, en coautoría, citada o mezclada con un tercero). No busques facilitadores y, si no hay material, decilo."})
     # Fix 2: recordar el material YA encontrado en la conversación (último turno con mats),
     # para poder armar la pieza sin volver a buscar ni negarse.
     prev_mats = None
@@ -1482,6 +1575,8 @@ def responder_con_pieza(historial, idioma=None):
                 args["autor"] = autor_hint      # red de seguridad: autor pedido por la persona
             if dur_hint and not args.get("max_seg"):
                 args["max_seg"] = dur_hint       # tope de duración si pidieron videos cortos
+            if solo_david:
+                args["solo_david"] = True        # filtro de la persona (13/11)
         texto_tool, res = _ejecutar_tool(tc.function.name, args)
         if isinstance(res, dict) and res.get("__pieza__"):
             pieza = res["__pieza__"]

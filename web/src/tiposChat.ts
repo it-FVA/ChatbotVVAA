@@ -29,6 +29,9 @@ export interface Tarjeta {
   ir: string | null; // link al segundo o al párrafo
   citada: boolean;
   traduccion: { titulo?: string; texto?: string } | null;
+  procedencia?: string | null; // directa | coautoria | cita | mixta | tercero | sin-autor
+  autor_real?: string | null;
+  nota?: string | null;
   recortes?: { horizontal: EstadoRecorte | null; vertical: EstadoRecorte | null };
 }
 

@@ -117,6 +117,7 @@ class LoginGoogle(BaseModel):
 class Mensaje(BaseModel):
     texto: str
     stream: bool = False
+    solo_david: bool = False      # (13/11) filtro «solo Br. David»: la búsqueda trae solo su palabra
 
 
 # ---------------- Salud: GET /salud, /salud/servicios y /salud/historial viven en api/salud.py (22/10) ----------------
@@ -245,12 +246,12 @@ def mensaje(cid: str, datos: Mensaje, request: Request, usuario=Depends(auth.usu
 
     quiere_sse = datos.stream or "text/event-stream" in (request.headers.get("accept") or "")
     if not quiere_sse:
-        return _cerrar(_chat.responder(historial, nota, usuario))
+        return _cerrar(_chat.responder(historial, nota, usuario, datos.solo_david))
 
     def _eventos():
         yield _sse("inicio", {"conversacion_id": conv_id, "titulo": titulo})
         try:
-            for nombre, d in _chat.generar(historial, nota, usuario):
+            for nombre, d in _chat.generar(historial, nota, usuario, datos.solo_david):
                 if nombre == "fin":
                     yield _sse("fin", _cerrar(d))
                 else:

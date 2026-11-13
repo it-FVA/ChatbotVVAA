@@ -144,3 +144,21 @@ def test_rpc_arma_la_llamada(monkeypatch):
     monkeypatch.setattr(db.urllib.request, "urlopen", urlopen)
     assert db._rpc("match_lexico", {"consulta": "gratitud", "k": 5}) == [{"idx": 3}]
     assert visto["url"].endswith("/rest/v1/rpc/match_lexico") and visto["auth"]
+
+
+def test_procedencia_de_clasifica_por_autor():
+    f = lambda a: nucleo._procedencia_de({"autor": a})
+    assert f("Br. David") == "directa"
+    assert f("David Steindl-Rast y Hugo Mujica") == "coautoria"
+    assert f("Virginia Gawel") == "tercero"
+    assert f("—") == "sin-autor" and f("") == "sin-autor" and f(None) == "sin-autor"
+
+
+def test_solo_david_deja_afuera_a_los_terceros(juguete):
+    for f in nucleo._FRS:
+        f["procedencia"] = nucleo._procedencia_de(f)
+    con = nucleo.buscar("miedo", n=4, rerank=False)
+    assert any(r["doc"] == "d1" for r in con)                    # sin el filtro, el fragmento de Virginia Gawel aparece
+    solo = nucleo.buscar("miedo", n=4, rerank=False, solo_david=True)
+    assert solo and all(r["doc"] != "d1" for r in solo)
+    assert all(r["procedencia"] == "directa" for r in solo)

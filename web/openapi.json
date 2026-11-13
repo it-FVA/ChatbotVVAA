@@ -3418,6 +3418,11 @@
    },
    "api__main__Mensaje": {
     "properties": {
+     "solo_david": {
+      "default": false,
+      "title": "Solo David",
+      "type": "boolean"
+     },
      "stream": {
       "default": false,
       "title": "Stream",

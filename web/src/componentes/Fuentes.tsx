@@ -50,6 +50,13 @@ function TarjetaFuente({ x, idioma, onPedirRecorte }: { x: Tarjeta; idioma: Idio
   const tr = x.traduccion || {};
   const tituloTrad = tr.titulo && tr.titulo.trim().toLowerCase() !== (x.titulo || "").trim().toLowerCase() ? tr.titulo : null;
   const textoTrad = tr.texto && tr.texto.trim().slice(0, 60).toLowerCase() !== (x.texto || "").trim().slice(0, 60).toLowerCase() ? tr.texto : null;
+  const proc = x.procedencia || "";
+  const claveProc: Record<string, "procCoautoria" | "procCita" | "procMixta" | "procTercero" | "procSinAutor"> = {
+    coautoria: "procCoautoria", cita: "procCita", mixta: "procMixta", tercero: "procTercero", "sin-autor": "procSinAutor",
+  };
+  // un tercero a secas es lo esperable: solo se avisa si hay nota, si habla alguien puntual o si el autor nombra a David
+  const avisoProcedencia =
+    proc && proc !== "directa" && claveProc[proc] && (proc !== "tercero" || x.nota || /david/i.test(x.autor || "")) ? t(claveProc[proc]) : null;
   const mini = esVideo && x.doc ? `https://img.youtube.com/vi/${x.doc}/mqdefault.jpg` : null;
 
   return (
@@ -66,6 +73,12 @@ function TarjetaFuente({ x, idioma, onPedirRecorte }: { x: Tarjeta; idioma: Idio
         <div className="fuente-arriba">
           <span className="fuente-tag">{traducirTag(x.tag || "", idioma)}</span>
           {x.autor && <span className="fuente-autor suave">{x.autor}</span>}
+          {avisoProcedencia && (
+            <span className="fuente-procedencia suave" title={x.nota || undefined}>
+              {x.autor_real ? `${t("procHabla")} ${x.autor_real} · ` : ""}
+              {avisoProcedencia}
+            </span>
+          )}
           {x.citada && <span className="fuente-badge">{t("citadaBadge")}</span>}
         </div>
         <div className="fuente-titulo">

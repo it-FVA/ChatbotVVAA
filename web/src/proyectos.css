@@ -190,6 +190,17 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.chat-filtro {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px 0;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.chat-filtro input {
+  accent-color: #d98a0f;
+}
 .chat-solo-lectura {
   display: flex;
   align-items: center;

@@ -84,11 +84,11 @@ export type EventoChat =
   | { nombre: "error"; datos: { detalle: string } };
 
 /** POST /conversaciones/{id|nueva}/mensajes con Accept: text/event-stream; llama a onEvento por cada evento. */
-export async function enviarMensaje(id: string | null, texto: string, onEvento: (e: EventoChat) => void, signal?: AbortSignal): Promise<void> {
+export async function enviarMensaje(id: string | null, texto: string, onEvento: (e: EventoChat) => void, signal?: AbortSignal, soloDavid = false): Promise<void> {
   const r = await pedirCrudo(`/conversaciones/${id || "nueva"}/mensajes`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-    body: JSON.stringify({ texto, stream: true }),
+    body: JSON.stringify({ texto, stream: true, solo_david: soloDavid }),
     signal,
   });
   if (!r.body) throw new ErrorApi(0, "El navegador no pudo leer la respuesta en streaming.");

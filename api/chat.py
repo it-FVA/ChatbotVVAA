@@ -57,7 +57,7 @@ def tarjetas(mats, idioma="es", texto=""):
     out = []
     for n, r in enumerate(mats):
         t = {k: r.get(k) for k in ("tag", "titulo", "texto", "autor", "fuente", "url", "doc", "score",
-                                   "inicio_ms", "fin_ms", "pagina", "ir")}
+                                   "inicio_ms", "fin_ms", "pagina", "ir", "procedencia", "autor_real", "nota")}
         t["citada"] = n in cit
         tr = trads[n] if n < len(trads) else {}
         t["traduccion"] = tr or None
@@ -126,13 +126,16 @@ def historial_de(mensajes):
             for m in (mensajes or [])]
 
 
-def generar(historial, idioma=None, usuario=""):
+def generar(historial, idioma=None, usuario="", solo_david=False):
     """Generador de eventos (nombre, datos). Réplica de nucleo.responder_con_pieza con la segunda llamada en streaming.
-    idioma: 'en'/'de' agrega la nota de cuenta; None o 'es' no."""
+    idioma: 'en'/'de' agrega la nota de cuenta; None o 'es' no.
+    solo_david (13/11): filtro «solo Br. David» prendido por la persona."""
     mensajes = [{"role": "system", "content": nucleo.system_msg()}] + [
         {"role": m["role"], "content": m["content"]} for m in historial]
     if idioma in nucleo._NOTA_IDIOMA:
         mensajes.insert(1, {"role": "system", "content": nucleo._NOTA_IDIOMA[idioma]})
+    if solo_david:
+        mensajes.insert(1, {"role": "system", "content": "La persona activó el filtro «solo Br. David»: todo el material que recibas es palabra de Br. David (directa, en coautoría, citada o mezclada con un tercero). No busques facilitadores y, si no hay material, decilo."})
     prev_mats = None
     for m in reversed(historial):
         if m.get("role") == "assistant" and m.get("mats"):
@@ -190,6 +193,8 @@ def generar(historial, idioma=None, usuario=""):
                 args["autor"] = autor_hint
             if dur_hint and not args.get("max_seg"):
                 args["max_seg"] = dur_hint
+            if solo_david:
+                args["solo_david"] = True
         yield "estado", {"texto": "buscando" if tc.function.name in ("buscar_material", "analizar_corpus") else "trabajando",
                          "herramienta": tc.function.name}
         with nucleo.como(usuario):      # sin candado: cada persona ejecuta sus herramientas en su propio hilo
@@ -224,10 +229,10 @@ def generar(historial, idioma=None, usuario=""):
     yield "fin", {"texto": texto, "mats": mostrar, "pieza": pieza, "campana": campana, "query": query}
 
 
-def responder(historial, idioma=None, usuario=""):
+def responder(historial, idioma=None, usuario="", solo_david=False):
     """Sin streaming: consume el generador y devuelve lo mismo que nucleo.responder_con_pieza + los eventos."""
     fin = None
-    for nombre, datos in generar(historial, idioma, usuario):
+    for nombre, datos in generar(historial, idioma, usuario, solo_david):
         if nombre == "fin":
             fin = datos
     return fin or {"texto": "", "mats": [], "pieza": None, "campana": None, "query": ""}

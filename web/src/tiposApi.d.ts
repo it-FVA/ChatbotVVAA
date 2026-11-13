@@ -3492,6 +3492,11 @@ export interface components {
         /** Mensaje */
         api__main__Mensaje: {
             /**
+             * Solo David
+             * @default false
+             */
+            solo_david: boolean;
+            /**
              * Stream
              * @default false
              */
