@@ -30,6 +30,23 @@ def _cargar_config_local():
     secretos.cargar_al_entorno(clave_env=True)
 
 
+def _avisar_simulada_por_error(p, canal, modo):
+    """(17/11) La pieza era real pero el canal está en otro modo en los secrets de GitHub: no salió y nadie se entera.
+    Pasó el 17/11 a las 12:01 con el posteo de Facebook de Julián (PUBLICAR_FACEBOOK no estaba en real). Avisa por Slack
+    (SLACK_WEBHOOK_URL) y lo deja en el log de la corrida."""
+    var = f"PUBLICAR_{canal.upper()}"
+    texto = (f"La pieza «{(p.get('titulo') or p.get('texto') or '')[:60]}» de {p.get('usuario') or '?'} para {canal} estaba aprobada "
+             f"como real, pero la cola la procesó en modo «{modo or '?'}»: NO salió. Hay que poner {var} = real en GitHub → "
+             f"ChatbotVVAA → Settings → Secrets and variables → Actions, y volver a programar la pieza desde la plataforma.")
+    print("  !! " + texto)
+    try:
+        import avisos
+        if os.environ.get("SLACK_WEBHOOK_URL"):
+            avisos._slack(f"*:warning: Un posteo real quedó en prueba*\n{texto}")
+    except Exception as e:
+        print(f"  ! no pude avisar por Slack: {e}")
+
+
 def main():
     _cargar_config_local()
     import canales, db, publicar
@@ -107,6 +124,8 @@ def main():
         except Exception as e:
             print(f"  ! no pude actualizar la fila: {e}")
         print(f"  → {estado}: {str(res.get('aviso', ''))[:120]}")
+        if estado == "simulada" and (p.get("modo") or "") == "real":
+            _avisar_simulada_por_error(p, canal, modo)
     try:   # (19/10) Frase del día: cierra el circuito de las ya encoladas y encola la de hoy/mañana si está activa
         import programar_frases
         programar_frases.main(["--simular"] if "--simular" in sys.argv else [])
