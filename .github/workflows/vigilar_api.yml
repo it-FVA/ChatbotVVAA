@@ -1,0 +1,30 @@
+# Vigía de la API (17/11): cada 10 min hace GET /salud y avisa por Slack cuando la API se cae y cuando vuelve
+# (vigilar_api.py). También corre al final de cada corrida de la cola (cola.yml), que cron-job.org dispara con puntualidad;
+# el cron de GitHub llega «cuando puede». Secrets: SLACK_WEBHOOK_URL (el mismo Incoming Webhook que usa la API en Render),
+# SUPABASE_URL y SUPABASE_KEY_COLA (para avisar una sola vez por caída).
+name: vigia-de-la-api
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: vigia
+  cancel-in-progress: false
+
+jobs:
+  vigilar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Probar la API y avisar si cambió
+        run: python vigilar_api.py
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY_COLA: ${{ secrets.SUPABASE_KEY_COLA }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

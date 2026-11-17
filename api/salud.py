@@ -801,12 +801,37 @@ def registrar_arranque():
     import threading
 
     def _ir():
+        anterior = None
         try:
+            filas = db.listar_salud(60)
+            anterior = next((f.get("creado") for f in filas if f.get("estado") == "arranque"), None)
             db.guardar_salud("arranque", {"version": VERSION, "vectores": os.environ.get("VECTORES", "local") or "local"})
         except Exception as e:
             log.warning("No pude registrar el arranque en salud_historial: %s", e)
+        _avisar_arranque(anterior)
     threading.Thread(target=_ir, daemon=True).start()
     return True
+
+
+def _avisar_arranque(anterior):
+    """(17/11) Un mensaje en Slack por cada arranque de la API, con la hora del arranque anterior. Un arranque sin deploy de
+    por medio es un reinicio solo (la app muestra «No se pudo conectar con la API» hasta que termina de cargar): el 17/11 a
+    las 12:04, en plena reunión, pasó y nadie se enteró. Solo con SLACK_WEBHOOK_URL; AVISAR_ARRANQUE=0 lo apaga."""
+    if not os.environ.get("SLACK_WEBHOOK_URL") or os.environ.get("AVISAR_ARRANQUE", "1") == "0":
+        return
+    try:
+        import avisos
+        zona = dt.timezone(dt.timedelta(hours=-3))
+        ahora = dt.datetime.now(dt.timezone.utc).astimezone(zona).strftime("%d/%m %H:%M")
+        cuando = ""
+        if anterior:
+            a = dt.datetime.fromisoformat(str(anterior).replace("Z", "+00:00"))
+            cuando = f" El arranque anterior fue el {a.astimezone(zona).strftime('%d/%m %H:%M')}."
+        avisos._slack(f"*:arrows_counterclockwise: La API arrancó de nuevo* ({ahora}).{cuando}\n"
+                      "Si nadie hizo un deploy a esa hora, se reinició sola: mirar https://dashboard.render.com → fva-api → Events. "
+                      "Mientras cargaba, la plataforma habrá mostrado «No se pudo conectar con la API» durante un minuto o dos.")
+    except Exception as e:
+        log.warning("No pude avisar el arranque por Slack: %s", e)
 
 
 registrar_arranque()

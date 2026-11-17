@@ -60,3 +60,13 @@ jobs:
           PERFIT_LISTA_FRASE: ${{ secrets.PERFIT_LISTA_FRASE }}
           # <<< generado
         run: python procesar_cola.py
+      # (17/11) Vigía de la API: la cola corre puntual (cron-job.org), así que de paso prueba /salud y avisa por Slack si la API
+      # se cayó o volvió (vigilar_api.py; también tiene su propio workflow, vigilar_api.yml). Nunca hace fallar la cola.
+      - name: Vigilar la API
+        if: always()
+        continue-on-error: true
+        run: python vigilar_api.py
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY_COLA: ${{ secrets.SUPABASE_KEY_COLA }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
