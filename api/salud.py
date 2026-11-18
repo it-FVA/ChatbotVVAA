@@ -801,22 +801,44 @@ def registrar_arranque():
     import threading
 
     def _ir():
-        anterior = None
+        anterior, commit_anterior = None, None
+        commit = _commit_actual()
         try:
             filas = db.listar_salud(60)
-            anterior = next((f.get("creado") for f in filas if f.get("estado") == "arranque"), None)
-            db.guardar_salud("arranque", {"version": VERSION, "vectores": os.environ.get("VECTORES", "local") or "local"})
+            previo = next((f for f in filas if f.get("estado") == "arranque"), None)
+            if previo:
+                anterior = previo.get("creado")
+                commit_anterior = (previo.get("detalle") or {}).get("commit") if isinstance(previo.get("detalle"), dict) else None
+            db.guardar_salud("arranque", {"version": VERSION, "vectores": os.environ.get("VECTORES", "local") or "local", "commit": commit})
         except Exception as e:
             log.warning("No pude registrar el arranque en salud_historial: %s", e)
-        _avisar_arranque(anterior)
+        _avisar_arranque(anterior, commit, commit_anterior)
     threading.Thread(target=_ir, daemon=True).start()
     return True
 
 
-def _avisar_arranque(anterior):
-    """(17/11) Un mensaje en Slack por cada arranque de la API, con la hora del arranque anterior. Un arranque sin deploy de
-    por medio es un reinicio solo (la app muestra «No se pudo conectar con la API» hasta que termina de cargar): el 17/11 a
-    las 12:04, en plena reunión, pasó y nadie se enteró. Solo con SLACK_WEBHOOK_URL; AVISAR_ARRANQUE=0 lo apaga."""
+def _commit_actual():
+    """El commit con el que corre la API: Render lo pone en RENDER_GIT_COMMIT. Siete caracteres, o None si no hay."""
+    c = (os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("GIT_COMMIT") or "").strip()
+    return c[:7] or None
+
+
+def motivo_arranque(commit, commit_anterior):
+    """(18/11) Qué fue el arranque, para que el aviso se lea solo. Un deploy cambia el commit; un reinicio solo lo repite.
+    Devuelve (etiqueta, explicación)."""
+    if not commit:
+        return "sin dato", "Si nadie hizo un deploy a esa hora, se reinició sola: mirar https://dashboard.render.com → fva-api → Events."
+    if not commit_anterior:
+        return f"commit {commit}", "Es el primer arranque con el commit registrado; a partir del próximo el aviso dice si fue deploy o reinicio."
+    if commit != commit_anterior:
+        return f"deploy, commit {commit}", f"Código nuevo (antes corría {commit_anterior}): esperado, no es una caída."
+    return f"reinicio sin deploy, commit {commit}", "Mismo código que antes: se reinició sola (memoria u otro evento). Mirar https://dashboard.render.com → fva-api → Events."
+
+
+def _avisar_arranque(anterior, commit=None, commit_anterior=None):
+    """(17/11) Un mensaje en Slack por cada arranque de la API, con la hora del arranque anterior y (18/11) si fue un deploy
+    o un reinicio solo, comparando el commit con el del arranque anterior. El 17/11 a las 12:04, en plena reunión, la API se
+    reinició sola y nadie se enteró. Solo con SLACK_WEBHOOK_URL; AVISAR_ARRANQUE=0 lo apaga."""
     if not os.environ.get("SLACK_WEBHOOK_URL") or os.environ.get("AVISAR_ARRANQUE", "1") == "0":
         return
     try:
@@ -827,8 +849,10 @@ def _avisar_arranque(anterior):
         if anterior:
             a = dt.datetime.fromisoformat(str(anterior).replace("Z", "+00:00"))
             cuando = f" El arranque anterior fue el {a.astimezone(zona).strftime('%d/%m %H:%M')}."
-        avisos._slack(f"*:arrows_counterclockwise: La API arrancó de nuevo* ({ahora}).{cuando}\n"
-                      "Si nadie hizo un deploy a esa hora, se reinició sola: mirar https://dashboard.render.com → fva-api → Events. "
+        etiqueta, explicacion = motivo_arranque(commit, commit_anterior)
+        icono = ":rocket:" if etiqueta.startswith("deploy") else ":arrows_counterclockwise:"
+        avisos._slack(f"*{icono} La API arrancó de nuevo* ({ahora}, {etiqueta}).{cuando}
+{explicacion} "
                       "Mientras cargaba, la plataforma habrá mostrado «No se pudo conectar con la API» durante un minuto o dos.")
     except Exception as e:
         log.warning("No pude avisar el arranque por Slack: %s", e)

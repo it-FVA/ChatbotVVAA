@@ -326,3 +326,12 @@ def test_render_y_cola_salen_de_la_lista_unica():
     """render.yaml y cola.yml se generan de api/variables_entorno.py: si alguien editó uno a mano o cambió la lista sin regenerar, falla."""
     desactualizados = [r for r, (a, n) in generar_config.generar().items() if a != n]
     assert not desactualizados, "Correr python api/generar_config.py (desactualizados: %s)" % desactualizados
+
+
+def test_motivo_arranque_distingue_deploy_de_reinicio():
+    """(18/11) El aviso de arranque dice si fue deploy (commit distinto) o reinicio solo (mismo commit)."""
+    from api.salud import motivo_arranque
+    assert motivo_arranque(None, None)[0] == "sin dato"
+    assert motivo_arranque("2e7d56b", None)[0] == "commit 2e7d56b"
+    assert motivo_arranque("2e7d56b", "82225ab")[0].startswith("deploy")
+    assert motivo_arranque("2e7d56b", "2e7d56b")[0].startswith("reinicio sin deploy")
