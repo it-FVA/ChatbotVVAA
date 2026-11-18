@@ -483,11 +483,17 @@ def test_rechazada_se_reenvia_directo_y_publicada_no_se_retoma(logueado, base, c
     _como(logueado, "franco")
     r = logueado.post("/publicar/a-aprobar", json={"canal": "facebook", "texto": "Arreglado", "borrador_id": "p1"})
     assert r.status_code == 200 and r.json()["id"] == "p1" and p1["estado"] == "a_aprobar" and p1["resultado"]["nota"] == "se retorna para colaborar"
-    for est in ("publicada", "cancelada", "a_aprobar", "pendiente"):
+    for est in ("publicada", "a_aprobar", "pendiente"):
         p1["estado"] = est
         d = logueado.get("/publicaciones/p1").json()
         assert d["retomable"] is False and d["corregible"] is False, est
         assert logueado.post("/publicar/borrador", json={"canal": "facebook", "texto": "x", "borrador_id": "p1"}).status_code == 409, est
+    # (18/11, Franco) una cancelada (aprobada y bajada de la cola) sí se retoma, como una rechazada: vuelve a borrador en la misma fila
+    p1["estado"] = "cancelada"
+    d = logueado.get("/publicaciones/p1").json()
+    assert d["retomable"] is True and d["corregible"] is True
+    assert logueado.post("/publicar/borrador", json={"canal": "facebook", "texto": "x", "borrador_id": "p1"}).status_code == 200
+    assert p1["estado"] == "borrador"
 
 
 def test_rechazada_vieja_no_compone_la_frase_dos_veces(logueado, base):

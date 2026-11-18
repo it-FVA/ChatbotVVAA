@@ -124,6 +124,24 @@ def pieza_a_aprobar(db, pid, usuario, canal, titulo, texto, formato=None, sincro
     return _en_hilo(_mandar, asunto, cuerpo, emails)
 
 
+def pieza_cancelada(db, pieza, por, sincrono=False):
+    """(18/11, Franco) Alguien bajó de la cola una pieza ya aprobada: avisa a quien la hizo (Slack y/o mail), como pieza_resuelta."""
+    if not any(configurado().values()):
+        return None
+    canal = pieza.get("canal") or ""
+    nombre = NOMBRE_CANAL.get(canal, canal)
+    titulo = (pieza.get("titulo") or pieza.get("texto") or "").strip().replace("\n", " ")[:120]
+    quien = pieza.get("usuario") or ""
+    cuando = (pieza.get("fecha_programada") or "")[:16].replace("T", " ")
+    asunto = f"Pieza cancelada: {nombre} — {quien}"
+    cuerpo = (f"La canceló {por}." + (f" Iba a salir el {cuando}." if cuando else "") + (f"\n«{titulo}»" if titulo else "")
+              + f"\nVerla en Mis publicaciones → Rechazadas: {web_url()}/publicaciones")
+    emails = [e for e in [_email_de(db, quien)] if e]
+    if sincrono:
+        return _mandar(asunto, cuerpo, emails)
+    return _en_hilo(_mandar, asunto, cuerpo, emails)
+
+
 def pieza_resuelta(db, pieza, decision, por, nota=None, cuando=None, sincrono=False):
     """La aprobaron o rechazaron: avisa a quien la hizo (Slack y/o mail)."""
     if not any(configurado().values()):

@@ -390,9 +390,13 @@ def test_cola_registro_papelera(logueado, lizzie, base, monkeypatch):
     base["filas"]["q1"] = {"id": "q1", "usuario": "lizzie", "canal": "facebook", "estado": "pendiente", "resultado": {}}
     monkeypatch.setattr(db, "listar_pendientes", lambda vencidas=False, limite=50: [dict(base["filas"]["q1"], fecha_programada="2026-11-01T09:00:00-03:00")])
     assert logueado.get("/aprobacion/cola").json()[0]["canal_texto"] == "Facebook"
-    cancel = []
-    monkeypatch.setattr(db, "cancelar_publicacion", lambda pid, u: cancel.append((pid, u)))
-    assert logueado.post("/aprobacion/q1/cancelar").json()["estado"] == "cancelada" and cancel == [("q1", "franco")]
+    cancel, avisados = [], []
+    base["filas"]["q1"]["resultado"] = {"pieza": {"canal": "facebook", "texto": "x"}, "imagenes": ["https://wp/c1.jpg", "https://wp/c2.jpg"]}
+    monkeypatch.setattr(db, "cancelar_publicacion", lambda pid, u, resultado=None: cancel.append((pid, u, resultado)))
+    monkeypatch.setattr("avisos.pieza_cancelada", lambda d, p, por, sincrono=False: avisados.append((p["id"], por)))
+    assert logueado.post("/aprobacion/q1/cancelar").json()["estado"] == "cancelada"
+    # (18/11) la cancelación conserva el formulario y las fotos (para retomarla) y avisa a quien la hizo
+    assert cancel == [("q1", "franco", base["filas"]["q1"]["resultado"])] and avisados == [("q1", "franco")]
     base["filas"]["q1"]["estado"] = "cancelada"
     assert logueado.post("/aprobacion/q1/cancelar").status_code == 409
     monkeypatch.setattr(db, "listar_registro", lambda limite=60: [dict(f) for f in FILAS])
@@ -413,3 +417,50 @@ def test_sin_sesion(cliente):
     assert cliente.post("/publicar/enviar", json={"canal": "instagram", "texto": "x"}).status_code == 401
     assert cliente.get("/aprobacion/para-aprobar").status_code == 401
     assert cliente.delete("/publicaciones/a").status_code == 401
+
+
+def test_cancelar_conserva_resultado_en_db(monkeypatch):
+    """(18/11) db.cancelar_publicacion mezcla cancelada_por con el resultado que había (antes lo pisaba y la pieza no se podía retomar)."""
+    import db.publicaciones as pub
+    visto = {}
+    monkeypatch.setattr(pub._db, "actualizar_publicacion", lambda pid, campos: visto.update(pid=pid, **campos))
+    pub.cancelar_publicacion("q1", "franco", {"pieza": {"texto": "x"}, "imagenes": ["a"]})
+    assert visto["estado"] == "cancelada" and visto["resultado"]["pieza"] == {"texto": "x"} and visto["resultado"]["imagenes"] == ["a"]
+    assert visto["resultado"]["cancelada_por"] == "franco" and visto["resultado"]["cancelada_en"]
+
+
+def test_prueba_reemplazada_por_la_pieza_real(lizzie, base, monkeypatch):
+    """(18/11, Franco) «Ver cómo quedaría» deja una `prueba`; al mandar a aprobación la misma pieza (mismo canal, mismas fotos
+    originales y misma frase), la prueba queda marcada reemplazada_por y no aparece más en Mis publicaciones."""
+    import db.publicaciones as pub
+    monkeypatch.setattr(db, "proponer_publicacion", lambda *a, **k: "real1")
+    monkeypatch.setattr(publicar, "subir_imagen_wordpress", lambda *a, **k: {"ok": True, "modo": "borrador", "url": "https://wp/comp.jpg", "id": 1})
+    import datetime
+    hoy = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    pruebas = [{"id": "t1", "creado": hoy, "canal": "instagram", "resultado": {"pieza": {"url": "https://wp/f.jpg", "imagenes": None, "texto_imagen": "La gratitud"}}},
+               {"id": "t2", "creado": hoy, "canal": "instagram", "resultado": {"pieza": {"url": "https://wp/otra.jpg", "imagenes": None, "texto_imagen": "La gratitud"}}},
+               {"id": "t3", "creado": hoy, "canal": "instagram", "resultado": {"pieza": {"url": "https://wp/f.jpg", "imagenes": None, "texto_imagen": "Otra frase"}}}]
+    consultas, marcadas = [], []
+    monkeypatch.setattr(pub._db, "_req", lambda m, q="", body=None, tabla="": consultas.append(q) or pruebas)
+    monkeypatch.setattr(pub._db, "actualizar_publicacion", lambda pid, campos: marcadas.append((pid, campos["resultado"]["reemplazada_por"])))
+    r = lizzie.post("/publicar/a-aprobar", json={"canal": "instagram", "texto": "Hola", "imagen_url": "https://wp/f.jpg", "texto_imagen": "La gratitud", "logo": "Amarillo"})
+    assert r.status_code == 200 and r.json()["id"] == "real1"
+    assert marcadas == [("t1", "real1")]            # solo la del mismo diseño; otra foto u otra frase siguen como pruebas
+    q = next(c for c in consultas if "estado=eq.prueba" in c)
+    assert "usuario=eq.lizzie" in q and "canal=eq.instagram" in q
+    # un carrusel: mismas fotos originales (pieza.imagenes), aunque resultado.imagenes sean las compuestas
+    marcadas.clear()
+    pruebas[:] = [{"id": "t4", "creado": hoy, "canal": "instagram", "resultado": {"imagenes": ["https://wp/comp1.jpg", "https://wp/comp2.jpg"],
+                                                                                 "pieza": {"url": "https://wp/1.jpg", "imagenes": ["https://wp/1.jpg", "https://wp/2.jpg"], "texto_imagen": "F"}}}]
+    r = lizzie.post("/publicar/a-aprobar", json={"canal": "instagram", "texto": "Hola", "imagenes": ["https://wp/1.jpg", "https://wp/2.jpg"], "texto_imagen": "F"})
+    assert r.status_code == 200, r.text
+    assert marcadas == [("t4", "real1")]
+    # Mis publicaciones no lista las reemplazadas (ni en Todas ni en Pruebas); las pruebas sin pieza real siguen
+    filas = [dict(f) for f in FILAS] + [{"id": "t1", "creado": hoy, "usuario": "franco", "canal": "instagram", "modo": "simulado", "titulo": "", "texto": "x",
+                                         "imagen_url": None, "estado": "prueba", "fecha_programada": None, "resultado": {"reemplazada_por": "real1"}},
+                                        {"id": "t9", "creado": hoy, "usuario": "franco", "canal": "instagram", "modo": "simulado", "titulo": "", "texto": "x",
+                                         "imagen_url": None, "estado": "prueba", "fecha_programada": None, "resultado": {}}]
+    monkeypatch.setattr(db, "listar_mias", lambda u: filas)
+    d = lizzie.get("/publicaciones").json()
+    ids = [p["id"] for p in d["piezas"]]
+    assert "t1" not in ids and "t9" in ids and d["solapas"]["Pruebas"] == ["t9"] and "t1" not in d["solapas"]["Todas"]

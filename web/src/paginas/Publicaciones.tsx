@@ -270,12 +270,12 @@ export function TarjetaPublicacion({ p, mostrarUsuario = false, onEliminar, onCa
         <div className="acciones">
           {p.retomable &&
             (esNewsletter ? (
-              <Link className="boton" data-ayuda="publicaciones.retomar" to={`/newsletter?borrador=${encodeURIComponent(p.id)}`} title={p.estado === "rechazada" ? "Abre el newsletter con la nota del rechazo arriba: corregilo y mandalo otra vez a aprobación" : undefined}>
-                <Icono nombre="lapiz" /> {p.estado === "rechazada" ? "Editar" : "Retomar"}
+              <Link className="boton" data-ayuda="publicaciones.retomar" to={`/newsletter?borrador=${encodeURIComponent(p.id)}`} title={p.estado === "rechazada" ? "Abre el newsletter con la nota del rechazo arriba: corregilo y mandalo otra vez a aprobación" : p.estado === "cancelada" ? "Abre el newsletter: al guardar vuelve a ser borrador y lo mandás otra vez a aprobación" : undefined}>
+                <Icono nombre="lapiz" /> {p.estado === "rechazada" || p.estado === "cancelada" ? "Editar" : "Retomar"}
               </Link>
             ) : (
-              <Link className="boton" data-ayuda="publicaciones.retomar" to={`/publicar?borrador=${encodeURIComponent(p.id)}`} title={p.estado === "rechazada" ? "Abre la pieza con la nota del rechazo arriba: corregila y mandala otra vez a aprobación" : undefined}>
-                <Icono nombre="lapiz" /> {p.estado === "rechazada" ? "Editar" : "Retomar"}
+              <Link className="boton" data-ayuda="publicaciones.retomar" to={`/publicar?borrador=${encodeURIComponent(p.id)}`} title={p.estado === "rechazada" ? "Abre la pieza con la nota del rechazo arriba: corregila y mandala otra vez a aprobación" : p.estado === "cancelada" ? "Abre la pieza: al guardar vuelve a ser borrador y la mandás otra vez a aprobación" : undefined}>
+                <Icono nombre="lapiz" /> {p.estado === "rechazada" || p.estado === "cancelada" ? "Editar" : "Retomar"}
               </Link>
             ))}
           {p.ver_url && (

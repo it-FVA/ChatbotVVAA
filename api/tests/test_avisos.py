@@ -49,3 +49,17 @@ def test_un_error_no_rompe(monkeypatch):
     r = avisos.pieza_a_aprobar(_DB(), "p1", "lizzie", "wordpress", "T", "x", sincrono=True)
     assert r["slack"] is False
     assert json.dumps(r)   # serializable
+
+
+def test_pieza_cancelada_avisa_a_quien_la_hizo(monkeypatch):
+    """(18/11, Franco) Alguien bajó de la cola una pieza aprobada: aviso a quien la hizo, por Slack y mail, como al aprobar o rechazar."""
+    monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://hooks.slack.test/abc")
+    monkeypatch.setenv("SMTP_HOST", "smtp.test"); monkeypatch.setenv("SMTP_USER", "u"); monkeypatch.setenv("SMTP_PASS", "p")
+    slack, mails = [], []
+    monkeypatch.setattr(avisos, "_slack", lambda texto: slack.append(texto) or True)
+    monkeypatch.setattr(avisos, "_mail", lambda dest, asunto, texto: mails.append((dest, asunto, texto)) or True)
+    pieza = {"usuario": "lizzie", "canal": "instagram", "titulo": "", "texto": "Tres momentos para agradecer", "fecha_programada": "2026-11-18T10:42:00-03:00"}
+    r = avisos.pieza_cancelada(_DB(), pieza, "franco", sincrono=True)
+    assert r == {"slack": True, "mail": True}
+    assert "Pieza cancelada: Instagram — lizzie" in slack[0] and "La canceló franco." in slack[0] and "Iba a salir el 2026-11-18 10:42." in slack[0]
+    assert mails[0][0] == ["l@x.org"] and mails[0][1] == "Pieza cancelada: Instagram — lizzie" and "Tres momentos" in mails[0][2]

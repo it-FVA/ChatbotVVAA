@@ -85,10 +85,35 @@ def liberar_procesando_viejas(minutos=30):
     return liberadas
 
 
-def cancelar_publicacion(pid, usuario):
-    return _db.actualizar_publicacion(pid, {"estado": "cancelada",
-                                        "procesado_en": datetime.now(timezone.utc).isoformat(),
-                                        "resultado": {"cancelada_por": usuario}})
+def cancelar_publicacion(pid, usuario, resultado=None):
+    """(18/11) Conserva `resultado` (el formulario en `pieza`, las imágenes compuestas…): una cancelada se retoma como una rechazada."""
+    ahora = datetime.now(timezone.utc).isoformat()
+    return _db.actualizar_publicacion(pid, {"estado": "cancelada", "procesado_en": ahora,
+                                        "resultado": dict(resultado or {}, cancelada_por=usuario, cancelada_en=ahora)})
+
+
+def marcar_prueba_reemplazada(usuario, pid_real, canal, url, imagenes, texto_imagen, horas=24):
+    """(18/11, Franco) «Ver cómo quedaría» deja una fila `prueba`; si poco después la misma persona manda a aprobación una pieza
+    del mismo diseño (mismo canal, misma foto o mismas fotos originales y misma frase sobre la imagen), la prueba se marca
+    `resultado.reemplazada_por` = la pieza real y deja de verse en Mis publicaciones. Devuelve los ids marcados."""
+    if not _db.disponible():
+        return []
+    corte = (datetime.now(timezone.utc) - timedelta(hours=horas)).isoformat()
+    q = (f"?select=id,creado,canal,resultado&usuario=eq.{urllib.parse.quote(usuario)}&estado=eq.prueba&canal=eq.{_q(canal or '')}"
+         f"&creado=gte.{urllib.parse.quote(corte)}&order=creado.desc&limit=20")
+    marcados = []
+    for p in _db._req("GET", q, tabla="publicaciones") or []:
+        res = p.get("resultado") or {}
+        if res.get("reemplazada_por"):
+            continue
+        g = res.get("pieza") or {}
+        mismas = (g.get("imagenes") or None) == (imagenes or None) and (g.get("url") or None) == (url or None)
+        misma_frase = ((g.get("texto_imagen") or res.get("texto_imagen") or "").strip()) == ((texto_imagen or "").strip())
+        if mismas and misma_frase:
+            _db.actualizar_publicacion(p["id"], {"resultado": dict(res, reemplazada_por=pid_real,
+                                                                 reemplazada_en=datetime.now(timezone.utc).isoformat(timespec="seconds"))})
+            marcados.append(p["id"])
+    return marcados
 
 
 # ---------------- Aprobación (13/10, reunión: niveles normal · aprobación · publicación) ----------------

@@ -173,6 +173,28 @@ describe("Diseñar", () => {
     expect(api.de("POST", "/publicar/a-aprobar")[0].cuerpo).toMatchObject({ borrador_id: "r1", canal: "facebook", texto: "Texto de Patricio" });
   });
 
+  // (18/11, Franco) una cancelada (aprobada y bajada de la cola) se retoma en el mismo lugar: vuelve a borrador y se reenvía
+  it("una cancelada propia se retoma con el mismo id y avisa quién la canceló", async () => {
+    const api = instalarApi({
+      "GET /publicar/opciones": OPCIONES,
+      "GET /banco": [],
+      "GET /publicaciones/c1": {
+        id: "c1", usuario: "ana", canal: "facebook", estado: "cancelada", titulo: "", texto: "Texto cancelado", propia: true, retomable: true, corregible: true,
+        cancelada_por: "franco", rechazada_por: null, nota: null,
+        pieza: { canal: "facebook", texto: "Texto cancelado", imagen_url: FOTO.url, borrador_id: "c1" },
+      },
+      "POST /publicar/borrador": { ok: true, id: "c1", estado: "borrador", mensaje: "Guardado.", version: "v2" },
+    });
+    montar("/publicar?borrador=c1");
+    expect(await screen.findByText(/Retomando una pieza cancelada \(la canceló franco\)/)).toBeInTheDocument();
+    expect(screen.queryByText(/Esa pieza ya no es un borrador/)).not.toBeInTheDocument();
+    const u = userEvent.setup();
+    await u.click(await screen.findByRole("button", { name: /Siguiente: cuándo y enviar/ }));
+    await u.click(screen.getByRole("button", { name: /Guardar cambios/ }));
+    await waitFor(() => expect(api.de("POST", "/publicar/borrador")).toHaveLength(1));
+    expect(api.de("POST", "/publicar/borrador")[0].cuerpo).toMatchObject({ borrador_id: "c1", texto: "Texto cancelado" });
+  });
+
   it("una rechazada ajena con permiso ver se abre como copia, sin la nota ni el id", async () => {
     instalarApi({ "GET /publicar/opciones": OPCIONES, "GET /banco": [], "GET /publicaciones/r1": { ...RECHAZADA, permiso: "ver", retomable: false } });
     montar("/publicar?borrador=r1");

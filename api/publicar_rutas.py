@@ -344,8 +344,9 @@ def decorar(p):
     p["compartido"] = bool(p.get("compartido"))      # (2/11) compartida con el equipo (publicaciones.compartido)
     # (2/11) también una prueba («Ver simulado»): Julián diseñó una historia, la probó sin guardar borrador y no podía retomarla
     # (4/11) y una rechazada: deja de ser final, se corrige en la misma fila y se reenvía (el newsletter, en su editor)
-    p["retomable"] = est in ("borrador", "prueba", "rechazada")
-    p["corregible"] = est == "rechazada"
+    # (18/11, Franco) y una cancelada (estaba aprobada y alguien la bajó de la cola): se retoma en la misma fila, vuelve a borrador
+    p["retomable"] = est in ("borrador", "prueba", "rechazada", "cancelada")
+    p["corregible"] = est in ("rechazada", "cancelada")
     return p
 
 
@@ -375,8 +376,8 @@ def _borrador_ajeno(borrador_id, usuario, rol):
     return fila.get("usuario") if permiso_pieza(fila, usuario, rol) in ("dueño", "editar") else None
 
 
-# (4/11) lo que se retoma en la misma fila: un borrador y una rechazada que se corrige
-CORREGIBLES = ("borrador", "rechazada")
+# (4/11) lo que se retoma en la misma fila: un borrador y una rechazada que se corrige; (18/11) y una cancelada
+CORREGIBLES = ("borrador", "rechazada", "cancelada")
 
 
 def _cerrar_borrador(borrador_id, duena, nuevo_pid):
@@ -575,6 +576,10 @@ def enviar_a_aprobacion(p: PiezaCompleta, request: Request):
         raise HTTPException(503, f"No pude guardar la pieza para aprobación: {e}")
     if not pid:
         raise HTTPException(503, "No pude guardar la pieza para aprobación.")
+    try:   # (18/11, Franco) la prueba de «Ver cómo quedaría» del mismo diseño deja de verse: una sola fila por pieza
+        db.marcar_prueba_reemplazada(duena or usuario, pid, canal, (p.imagen_url or "").strip() or None, p.imagenes, p.texto_imagen)
+    except Exception as e:
+        log.warning("no pude marcar la prueba reemplazada: %s", e)
     import avisos as _avisos
     _avisos.pieza_a_aprobar(db, pid, usuario, canal, p.titulo, texto, formato)   # (2/11) Slack / mail a los aprobadores, en un hilo
     quien = ", ".join(rol.get("aprobadores") or []) or "un aprobador"
@@ -788,7 +793,9 @@ def cancelar(pid: str, usuario=Depends(auth.aprobador)):
     p = _fila(pid)
     if p.get("estado") != "pendiente":
         raise HTTPException(409, "Solo se cancela una pieza que está en la cola.")
-    db.cancelar_publicacion(pid, usuario)
+    db.cancelar_publicacion(pid, usuario, p.get("resultado"))
+    import avisos as _avisos
+    _avisos.pieza_cancelada(db, p, usuario)      # (18/11, Franco) aviso a quien la hizo, como al aprobar o rechazar
     return {"ok": True, "estado": "cancelada"}
 
 

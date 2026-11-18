@@ -287,7 +287,9 @@ def publicaciones(request: Request, todos: bool = False, equipo: bool = False, u
             p["propio"], p["retomable"], p["eliminable"], p["puede_compartir"] = False, False, False, False
             otras.append(p)
         return {"piezas": otras, "grupos": GRUPOS, "solapas": {"Todas": [p["id"] for p in otras]}, "eliminables": []}
-    mias = [_pub.decorar(p) for p in db.listar_mias(usuario) if p.get("estado") != "subida"]   # (22/10) con estado_texto, ver_url, eliminable…
+    # (22/10) sin subidas; (18/11, Franco) sin las pruebas que ya tienen su pieza real (resultado.reemplazada_por): una sola fila por pieza
+    mias = [_pub.decorar(p) for p in db.listar_mias(usuario)
+            if p.get("estado") != "subida" and not (p.get("estado") == "prueba" and (p.get("resultado") or {}).get("reemplazada_por"))]
     for p in mias:
         p["propio"], p["puede_compartir"] = True, True
     solapas = {"Todas": [p["id"] for p in mias]}
