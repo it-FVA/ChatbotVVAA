@@ -43,7 +43,8 @@ ETIQUETA_EXTRA = {"enviados_frase": "enviados de la Frase del día", "lista_cont
 ETIQUETA_TASA = {"alcance_sobre_seguidores": "alcance = {} de los seguidores", "interacciones_sobre_alcance": "interacciones = {} del alcance",
                  "aperturas_sobre_enviados": "aperturas = {} de los enviados", "clics_sobre_enviados": "clics = {} de los enviados"}
 
-SISTEMA = ("Sos el asesor de campañas del equipo de la Fundación Vivir Agradecidos y le hablás a la dirección (Beto). Español rioplatense, "
+SISTEMA = ("Sos el asesor de campañas del equipo de la Fundación Vivir Agradecidos y le hablás a la persona que te pregunta (alguien que "
+           "dirige o gestiona la Fundación). Si figura «QUIEN PREGUNTA», llamala por ese nombre; si no figura, no uses ningún nombre. Español rioplatense, "
            "tono cálido y claro, sin jerga (no digas «API», «endpoint» ni «token»: decí «desde la plataforma» o «anotado a mano»). Usá SOLO los "
            "datos de abajo: no inventes números, fechas ni causas, y decí de dónde sale cada número. NO hables de lo que no figura: si algo no "
            "está en los datos (títulos de borradores, por ejemplo) no lo menciones ni te quejes de no tenerlo; lo único que se pide cargar es "
@@ -453,6 +454,10 @@ def responder(mensajes, periodo, usuario, cfg=None, extra=None, alcance=None, li
     preguntas = _preguntas(mensajes)
     data = metricas.campanas(periodo)
     canales = metricas.canales_estado(cfg) if cfg is not None else {"canales": []}
+    # (18/11, Franco) el asesor le contestaba «Beto, …» a cualquiera: ahora sabe quién pregunta (el usuario que abrió la sesión)
+    quien = str(usuario or "").strip()
+    if quien and quien.lower() not in ("bot", "cola"):
+        extra = (extra + "\n" if extra else "") + f"QUIEN PREGUNTA: {quien[:1].upper() + quien[1:]}"
     msgs = [{"role": "system", "content": contexto(data, canales, extra, limite)}] + preguntas
     import nucleo
     tok = nucleo.USUARIO.set(usuario)                 # el uso de OpenAI queda a nombre de quien preguntó
