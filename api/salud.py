@@ -851,8 +851,7 @@ def _avisar_arranque(anterior, commit=None, commit_anterior=None):
             cuando = f" El arranque anterior fue el {a.astimezone(zona).strftime('%d/%m %H:%M')}."
         etiqueta, explicacion = motivo_arranque(commit, commit_anterior)
         icono = ":rocket:" if etiqueta.startswith("deploy") else ":arrows_counterclockwise:"
-        avisos._slack(f"*{icono} La API arrancó de nuevo* ({ahora}, {etiqueta}).{cuando}
-{explicacion} "
+        avisos._slack(f"*{icono} La API arrancó de nuevo* ({ahora}, {etiqueta}).{cuando}\n{explicacion} "
                       "Mientras cargaba, la plataforma habrá mostrado «No se pudo conectar con la API» durante un minuto o dos.")
     except Exception as e:
         log.warning("No pude avisar el arranque por Slack: %s", e)
