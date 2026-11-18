@@ -838,23 +838,29 @@ def motivo_arranque(commit, commit_anterior):
 def _avisar_arranque(anterior, commit=None, commit_anterior=None):
     """(17/11) Un mensaje en Slack por cada arranque de la API, con la hora del arranque anterior y (18/11) si fue un deploy
     o un reinicio solo, comparando el commit con el del arranque anterior. El 17/11 a las 12:04, en plena reunión, la API se
-    reinició sola y nadie se enteró. Solo con SLACK_WEBHOOK_URL; AVISAR_ARRANQUE=0 lo apaga."""
+    reinició sola y nadie se enteró. Solo con SLACK_WEBHOOK_URL; AVISAR_ARRANQUE=0 lo apaga.
+    (18/11, Franco) Un deploy (commit distinto) NO avisa: es esperado y era ruido. Siguen avisando el reinicio sin deploy, el primer
+    arranque con commit y el «sin dato». Devuelve True si mandó el aviso."""
     if not os.environ.get("SLACK_WEBHOOK_URL") or os.environ.get("AVISAR_ARRANQUE", "1") == "0":
-        return
+        return False
     try:
         import avisos
+        etiqueta, explicacion = motivo_arranque(commit, commit_anterior)
+        if etiqueta.startswith("deploy"):
+            log.info("Arranque por deploy (%s): sin aviso a Slack", etiqueta)
+            return False
         zona = dt.timezone(dt.timedelta(hours=-3))
         ahora = dt.datetime.now(dt.timezone.utc).astimezone(zona).strftime("%d/%m %H:%M")
         cuando = ""
         if anterior:
             a = dt.datetime.fromisoformat(str(anterior).replace("Z", "+00:00"))
             cuando = f" El arranque anterior fue el {a.astimezone(zona).strftime('%d/%m %H:%M')}."
-        etiqueta, explicacion = motivo_arranque(commit, commit_anterior)
-        icono = ":rocket:" if etiqueta.startswith("deploy") else ":arrows_counterclockwise:"
-        avisos._slack(f"*{icono} La API arrancó de nuevo* ({ahora}, {etiqueta}).{cuando}\n{explicacion} "
+        avisos._slack(f"*:arrows_counterclockwise: La API arrancó de nuevo* ({ahora}, {etiqueta}).{cuando}\n{explicacion} "
                       "Mientras cargaba, la plataforma habrá mostrado «No se pudo conectar con la API» durante un minuto o dos.")
+        return True
     except Exception as e:
         log.warning("No pude avisar el arranque por Slack: %s", e)
+        return False
 
 
 registrar_arranque()

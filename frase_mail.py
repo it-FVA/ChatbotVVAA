@@ -12,6 +12,8 @@ Cómo encaja con lo que ya existe:
   - En cada pasada (cada 15 minutos) `avanzar` manda hasta 50 eventos (= 200 por hora). Si Perfit responde 429, para
     y sigue en la pasada siguiente. Cuando no queda nada pendiente, la pieza pasa a 'publicada' (real) o 'simulada'.
   - `enviar_prueba` manda la frase de un día a unos mails sueltos, ya mismo (la primera prueba del equipo).
+  - (18/11, Franco) Avisos por Slack (texto en avisos.frase_mail_terminado): cuando el envío cierra con errores, y una sola vez si
+    pasó el día de la frase y todavía quedan pendientes (resultado.aviso_incompleto guarda la fecha para no repetirlo).
 Lo que recibe la automation de Perfit en el contexto del evento (para armar la plantilla del mail):
   frase, autor, imagen_url (la foto con la frase encima, 1080×1080, ya en WordPress), fecha (AAAA-MM-DD), fecha_texto
   («lunes 27 de octubre»), pie (hashtags), link (el sitio).
@@ -86,10 +88,31 @@ def iniciar(p, db, perfit):
             "aviso": f"{len(emails)} destinatarios ({de_donde}); se mandan de a {POR_CORRIDA} por pasada"}
 
 
-def avanzar(db, perfit, max_por_corrida=POR_CORRIDA, piezas=None):
+def _aviso_al_cierre(p, resultado, conteo, hoy):
+    """(18/11) Qué aviso corresponde después de una tanda: 'errores' si la pieza cerró (sin pendientes) con algún error; 'incompleto'
+    si sigue con pendientes, ya pasó el día de la frase y todavía no se avisó; None si nada. Manda el aviso (Slack) y lo devuelve."""
+    pieza = dict(p, resultado=resultado)
+    fecha = (resultado.get("frase_del_dia") or str(p.get("fecha_programada") or "")[:10])
+    try:
+        import avisos
+        if not conteo.get("pendiente"):
+            if int(conteo.get("error") or 0) > 0:
+                avisos.frase_mail_terminado(pieza, conteo)
+                return "errores"
+            return None
+        if fecha and fecha < str(hoy)[:10] and not resultado.get("aviso_incompleto"):
+            avisos.frase_mail_terminado(pieza, conteo, incompleto=True)
+            return "incompleto"
+    except Exception as e:  # noqa: BLE001
+        print(f"frase por mail: no pude avisar: {type(e).__name__}: {str(e)[:120]}")
+    return None
+
+
+def avanzar(db, perfit, max_por_corrida=POR_CORRIDA, piezas=None, hoy=None):
     """Manda la siguiente tanda de las piezas 'mail' en 'enviando'. Devuelve un resumen por pieza."""
     m = perfit.modo()
     piezas = piezas if piezas is not None else db.publicaciones_por_estado("enviando", canal="mail")
+    hoy = hoy or datetime.datetime.now(ZONA).date()
     resumen = []
     cupo = max_por_corrida
     for p in piezas:
@@ -124,6 +147,8 @@ def avanzar(db, perfit, max_por_corrida=POR_CORRIDA, piezas=None):
         if not conteo.get("pendiente"):
             campos["estado"] = "publicada" if m == "real" and conteo.get("enviado") else "simulada"
             campos["procesado_en"] = db._ahora_iso()
+        if _aviso_al_cierre(p, campos["resultado"], conteo, hoy=hoy) == "incompleto":
+            campos["resultado"]["aviso_incompleto"] = str(hoy)
         db.actualizar_publicacion(pid, campos)
         resumen.append({"id": pid, "enviados": enviados, "errores": errores, "quedan": conteo.get("pendiente", 0),
                         "limite": limite, "estado": campos.get("estado", "enviando")})

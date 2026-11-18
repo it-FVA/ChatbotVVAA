@@ -17,6 +17,9 @@ Corre:
 Al final de cada pasada llama a programar_frases.main() (19/10): la «Frase del día» se encola desde ahí.
 (5/11) Y a banco.sincronizar_desde_config: si hay carpeta de Drive del banco de imágenes (config banco_drive_carpeta), sube lo nuevo a WordPress.
 (8/11) Y a metricas.capturar_si_toca: cada hora pide a Meta los números de Instagram y Facebook (no corre con --simular).
+(18/11, Franco) Avisos (texto en avisos.py): pieza que falló al publicar (primer error y error definitivo), pieza publicada de
+verdad (solo de personas), y una vez por día desde las 08:00 Argentina (_avisos_diarios): calendario de la Frase del día con 5
+días o menos con frase, y token de Instagram a 10 días o menos de vencer.
 """
 import os, sys, json, datetime
 
@@ -45,6 +48,78 @@ def _avisar_simulada_por_error(p, canal, modo):
             avisos._slack(f"*:warning: Un posteo real quedó en prueba*\n{texto}")
     except Exception as e:
         print(f"  ! no pude avisar por Slack: {e}")
+
+
+def _avisar_resultado(p, estado, res, intentos):
+    """(18/11, Franco) Después de procesar una pieza: si falló, aviso a quien la hizo y a los aprobadores (primer error «se
+    reintenta» y error definitivo); si salió de verdad (modo real), aviso a quien la hizo con el link. La Frase del día no avisa al
+    publicarse (sale todos los días: sería ruido), pero sí cuando falla. Síncrono: la corrida termina y un hilo no llegaría."""
+    try:
+        import avisos, db
+        res = res if isinstance(res, dict) else {"aviso": str(res)}
+        if estado == "error" or (estado == "pendiente" and not res.get("ok") and intentos == 1):   # primer error y definitivo, no el 2.º
+            r = avisos.pieza_fallo(db, p, res.get("aviso"), intentos, definitivo=(estado == "error"), sincrono=True)
+        elif estado == "publicada" and (p.get("usuario") or "") != FRASE_USUARIO:
+            r = avisos.pieza_publicada(db, p, res, sincrono=True)
+        else:
+            return
+        if r:
+            print(f"  aviso: " + ", ".join(f"{k} {'ok' if v else 'falló' if v is False else '-'}" for k, v in r.items()))
+    except Exception as e:
+        print(f"  ! no pude avisar: {type(e).__name__}: {str(e)[:150]}")
+
+
+FRASE_USUARIO = "frase_del_dia"      # = programar_frases.USUARIO (sin importar el módulo acá: los tests lo reemplazan)
+HORA_AVISOS_DIARIOS = 8              # hora Argentina desde la que se revisan los avisos de una vez por día
+
+
+def dias_con_frase(db, hoy):
+    """(18/11) Cuántos días seguidos desde mañana tienen frase asignada (estado programada o saltada) y la fecha del último.
+    0 = mañana no tiene (lo mismo que dice la tarjeta «Mañana» del calendario). Devuelve (dias, ultima_fecha)."""
+    manana = hoy + datetime.timedelta(days=1)
+    con = {f["fecha"][:10] for f in db.listar_frases(desde=manana.isoformat()) if f.get("fecha") and f.get("estado") in ("programada", "saltada")}
+    n, d = 0, manana
+    while d.isoformat() in con:
+        n, d = n + 1, d + datetime.timedelta(days=1)
+    return n, (d - datetime.timedelta(days=1)).isoformat() if n else None
+
+
+def _avisos_diarios(db, ahora=None):
+    """Una vez por día (config.avisos_diarios), desde las 08:00 Argentina: (3) la Frase del día con 5 días o menos con frase
+    asignada; (4) el token de Instagram a 10 días o menos de vencer (si no se sabe cuándo vence, no avisa). Devuelve líneas para el log."""
+    import avisos
+    zona = datetime.timezone(datetime.timedelta(hours=-3))
+    ahora = (ahora or datetime.datetime.now(datetime.timezone.utc)).astimezone(zona)
+    if ahora.hour < HORA_AVISOS_DIARIOS or not os.environ.get("SLACK_WEBHOOK_URL"):
+        return []
+    hoy = ahora.date()
+    out = []
+    if avisos.una_vez_por_dia(db, "frases_pocas", hoy):
+        if db.obtener_config("frase_activa", False):
+            dias, ultima = dias_con_frase(db, hoy)
+            if dias <= avisos.FRASES_POCAS_DIAS:
+                r = avisos.frases_pocas(dias, ultima)
+                avisos.marcar_avisado_hoy(db, "frases_pocas", hoy)
+                out.append(f"frases: quedan {dias} días con frase → avisado por Slack ({'ok' if r and r.get('slack') else 'falló'})")
+            else:
+                out.append(f"frases: quedan {dias} días con frase, sin aviso")
+        else:
+            out.append("frases: la Frase del día está apagada, sin aviso")
+    if avisos.una_vez_por_dia(db, "token_ig", hoy):
+        import meta_token
+        inf = meta_token.info_token()
+        vence = (inf or {}).get("vence")
+        if vence is not None:
+            dias = (vence - datetime.datetime.now(datetime.timezone.utc)).days
+            if dias <= avisos.TOKEN_IG_AVISO_DIAS:
+                r = avisos.token_ig_por_vencer(dias, vence)
+                avisos.marcar_avisado_hoy(db, "token_ig", hoy)
+                out.append(f"token IG: vence en {dias} días → avisado por Slack ({'ok' if r and r.get('slack') else 'falló'})")
+            else:
+                out.append(f"token IG: vence en {dias} días, sin aviso")
+        else:
+            out.append("token IG: no se sabe cuándo vence, sin aviso")
+    return out
 
 
 def main():
@@ -126,6 +201,7 @@ def main():
         print(f"  → {estado}: {str(res.get('aviso', ''))[:120]}")
         if estado == "simulada" and (p.get("modo") or "") == "real":
             _avisar_simulada_por_error(p, canal, modo)
+        _avisar_resultado(p, estado, res, intentos)
     try:   # (19/10) Frase del día: cierra el circuito de las ya encoladas y encola la de hoy/mañana si está activa
         import programar_frases
         programar_frases.main(["--simular"] if "--simular" in sys.argv else [])
@@ -150,6 +226,12 @@ def main():
                     print(f"  ! {d}")
     except Exception as e:
         print(f"banco de imágenes: no pude sincronizar: {type(e).__name__}: {str(e)[:150]}")
+    try:   # (18/11, Franco) avisos de una vez por día: frases que se acaban y token de Instagram por vencer. Nunca rompe la cola.
+        if "--simular" not in sys.argv:
+            for linea in _avisos_diarios(db):
+                print(f"avisos diarios: {linea}")
+    except Exception as e:
+        print(f"avisos diarios: no pude revisar: {type(e).__name__}: {str(e)[:150]}")
     try:   # (8/11, Franco) métricas de Instagram y Facebook: captura si pasó más de 1 hora (las historias pierden sus números a las 24 h). Nunca rompe la cola.
         import metricas
         if "--simular" not in sys.argv:

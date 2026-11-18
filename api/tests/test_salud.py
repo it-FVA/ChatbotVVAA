@@ -335,3 +335,18 @@ def test_motivo_arranque_distingue_deploy_de_reinicio():
     assert motivo_arranque("2e7d56b", None)[0] == "commit 2e7d56b"
     assert motivo_arranque("2e7d56b", "82225ab")[0].startswith("deploy")
     assert motivo_arranque("2e7d56b", "2e7d56b")[0].startswith("reinicio sin deploy")
+
+
+def test_avisar_arranque_calla_el_deploy_y_avisa_el_reinicio(monkeypatch):
+    """(18/11, Franco) Un deploy es esperado: no va a Slack. El reinicio sin deploy, el primer arranque con commit y el «sin dato» sí."""
+    monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://hooks.slack.test/abc")
+    monkeypatch.delenv("AVISAR_ARRANQUE", raising=False)
+    import avisos
+    mandados = []
+    monkeypatch.setattr(avisos, "_slack", lambda texto: mandados.append(texto) or True)
+    assert salud._avisar_arranque("2026-11-18T10:00:00Z", "2e7d56b", "82225ab") is False and mandados == []
+    assert salud._avisar_arranque("2026-11-18T10:00:00Z", "2e7d56b", "2e7d56b") is True
+    assert "reinicio sin deploy, commit 2e7d56b" in mandados[-1] and "El arranque anterior fue el 18/11 07:00" in mandados[-1]
+    assert salud._avisar_arranque(None, None, None) is True and "sin dato" in mandados[-1]
+    assert salud._avisar_arranque(None, "2e7d56b", None) is True and "commit 2e7d56b" in mandados[-1]
+    assert len(mandados) == 3
