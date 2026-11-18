@@ -1,0 +1,26 @@
+# Aviso de prueba a Slack (18/11): manda uno (o todos) de los avisos de avisos.py con el texto real y el título «PRUEBA»,
+# para ver cómo se leen en el canal. Solo a mano: Actions → aviso-de-prueba → Run workflow (o `gh workflow run aviso_prueba.yml -f cual=todos`).
+# No toca la base ni manda mail. Secret: SLACK_WEBHOOK_URL (el mismo que usan la cola y la API).
+name: aviso-de-prueba
+
+on:
+  workflow_dispatch:
+    inputs:
+      cual:
+        description: "Qué aviso: fallo | publicada | frases | token | mail | todos"
+        default: "fallo"
+        required: true
+
+jobs:
+  avisar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Mandar el aviso de prueba
+        run: python aviso_prueba.py "${{ github.event.inputs.cual }}"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
