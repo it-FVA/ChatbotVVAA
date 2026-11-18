@@ -936,6 +936,20 @@
       ],
       "title": "Imagenes"
      },
+     "imagenes_diseno": {
+      "anyOf": [
+       {
+        "items": {
+         "$ref": "#/components/schemas/FotoDiseno"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Imagenes Diseno"
+     },
      "logo": {
       "anyOf": [
        {
@@ -1263,6 +1277,34 @@
      "datos"
     ],
     "title": "FilaMetrica",
+    "type": "object"
+   },
+   "FotoDiseno": {
+    "description": "(18/11, Franco) Qué lleva encima una foto del carrusel. `texto`: None = la frase común de la pieza (texto_imagen), \"\" = esta foto sin\nfrase (solo el logo), otra cosa = una frase propia. `compuesta`: False = esta foto sale tal cual, sin frase ni logo.",
+    "properties": {
+     "compuesta": {
+      "default": true,
+      "title": "Compuesta",
+      "type": "boolean"
+     },
+     "texto": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Texto"
+     },
+     "url": {
+      "default": "",
+      "title": "Url",
+      "type": "string"
+     }
+    },
+    "title": "FotoDiseno",
     "type": "object"
    },
    "Guardar": {
@@ -2046,6 +2088,20 @@
       ],
       "title": "Imagenes"
      },
+     "imagenes_diseno": {
+      "anyOf": [
+       {
+        "items": {
+         "$ref": "#/components/schemas/FotoDiseno"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Imagenes Diseno"
+     },
      "logo": {
       "anyOf": [
        {
@@ -2274,6 +2330,20 @@
        }
       ],
       "title": "Imagenes"
+     },
+     "imagenes_diseno": {
+      "anyOf": [
+       {
+        "items": {
+         "$ref": "#/components/schemas/FotoDiseno"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Imagenes Diseno"
      },
      "logo": {
       "anyOf": [

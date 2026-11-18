@@ -14,7 +14,7 @@ import type { Recorte } from "../tipos";
 import { apiChat } from "../apiChat";
 import { apiPublicar } from "../apiPublicar";
 import type { FotoBanco, Pieza } from "../tiposChat";
-import { NOMBRE_TIPO_INSTAGRAM, tipoInstagram, tipoInstagramValido, type OpcionesPublicar, type PiezaForm, type RespuestaAprobacion, type RespuestaEnvio, type TipoInstagram } from "../tiposPublicar";
+import { NOMBRE_TIPO_INSTAGRAM, tipoInstagram, tipoInstagramValido, type FotoDiseno, type OpcionesPublicar, type PiezaForm, type RespuestaAprobacion, type RespuestaEnvio, type TipoInstagram } from "../tiposPublicar";
 import { aviso as textoAviso, desdeGuardada, desdePropuesta, desdeRecorte, formularioVacio } from "../util/publicar";
 import VistaPrevia, { type DatosPrevia } from "../componentes/VistaPrevia";
 import { Icono } from "../componentes/Iconos";
@@ -274,6 +274,71 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
   const conFrase = !!f.texto_imagen.trim();
   const conLogo = f.logo !== "Sin logo";
   const seCompone = esRed && !conVideo && !enVarias && !!f.imagen_url && (conFrase || conLogo) && f.usar_compuesta;
+  // (18/11, Franco) carrusel con composición: la misma frase, firma y logo para todas las fotos, y por foto se puede cambiar la frase,
+  // sacarla (queda el logo) o dejar la foto tal cual. Cada foto se compone en la API (POST /publicar/componer), de a una.
+  const disenoDe = (url: string): FotoDiseno => f.imagenes_diseno?.find((d) => d.url === url) ?? { url, texto: null, compuesta: true };
+  const setDiseno = (url: string, cambios: Partial<FotoDiseno>) =>
+    setF((x) => {
+      const resto = (x.imagenes_diseno ?? []).filter((d) => d.url !== url);
+      const actual = x.imagenes_diseno?.find((d) => d.url === url) ?? { url, texto: null, compuesta: true };
+      return { ...x, imagenes_diseno: [...resto, { ...actual, ...cambios }] };
+    });
+  const textoDe = (url: string) => {
+    const t = disenoDe(url).texto;
+    return (t === null ? f.texto_imagen : t).trim();
+  };
+  const seComponeFoto = (url: string) => esRed && enVarias && f.usar_compuesta && disenoDe(url).compuesta && (!!textoDe(url) || conLogo);
+  const seComponeVarias = enVarias && lista.some(seComponeFoto);
+  const [compuestas, setCompuestas] = useState<(string | null)[]>([]);
+  const [componiendoVarias, setComponiendoVarias] = useState(false);
+  const cacheCompuestas = useRef(new Map<string, string>());
+  const claveFoto = (url: string) => JSON.stringify([url, textoDe(url), f.firma, f.formato, f.tipografia, f.peso, f.posicion, f.alineacion, conLogo ? f.logo : null, f.posicion_logo]);
+  const clavesVarias = enVarias ? lista.map((u) => (seComponeFoto(u) ? claveFoto(u) : "")).join("\n") : "";
+  useEffect(() => {
+    if (!seComponeVarias) {
+      setCompuestas([]);
+      setComponiendoVarias(false);
+      return;
+    }
+    const ctl = new AbortController();
+    const claves = clavesVarias.split("\n");
+    const t = window.setTimeout(async () => {
+      setComponiendoVarias(true);
+      setErrorCompuesta(null);
+      const salida: (string | null)[] = claves.map((k) => (k && cacheCompuestas.current.get(k)) || null);
+      setCompuestas([...salida]);
+      for (let k = 0; k < claves.length; k++) {
+        if (!claves[k] || salida[k] || ctl.signal.aborted) continue;
+        const [url, texto, firma, formato, tipografia, peso, posicion, alineacion, logo, posicion_logo] = JSON.parse(claves[k]) as [string, string, string, string, string, string, string, string, string | null, string];
+        try {
+          const blob = await apiPublicar.componer({ imagen_url: url, texto_imagen: texto, firma, formato, tipografia, peso, posicion, alineacion, logo, posicion_logo }, ctl.signal);
+          if (ctl.signal.aborted) {
+            URL.revokeObjectURL(blob);
+            return;
+          }
+          cacheCompuestas.current.set(claves[k], blob);
+          if (cacheCompuestas.current.size > 40) {
+            const viejo = cacheCompuestas.current.keys().next().value as string;
+            URL.revokeObjectURL(cacheCompuestas.current.get(viejo)!);
+            cacheCompuestas.current.delete(viejo);
+          }
+          salida[k] = blob;
+          setCompuestas([...salida]);
+        } catch (e) {
+          if (ctl.signal.aborted) return;
+          setErrorCompuesta(e instanceof ErrorApi ? e.message : `No pude armar la foto ${k + 1} con la frase.`);
+        }
+      }
+      if (!ctl.signal.aborted) setComponiendoVarias(false);
+    }, 600);
+    return () => {
+      window.clearTimeout(t);
+      ctl.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seComponeVarias, clavesVarias]);
+  useEffect(() => () => cacheCompuestas.current.forEach((b) => URL.revokeObjectURL(b)), []);
+  const fotoVista = (k: number) => (enVarias ? compuestas[k] ?? lista[k] : lista[k]);
   const fechaIso = fechaIsoDe(f);
   const faltaTexto = !f.texto.trim() && !esHistoria; // la historia no lleva caption
 
@@ -402,16 +467,17 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
       canal,
       titulo: f.titulo,
       texto: f.texto,
-      imagenSrc: conVideo ? null : enVarias ? lista[0] ?? null : seCompone && compuesta ? compuesta : f.imagen_url,
+      imagenSrc: conVideo ? null : enVarias ? fotoVista(0) ?? null : seCompone && compuesta ? compuesta : f.imagen_url,
       videoUrl: f.video_url,
-      imagenes: enVarias && nFotos >= MIN_FOTOS ? lista : null,
+      imagenes: enVarias && nFotos >= MIN_FOTOS ? lista.map((_, k) => fotoVista(k)) : null,
       formato: conVideo ? f.vfmt : esRed ? f.formato : null,
       videoFormato: f.video_formato,
       textoImagen: f.texto_imagen,
       fechaIso,
-      componiendo: seCompone && componiendo && !compuesta,
+      componiendo: (seCompone && componiendo && !compuesta) || (seComponeVarias && componiendoVarias && !compuestas.some(Boolean)),
     }),
-    [canal, f, conVideo, seCompone, compuesta, esRed, fechaIso, componiendo, enVarias, lista, nFotos],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [canal, f, conVideo, seCompone, compuesta, esRed, fechaIso, componiendo, enVarias, lista, nFotos, compuestas, seComponeVarias, componiendoVarias],
   );
 
   // ---- botones
@@ -426,8 +492,9 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
     // (5/11) lo que viaja es la pieza de siempre: el tipo se traduce a formato y vfmt. La historia no lleva caption, pero la API pide
     // texto: si no hay, va la frase (o el título) y la API igual la manda sin texto.
     let pz: PiezaForm = f;
-    // (5/11, Franco) un carrusel no lleva frase, logo ni formato; con menos de 2 fotos (un borrador a medias) viaja como una foto sola
-    if (enVarias) pz = { ...pz, imagenes: nFotos >= MIN_FOTOS ? lista : null, imagen_url: lista[0] ?? null, video_url: null, video_formato: null, texto_imagen: "", usar_compuesta: false };
+    // (5/11, Franco) con menos de 2 fotos (un borrador a medias) el carrusel viaja como una foto sola. (18/11) La frase, el logo y el
+    // formato van como en la foto única, más el diseño por foto (emparejado por url, en el orden de la lista).
+    if (enVarias) pz = { ...pz, imagenes: nFotos >= MIN_FOTOS ? lista : null, imagenes_diseno: nFotos >= MIN_FOTOS ? lista.map(disenoDe) : null, imagen_url: lista[0] ?? null, video_url: null, video_formato: null };
     if (esReel) pz = { ...pz, formato: "vertical", vfmt: "reel" };
     if (esHistoria) pz = pz.video_url ? { ...pz, vfmt: "historia", formato: "historia" } : { ...pz, formato: "historia" };
     if (esHistoria && que !== "borrador" && !pz.texto.trim()) pz = { ...pz, texto: pz.texto_imagen.trim() || pz.titulo.trim() || "Historia de Instagram" };
@@ -465,7 +532,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
   const conQue = [conFrase && f.usar_compuesta ? "la frase" : null, conLogo && f.usar_compuesta ? "el logo" : null].filter(Boolean).join(" y ");
   const nombreDelVideo = nombreVideo || (origen === "recorte" ? f.titulo : "");
   const resumen2 = enVarias
-    ? nFotos === 0 ? "Todavía no elegiste" : `Carrusel de ${nFotos} foto${nFotos === 1 ? "" : "s"}`
+    ? nFotos === 0 ? "Todavía no elegiste" : `Carrusel de ${nFotos} foto${nFotos === 1 ? "" : "s"}${conQue ? `, con ${conQue}` : ""}`
     : conVideo
     ? `Video${nombreDelVideo ? ` «${nombreDelVideo.slice(0, 40)}»` : ""}, ${f.video_formato === "horizontal" ? "horizontal" : "vertical"}`
     : f.imagen_url
@@ -685,11 +752,31 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
                       <ol className="pub-carrusel-tira" aria-labelledby="pub-carrusel-titulo">
                         {lista.map((url, k) => (
                           <li key={url} className="pub-carrusel-foto">
-                            <div className="pub-carrusel-img">
-                              <img src={url} alt={`Foto ${k + 1}`} loading="lazy" />
+                            <div className={"pub-carrusel-img" + (seComponeFoto(url) && !compuestas[k] ? " componiendo" : "")}>
+                              <img src={fotoVista(k) ?? url} alt={`Foto ${k + 1}`} loading="lazy" />
                               <span className="pub-carrusel-num">{k + 1}</span>
                               {k === 0 && <span className="pub-carrusel-portada">Portada</span>}
                             </div>
+                            {esRed && (conFrase || conLogo) && f.usar_compuesta && (
+                              <div className="pub-carrusel-diseno">
+                                <select
+                                  aria-label={`Qué lleva la foto ${k + 1}`}
+                                  value={!disenoDe(url).compuesta ? "tal-cual" : disenoDe(url).texto === null ? "misma" : disenoDe(url).texto === "" ? "sin" : "otra"}
+                                  onChange={(e) => {
+                                    const v = e.target.value;
+                                    setDiseno(url, v === "tal-cual" ? { compuesta: false } : v === "misma" ? { compuesta: true, texto: null } : v === "sin" ? { compuesta: true, texto: "" } : { compuesta: true, texto: disenoDe(url).texto || f.texto_imagen || " " });
+                                  }}
+                                >
+                                  {conFrase && <option value="misma">La misma frase</option>}
+                                  <option value="otra">Otra frase</option>
+                                  <option value="sin">{conLogo ? (conFrase ? "Sin frase, con logo" : "Solo el logo") : "Sin frase"}</option>
+                                  <option value="tal-cual">Tal cual, sin nada</option>
+                                </select>
+                                {disenoDe(url).compuesta && disenoDe(url).texto !== null && disenoDe(url).texto !== "" && (
+                                  <input aria-label={`Frase de la foto ${k + 1}`} value={disenoDe(url).texto!.trimStart() === "" ? "" : disenoDe(url).texto!} maxLength={400} placeholder="La frase de esta foto" onChange={(e) => setDiseno(url, { texto: e.target.value || " " })} />
+                                )}
+                              </div>
+                            )}
                             <div className="pub-carrusel-botones">
                               <button type="button" className="boton chico" aria-label={`Mover la foto ${k + 1} a la izquierda`} disabled={k === 0} onClick={() => moverFoto(k, -1)}>
                                 ←
@@ -804,11 +891,12 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
                   </div>
                 )}
 
-                {esRed && !enVarias && (
+                {esRed && (!enVarias || nFotos > 0) && (
                   <div className="pub-diseno">
-                    <h3>{conFrase ? "Con la frase encima" : "Frase, formato y logo"}</h3>
+                    <h3>{enVarias ? "Frase, formato y logo de las fotos" : conFrase ? "Con la frase encima" : "Frase, formato y logo"}</h3>
+                    {enVarias && <p className="suave chico">Van en todas las fotos del carrusel. Debajo de cada foto podés ponerle otra frase, sacársela o dejarla tal cual.</p>}
                     <label>
-                      Texto sobre la imagen <span className="suave chico">(va encima de la foto, no es el caption)</span>
+                      Texto sobre la imagen <span className="suave chico">(va encima de {enVarias ? "cada foto" : "la foto"}, no es el caption)</span>
                       <input value={f.texto_imagen} onChange={(e) => set("texto_imagen", e.target.value)} maxLength={400} placeholder="ej. La gratitud es la llave de la alegría" />
                     </label>
                     {f.imagen_url && (
@@ -818,7 +906,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
                           <label>
                             Formato
                             <select value={f.formato} onChange={(e) => set("formato", e.target.value)}>
-                              {Object.entries(op.formatos).filter(([k]) => canal !== "instagram" || k === "cuadrado" || k === "vertical").map(([k, [w, h]]) => (
+                              {Object.entries(op.formatos).filter(([k]) => (canal !== "instagram" && !enVarias) || k === "cuadrado" || k === "vertical").map(([k, [w, h]]) => (
                                 <option key={k} value={k}>
                                   {k} ({w}×{h})
                                 </option>
@@ -885,7 +973,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
                         )}
                         {(conFrase || conLogo) && (
                           <label className="casilla">
-                            <input type="checkbox" checked={f.usar_compuesta} onChange={(e) => set("usar_compuesta", e.target.checked)} /> Publicar así (la foto con {conFrase ? "la frase" : "el logo"} encima). Si lo destildás, se publica la foto sola y el texto queda solo en el registro.
+                            <input type="checkbox" checked={f.usar_compuesta} onChange={(e) => set("usar_compuesta", e.target.checked)} /> Publicar así ({enVarias ? "las fotos" : "la foto"} con {conFrase ? "la frase" : "el logo"} encima). Si lo destildás, {enVarias ? "se publican las fotos solas" : "se publica la foto sola"} y el texto queda solo en el registro.
                           </label>
                         )}
                         {esHistoria && <p className="suave chico">Historia de Instagram: dura 24 h y no lleva caption. El texto de la pieza queda solo en el registro.{!(conFrase || conLogo) || !f.usar_compuesta ? " La foto sale tal cual; si no es vertical 9:16, Instagram la recorta." : ""}</p>}
@@ -1004,7 +1092,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
             {info && <span className="chip suave">{info.texto_canal}</span>}
           </div>
           <VistaPrevia d={previa} />
-          {seCompone && !f.usar_compuesta && <p className="suave chico">Se publica la foto sola.</p>}
+          {esRed && !conVideo && (conFrase || conLogo) && !f.usar_compuesta && <p className="suave chico">{enVarias ? "Se publican las fotos solas." : "Se publica la foto sola."}</p>}
         </aside>
       </div>
     </div>

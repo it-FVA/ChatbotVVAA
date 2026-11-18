@@ -607,7 +607,8 @@ def publicar_instagram_carrusel(cfg, imagenes, texto, quien=""):
       - cada hijo es un contenedor propio: POST /{ig_id}/media con image_url e is_carousel_item=true, SIN caption;
       - el contenedor del carrusel: POST /{ig_id}/media con media_type=CAROUSEL, children (ids separados por coma) y el caption;
       - se publica con POST /{ig_id}/media_publish (creation_id = el contenedor del carrusel).
-    Si algún hijo falla no se publica nada. Un carrusel no lleva frase encima ni logo: las fotos van como están."""
+    Si algún hijo falla no se publica nada. (18/11, Franco) Las fotos ya vienen compuestas (frase, firma y logo) desde la API
+    (publicar_rutas._compuestas_carrusel sube cada una a WordPress al mandar a aprobación): acá van como están."""
     modo = cfg.modo_ig
     imagenes = [str(u).strip() for u in (imagenes or []) if str(u or "").strip()]
     pieza = {"imagenes": imagenes, "caption": texto}
@@ -743,7 +744,8 @@ def publicar_facebook_fotos(cfg, imagenes, texto, quien="", fecha=None):
       1) por cada foto POST /{page}/photos con `url` y published=false (la foto queda subida pero sin salir) → un id por foto;
       2) POST /{page}/feed con `message` y attached_media[0..n] = {"media_fbid": id}, un parámetro por foto.
     Con `fecha` futura el feed lleva published=false y scheduled_publish_time (10 min a 30 días), como publicar_facebook.
-    Si alguna foto falla no se arma el posteo (las ya subidas quedan sin publicar en la página, no las ve nadie)."""
+    Si alguna foto falla no se arma el posteo (las ya subidas quedan sin publicar en la página, no las ve nadie).
+    (18/11, Franco) Las fotos ya vienen compuestas desde la API (frase, firma y logo por foto), como en Instagram."""
     modo = cfg.modo_fb
     imagenes = [str(u).strip() for u in (imagenes or []) if str(u or "").strip()]
     pieza = {"imagenes": imagenes, "message": texto, "fecha_programada": fecha}

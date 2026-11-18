@@ -426,7 +426,7 @@ describe("Diseñar", () => {
       expect(screen.getByText("Fotos del carrusel (2 de 10)")).toBeInTheDocument();
     });
 
-    it("con 1 foto el paso 3 avisa y no deja enviar; con 2 manda imagenes en orden, portada y sin frase", async () => {
+    it("con 1 foto el paso 3 avisa y no deja enviar; con 2 manda imagenes en orden, portada y el diseño por foto", async () => {
       const u = userEvent.setup();
       const api = await aVarias(u);
       await u.click(await screen.findByRole("button", { name: "Sumar uno" }));
@@ -440,7 +440,60 @@ describe("Diseñar", () => {
       await u.click(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ }));
       await u.click(await screen.findByRole("button", { name: /Enviar a aprobación/ }));
       await waitFor(() => expect(api.de("POST", "/publicar/a-aprobar")).toHaveLength(1));
-      expect(api.de("POST", "/publicar/a-aprobar")[0].cuerpo).toMatchObject({ canal: "facebook", imagenes: [F3.url, F1.url], imagen_url: F3.url, video_url: null, texto_imagen: null, usar_compuesta: false });
+      expect(api.de("POST", "/publicar/a-aprobar")[0].cuerpo).toMatchObject({
+        canal: "facebook", imagenes: [F3.url, F1.url], imagen_url: F3.url, video_url: null, texto_imagen: null, usar_compuesta: true,
+        imagenes_diseno: [{ url: F3.url, texto: null, compuesta: true }, { url: F1.url, texto: null, compuesta: true }],
+      });
+    });
+
+    // (18/11, Franco) el carrusel se compone como la foto única: la misma frase y logo para todas, y por foto se cambia o se apaga
+    it("con frase, cada foto se compone en la API, en orden, y por foto se elige otra frase, sin frase o tal cual", async () => {
+      const u = userEvent.setup();
+      const compuestas: unknown[] = [];
+      const api = instalarApi({
+        "GET /publicar/opciones": OPCIONES,
+        "GET /banco": [F1, F2, F3],
+        "GET /recortes": [RECORTE],
+        "POST /publicar/componer": (c: unknown) => (compuestas.push(c), new Blob([`jpg-${compuestas.length}`], { type: "image/jpeg" })),
+        "POST /publicar/a-aprobar": { ok: true, id: "n1", estado: "a_aprobar", modo: "aprobacion", imagen_url: null, avisos: [], mensaje: "Quedó pendiente." },
+      });
+      montar("/publicar?canal=instagram");
+      await u.type(await screen.findByLabelText(/Texto de la pieza/), "Hoy agradezco el día.");
+      await u.click(screen.getByRole("button", { name: /Siguiente: qué va en la pieza/ }));
+      await u.click(await screen.findByRole("button", { name: /Varias fotos/ }));
+      // sin fotos no hay bloque de diseño; con una, aparece (la misma frase, formato y logo para todas)
+      expect(screen.queryByLabelText(/Texto sobre la imagen/)).not.toBeInTheDocument();
+      await u.click(await screen.findByRole("button", { name: "Sumar uno" }));
+      await sumar(u, "dos");
+      await sumar(u, "tres");
+      expect(screen.getByText("Frase, formato y logo de las fotos")).toBeInTheDocument();
+      expect(screen.queryByLabelText("Qué lleva la foto 1")).not.toBeInTheDocument();
+      await u.type(screen.getByLabelText(/Texto sobre la imagen/), "La gratitud");
+      // las tres fotos se piden a la API en orden, con la frase común, y la tira y la vista previa muestran las compuestas
+      await waitFor(() => expect(compuestas).toHaveLength(3), { timeout: 3000 });
+      expect(compuestas.map((c) => (c as { imagen_url: string; texto_imagen: string }).imagen_url)).toEqual([F1.url, F2.url, F3.url]);
+      expect(compuestas.every((c) => (c as { texto_imagen: string }).texto_imagen === "La gratitud")).toBe(true);
+      await waitFor(() => expect(orden().every((src) => src?.startsWith("blob:"))).toBe(true));
+      // foto 2: sin frase (no hay logo, así que «Sin frase»); foto 3: tal cual. Solo la foto 2 se vuelve a componer… no: sin frase ni logo no se compone
+      await u.selectOptions(screen.getByLabelText("Qué lleva la foto 2"), "sin");
+      await u.selectOptions(screen.getByLabelText("Qué lleva la foto 3"), "tal-cual");
+      await waitFor(() => expect(orden()[1]).toBe(F2.url));
+      expect(orden()[2]).toBe(F3.url);
+      expect(orden()[0]?.startsWith("blob:")).toBe(true);
+      // foto 1: otra frase propia
+      await u.selectOptions(screen.getByLabelText("Qué lleva la foto 1"), "otra");
+      const propia = screen.getByLabelText("Frase de la foto 1");
+      await u.clear(propia);
+      await u.type(propia, "Gracias");
+      await waitFor(() => expect((compuestas[compuestas.length - 1] as { texto_imagen: string }).texto_imagen).toBe("Gracias"), { timeout: 3000 });
+      await u.click(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ }));
+      expect(screen.getByRole("button", { name: /Qué va en la pieza/ })).toHaveTextContent("Carrusel de 3 fotos, con la frase");
+      await u.click(await screen.findByRole("button", { name: /Enviar a aprobación/ }));
+      await waitFor(() => expect(api.de("POST", "/publicar/a-aprobar")).toHaveLength(1));
+      expect(api.de("POST", "/publicar/a-aprobar")[0].cuerpo).toMatchObject({
+        canal: "instagram", imagenes: [F1.url, F2.url, F3.url], texto_imagen: "La gratitud", usar_compuesta: true, formato: "cuadrado",
+        imagenes_diseno: [{ url: F1.url, texto: "Gracias", compuesta: true }, { url: F2.url, texto: "", compuesta: true }, { url: F3.url, texto: null, compuesta: false }],
+      });
     });
 
     it("cambiar a Foto conserva la portada y vacía la lista; cambiar a Video vacía todo", async () => {

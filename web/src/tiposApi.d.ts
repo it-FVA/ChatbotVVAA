@@ -2720,6 +2720,8 @@ export interface components {
             imagen_url?: string | null;
             /** Imagenes */
             imagenes?: string[] | null;
+            /** Imagenes Diseno */
+            imagenes_diseno?: components["schemas"]["FotoDiseno"][] | null;
             /** Logo */
             logo?: string | null;
             /**
@@ -2818,6 +2820,25 @@ export interface components {
             periodo_desde?: string | null;
             /** Periodo Hasta */
             periodo_hasta?: string | null;
+        };
+        /**
+         * FotoDiseno
+         * @description (18/11, Franco) Qué lleva encima una foto del carrusel. `texto`: None = la frase común de la pieza (texto_imagen), "" = esta foto sin
+         *     frase (solo el logo), otra cosa = una frase propia. `compuesta`: False = esta foto sale tal cual, sin frase ni logo.
+         */
+        FotoDiseno: {
+            /**
+             * Compuesta
+             * @default true
+             */
+            compuesta: boolean;
+            /** Texto */
+            texto?: string | null;
+            /**
+             * Url
+             * @default
+             */
+            url: string;
         };
         /** Guardar */
         Guardar: {
@@ -3074,6 +3095,8 @@ export interface components {
             imagen_url?: string | null;
             /** Imagenes */
             imagenes?: string[] | null;
+            /** Imagenes Diseno */
+            imagenes_diseno?: components["schemas"]["FotoDiseno"][] | null;
             /** Logo */
             logo?: string | null;
             /** Peso */
@@ -3130,6 +3153,8 @@ export interface components {
             imagen_url?: string | null;
             /** Imagenes */
             imagenes?: string[] | null;
+            /** Imagenes Diseno */
+            imagenes_diseno?: components["schemas"]["FotoDiseno"][] | null;
             /** Logo */
             logo?: string | null;
             /** Peso */

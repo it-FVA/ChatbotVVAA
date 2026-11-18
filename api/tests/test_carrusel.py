@@ -154,15 +154,78 @@ def test_validacion(logueado, rutas, ruta):
     assert pedir(imagenes=["http://a/1.jpg", "https://a/2.jpg"]).status_code == 400
 
 
-def test_enviar_simulado_devuelve_imagenes_y_no_compone(logueado, rutas, monkeypatch):
+def test_enviar_simulado_compone_cada_foto_y_no_sube(logueado, rutas, monkeypatch):
+    """(18/11, Franco) El carrusel se compone foto por foto (frase, firma y logo), como la foto única. En «Ver simulado» WordPress
+    está simulado: las compuestas no se suben, viajan las originales y un solo aviso lo dice."""
     import imagen
-    monkeypatch.setattr(imagen, "componer_imagen", lambda *a, **k: pytest.fail("un carrusel no se compone"))
+    import api.publicar_rutas as pr
+    pr._CACHE_COMPUESTAS.clear()
+    visto = []
+    monkeypatch.setattr(imagen, "componer_imagen", lambda foto, texto, **k: visto.append((foto, texto, k["firma"], k["logo"], k["formato"])) or b"JPG" + texto.encode())
     for canal in ("instagram", "facebook"):
+        visto.clear()
+        pr._CACHE_COMPUESTAS.clear()
         r = logueado.post("/publicar/enviar", json={"modo": "simulado", "canal": canal, "texto": "Hola", "imagenes": FOTOS,
-                                                    "texto_imagen": "no va", "usar_compuesta": True, "logo": "Amarillo", "formato": "vertical"})
+                                                    "texto_imagen": "La gratitud", "usar_compuesta": True, "logo": "Amarillo", "formato": "vertical"})
         j = r.json()
-        assert r.status_code == 200 and j["ok"] and j["simulado"] is True and j["imagenes"] == FOTOS and j["imagen_url"] == FOTOS[0]
-        assert j["pieza"]["imagenes"] == FOTOS and j["formato"] is None
+        assert r.status_code == 200, r.text
+        assert j["ok"] and j["simulado"] is True and j["imagenes"] == FOTOS and j["imagen_url"] == FOTOS[0] and j["formato"] == "vertical"
+        assert [v[0] for v in visto] == FOTOS and all(v[1:] == ("La gratitud", "— Br. David", "Amarillo", "vertical") for v in visto)
+        assert len([a for a in j["avisos"] if "no se sube" in a]) == 1
+
+
+def test_aplicar_carrusel_conserva_diseno_y_alinea_por_url():
+    from api.pieza import Pieza
+    p = Pieza(canal="facebook", texto="x", imagenes=FOTOS, texto_imagen="Común", logo="Amarillo", formato="historia", usar_compuesta=True,
+              imagenes_diseno=[{"url": FOTOS[2], "texto": "Propia", "compuesta": True}, {"url": FOTOS[1], "compuesta": False}])
+    p.aplicar_carrusel("facebook")
+    assert p.texto_imagen == "Común" and p.logo == "Amarillo" and p.usar_compuesta is True and p.formato is None   # historia no es carrusel
+    assert [d.url for d in p.imagenes_diseno] == FOTOS
+    assert p.diseno_foto(0) == ("Común", True) and p.diseno_foto(1) == ("Común", False) and p.diseno_foto(2) == ("Propia", True)
+    # texto "" = esta foto sin frase (solo logo); sin lista = todas con la frase común
+    p = Pieza(canal="facebook", texto="x", imagenes=FOTOS[:2], texto_imagen="Común", imagenes_diseno=[{"url": FOTOS[0], "texto": "  "}])
+    p.aplicar_carrusel("facebook")
+    assert p.diseno_foto(0) == ("", True) and p.diseno_foto(1) == ("Común", True)
+    assert Pieza(canal="facebook", texto="x", imagenes=FOTOS[:2], texto_imagen="C").diseno_foto(1) == ("C", True)
+    # el dict guardado y la vuelta (retomar) conservan el diseño por foto
+    g = p.a_borrador("facebook")
+    assert g["imagenes_diseno"][0] == {"url": FOTOS[0], "texto": "", "compuesta": True}
+    v = Pieza.desde_fila({"canal": "facebook", "estado": "borrador", "resultado": {"pieza": g}})
+    assert v.imagenes == FOTOS[:2] and v.imagenes_diseno[0].texto == "" and v.imagenes_diseno[1].texto is None
+
+
+def test_a_aprobar_carrusel_compone_sube_y_guarda_originales(logueado, rutas, monkeypatch):
+    """(18/11, Franco) Al mandar a aprobación cada foto compuesta va a WordPress; `imagenes` (lo que sube la cola) son las compuestas,
+    `pieza.imagenes` las originales. La foto «tal cual» no se compone ni se sube; la de texto "" lleva solo el logo."""
+    import imagen
+    import api.publicar_rutas as pr
+    pr._CACHE_COMPUESTAS.clear()
+    visto, subidas = [], []
+    monkeypatch.setattr(imagen, "componer_imagen", lambda foto, texto, **k: visto.append((foto, texto, k["firma"], k["logo"])) or b"JPG" + foto.encode())
+
+    def _subir(cfg, datos, nombre, titulo="", etiquetas=None, quien="", pieza=""):
+        subidas.append((cfg.modo_wp, nombre, titulo, datos))
+        return {"ok": True, "modo": cfg.modo_wp, "url": f"https://wp/compuesta-{len(subidas)}.jpg", "id": len(subidas)}
+    monkeypatch.setattr(publicar, "subir_imagen_wordpress", _subir)
+    r = logueado.post("/publicar/a-aprobar", json={"canal": "instagram", "titulo": "Tres", "texto": "Hola", "imagenes": FOTOS, "texto_imagen": "La gratitud",
+                                                   "logo": "Amarillo", "formato": "cuadrado",
+                                                   "imagenes_diseno": [{"url": FOTOS[0]}, {"url": FOTOS[1], "compuesta": False}, {"url": FOTOS[2], "texto": ""}]})
+    assert r.status_code == 200, r.text
+    assert visto == [(FOTOS[0], "La gratitud", "— Br. David", "Amarillo"), (FOTOS[2], "", "", "Amarillo")]
+    assert [x[0] for x in subidas] == ["borrador", "borrador"] and subidas[0][2] == "Tres 1" and subidas[1][2] == "Tres 3"
+    assert rutas["extra"]["imagenes"] == ["https://wp/compuesta-1.jpg", FOTOS[1], "https://wp/compuesta-2.jpg"]
+    assert rutas["imagen_url"] == "https://wp/compuesta-1.jpg" and r.json()["imagen_url"] == "https://wp/compuesta-1.jpg"
+    assert rutas["extra"]["pieza"]["imagenes"] == FOTOS and rutas["extra"]["pieza"]["imagenes_diseno"][1]["compuesta"] is False
+    assert rutas["extra"]["formato"] == "cuadrado" and rutas["extra"]["texto_imagen"] == "La gratitud"
+    # «Publicar así» destildado: nada se compone ni se sube, van las originales
+    visto.clear(); subidas.clear()
+    logueado.post("/publicar/a-aprobar", json={"canal": "facebook", "texto": "x", "imagenes": FOTOS, "texto_imagen": "f", "usar_compuesta": False})
+    assert visto == [] and subidas == [] and rutas["extra"]["imagenes"] == FOTOS
+    # una foto que no se puede componer sigue sola y avisa; las demás salen
+    visto.clear(); subidas.clear()
+    monkeypatch.setattr(imagen, "componer_imagen", lambda foto, texto, **k: (_ for _ in ()).throw(OSError("sin red")) if foto == FOTOS[1] else b"JPG" + foto.encode())
+    r = logueado.post("/publicar/a-aprobar", json={"canal": "facebook", "texto": "x", "imagenes": FOTOS, "texto_imagen": "f"})
+    assert any("foto 2" in a for a in r.json()["avisos"]) and rutas["extra"]["imagenes"][1] == FOTOS[1] and len(subidas) == 2
 
 
 def test_enviar_con_fecha_encola_con_imagenes(logueado, rutas):

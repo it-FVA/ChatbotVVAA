@@ -40,6 +40,14 @@ export interface OpcionesPublicar {
   zona: string;
 }
 
+/** (18/11, Franco) Qué lleva encima una foto del carrusel (= FotoDiseno de la API). `texto`: null = la frase común de la pieza,
+ *  "" = esta foto sin frase (solo el logo), otra cosa = una frase propia. `compuesta`: false = la foto sale tal cual. */
+export interface FotoDiseno {
+  url: string;
+  texto: string | null;
+  compuesta: boolean;
+}
+
 /** El estado del formulario de Publicar (= los campos de PiezaApi, con strings en vez de null para los controles).
  *  Si la API suma un campo, `cuerpo()` en apiPublicar.ts deja de compilar hasta que se agregue acá. */
 export interface PiezaForm {
@@ -48,6 +56,7 @@ export interface PiezaForm {
   texto: string;
   imagen_url: string | null;
   imagenes: string[] | null; // (5/11, Franco) carrusel: de 2 a 10 URLs https en orden; imagen_url es la primera (portada)
+  imagenes_diseno: FotoDiseno[] | null; // (18/11, Franco) por foto del carrusel: frase propia / sin frase / tal cual (emparejado por url)
   imagen_busqueda: string;
   fecha: string | null; // 'YYYY-MM-DD' o null = sin programar
   hora: string | null;
@@ -138,7 +147,7 @@ export interface Publicacion {
   estado_texto: string;
   canal_texto: string;
   video_url: string | null;
-  imagenes?: string[] | null; // (5/11, Franco) carrusel: 2 a 10 fotos en orden (imagen_url es la portada)
+  imagenes?: string[] | null; // (5/11, Franco) carrusel: 2 a 10 fotos en orden (imagen_url es la portada); (18/11) ya compuestas si llevaban frase o logo
   texto_imagen: string | null;
   formato: string | null;
   nota: string | null;

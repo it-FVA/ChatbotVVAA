@@ -11,6 +11,7 @@ export function cuerpo(p: PiezaForm): PiezaApi {
     texto: p.texto,
     imagen_url: p.imagen_url || null,
     imagenes: p.imagenes?.length ? p.imagenes : null,
+    imagenes_diseno: p.imagenes?.length && p.imagenes_diseno?.length ? p.imagenes_diseno.filter((d) => p.imagenes!.includes(d.url)) : null,
     imagen_busqueda: p.imagen_busqueda.trim() || null,
     fecha: p.fecha,
     hora: p.fecha ? p.hora || "09:00" : null,

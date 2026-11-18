@@ -21,6 +21,14 @@ CLAVES_CORTAS = {"imagen_url": "url", "imagen_busqueda": "busq", "formato": "fmt
 NO_SE_GUARDAN = ("borrador_id", "fecha", "hora", "canal")
 
 
+class FotoDiseno(BaseModel):
+    """(18/11, Franco) Qué lleva encima una foto del carrusel. `texto`: None = la frase común de la pieza (texto_imagen), "" = esta foto sin
+    frase (solo el logo), otra cosa = una frase propia. `compuesta`: False = esta foto sale tal cual, sin frase ni logo."""
+    url: str = ""
+    texto: Optional[str] = None
+    compuesta: bool = True
+
+
 class Pieza(BaseModel):
     """Todo lo que deja el formulario de Diseñar (= los campos) o el recuadro «Publicar esta pieza» del chat (que manda menos)."""
     canal: str                                  # wordpress | instagram | facebook | youtube (canales.de_disenar())
@@ -48,17 +56,24 @@ class Pieza(BaseModel):
     borrador_id: Optional[str] = None           # si se está retomando un borrador: se actualiza (o se elimina al mandar)
     # (5/11, Franco) Carrusel: las URLs https de las fotos, en orden (2 a 10). imagen_url es la primera (la portada).
     imagenes: Optional[list[str]] = None
+    # (18/11, Franco) Carrusel con composición: por foto, si va compuesta y con qué frase (alineada a `imagenes`; se empareja por url).
+    # Sin esta lista, todas las fotos llevan la frase común (texto_imagen), la firma y el logo de la pieza, como la foto única.
+    imagenes_diseno: Optional[list[FotoDiseno]] = None
 
     def aplicar_carrusel(self, canal, estricto=True):
         """(5/11, Franco) Valida y normaliza un carrusel. Sin `imagenes` no hace nada y devuelve None. Con `imagenes` devuelve la
-        lista limpia, deja imagen_url = la primera y descarta lo que un carrusel no lleva (frase, logo, composición, formato).
+        lista limpia, deja imagen_url = la primera y el formato en cuadrado o vertical (una historia no es un carrusel).
+        (18/11, Franco) La frase, la firma y el logo SÍ quedan: cada foto se compone como la foto única (publicar_rutas._compuestas_carrusel);
+        `imagenes_diseno` queda alineada a `imagenes` (emparejada por url; lo que falte, con la frase común y compuesta).
         `estricto=False` (guardar borrador): deja guardar con 1 o más fotos, para poder retomarlo a medio armar."""
         if not self.imagenes:
             self.imagenes = None
+            self.imagenes_diseno = None
             return None
         lista = [str(u).strip() for u in self.imagenes if str(u or "").strip()]
         if not lista:
             self.imagenes = None
+            self.imagenes_diseno = None
             return None
         canal = (canal or "").strip().lower()
         if canal not in ("instagram", "facebook") or (canal == "instagram" and "historia" in ((self.formato or ""), (self.vfmt or ""))):
@@ -71,8 +86,22 @@ class Pieza(BaseModel):
             raise HTTPException(400, "Las fotos del carrusel tienen que ser direcciones https.")
         self.imagenes = lista
         self.imagen_url = lista[0]
-        self.texto_imagen, self.usar_compuesta, self.formato, self.logo = None, False, None, None
+        if self.formato not in ("cuadrado", "vertical"):
+            self.formato = None          # el default del canal (publicar_rutas.FORMATO_POR_CANAL); Instagram recorta todas al de la primera
+        por_url = {d.url: d for d in (self.imagenes_diseno or []) if d.url}
+        previos = list(self.imagenes_diseno or [])
+        self.imagenes_diseno = [por_url.get(u) or (previos[i] if i < len(previos) and not previos[i].url else None) or FotoDiseno(url=u)
+                                for i, u in enumerate(lista)]
+        for d, u in zip(self.imagenes_diseno, lista):
+            d.url = u
+            d.texto = d.texto.strip() if isinstance(d.texto, str) and d.texto.strip() else ("" if d.texto is not None else None)
         return lista
+
+    def diseno_foto(self, i):
+        """(18/11) El diseño de la foto i del carrusel: (texto efectivo, compuesta). texto None en la foto = la frase común."""
+        d = self.imagenes_diseno[i] if self.imagenes_diseno and i < len(self.imagenes_diseno) else FotoDiseno()
+        texto = (self.texto_imagen or "").strip() if d.texto is None else d.texto
+        return texto, bool(d.compuesta)
 
     def canal_clave(self):
         return (self.canal or "").strip().lower()
@@ -144,4 +173,4 @@ class Pieza(BaseModel):
         # está dentro de la foto): al corregirla no se vuelve a poner la frase encima, va la imagen tal cual
         if not g and res.get("texto_imagen") and fila.get("estado") not in ("borrador", "prueba"):
             limpio["usar_compuesta"] = False
-        return cls(**{k: (str(v) if v is not None and k not in ("usar_compuesta", "imagenes") else v) for k, v in limpio.items()})
+        return cls(**{k: (str(v) if v is not None and k not in ("usar_compuesta", "imagenes", "imagenes_diseno") else v) for k, v in limpio.items()})

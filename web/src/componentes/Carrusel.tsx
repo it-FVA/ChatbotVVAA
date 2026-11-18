@@ -1,5 +1,6 @@
 // Carrusel de fotos (5/11, Franco): la foto actual, flechas a los lados, puntitos abajo y un contador «1/5». Lo usan la vista previa
-// de Diseñar, Aprobación, el detalle de la pieza y Mis publicaciones. Sin frase ni logo encima: son las fotos tal cual.
+// de Diseñar, Aprobación, el detalle de la pieza y Mis publicaciones. (18/11) Las fotos llegan ya compuestas (frase, firma y logo
+// por foto) cuando la pieza lo pide: en Diseñar son las vistas previas de la API, en las demás las que subió a WordPress.
 import { useEffect, useState } from "react";
 
 export default function Carrusel({ imagenes, ratio = "1 / 1", nombre = "Carrusel" }: { imagenes: string[]; ratio?: string; nombre?: string }) {

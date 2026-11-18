@@ -227,6 +227,54 @@ def _compuesta_de(p: PiezaCompleta, canal, avisos):
         return None, d
 
 
+def _compuestas_carrusel(p: PiezaCompleta, canal, avisos):
+    """(18/11, Franco) Un carrusel se compone foto por foto, igual que la foto única: la frase común (o la propia de esa foto, o
+    ninguna), la firma y el logo de la pieza. Devuelve (lista de bytes JPEG o None por foto, diseño) o (None, None) si no es carrusel
+    o no hay nada que componer. Se compone de a una (memoria: la API tiene 512 MB) y cada una queda en la caché de la vista previa."""
+    if canal not in ("instagram", "facebook") or not p.imagenes or len(p.imagenes) < 2 or p.video_url:
+        return None, None
+    d = _normalizar_diseno(p, canal)
+    if not p.usar_compuesta:
+        return None, d
+    firma_pieza = (p.firma if p.firma is not None else FIRMA_DEFECTO).strip()
+    salida = []
+    for i, url in enumerate(p.imagenes):
+        texto, compuesta = p.diseno_foto(i)
+        con_frase = bool(texto)
+        if not compuesta or not (con_frase or d["con_logo"]):
+            salida.append(None)
+            continue
+        firma = firma_pieza if con_frase else ""
+        tipografia = p.tipografia if p.tipografia in imagen.TIPOGRAFIAS else imagen.TIPOGRAFIA_DEFAULT
+        peso = p.peso if p.peso in imagen.PESOS else "normal"
+        posicion = p.posicion if p.posicion in imagen.POSICIONES else "centro"
+        alineacion = p.alineacion if p.alineacion in imagen.ALINEACIONES else "centro"
+        try:
+            salida.append(_componer_cacheado(url, _sin_firma_repetida(texto, firma) if con_frase else "", firma, d["formato"],
+                                             tipografia, posicion, alineacion, d["logo"] if d["con_logo"] else None, d["posicion_logo"], peso))
+        except Exception as e:
+            avisos.append(f"No pude componer la foto {i + 1}: {e}. Esa foto sigue sola.")
+            salida.append(None)
+    return (salida if any(x is not None for x in salida) else None), d
+
+
+def _subir_carrusel(cfg, p: PiezaCompleta, compuestas, titulo, texto, usuario, avisos):
+    """Sube cada foto compuesta a WordPress y devuelve la lista final de URLs del carrusel (la compuesta donde la hay, si no la
+    original). En simulado no se sube nada (el aviso va una sola vez, no una por foto)."""
+    finales = list(p.imagenes)
+    if not compuestas:
+        return finales
+    n_avisos = len(avisos)
+    for i, datos in enumerate(compuestas):
+        if datos is None:
+            continue
+        url = _subir_compuesta(cfg, datos, f"{titulo or texto[:40]} {i + 1}".strip(), texto, usuario, avisos)
+        if url:
+            finales[i] = url
+        del avisos[n_avisos + 1:]
+    return finales
+
+
 def _subir_compuesta(cfg, compuesta, titulo, texto, usuario, avisos):
     """La imagen compuesta tiene que estar en internet para IG/FB: va a la biblioteca de WordPress."""
     nombre = f"pieza-{datetime.date.today().isoformat()}-{(titulo or texto)[:40]}".strip()
@@ -249,7 +297,7 @@ def _validar(p: PiezaCompleta, simulado=False):
     canal = (p.canal or "").strip().lower()
     if canal not in CANALES:
         raise HTTPException(400, "Elegí el canal (Blogpost, Instagram, Facebook o YouTube). El newsletter se arma en su editor.")
-    p.aplicar_carrusel(canal)     # (5/11, Franco) si es un carrusel: valida y deja imagen_url = la portada, sin frase ni logo
+    p.aplicar_carrusel(canal)     # (5/11, Franco) si es un carrusel: valida y deja imagen_url = la portada (18/11: con frase y logo por foto)
     if not (p.texto or "").strip():
         raise HTTPException(400, "Falta el texto de la pieza.")
     if canales.CANALES[canal].requiere_titulo and not (p.titulo or "").strip():
@@ -493,6 +541,9 @@ def enviar_a_aprobacion(p: PiezaCompleta, request: Request):
     avisos = []
     imagen_url = (p.imagen_url or "").strip() or None
     compuesta, diseno = _compuesta_de(p, canal, avisos)
+    compuestas, diseno_c = _compuestas_carrusel(p, canal, avisos)     # (18/11, Franco) carrusel: una compuesta por foto
+    diseno = diseno or diseno_c
+    imagenes = p.imagenes
     duena = _borrador_ajeno(p.borrador_id, usuario, rol)     # (4/11) un borrador ajeno con permiso «editar» sigue siendo de su dueña
     token = _contexto.set({"usuario": usuario, "titulo": p.titulo, "texto_imagen": p.texto_imagen, "fecha": fecha_iso,
                            "pieza_form": _datos_borrador(p, canal, fecha_iso)})
@@ -501,12 +552,15 @@ def enviar_a_aprobacion(p: PiezaCompleta, request: Request):
             url = _subir_compuesta(_cfg_real(), compuesta, p.titulo or "", texto, usuario, avisos)
             if url:
                 imagen_url = url
+        if compuestas:
+            imagenes = _subir_carrusel(_cfg_real(), p, compuestas, p.titulo or "", texto, usuario, avisos)
+            imagen_url = imagenes[0]
     finally:
         _contexto.reset(token)
     formato = (p.vfmt if p.video_url else (diseno or {}).get("formato")) if canal in ("instagram", "facebook") else None
     # (4/11) el formulario completo (foto original y diseño) queda guardado: si la rechazan, se corrige desde ahí y no desde la
-    # imagen ya compuesta
-    extra = {"texto_imagen": (p.texto_imagen or None), "formato": formato or None, "video_url": (p.video_url or None), "imagenes": p.imagenes, "origen": "web",
+    # imagen ya compuesta. (18/11) En un carrusel, `imagenes` son las compuestas (lo que sube la cola) y `pieza.imagenes` las originales.
+    extra = {"texto_imagen": (p.texto_imagen or None), "formato": formato or None, "video_url": (p.video_url or None), "imagenes": imagenes, "origen": "web",
              "pieza": _datos_borrador(p, canal, fecha_iso)}
     try:
         if duena:     # (4/11) un borrador o una rechazada que se corrige: la misma fila pasa a a_aprobar (mismo id, misma carpeta)
@@ -551,6 +605,9 @@ def enviar(p: Envio, request: Request):
     avisos = []
     imagen_url = (p.imagen_url or "").strip() or None
     compuesta, diseno = _compuesta_de(p, canal, avisos)
+    compuestas, diseno_c = _compuestas_carrusel(p, canal, avisos)     # (18/11, Franco) carrusel: una compuesta por foto
+    diseno = diseno or diseno_c
+    imagenes = p.imagenes
     formato = (p.vfmt if p.video_url else (diseno or {}).get("formato")) if canal in ("instagram", "facebook") else None
     video_url = (p.video_url or "").strip() or None
     duena = _borrador_ajeno(p.borrador_id, usuario, rol)     # (4/11) un borrador ajeno con permiso «editar» sigue siendo de su dueña
@@ -564,10 +621,13 @@ def enviar(p: Envio, request: Request):
             url = _subir_compuesta(cfg, compuesta, titulo, texto, usuario, avisos)
             if url:
                 imagen_url = url
+        if compuestas:
+            imagenes = _subir_carrusel(cfg, p, compuestas, titulo, texto, usuario, avisos)
+            imagen_url = imagenes[0]
         if fecha_iso and _va_a_la_cola(canal, modo):
             try:
                 pid = db.encolar_publicacion(duena or usuario, canal, modo, titulo, texto, imagen_url, fecha_iso + ZONA_HORARIA,
-                                             extra={"texto_imagen": p.texto_imagen or None, "formato": formato or None, "video_url": video_url, "imagenes": p.imagenes, "origen": "web",
+                                             extra={"texto_imagen": p.texto_imagen or None, "formato": formato or None, "video_url": video_url, "imagenes": imagenes, "origen": "web",
                                                     **({"viene_de": p.borrador_id} if duena else {})},
                                              por=usuario)
             except Exception as e:
@@ -579,12 +639,12 @@ def enviar(p: Envio, request: Request):
             return {"ok": True, "modo": modo, "encolada": True, "id": pid, "estado": "pendiente", "imagen_url": imagen_url, "avisos": avisos,
                     "aviso": f"Quedó en la cola para el {cuando}. Ese día sale sola por {nombre}, con el modo que tenga el canal en ese momento (hoy: {modo}). "
                              "Se puede cancelar desde Aprobación → En cola.",
-                    "imagenes": p.imagenes,
+                    "imagenes": imagenes,
                     "pieza": {"image_url": imagen_url, ("caption" if canal == "instagram" else "message"): texto, "fecha_programada": fecha_iso,
-                              **({"imagenes": p.imagenes} if p.imagenes else {})}}
+                              **({"imagenes": imagenes} if imagenes else {})}}
         try:   # (3/11) el mismo despacho que la cola: publicar.enviar_pieza con la pieza armada como una fila de `publicaciones`
             res = publicar.enviar_pieza(cfg, {"canal": canal, "titulo": titulo, "texto": texto, "imagen_url": imagen_url, "fecha_programada": fecha_iso,
-                                              "resultado": {"video_url": video_url, "imagenes": p.imagenes, "formato": formato, "texto_imagen": p.texto_imagen or None}},
+                                              "resultado": {"video_url": video_url, "imagenes": imagenes, "formato": formato, "texto_imagen": p.texto_imagen or None}},
                                         quien=usuario)
         except HTTPException:
             raise
@@ -597,7 +657,7 @@ def enviar(p: Envio, request: Request):
         _cerrar_borrador(p.borrador_id, duena, ctx.get("pid"))
     salida = {k: v for k, v in res.items() if k in ("ok", "modo", "aviso", "estado", "id", "link", "link_editar", "permalink", "privacidad", "pieza")}
     salida.update(encolada=False, imagen_url=imagen_url, avisos=avisos, simulado=(modo == "simulado"),
-                  texto_final=texto, formato=formato, video_url=video_url, imagenes=p.imagenes)
+                  texto_final=texto, formato=formato, video_url=video_url, imagenes=imagenes)
     return salida
 
 

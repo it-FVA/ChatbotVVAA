@@ -721,9 +721,25 @@
 }
 .pub-carrusel-foto {
   flex: none;
-  width: 120px;
+  width: 150px;
   display: grid;
   gap: 6px;
+  align-content: start;
+}
+/* (18/11, Franco) por foto: qué lleva encima (la misma frase, otra, sin frase, tal cual) y la frase propia */
+.pub-carrusel-diseno {
+  display: grid;
+  gap: 4px;
+}
+.pub-carrusel-diseno select,
+.pub-carrusel-diseno input {
+  width: 100%;
+  min-width: 0;
+  font-size: 0.82rem;
+  padding: 4px 6px;
+}
+.pub-carrusel-img.componiendo img {
+  opacity: 0.55;
 }
 .pub-carrusel-img {
   position: relative;

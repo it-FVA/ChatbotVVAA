@@ -69,7 +69,7 @@ def _logo_png(logo):
         return None
     k = src if isinstance(src, str) else hash(bytes(src))
     if k not in _LOGO_CACHE:
-        _LOGO_CACHE[k] = _abrir(src).convert("RGBA")
+        _LOGO_CACHE[k] = _abrir(src, max_lado=None).convert("RGBA")
     return _LOGO_CACHE[k]
 
 
@@ -110,15 +110,35 @@ def _fuente(nombre, tam, peso=400):
     return f
 
 
-def _abrir(foto):
+# (18/11) Tope de memoria al abrir fotos: el 17/11 la API de Render (512 MB) se quedó sin memoria con una foto externa grande
+# (Trello 7qfaoRhG). Una foto se baja hasta MAX_BYTES, se rechaza si tiene más de MAX_PIXELES (antes de decodificarla) y se reduce
+# al decodificar a MAX_LADO por lado (los JPEG se decodifican ya chicos con `draft`; el lienzo final es de 1080 px, no se pierde nada).
+MAX_BYTES = 40 * 1024 * 1024
+MAX_PIXELES = 50_000_000
+MAX_LADO = 2400
+
+
+def _abrir(foto, max_lado=MAX_LADO):
+    """Abre una foto (bytes, ruta o URL http(s)) con tope de tamaño. Devuelve una Image de a lo sumo max_lado por lado."""
     if isinstance(foto, (bytes, bytearray)):
-        return Image.open(io.BytesIO(foto))
-    if isinstance(foto, str) and foto.startswith(("http://", "https://")):
+        datos = bytes(foto)
+    elif isinstance(foto, str) and foto.startswith(("http://", "https://")):
         import urllib.request
         req = urllib.request.Request(foto, headers={"User-Agent": "Mozilla/5.0 (FVA imagen.py)"})
         with urllib.request.urlopen(req, timeout=20) as r:
-            return Image.open(io.BytesIO(r.read()))
-    return Image.open(foto)
+            datos = r.read(MAX_BYTES + 1)
+    else:
+        with open(foto, "rb") as fh:
+            datos = fh.read(MAX_BYTES + 1)
+    if len(datos) > MAX_BYTES:
+        raise ValueError(f"la foto pesa más de {MAX_BYTES // (1024 * 1024)} MB; usá una más liviana")
+    img = Image.open(io.BytesIO(datos))
+    w, h = img.size            # el encabezado alcanza: todavía no se decodificó
+    if w * h > MAX_PIXELES:
+        raise ValueError(f"la foto es demasiado grande ({w}×{h}); el tope es {MAX_PIXELES // 1_000_000} megapíxeles")
+    if max_lado and max(w, h) > max_lado:
+        img.thumbnail((max_lado, max_lado), Image.LANCZOS)   # JPEG: decodifica reducido (draft); PNG/WebP: reduce apenas carga
+    return img
 
 
 def _partir(texto, fuente, ancho_max, draw):
