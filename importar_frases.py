@@ -11,11 +11,11 @@ subir_banco.py): la hoja no es pública, la URL de export pide login. Exporta co
 correrlo de nuevo actualiza autor/fuente/tema/orden/validada y NO toca fecha, imagen ni estado de las que ya
 están en el calendario.
 
-(20/11) Pato validó las 578 en un xlsx («Frases del día completas 20nov.xlsx», bandeja de Drive) con columna Estado =
-Validada / Rechazada / Pendiente: 388 validadas y 190 rechazadas (165 de las «recuperadas», por mala atribución o tono).
-Se aplicó con un script aparte (textos corregidos, rechazadas fuera del calendario, reparto nuevo). OJO: el Sheet
-Frases_consolidadas_591 NO tiene esa columna: si se vuelve a correr este script contra el Sheet tal cual, las 165
-rechazadas vuelven a quedar validadas. Antes de correrlo, pasar la columna Estado de Pato al Sheet.
+(20/11) Pato validó las 578 en un xlsx con columna Estado = Validada / Rechazada / Pendiente: 388 validadas y 190
+rechazadas (165 de las «recuperadas», por mala atribución o tono). Se aplicó con un script aparte (textos corregidos,
+rechazadas fuera del calendario, reparto nuevo) y desde entonces la ÚNICA planilla es «Frases del día — MAESTRO»
+(SHEET_ID de abajo), con columnas Frase · Autor · Fuente · Tema / subtema · Validada (Validada/Rechazada/Pendiente) ·
+Observación. Pendiente cuenta como no validada. Correr este script contra esa planilla es seguro.
 
 Uso:   python importar_frases.py            (lee .streamlit/secrets.toml o clave.env, como procesar_cola.py)
        python importar_frases.py --csv archivo.csv   (de un CSV ya bajado)
@@ -25,7 +25,7 @@ import csv, io, json, os, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-SHEET_ID = "1JBG4m2dBpsoZu5nE8Il1ElqMpEChbyYfixm52NnaN1A"
+SHEET_ID = "1oV_k4S_nJDz6Re5gdiLQ_ZnsU2KmnTwHPeswMtEkGcc"   # (20/11) «Frases del día — MAESTRO (única planilla)»; la vieja Frases_consolidadas_591 quedó en Procesado
 FUENTE_VALIDADA = "frase del día recuperada"
 SI = {"si", "sí", "x", "true", "1", "ok", "validada", "aprobada", "yes"}
 
