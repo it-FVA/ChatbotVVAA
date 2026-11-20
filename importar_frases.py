@@ -11,6 +11,12 @@ subir_banco.py): la hoja no es pública, la URL de export pide login. Exporta co
 correrlo de nuevo actualiza autor/fuente/tema/orden/validada y NO toca fecha, imagen ni estado de las que ya
 están en el calendario.
 
+(20/11) Pato validó las 578 en un xlsx («Frases del día completas 20nov.xlsx», bandeja de Drive) con columna Estado =
+Validada / Rechazada / Pendiente: 388 validadas y 190 rechazadas (165 de las «recuperadas», por mala atribución o tono).
+Se aplicó con un script aparte (textos corregidos, rechazadas fuera del calendario, reparto nuevo). OJO: el Sheet
+Frases_consolidadas_591 NO tiene esa columna: si se vuelve a correr este script contra el Sheet tal cual, las 165
+rechazadas vuelven a quedar validadas. Antes de correrlo, pasar la columna Estado de Pato al Sheet.
+
 Uso:   python importar_frases.py            (lee .streamlit/secrets.toml o clave.env, como procesar_cola.py)
        python importar_frases.py --csv archivo.csv   (de un CSV ya bajado)
        python importar_frases.py --solo-contar       (no escribe nada)
@@ -38,7 +44,7 @@ def leer_csv(texto):
     filas = list(csv.reader(io.StringIO(texto.lstrip("\ufeff"))))
     hdr, datos = filas[0], [f for f in filas[1:] if any(c.strip() for c in f)]
     ci_t, ci_a = _col(hdr, "frase", "texto"), _col(hdr, "autor")
-    ci_f, ci_tema, ci_v = _col(hdr, "fuente"), _col(hdr, "tema"), _col(hdr, "valid")
+    ci_f, ci_tema, ci_v, ci_e = _col(hdr, "fuente"), _col(hdr, "tema"), _col(hdr, "valid"), _col(hdr, "estado")
     out, vistos = [], set()
     for n, f in enumerate(datos, start=1):
         g = lambda i: (f[i].strip() if i is not None and i < len(f) else "")
@@ -51,6 +57,9 @@ def leer_csv(texto):
         # siempre por Fuente. Así Pato solo tiene que marcar las 87 nuevas, sin tocar las 491 que ya salieron.
         if ci_v is not None and g(ci_v):
             validada = g(ci_v).lower() in SI
+        elif ci_e is not None and g(ci_e):
+            # (20/11) Pato entregó la validación con una columna «Estado»: Validada / Rechazada / Pendiente
+            validada = g(ci_e).lower().startswith("valid")
         else:
             validada = fuente.lower().startswith(FUENTE_VALIDADA)
         out.append({"texto": texto, "autor": g(ci_a) or None, "fuente": fuente or None, "tema": g(ci_tema) or None,
