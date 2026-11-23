@@ -63,6 +63,12 @@
   margin: 0 0 4px;
   font-size: 0.98rem;
 }
+/* (23/11) práctica del día debajo de la cita, solo lectura */
+.fd-practica {
+  margin: 0.25rem 0 0.5rem;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
 .fd-manana-texto p {
   margin: 0 0 8px;
 }

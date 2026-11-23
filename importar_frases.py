@@ -17,6 +17,10 @@ rechazadas fuera del calendario, reparto nuevo) y desde entonces la ÚNICA plani
 (SHEET_ID de abajo), con columnas Frase · Autor · Fuente · Tema / subtema · Validada (Validada/Rechazada/Pendiente) ·
 Observación. Pendiente cuenta como no validada. Correr este script contra esa planilla es seguro.
 
+(23/11) Segunda etapa, «práctica del día»: la planilla suma las columnas Práctica y Texto original (el inglés de Grateful Living).
+Las 998 de Grateful Living entraron con Fuente «Grateful Living 2026» y Validada = Pendiente (17 ya estaban: solo se les sumó
+la práctica a su fila). Este script copia las dos columnas a `frases.practica` y `frases.texto_original` (celda vacía = null).
+
 Uso:   python importar_frases.py            (lee .streamlit/secrets.toml o clave.env, como procesar_cola.py)
        python importar_frases.py --csv archivo.csv   (de un CSV ya bajado)
        python importar_frases.py --solo-contar       (no escribe nada)
@@ -40,11 +44,12 @@ def _col(hdr, *nombres):
 
 
 def leer_csv(texto):
-    """CSV → [{texto, autor, fuente, tema, validada, orden}]."""
+    """CSV → [{texto, autor, fuente, tema, validada, orden, practica, texto_original}]."""
     filas = list(csv.reader(io.StringIO(texto.lstrip("\ufeff"))))
     hdr, datos = filas[0], [f for f in filas[1:] if any(c.strip() for c in f)]
     ci_t, ci_a = _col(hdr, "frase", "texto"), _col(hdr, "autor")
     ci_f, ci_tema, ci_v, ci_e = _col(hdr, "fuente"), _col(hdr, "tema"), _col(hdr, "valid"), _col(hdr, "estado")
+    ci_p, ci_o = _col(hdr, "práctica", "practica"), _col(hdr, "texto original")   # (23/11) práctica del día y el inglés
     out, vistos = [], set()
     for n, f in enumerate(datos, start=1):
         g = lambda i: (f[i].strip() if i is not None and i < len(f) else "")
@@ -63,7 +68,7 @@ def leer_csv(texto):
         else:
             validada = fuente.lower().startswith(FUENTE_VALIDADA)
         out.append({"texto": texto, "autor": g(ci_a) or None, "fuente": fuente or None, "tema": g(ci_tema) or None,
-                    "validada": validada, "origen": "sheet", "orden": n})
+                    "validada": validada, "origen": "sheet", "orden": n, "practica": g(ci_p) or None, "texto_original": g(ci_o) or None})
     return out
 
 
@@ -89,7 +94,8 @@ def main():
         texto = bajar_sheet()
     frases = leer_csv(texto)
     validadas = sum(1 for f in frases if f["validada"])
-    print(f"{len(frases)} frases en el Sheet · {validadas} validadas · {len(frases) - validadas} pendientes de validar")
+    con_practica = sum(1 for f in frases if f["practica"])
+    print(f"{len(frases)} frases en el Sheet · {validadas} validadas · {len(frases) - validadas} pendientes de validar · {con_practica} con práctica")
     if "--solo-contar" in sys.argv:
         return 0
     import db
@@ -100,7 +106,7 @@ def main():
         db.upsert_frases(frases[i:i + 200])
     r = db.resumen_frases()
     print(f"Tabla frases: {r.get('total')} en total · {r.get('validadas')} validadas · {r.get('con_fecha')} con fecha · "
-          f"{r.get('publicadas')} publicadas")
+          f"{r.get('publicadas')} publicadas · {r.get('con_practica')} con práctica")
     return 0
 
 

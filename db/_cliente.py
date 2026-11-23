@@ -54,6 +54,12 @@ def _req(method, params="", body=None, tabla="conversaciones", prefer=None, time
     Errores HTTP, cortes de red y timeouts → RuntimeError con texto legible."""
     url, key = _db._cfg()
     full = f"{url}/rest/v1/{tabla}{params}"
+    if method == "GET":
+        return _get_paginado(full, key, prefer, timeout)
+    return _llamar(full, method, body, key, prefer, timeout)
+
+
+def _llamar(full, method, body, key, prefer, timeout):
     data = json.dumps(body, ensure_ascii=False).encode("utf-8") if body is not None else None
     req = urllib.request.Request(full, data=data, method=method, headers=_cabeceras(key, {
         "Content-Type": "application/json", "Prefer": prefer or "return=representation"}))
@@ -66,6 +72,30 @@ def _req(method, params="", body=None, tabla="conversaciones", prefer=None, time
     except (urllib.error.URLError, TimeoutError, OSError) as e:      # (3/11) corte de red o timeout: mismo tipo de error que el HTTP
         motivo = getattr(e, "reason", None) or e
         raise RuntimeError(f"Supabase sin conexión ({type(motivo).__name__}: {str(motivo)[:150]})")
+
+
+TOPE_PAGINA = 1000   # max-rows de PostgREST en Supabase: una sola llamada nunca trae más, aunque se pida limit=2000
+
+
+def _get_paginado(full, key, prefer, timeout):
+    """(23/11) Un GET trae como mucho 1000 filas por llamada (tope de Supabase). Desde que `frases` pasó las 1.500 (Grateful
+    Living), las lecturas «todas las frases» quedaban cortadas sin aviso. Si la página viene llena, se pide la siguiente con
+    offset hasta completar lo pedido en `limit` (o todo, si no hay limit). Un limit menor al tope sigue siendo una llamada."""
+    base, _, q = full.partition("?")
+    partes = [p for p in q.split("&") if p and not p.startswith("limit=") and not p.startswith("offset=")]
+    pedido = next((int(p[6:]) for p in q.split("&") if p.startswith("limit=") and p[6:].isdigit()), None)
+    offset = next((int(p[7:]) for p in q.split("&") if p.startswith("offset=") and p[7:].isdigit()), 0)   # un offset pedido es el punto de partida
+    filas = []
+    while True:
+        tope = TOPE_PAGINA if pedido is None else min(TOPE_PAGINA, pedido - len(filas))
+        url = base + "?" + "&".join(partes + [f"limit={tope}", f"offset={offset}"])
+        pagina = _llamar(url, "GET", None, key, prefer, timeout)
+        if not isinstance(pagina, list):
+            return pagina
+        filas.extend(pagina)
+        if len(pagina) < tope or (pedido is not None and len(filas) >= pedido):
+            return filas
+        offset += len(pagina)
 
 
 def filtros_a_params(filtros=None, select=None, order=None, limite=None):

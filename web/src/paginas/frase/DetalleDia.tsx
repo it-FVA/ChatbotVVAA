@@ -85,6 +85,11 @@ export function DetalleDia({ fecha, version, aprueba, solapaPedida, estiloOpcion
         <div className="fd-detalle">
           <div className="fd-detalle-izq">
             <blockquote className="fd-cita">{f.texto}</blockquote>
+            {f.practica && (
+              <p className="fd-practica">
+                <strong>Práctica del día:</strong> {f.practica}
+              </p>
+            )}
             <p className="chico">
               <strong>{f.autor || "(sin autor)"}</strong> · {f.estado === "saltada" ? "⏭ " : ""}
               {f.estado_texto}

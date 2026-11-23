@@ -130,7 +130,9 @@ def _publica(f):
             "estado_texto": ESTADO_TXT.get(f.get("estado") or "programada", f.get("estado")), "validada": bool(f.get("validada")),
             "imagen_url": f.get("imagen_url"), "estilo": f.get("estilo") or None, "publicacion_id": f.get("publicacion_id"), "fuente": f.get("fuente"), "tema": f.get("tema"),
             "orden": f.get("orden"), "ultima_publicada": f.get("ultima_publicada"), "veces_publicada": int(f.get("veces_publicada") or 0),
-            "repetida": bool(f.get("ultima_publicada")), "cerrada": _cerrada(f)}
+            "repetida": bool(f.get("ultima_publicada")), "cerrada": _cerrada(f),
+            # (23/11) práctica del día y texto original (Grateful Living); solo lectura, la pieza y el mail todavía no la usan
+            "practica": f.get("practica"), "texto_original": f.get("texto_original")}
 
 
 def _cfg():

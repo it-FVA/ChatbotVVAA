@@ -19,6 +19,8 @@ export interface Frase {
   veces_publicada: number;
   repetida: boolean; // ya salió antes (rotación)
   cerrada: boolean; // en la cola o ya salió: no se mueve ni se edita
+  practica?: string | null; // (23/11) práctica del día (Grateful Living); solo se muestra, la pieza y el mail no la usan todavía
+  texto_original?: string | null; // (23/11) el inglés cuando la frase es traducción
 }
 
 /** (2/11 tarde) Una fila de la tarjeta «Mañana»: el canal, si está prendido, su modo y la pieza de mañana si existe. */

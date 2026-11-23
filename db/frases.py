@@ -16,7 +16,8 @@ from ._cliente import _q
 # programar_frases.py (misma pasada de Actions que la cola) encola la frase de cada día como posteo de Instagram.
 # (19/10, tarde) Rotación: ultima_publicada / veces_publicada (solo salidas reales) y piezas {canal: publicacion_id}
 # (migración frases_rotacion_y_canales). Cuando no quedan validadas sin día, vuelven las ya publicadas, la más antigua primero.
-CAMPOS_FRASE = "id,texto,autor,origen,validada,fecha,imagen_url,estado,publicacion_id,orden,fuente,tema,creado,ultima_publicada,veces_publicada,piezas,estilo"
+# (23/11) practica / texto_original: la «práctica del día» y el inglés de Grateful Living (migración 20261123_1000_frases_practica). Solo lectura por ahora.
+CAMPOS_FRASE = "id,texto,autor,origen,validada,fecha,imagen_url,estado,publicacion_id,orden,fuente,tema,creado,ultima_publicada,veces_publicada,piezas,estilo,practica,texto_original"
 
 
 def listar_frases(desde=None, hasta=None, limite=2000):
@@ -70,7 +71,7 @@ def crear_frase(texto, autor, validada=True, origen="manual", fecha=None, fuente
 
 def upsert_frases(filas, on_conflict="texto"):
     """Carga en lote (importar_frases.py): por texto (índice único); si ya existe, actualiza autor/fuente/tema/orden/validada
-    sin tocar fecha, imagen ni estado. Devuelve la cantidad de filas enviadas."""
+    (y desde el 23/11 practica/texto_original) sin tocar fecha, imagen ni estado. Devuelve la cantidad de filas enviadas."""
     if not _db.disponible() or not filas:
         return 0
     url, key = _db._cfg()
@@ -144,13 +145,14 @@ def resumen_frases():
     """Conteos para la cabecera de la solapa: total, validadas, con fecha, publicadas."""
     if not _db.disponible():
         return {}
-    todas = _db._req("GET", "?select=validada,fecha,estado,ultima_publicada", tabla="frases") or []
+    todas = _db._req("GET", "?select=validada,fecha,estado,ultima_publicada,practica", tabla="frases") or []
     return {"total": len(todas), "validadas": sum(1 for f in todas if f.get("validada")),
             "con_fecha": sum(1 for f in todas if f.get("fecha")),
             "publicadas": sum(1 for f in todas if f.get("estado") == "publicada"),
             "alguna_vez_publicadas": sum(1 for f in todas if f.get("ultima_publicada")),
             "sin_fecha_validadas": sum(1 for f in todas if f.get("validada") and not f.get("fecha")),
-            "pendientes_validar": sum(1 for f in todas if not f.get("validada"))}
+            "pendientes_validar": sum(1 for f in todas if not f.get("validada")),
+            "con_practica": sum(1 for f in todas if f.get("practica"))}
 
 
 def crear_envios_frase(publicacion_id, fecha, emails, prueba=False):
