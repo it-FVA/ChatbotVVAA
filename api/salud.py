@@ -548,9 +548,18 @@ def salud():
             "mail": _mail_publico()}
 
 
-def _mail_publico():
-    """(26/10) Frase del día por mail: solo lo no sensible, para comprobar desde afuera que las variables de Perfit quedaron
-    bien cargadas (modo, qué falta, si la API de Perfit responde y la lista existe). Nunca devuelve claves ni URLs."""
+# (25/11) Render consulta /salud cada 5 segundos como chequeo de vida. Hasta hoy cada pedido llamaba dos veces a la API de
+# Perfit (probar_conexion), así que si Perfit tardaba más de 5 s el chequeo vencía y Render reiniciaba la API (pasó el 25/11
+# a las 15:45: «HTTP health check failed (timed out after 5 seconds)»), y Perfit recibía ~17.000 pedidos por día solo por eso.
+# Ahora la prueba de Perfit se hace en un hilo aparte y se guarda MAIL_CACHE_SEG segundos; /salud devuelve al instante el
+# último resultado conocido y nunca espera a nadie de afuera.
+MAIL_CACHE_SEG = 600
+_mail_cache = {"valor": None, "hasta": 0.0, "corriendo": False}
+_mail_lock = __import__("threading").Lock()
+
+
+def _mail_probar():
+    """La prueba real contra Perfit (lenta: dos pedidos HTTP). Solo la llama el hilo de refresco."""
     try:
         import perfit
         est = perfit.probar_conexion()
@@ -560,6 +569,42 @@ def _mail_publico():
                 "lista": (est["lista"] or {}).get("nombre"), "activos": (est["lista"] or {}).get("activos")}
     except Exception as e:   # pragma: no cover
         return {"modo": "?", "error": str(e)[:80]}
+
+
+def _mail_refrescar():
+    try:
+        valor = _mail_probar()
+        with _mail_lock:
+            _mail_cache["valor"] = valor
+            _mail_cache["hasta"] = time.time() + MAIL_CACHE_SEG
+    finally:
+        with _mail_lock:
+            _mail_cache["corriendo"] = False
+
+
+def _mail_publico(ahora=None):
+    """(26/10) Frase del día por mail: solo lo no sensible, para comprobar desde afuera que las variables de Perfit quedaron
+    bien cargadas (modo, qué falta, si la API de Perfit responde y la lista existe). Nunca devuelve claves ni URLs.
+    (25/11) Sale de la caché; si venció, dispara el refresco en un hilo y devuelve lo último conocido (o «pendiente» la
+    primera vez). Nunca bloquea el chequeo de Render."""
+    import threading
+    ahora = time.time() if ahora is None else ahora
+    with _mail_lock:
+        vencida = ahora >= _mail_cache["hasta"]
+        lanzar = vencida and not _mail_cache["corriendo"]
+        if lanzar:
+            _mail_cache["corriendo"] = True
+        valor = _mail_cache["valor"]
+    if lanzar:
+        threading.Thread(target=_mail_refrescar, daemon=True).start()
+    if valor is None:
+        try:
+            import perfit
+            return {"modo": perfit.modo(os.environ), "faltan": perfit.configurado(os.environ), "api_perfit": "pendiente",
+                    "listas_en_perfit": None, "error": None, "lista": None, "activos": None}
+        except Exception as e:   # pragma: no cover
+            return {"modo": "?", "api_perfit": "pendiente", "error": str(e)[:80]}
+    return valor
 
 
 @router.get("/salud/servicios")

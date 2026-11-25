@@ -350,3 +350,38 @@ def test_avisar_arranque_calla_el_deploy_y_avisa_el_reinicio(monkeypatch):
     assert salud._avisar_arranque(None, None, None) is True and "sin dato" in mandados[-1]
     assert salud._avisar_arranque(None, "2e7d56b", None) is True and "commit 2e7d56b" in mandados[-1]
     assert len(mandados) == 3
+
+
+def test_salud_no_espera_a_perfit(monkeypatch):
+    """(25/11) /salud es el health check de Render (5 s de tope): la prueba de Perfit va en un hilo y en caché, nunca en línea."""
+    import threading
+    from api import salud as s
+    llamadas, listo = [], threading.Event()
+
+    def lenta(fuente=None):
+        llamadas.append(1)
+        listo.set()
+        return {"modo": "api", "faltan": [], "lista": {"id": 1, "nombre": "Frase", "activos": 7}, "error": None,
+                "api_ok": True, "listas": 184}
+    import perfit
+    monkeypatch.setattr(perfit, "probar_conexion", lenta)
+    monkeypatch.setitem(s._mail_cache, "valor", None)
+    monkeypatch.setitem(s._mail_cache, "hasta", 0.0)
+    monkeypatch.setitem(s._mail_cache, "corriendo", False)
+
+    primero = s._mail_publico()          # primera vez: pendiente, y dispara el hilo
+    assert primero["api_perfit"] == "pendiente"
+    assert listo.wait(5)
+    for _ in range(50):                               # el hilo guarda enseguida después de probar
+        if s._mail_cache["valor"] is not None:
+            break
+        time.sleep(0.02)
+    segundo = s._mail_publico()                     # dentro de la caché: el resultado real, sin volver a llamar
+    assert segundo["api_perfit"] == "ok" and segundo["lista"] == "Frase" and segundo["activos"] == 7
+    assert len(llamadas) == 1
+    s._mail_publico(ahora=time.time() + s.MAIL_CACHE_SEG + 1)  # vencida: devuelve lo último y refresca en el hilo
+    for _ in range(100):
+        if len(llamadas) == 2:
+            break
+        time.sleep(0.02)
+    assert len(llamadas) == 2
