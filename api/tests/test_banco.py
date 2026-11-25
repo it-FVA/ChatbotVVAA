@@ -356,3 +356,31 @@ def test_la_cola_sincroniza_y_nunca_se_rompe(monkeypatch, capsys):
     monkeypatch.setattr(banco, "sincronizar_desde_config", roto)
     assert procesar_cola.main() == 0
     assert "no pude sincronizar" in capsys.readouterr().out
+
+
+# ---------------- (25/11) contenido igual = no se resube; contenido distinto = se resube y se borra el medio viejo ----------------
+def test_mismo_md5_con_otra_fecha_no_resube(drive, mundo):
+    for hoja in drive.arbol.values():
+        for f in hoja:
+            if f.get("mimeType", "").startswith("image/"):
+                f["md5Checksum"] = "m-" + f["id"]
+    registro = {i: {"modified_time": "2026-11-01T10:00:00.000Z", "md5": "m-" + i, "wp_id": 500, "url": "https://ejemplo.org/500.jpg"}
+                for i in ("a1", "b1", "b2", "d1", "e1")}
+    drive.arbol["c2"][0]["modifiedTime"] = "2026-11-24T21:19:00.000Z"      # Julián lo tocó, pero es el mismo archivo
+    r, _ = sincronizar(drive, mundo, registro=registro)
+    assert (r["subidas"], r["salteadas"], r["reemplazadas"]) == (0, 5, 0) and mundo["subidas"] == []
+
+
+def test_md5_distinto_resube_y_borra_el_anterior(drive, mundo):
+    for hoja in drive.arbol.values():
+        for f in hoja:
+            if f.get("mimeType", "").startswith("image/"):
+                f["md5Checksum"] = "m-" + f["id"]
+    registro = {i: {"modified_time": "2026-11-01T10:00:00.000Z", "md5": "m-" + i, "wp_id": 500, "url": "https://ejemplo.org/500.jpg"}
+                for i in ("a1", "b1", "b2", "d1", "e1")}
+    drive.arbol["c2"][0]["md5Checksum"] = "otro"                            # cambió el contenido
+    borradas = []
+    r, registro = sincronizar(drive, mundo, registro=registro, borrar=lambda cfg, url: (borradas.append(url) or True, "ok"))
+    assert (r["subidas"], r["salteadas"], r["reemplazadas"]) == (1, 4, 1)
+    assert borradas == ["https://ejemplo.org/500.jpg"] and registro["e1"]["md5"] == "otro" and registro["e1"]["wp_id"] != 500
+    assert mundo["guardadas"][-1][-1] == "otro"                             # guardar recibe el md5

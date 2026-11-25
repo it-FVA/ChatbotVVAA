@@ -11,13 +11,13 @@ def banco_registro():
     """{drive_id: {modified_time, wp_id, …}} de todo lo subido. Sin Supabase: {}."""
     if not _db.disponible():
         return {}
-    filas = _db.consulta("banco_imagenes", select="drive_id,nombre,modified_time,wp_id,url,formato,subido_en", limite=20000)
+    filas = _db.consulta("banco_imagenes", select="drive_id,nombre,modified_time,md5,wp_id,url,formato,subido_en", limite=20000)
     return {f["drive_id"]: f for f in filas}
 
 
-def banco_guardar(drive_id, nombre, modified_time, wp_id, url, formato, etiquetas):
-    """Upsert por drive_id (si el archivo cambió y se re-subió, la fila se actualiza)."""
-    fila = {"drive_id": drive_id, "nombre": nombre, "modified_time": modified_time, "wp_id": wp_id, "url": url,
+def banco_guardar(drive_id, nombre, modified_time, wp_id, url, formato, etiquetas, md5=None):
+    """Upsert por drive_id (si el archivo cambió y se re-subió, la fila se actualiza). (25/11) md5 = md5Checksum de Drive."""
+    fila = {"drive_id": drive_id, "nombre": nombre, "modified_time": modified_time, "md5": md5, "wp_id": wp_id, "url": url,
             "formato": formato, "etiquetas": list(etiquetas or []), "subido_en": datetime.now(timezone.utc).isoformat()}
     return _db.insertar("banco_imagenes", fila, upsert="drive_id")
 

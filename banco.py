@@ -12,8 +12,9 @@ Convención de nombres (la del script viejo subir_banco.py):
   - si no hay medidas, el nombre de una subcarpeta que sea un formato (cuadrado / vertical / horizontal; también historia, stories, apaisado);
   - el resto de las palabras (del nombre y de las subcarpetas, separadas por _ - espacio) son etiquetas; las medidas y las palabras sueltas
     («de», «foto», «final»…) no.
-Registro: tabla banco_imagenes (db/banco.py): id de Drive, modified_time, wp_id, url, formato, etiquetas. Lo ya registrado no se vuelve a subir,
-salvo que Drive diga que el archivo cambió (modifiedTime distinto).
+Registro: tabla banco_imagenes (db/banco.py): id de Drive, modified_time, md5, wp_id, url, formato, etiquetas. Lo ya registrado no se
+vuelve a subir salvo que el CONTENIDO haya cambiado (md5Checksum de Drive distinto; (25/11) antes se miraba modifiedTime y cada vez que
+Julián tocaba un archivo se duplicaba en WordPress). Si cambió, se sube el nuevo y se borra el medio anterior de WordPress.
 """
 import os, re, tempfile
 
@@ -78,13 +79,13 @@ def listar_imagenes(svc, carpeta_id):
         q = f"'{cid}' in parents and trashed = false and (mimeType = '{CARPETA_MIME}' or " + " or ".join(f"mimeType = '{t}'" for t in MIMES) + ")"
         token, subcarpetas = None, []
         while True:
-            r = svc.files().list(q=q, fields="nextPageToken, files(id, name, mimeType, modifiedTime)", pageSize=1000, pageToken=token,
+            r = svc.files().list(q=q, fields="nextPageToken, files(id, name, mimeType, modifiedTime, md5Checksum)", pageSize=1000, pageToken=token,
                                  supportsAllDrives=True, includeItemsFromAllDrives=True, orderBy="name").execute()
             for f in r.get("files", []):
                 if f.get("mimeType") == CARPETA_MIME:
                     subcarpetas.append(f)
                 else:
-                    out.append({"id": f["id"], "name": f["name"], "modifiedTime": f.get("modifiedTime"), "carpetas": list(ruta)})
+                    out.append({"id": f["id"], "name": f["name"], "modifiedTime": f.get("modifiedTime"), "md5": f.get("md5Checksum"), "carpetas": list(ruta)})
             token = r.get("nextPageToken")
             if not token:
                 break
@@ -101,9 +102,20 @@ def _bajar(svc, file_id, destino):
         fh.write(datos)
 
 
-def sincronizar_banco(cfg, svc_drive, carpeta_id, registro, tope=TOPE_CORRIDA, descargar=None, guardar=None, quien="banco"):
-    """Sube a WordPress lo de la carpeta de Drive que no esté en `registro` ({drive_id: {"modified_time": …}}) o que haya cambiado.
-    `descargar(svc, file_id, destino)` y `guardar(drive_id, nombre, modified_time, wp_id, url, formato, etiquetas)` se pueden reemplazar
+def _sin_cambios(previo, f):
+    """(25/11) Ya está subida y el contenido es el mismo: con md5 de los dos lados manda el md5; si falta alguno, vale modifiedTime."""
+    if previo is None:
+        return False
+    if previo.get("md5") and f.get("md5"):
+        return previo["md5"] == f["md5"]
+    return (previo.get("modified_time") or None) == (f.get("modifiedTime") or None)
+
+
+def sincronizar_banco(cfg, svc_drive, carpeta_id, registro, tope=TOPE_CORRIDA, descargar=None, guardar=None, quien="banco", borrar=None):
+    """Sube a WordPress lo de la carpeta de Drive que no esté en `registro` ({drive_id: {"modified_time", "md5", "wp_id", "url"}}) o
+    cuyo contenido haya cambiado (md5). Si cambió, después de subir el nuevo borra el medio anterior (`borrar(cfg, url)`, por defecto
+    publicar.borrar_media_por_url) para no duplicar la biblioteca.
+    `descargar(svc, file_id, destino)` y `guardar(drive_id, nombre, modified_time, wp_id, url, formato, etiquetas, md5)` se pueden reemplazar
     (pruebas); por defecto bajan con Drive v3 y guardan en la tabla banco_imagenes (db.banco_guardar). Sin `id` de WordPress en la
     respuesta (modo simulado) no se registra nada: así no se bloquea la subida real.
     Máximo `tope` imágenes por corrida (las que fallan también cuentan); lo que sobra queda para la siguiente.
@@ -113,14 +125,15 @@ def sincronizar_banco(cfg, svc_drive, carpeta_id, registro, tope=TOPE_CORRIDA, d
         import db
         guardar = db.banco_guardar
     descargar = descargar or _bajar
-    resumen = {"subidas": 0, "salteadas": 0, "errores": 0, "pendientes": 0, "simuladas": 0, "detalle": []}
+    borrar = borrar or (lambda c, url: publicar.borrar_media_por_url(c, url, quien=quien))
+    resumen = {"subidas": 0, "salteadas": 0, "errores": 0, "pendientes": 0, "simuladas": 0, "reemplazadas": 0, "detalle": []}
     if getattr(cfg, "modo_wp", None) == "apagado":
         resumen["detalle"].append("WordPress está apagado (PUBLICAR_WORDPRESS): no se sube nada.")
         return resumen
     pendientes = []
     for f in listar_imagenes(svc_drive, carpeta_id):
         previo = registro.get(f["id"])
-        if previo is not None and (previo.get("modified_time") or None) == (f.get("modifiedTime") or None):
+        if _sin_cambios(previo, f):
             resumen["salteadas"] += 1
         else:
             pendientes.append(f)
@@ -138,9 +151,19 @@ def sincronizar_banco(cfg, svc_drive, carpeta_id, registro, tope=TOPE_CORRIDA, d
                 if res.get("id") is None:               # simulado: no se subió nada, no se anota
                     resumen["simuladas"] += 1
                     continue
-                guardar(f["id"], f["name"], f.get("modifiedTime"), res["id"], res.get("url"), formato, etiquetas)
-                registro[f["id"]] = {"modified_time": f.get("modifiedTime"), "wp_id": res["id"]}
+                guardar(f["id"], f["name"], f.get("modifiedTime"), res["id"], res.get("url"), formato, etiquetas, f.get("md5"))
+                anterior = registro.get(f["id"]) or {}
+                registro[f["id"]] = {"modified_time": f.get("modifiedTime"), "md5": f.get("md5"), "wp_id": res["id"], "url": res.get("url")}
                 resumen["subidas"] += 1
+                if anterior.get("url") and anterior.get("wp_id") and anterior.get("wp_id") != res["id"]:
+                    try:                                  # (25/11) el contenido cambió: el medio viejo sobra
+                        ok, aviso = borrar(cfg, anterior["url"])
+                        if ok:
+                            resumen["reemplazadas"] += 1
+                        else:
+                            resumen["detalle"].append(f"{f['name']}: subida nueva pero no pude borrar la anterior: {aviso}")
+                    except Exception as e:
+                        resumen["detalle"].append(f"{f['name']}: subida nueva pero no pude borrar la anterior: {str(e)[:120]}")
             except Exception as e:
                 resumen["errores"] += 1
                 resumen["detalle"].append(f"{f['name']}: {str(e)[:150]}")
