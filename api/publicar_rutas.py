@@ -236,7 +236,6 @@ def _compuestas_carrusel(p: PiezaCompleta, canal, avisos):
     d = _normalizar_diseno(p, canal)
     if not p.usar_compuesta:
         return None, d
-    firma_pieza = (p.firma if p.firma is not None else FIRMA_DEFECTO).strip()
     salida = []
     for i, url in enumerate(p.imagenes):
         texto, compuesta = p.diseno_foto(i)
@@ -244,7 +243,7 @@ def _compuestas_carrusel(p: PiezaCompleta, canal, avisos):
         if not compuesta or not (con_frase or d["con_logo"]):
             salida.append(None)
             continue
-        firma = firma_pieza if con_frase else ""
+        firma = p.firma_foto(i, FIRMA_DEFECTO) if con_frase else ""     # (26/11) firma propia de la foto, si la tiene
         tipografia = p.tipografia if p.tipografia in imagen.TIPOGRAFIAS else imagen.TIPOGRAFIA_DEFAULT
         peso = p.peso if p.peso in imagen.PESOS else "normal"
         posicion = p.posicion if p.posicion in imagen.POSICIONES else "centro"

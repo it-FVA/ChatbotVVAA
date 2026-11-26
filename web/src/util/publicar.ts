@@ -74,7 +74,7 @@ export function desdeGuardada(g: PiezaGuardada, op: OpcionesPublicar | null): Pi
     texto: g.texto || "",
     imagen_url: g.imagen_url || null,
     imagenes: g.imagenes?.length ? g.imagenes : null,
-    imagenes_diseno: g.imagenes?.length && g.imagenes_diseno?.length ? g.imagenes_diseno.map((d) => ({ url: d.url ?? "", texto: d.texto ?? null, compuesta: d.compuesta ?? true })) : null,
+    imagenes_diseno: g.imagenes?.length && g.imagenes_diseno?.length ? g.imagenes_diseno.map((d) => ({ url: d.url ?? "", texto: d.texto ?? null, compuesta: d.compuesta ?? true, firma: d.firma ?? null })) : null,
     imagen_busqueda: g.imagen_busqueda || "",
     fecha: g.fecha || null,
     hora: g.hora || base.hora,

@@ -23,10 +23,13 @@ NO_SE_GUARDAN = ("borrador_id", "fecha", "hora", "canal")
 
 class FotoDiseno(BaseModel):
     """(18/11, Franco) Qué lleva encima una foto del carrusel. `texto`: None = la frase común de la pieza (texto_imagen), "" = esta foto sin
-    frase (solo el logo), otra cosa = una frase propia. `compuesta`: False = esta foto sale tal cual, sin frase ni logo."""
+    frase (solo el logo), otra cosa = una frase propia. `compuesta`: False = esta foto sale tal cual, sin frase ni logo.
+    (26/11, pedido de Julián) `firma`: None = la firma común de la pieza, "" = esta foto sin firma, otra cosa = una firma propia
+    (un carrusel con tres citas de tres autores lleva tres firmas)."""
     url: str = ""
     texto: Optional[str] = None
     compuesta: bool = True
+    firma: Optional[str] = None
 
 
 class Pieza(BaseModel):
@@ -95,6 +98,7 @@ class Pieza(BaseModel):
         for d, u in zip(self.imagenes_diseno, lista):
             d.url = u
             d.texto = d.texto.strip() if isinstance(d.texto, str) and d.texto.strip() else ("" if d.texto is not None else None)
+            d.firma = d.firma.strip() if isinstance(d.firma, str) and d.firma.strip() else ("" if d.firma is not None else None)
         return lista
 
     def diseno_foto(self, i):
@@ -102,6 +106,13 @@ class Pieza(BaseModel):
         d = self.imagenes_diseno[i] if self.imagenes_diseno and i < len(self.imagenes_diseno) else FotoDiseno()
         texto = (self.texto_imagen or "").strip() if d.texto is None else d.texto
         return texto, bool(d.compuesta)
+
+    def firma_foto(self, i, defecto=""):
+        """(26/11) La firma de la foto i del carrusel: la propia si la tiene, si no la de la pieza (o `defecto` si la pieza no trae)."""
+        d = self.imagenes_diseno[i] if self.imagenes_diseno and i < len(self.imagenes_diseno) else FotoDiseno()
+        if d.firma is not None:
+            return d.firma.strip()
+        return (self.firma if self.firma is not None else defecto).strip()
 
     def canal_clave(self):
         return (self.canal or "").strip().lower()

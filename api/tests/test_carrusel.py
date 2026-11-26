@@ -189,7 +189,14 @@ def test_aplicar_carrusel_conserva_diseno_y_alinea_por_url():
     assert Pieza(canal="facebook", texto="x", imagenes=FOTOS[:2], texto_imagen="C").diseno_foto(1) == ("C", True)
     # el dict guardado y la vuelta (retomar) conservan el diseño por foto
     g = p.a_borrador("facebook")
-    assert g["imagenes_diseno"][0] == {"url": FOTOS[0], "texto": "", "compuesta": True}
+    assert g["imagenes_diseno"][0] == {"url": FOTOS[0], "texto": "", "compuesta": True, "firma": None}
+    # (26/11) firma por foto: None = la de la pieza, "" = sin firma, otra = propia; se normaliza como el texto
+    p = Pieza(canal="facebook", texto="x", imagenes=FOTOS, texto_imagen="Común", firma="— Pieza",
+              imagenes_diseno=[{"url": FOTOS[0], "texto": "Una", "firma": "  — León XIV "}, {"url": FOTOS[1], "firma": "  "}, {"url": FOTOS[2]}])
+    p.aplicar_carrusel("facebook")
+    assert [d.firma for d in p.imagenes_diseno] == ["— León XIV", "", None]
+    assert p.firma_foto(0) == "— León XIV" and p.firma_foto(1) == "" and p.firma_foto(2) == "— Pieza"
+    assert Pieza(canal="facebook", texto="x", imagenes=FOTOS[:2]).firma_foto(1, "— Br. David") == "— Br. David"
     v = Pieza.desde_fila({"canal": "facebook", "estado": "borrador", "resultado": {"pieza": g}})
     assert v.imagenes == FOTOS[:2] and v.imagenes_diseno[0].texto == "" and v.imagenes_diseno[1].texto is None
 
@@ -217,6 +224,14 @@ def test_a_aprobar_carrusel_compone_sube_y_guarda_originales(logueado, rutas, mo
     assert rutas["imagen_url"] == "https://wp/compuesta-1.jpg" and r.json()["imagen_url"] == "https://wp/compuesta-1.jpg"
     assert rutas["extra"]["pieza"]["imagenes"] == FOTOS and rutas["extra"]["pieza"]["imagenes_diseno"][1]["compuesta"] is False
     assert rutas["extra"]["formato"] == "cuadrado" and rutas["extra"]["texto_imagen"] == "La gratitud"
+    # (26/11, Julián) tres citas de tres autores: cada foto con su firma; la que no trae firma usa la de la pieza
+    visto.clear(); subidas.clear()
+    r = logueado.post("/publicar/a-aprobar", json={"canal": "instagram", "titulo": "Tres", "texto": "Hola", "imagenes": FOTOS, "texto_imagen": "La gratitud",
+                                                   "firma": "— Br. David", "formato": "cuadrado",
+                                                   "imagenes_diseno": [{"url": FOTOS[0], "texto": "Uno", "firma": "— León XIV"}, {"url": FOTOS[1], "texto": "Dos", "firma": ""}, {"url": FOTOS[2]}]})
+    assert r.status_code == 200, r.text
+    assert [(v[1], v[2]) for v in visto] == [("Uno", "— León XIV"), ("Dos", ""), ("La gratitud", "— Br. David")]
+    assert rutas["extra"]["pieza"]["imagenes_diseno"][0]["firma"] == "— León XIV"
     # «Publicar así» destildado: nada se compone ni se sube, van las originales
     visto.clear(); subidas.clear()
     logueado.post("/publicar/a-aprobar", json={"canal": "facebook", "texto": "x", "imagenes": FOTOS, "texto_imagen": "f", "usar_compuesta": False})

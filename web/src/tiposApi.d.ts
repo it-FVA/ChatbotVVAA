@@ -2825,6 +2825,8 @@ export interface components {
          * FotoDiseno
          * @description (18/11, Franco) Qué lleva encima una foto del carrusel. `texto`: None = la frase común de la pieza (texto_imagen), "" = esta foto sin
          *     frase (solo el logo), otra cosa = una frase propia. `compuesta`: False = esta foto sale tal cual, sin frase ni logo.
+         *     (26/11, pedido de Julián) `firma`: None = la firma común de la pieza, "" = esta foto sin firma, otra cosa = una firma propia
+         *     (un carrusel con tres citas de tres autores lleva tres firmas).
          */
         FotoDiseno: {
             /**
@@ -2832,6 +2834,8 @@ export interface components {
              * @default true
              */
             compuesta: boolean;
+            /** Firma */
+            firma?: string | null;
             /** Texto */
             texto?: string | null;
             /**

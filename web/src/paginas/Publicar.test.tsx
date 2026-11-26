@@ -464,7 +464,7 @@ describe("Diseñar", () => {
       await waitFor(() => expect(api.de("POST", "/publicar/a-aprobar")).toHaveLength(1));
       expect(api.de("POST", "/publicar/a-aprobar")[0].cuerpo).toMatchObject({
         canal: "facebook", imagenes: [F3.url, F1.url], imagen_url: F3.url, video_url: null, texto_imagen: null, usar_compuesta: true,
-        imagenes_diseno: [{ url: F3.url, texto: null, compuesta: true }, { url: F1.url, texto: null, compuesta: true }],
+        imagenes_diseno: [{ url: F3.url, texto: null, compuesta: true, firma: null }, { url: F1.url, texto: null, compuesta: true, firma: null }],
       });
     });
 
@@ -508,13 +508,16 @@ describe("Diseñar", () => {
       await u.clear(propia);
       await u.type(propia, "Gracias");
       await waitFor(() => expect((compuestas[compuestas.length - 1] as { texto_imagen: string }).texto_imagen).toBe("Gracias"), { timeout: 3000 });
+      // (26/11, Julián) y su propia firma: la composición de esa foto la usa en vez de la de la pieza
+      await u.type(screen.getByLabelText("Firma de la foto 1"), "— León XIV");
+      await waitFor(() => expect((compuestas[compuestas.length - 1] as { firma: string }).firma).toBe("— León XIV"), { timeout: 3000 });
       await u.click(screen.getByRole("button", { name: /Siguiente: cuándo y enviar/ }));
       expect(screen.getByRole("button", { name: /Qué va en la pieza/ })).toHaveTextContent("Carrusel de 3 fotos, con la frase");
       await u.click(await screen.findByRole("button", { name: /Enviar a aprobación/ }));
       await waitFor(() => expect(api.de("POST", "/publicar/a-aprobar")).toHaveLength(1));
       expect(api.de("POST", "/publicar/a-aprobar")[0].cuerpo).toMatchObject({
         canal: "instagram", imagenes: [F1.url, F2.url, F3.url], texto_imagen: "La gratitud", usar_compuesta: true, formato: "cuadrado",
-        imagenes_diseno: [{ url: F1.url, texto: "Gracias", compuesta: true }, { url: F2.url, texto: "", compuesta: true }, { url: F3.url, texto: null, compuesta: false }],
+        imagenes_diseno: [{ url: F1.url, texto: "Gracias", compuesta: true, firma: "— León XIV" }, { url: F2.url, texto: "", compuesta: true, firma: null }, { url: F3.url, texto: null, compuesta: false, firma: null }],
       });
     });
 

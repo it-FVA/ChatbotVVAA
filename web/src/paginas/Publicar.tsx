@@ -278,11 +278,16 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
   const seCompone = esRed && !conVideo && !enVarias && !!f.imagen_url && (conFrase || conLogo) && f.usar_compuesta;
   // (18/11, Franco) carrusel con composición: la misma frase, firma y logo para todas las fotos, y por foto se puede cambiar la frase,
   // sacarla (queda el logo) o dejar la foto tal cual. Cada foto se compone en la API (POST /publicar/componer), de a una.
-  const disenoDe = (url: string): FotoDiseno => f.imagenes_diseno?.find((d) => d.url === url) ?? { url, texto: null, compuesta: true };
+  const disenoDe = (url: string): FotoDiseno => f.imagenes_diseno?.find((d) => d.url === url) ?? { url, texto: null, compuesta: true, firma: null };
+  // (26/11, Julián) firma por foto: null = la de la pieza (tres citas de tres autores llevan tres firmas)
+  const firmaDe = (url: string) => {
+    const s = disenoDe(url).firma;
+    return s === null ? f.firma : s;
+  };
   const setDiseno = (url: string, cambios: Partial<FotoDiseno>) =>
     setF((x) => {
       const resto = (x.imagenes_diseno ?? []).filter((d) => d.url !== url);
-      const actual = x.imagenes_diseno?.find((d) => d.url === url) ?? { url, texto: null, compuesta: true };
+      const actual = x.imagenes_diseno?.find((d) => d.url === url) ?? { url, texto: null, compuesta: true, firma: null };
       return { ...x, imagenes_diseno: [...resto, { ...actual, ...cambios }] };
     });
   const textoDe = (url: string) => {
@@ -294,7 +299,7 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
   const [compuestas, setCompuestas] = useState<(string | null)[]>([]);
   const [componiendoVarias, setComponiendoVarias] = useState(false);
   const cacheCompuestas = useRef(new Map<string, string>());
-  const claveFoto = (url: string) => JSON.stringify([url, textoDe(url), f.firma, f.formato, f.tipografia, f.peso, f.posicion, f.alineacion, conLogo ? f.logo : null, f.posicion_logo]);
+  const claveFoto = (url: string) => JSON.stringify([url, textoDe(url), firmaDe(url), f.formato, f.tipografia, f.peso, f.posicion, f.alineacion, conLogo ? f.logo : null, f.posicion_logo]);
   const clavesVarias = enVarias ? lista.map((u) => (seComponeFoto(u) ? claveFoto(u) : "")).join("\n") : "";
   useEffect(() => {
     if (!seComponeVarias) {
@@ -776,7 +781,10 @@ function Formulario({ inicial, op, origen, copiaDe = null, duenaDe = null, recha
                                   <option value="tal-cual">Tal cual, sin nada</option>
                                 </select>
                                 {disenoDe(url).compuesta && disenoDe(url).texto !== null && disenoDe(url).texto !== "" && (
-                                  <input aria-label={`Frase de la foto ${k + 1}`} value={disenoDe(url).texto!.trimStart() === "" ? "" : disenoDe(url).texto!} maxLength={400} placeholder="La frase de esta foto" onChange={(e) => setDiseno(url, { texto: e.target.value || " " })} />
+                                  <>
+                                    <input aria-label={`Frase de la foto ${k + 1}`} value={disenoDe(url).texto!.trimStart() === "" ? "" : disenoDe(url).texto!} maxLength={400} placeholder="La frase de esta foto" onChange={(e) => setDiseno(url, { texto: e.target.value || " " })} />
+                                    <input aria-label={`Firma de la foto ${k + 1}`} value={disenoDe(url).firma ?? ""} maxLength={60} placeholder={f.firma ? `Firma (si no, ${f.firma})` : "Firma de esta foto"} onChange={(e) => setDiseno(url, { firma: e.target.value || null })} />
+                                  </>
                                 )}
                               </div>
                             )}

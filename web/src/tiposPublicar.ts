@@ -46,6 +46,7 @@ export interface FotoDiseno {
   url: string;
   texto: string | null;
   compuesta: boolean;
+  firma: string | null; // (26/11, Julián) null = la firma de la pieza, "" = sin firma, otra = la firma propia de esta foto
 }
 
 /** El estado del formulario de Publicar (= los campos de PiezaApi, con strings en vez de null para los controles).
