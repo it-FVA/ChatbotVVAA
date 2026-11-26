@@ -460,22 +460,41 @@ export default function Chat() {
           </div>
         ) : (
           <>
-            <label className="chat-filtro" title={t("soloDavidAyuda")}>
-              <input
-                type="checkbox"
-                checked={soloDavid}
-                onChange={(e) => {
-                  setSoloDavid(e.target.checked);
-                  try {
-                    localStorage.setItem("chat.soloDavid", e.target.checked ? "1" : "0");
-                  } catch {
-                    /* sin almacenamiento: queda solo en esta sesión */
-                  }
-                }}
-              />
-              {t("soloDavid")}
-            </label>
-            <Entrada ref={entrada} placeholder={t("placeholder")} ayuda={t("ayudaEntrada")} enviando={generando} textoEnviar={t("enviar")} textoDetener={t("detener")} onEnviar={enviar} onDetener={detener} />
+            <Entrada
+              ref={entrada}
+              placeholder={t("placeholder")}
+              ayuda={t("ayudaEntrada")}
+              enviando={generando}
+              textoEnviar={t("enviar")}
+              textoDetener={t("detener")}
+              onEnviar={enviar}
+              onDetener={detener}
+              izquierda={
+                // (26/11, Franco) «Solo Br. David» como interruptor a la izquierda del cuadro, no como casilla arriba
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={soloDavid}
+                  aria-label={t("soloDavid")}
+                  className={"interruptor" + (soloDavid ? " encendido" : "")}
+                  title={t("soloDavidAyuda")}
+                  onClick={() => {
+                    const v = !soloDavid;
+                    setSoloDavid(v);
+                    try {
+                      localStorage.setItem("chat.soloDavid", v ? "1" : "0");
+                    } catch {
+                      /* sin almacenamiento: queda solo en esta sesión */
+                    }
+                  }}
+                >
+                  <span className="interruptor-pista" aria-hidden="true">
+                    <span className="interruptor-perilla" />
+                  </span>
+                  <span className="interruptor-texto">{t("soloDavid")}</span>
+                </button>
+              }
+            />
           </>
         )}
       </section>

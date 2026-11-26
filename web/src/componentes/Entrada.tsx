@@ -1,6 +1,6 @@
 // El cuadro para escribir: crece con el texto, Enter envía, Shift+Enter hace una línea nueva; mientras el bot responde el botón
 // pasa a «Detener». El foco llega desde afuera con la tecla / (ref).
-import { forwardRef, useImperativeHandle, useRef, useState, type KeyboardEvent } from "react";
+import { forwardRef, useImperativeHandle, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Icono } from "./Iconos";
 
 interface Props {
@@ -11,6 +11,7 @@ interface Props {
   textoDetener: string;
   onEnviar: (texto: string) => void;
   onDetener: () => void;
+  izquierda?: ReactNode; // (26/11, Franco) algo a la izquierda del cuadro, dentro de la caja: el interruptor «Solo Br. David»
 }
 
 export interface EntradaRef {
@@ -18,7 +19,7 @@ export interface EntradaRef {
   poner: (texto: string) => void;
 }
 
-const Entrada = forwardRef<EntradaRef, Props>(function Entrada({ placeholder, ayuda, enviando, textoEnviar, textoDetener, onEnviar, onDetener }, ref) {
+const Entrada = forwardRef<EntradaRef, Props>(function Entrada({ placeholder, ayuda, enviando, textoEnviar, textoDetener, onEnviar, onDetener, izquierda }, ref) {
   const [texto, setTexto] = useState("");
   const area = useRef<HTMLTextAreaElement>(null);
 
@@ -58,6 +59,7 @@ const Entrada = forwardRef<EntradaRef, Props>(function Entrada({ placeholder, ay
   return (
     <div className="entrada">
       <div className="entrada-caja" data-ayuda="chat.entrada">
+        {izquierda}
         <textarea
           ref={area}
           value={texto}

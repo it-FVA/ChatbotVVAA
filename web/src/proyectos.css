@@ -190,16 +190,66 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.chat-filtro {
-  display: flex;
+/* (26/11, Franco) «Solo Br. David»: interruptor a la izquierda del cuadro de escribir, dentro de la caja */
+.interruptor {
+  flex: none;
+  align-self: center;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px 0;
-  font-size: 0.85rem;
+  gap: 7px;
+  padding: 4px 6px 4px 2px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--tinta-suave, #6b6257);
   cursor: pointer;
+  white-space: nowrap;
 }
-.chat-filtro input {
-  accent-color: #d98a0f;
+.interruptor:focus-visible {
+  outline: none;
+  box-shadow: var(--foco);
+}
+.interruptor-pista {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: #d6cfc3;
+  transition: background 0.15s;
+}
+.interruptor-perilla {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s;
+}
+.interruptor.encendido .interruptor-pista {
+  background: #d98a0f;
+}
+.interruptor.encendido .interruptor-perilla {
+  transform: translateX(14px);
+}
+.interruptor.encendido {
+  color: #8a5406;
+  font-weight: 600;
+}
+@media (max-width: 760px) {
+  .interruptor-texto {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .interruptor-pista,
+  .interruptor-perilla {
+    transition: none;
+  }
 }
 .chat-solo-lectura {
   display: flex;
