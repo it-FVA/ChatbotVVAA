@@ -32,9 +32,9 @@ const T = {
     de: "Suche und Entwürfe gründen ausschließlich auf dem echten Material der Stiftung (Br. David und Begleiter). Entwürfe sind zur Durchsicht. Zitate erscheinen in ihrer Originalsprache.",
   },
   placeholder: {
-    es: "Escribí acá… (ej: 'estoy pensando una campaña sobre gratitud, ¿por dónde arrancarías?')",
-    en: "Write here… (e.g. 'what does Br. David say about hope and expectation?')",
-    de: "Hier schreiben… (z. B. 'Was sagt Bruder David über Dankbarkeit und Angst?')",
+    es: "Escribí acá… (ej: ¿qué dice Br. David sobre el miedo?)",
+    en: "Write here… (e.g. what does Br. David say about fear?)",
+    de: "Hier schreiben… (z. B. Was sagt Bruder David über Angst?)",
   },
   enviar: { es: "Enviar", en: "Send", de: "Senden" },
   detener: { es: "Detener", en: "Stop", de: "Stoppen" },
