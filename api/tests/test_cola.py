@@ -54,3 +54,22 @@ def test_si_el_conector_falla_vuelve_a_pendiente(cola, monkeypatch):
     monkeypatch.setattr(publicar, "publicar_instagram", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("Meta caído")))
     procesar_cola.main()
     assert cola["llamadas"][-1] == ("actualizar", "p1", "pendiente")
+
+
+def test_fila_simulada_nunca_sale_en_real(cola, monkeypatch):
+    """(26/11) Una fila que entró como «simulado» se procesa con la config simulada aunque el canal esté en real ese día:
+    el 26/11 una prueba de Julián (carrusel sin componer) salió a Instagram de verdad."""
+    monkeypatch.setattr(sys, "argv", ["procesar_cola.py"])            # sin --simular: la cola corre con el modo real del canal
+    monkeypatch.setenv("PUBLICAR_INSTAGRAM", "real")
+    monkeypatch.setattr(db, "listar_pendientes", lambda vencidas=False, limite=50: [
+        {"id": "p1", "canal": "instagram", "modo": "simulado", "texto": "hola", "imagen_url": "http://i/x.png", "intentos": 0, "resultado": {}},
+        {"id": "p2", "canal": "instagram", "modo": "real", "texto": "hola", "imagen_url": "http://i/x.png", "intentos": 0, "resultado": {}}])
+    visto = []
+
+    def conector(cfg, imagen, texto, quien="", historia=False):
+        visto.append(cfg.modo_ig)
+        return {"ok": True, "modo": cfg.modo_ig}
+    monkeypatch.setattr(publicar, "publicar_instagram", conector)
+    assert procesar_cola.main() == 0
+    assert visto == ["simulado", "real"]
+    assert [l for l in cola["llamadas"] if l[0] == "actualizar"] == [("actualizar", "p1", "simulada"), ("actualizar", "p2", "publicada")]

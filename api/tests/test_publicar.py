@@ -233,10 +233,11 @@ def test_ver_simulado_creadora(lizzie, base, monkeypatch):
     assert any(k["resultado"].get("texto_imagen") == "frase" and k["resultado"].get("origen") == "web" for _, k in registros)
     # modo real: la creadora no puede
     assert lizzie.post("/publicar/enviar", json={"modo": "real", "canal": "instagram", "texto": "x"}).status_code == 403
-    # Facebook simulado con fecha: Instagram siempre y Facebook fuera de real van a la cola, incluso en simulado
-    monkeypatch.setattr(db, "encolar_publicacion", lambda *a, **k: "q1")
+    # (26/11) simulado con fecha NO encola (la cola publicaría en real lo que solo se miró en simulado): vista previa + aviso
+    monkeypatch.setattr(db, "encolar_publicacion", lambda *a, **k: (_ for _ in ()).throw(AssertionError("no debe encolar")))
     r = lizzie.post("/publicar/enviar", json={"modo": "simulado", "canal": "instagram", "texto": "x", "fecha": "2026-12-01", "hora": "08:00"})
-    assert r.json()["encolada"] is True and r.json()["id"] == "q1" and "2026-12-01 08:00" in r.json()["aviso"]
+    assert r.status_code == 200 and r.json()["encolada"] is False and r.json()["simulado"] is True
+    assert any("no se programa" in a for a in r.json()["avisos"])
 
 
 def test_enviar_real_da_403_tambien_al_admin(logueado, base, monkeypatch):
@@ -252,7 +253,7 @@ def test_enviar_real_da_403_tambien_al_admin(logueado, base, monkeypatch):
 
 
 def test_ver_simulado_instagram_del_admin(logueado, base, monkeypatch):
-    """«Ver simulado» sigue para todos: arma la pieza, no sube ni manda; con fecha, Instagram va a la cola."""
+    """«Ver simulado» sigue para todos: arma la pieza, no sube ni manda; con fecha tampoco encola (26/11), solo muestra."""
     publicado = {}
 
     def _ig(cfg, imagen_url, texto, quien="", historia=False):
@@ -264,7 +265,7 @@ def test_ver_simulado_instagram_del_admin(logueado, base, monkeypatch):
     assert publicado["modo"] == "simulado" and publicado["historia"] is True and r.json()["simulado"] is True
     monkeypatch.setattr(db, "encolar_publicacion", lambda usuario, canal, modo, titulo, texto, imagen_url, fecha, extra=None, por=None: publicado.update(cola=(canal, modo, fecha)) or "q2")
     r = logueado.post("/publicar/enviar", json={"modo": "simulado", "canal": "instagram", "texto": "Hola", "fecha": "2026-12-24", "hora": "18:00"})
-    assert r.json()["encolada"] is True and publicado["cola"] == ("instagram", "simulado", "2026-12-24T18:00:00-03:00")
+    assert r.json()["encolada"] is False and "cola" not in publicado and publicado["modo"] == "simulado"
 
 
 def test_simulado_wordpress_y_youtube(logueado, base, monkeypatch):

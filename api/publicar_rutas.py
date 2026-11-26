@@ -628,7 +628,12 @@ def enviar(p: Envio, request: Request):
         if compuestas:
             imagenes = _subir_carrusel(cfg, p, compuestas, titulo, texto, usuario, avisos)
             imagen_url = imagenes[0]
-        if fecha_iso and _va_a_la_cola(canal, modo):
+        # (26/11) «Ver simulado» con fecha NO encola: la cola publica «con el modo que tenga el canal ese día» (real), y en simulado
+        # no se compone ni se sube nada, así que el 26/11 salió a Instagram un carrusel con las fotos de fondo peladas (sin frase,
+        # dos en .gif) que Julián solo había mirado en simulado. Con fecha y en simulado se muestra la vista previa y se avisa.
+        if fecha_iso and simulado:
+            avisos.append("En simulado no se programa nada: esto es solo la vista previa. Para que salga ese día, mandala a aprobación.")
+        if fecha_iso and not simulado and _va_a_la_cola(canal, modo):
             try:
                 pid = db.encolar_publicacion(duena or usuario, canal, modo, titulo, texto, imagen_url, fecha_iso + ZONA_HORARIA,
                                              extra={"texto_imagen": p.texto_imagen or None, "formato": formato or None, "video_url": video_url, "imagenes": imagenes, "origen": "web",

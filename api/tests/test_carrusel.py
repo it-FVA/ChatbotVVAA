@@ -243,10 +243,12 @@ def test_a_aprobar_carrusel_compone_sube_y_guarda_originales(logueado, rutas, mo
     assert any("foto 2" in a for a in r.json()["avisos"]) and rutas["extra"]["imagenes"][1] == FOTOS[1] and len(subidas) == 2
 
 
-def test_enviar_con_fecha_encola_con_imagenes(logueado, rutas):
+def test_ver_simulado_con_fecha_no_encola_el_carrusel(logueado, rutas):
+    """(26/11) «Ver simulado» con fecha ya no encola (la cola lo publicaba en real sin componer): muestra la prueba y avisa."""
     r = logueado.post("/publicar/enviar", json={"modo": "simulado", "canal": "instagram", "texto": "x", "imagenes": FOTOS, "fecha": "2026-12-24", "hora": "18:00"})
-    assert r.json()["encolada"] is True and r.json()["imagenes"] == FOTOS
-    assert rutas["extra"]["imagenes"] == FOTOS and rutas["imagen_url"] == FOTOS[0] and rutas["extra"]["texto_imagen"] is None
+    assert r.status_code == 200, r.text
+    assert r.json()["encolada"] is False and r.json()["simulado"] is True and r.json()["pieza"]["imagenes"] == FOTOS
+    assert any("no se programa" in a for a in r.json()["avisos"]) and "extra" not in rutas
 
 
 def test_proponer_y_borrador_guardan_imagenes(logueado, rutas):

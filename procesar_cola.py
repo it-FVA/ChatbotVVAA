@@ -175,7 +175,11 @@ def main():
             print(f"  ! no pude marcarla 'procesando' ({e}); no la publico ahora, queda pendiente")
             continue
         try:   # (3/11) un solo despacho por canal para la cola, el envío directo y la aprobación: publicar.enviar_pieza (registro canales.py)
-            res = publicar.enviar_pieza(cfg, p, quien="cola")
+            # (26/11) Una fila que entró como «simulado» nunca se publica en real, tenga el canal el modo que tenga ese día: se
+            # procesa con la config simulada y queda 'simulada'. Hasta hoy la cola usaba el modo del canal al procesar y una prueba
+            # de Julián salió a Instagram de verdad.
+            cfg_fila = cfg.simulada() if (p.get("modo") or "") == "simulado" else cfg
+            res = publicar.enviar_pieza(cfg_fila, p, quien="cola")
         except Exception as e:
             res = {"ok": False, "aviso": f"excepción: {e}"}
         modo = res.get("modo") or r.get(canal, "")
