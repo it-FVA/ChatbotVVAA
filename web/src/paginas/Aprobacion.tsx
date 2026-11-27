@@ -5,7 +5,8 @@ import Cabecera from "../componentes/Cabecera";
 import { definirAyuda } from "../ayuda/registro";
 import { fechaCreacion, fechaLegible } from "../util/fechas";
 import { useCallback, useEffect, useState } from "react";
-import { NavLink, Navigate, Outlet, useOutletContext } from "react-router-dom";
+import { NavLink, Outlet, useOutletContext } from "react-router-dom";
+import SinAcceso from "../componentes/SinAcceso";
 import { api, ErrorApi } from "../api";
 import { apiPublicar } from "../apiPublicar";
 import { useSesion } from "../App";
@@ -62,7 +63,7 @@ export default function Aprobacion() {
   useEffect(() => {
     if (yo?.rol.aprueba) refrescarConteo();
   }, [yo, refrescarConteo]);
-  if (!yo?.rol.aprueba) return <Navigate to="/recortes" replace />;
+  if (!yo?.rol.aprueba) return <SinAcceso seccion="Aprobación" para="quienes aprueban y publican" />;
   return (
     <div className="pagina admin aprobacion">
       <Cabecera titulo="Aprobación" subtitulo="Lo que el equipo mandó: revisás, aprobás y seguís qué salió." ayuda="aprobacion" />

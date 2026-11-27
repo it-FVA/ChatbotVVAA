@@ -140,10 +140,12 @@ def pieza_cancelada(db, pieza, por, sincrono=False):
     nombre = NOMBRE_CANAL.get(canal, canal)
     titulo = (pieza.get("titulo") or pieza.get("texto") or "").strip().replace("\n", " ")[:120]
     quien = pieza.get("usuario") or ""
+    # (27/11) el link va a la pieza misma: «Mis publicaciones» solo muestra las propias y a quien no la hizo le aparecía vacío
+    ver = f"{web_url()}/publicaciones/{pieza['id']}" if pieza.get("id") else f"{web_url()}/publicaciones"
     cuando = (pieza.get("fecha_programada") or "")[:16].replace("T", " ")
     asunto = f"Pieza cancelada: {nombre} — {quien}"
     cuerpo = (f"La canceló {por}." + (f" Iba a salir el {cuando}." if cuando else "") + (f"\n«{titulo}»" if titulo else "")
-              + f"\nVerla en Mis publicaciones → Rechazadas: {web_url()}/publicaciones")
+              + f"\nVerla (en Mis publicaciones → Rechazadas): {ver}")
     emails = [e for e in [_email_de(db, quien)] if e]
     if sincrono:
         return _mandar(asunto, cuerpo, emails)
@@ -158,16 +160,18 @@ def pieza_resuelta(db, pieza, decision, por, nota=None, cuando=None, sincrono=Fa
     nombre = NOMBRE_CANAL.get(canal, canal)
     titulo = (pieza.get("titulo") or pieza.get("texto") or "").strip().replace("\n", " ")[:120]
     quien = pieza.get("usuario") or ""
+    # (27/11) el link va a la pieza misma: «Mis publicaciones» solo muestra las propias y a quien no la hizo le aparecía vacío
+    ver = f"{web_url()}/publicaciones/{pieza['id']}" if pieza.get("id") else f"{web_url()}/publicaciones"
     if decision == "aprobada":
         asunto = f"Pieza aprobada: {nombre} — {quien}"
         cuerpo = (f"{por} aprobó la pieza de {nombre} de {quien}" + (f" «{titulo}»" if titulo else "") + "."
                   + (f" Sale el {cuando}." if cuando else "")
-                  + f"\nVerla: {web_url()}/publicaciones")
+                  + f"\nVerla: {ver}")
     else:
         asunto = f"Pieza rechazada: {nombre} — {quien}"
         cuerpo = (f"{por} rechazó la pieza de {nombre} de {quien}" + (f" «{titulo}»" if titulo else "") + "."
                   + (f"\nNota: {nota}" if nota else "")
-                  + f"\nVerla en Mis publicaciones → Rechazadas: {web_url()}/publicaciones")
+                  + f"\nVerla (en Mis publicaciones → Rechazadas): {ver}")
     emails = [e for e in [_email_de(db, quien)] if e]
     if sincrono:
         return _mandar(asunto, cuerpo, emails)

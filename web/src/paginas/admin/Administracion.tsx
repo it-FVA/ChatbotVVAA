@@ -1,7 +1,8 @@
 import Cabecera from "../../componentes/Cabecera";
 import { definirAyuda } from "../../ayuda/registro";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { NavLink, Navigate, Outlet } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
+import SinAcceso from "../../componentes/SinAcceso";
 import { useSesion } from "../../App";
 import { adminApi, type Resumen } from "./adminApi";
 import { IconoAdmin, type NombreIconoAdmin } from "./comun";
@@ -57,7 +58,7 @@ export default function Administracion() {
   }, [esAdmin, recargarResumen]);
 
   const valor = useMemo(() => ({ resumen, errorResumen, recargarResumen }), [resumen, errorResumen, recargarResumen]);
-  if (!esAdmin) return <Navigate to="/recortes" replace />;
+  if (!esAdmin) return <SinAcceso seccion="Administración" para="administradores" />;
 
   const s = resumen?.salud;
   const avisos = (s?.errores ?? 0) + (s?.avisos ?? 0);

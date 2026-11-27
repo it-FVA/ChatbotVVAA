@@ -37,6 +37,10 @@ def test_mail_a_quien_la_hizo(monkeypatch):
     assert r["mail"] is True
     dest, asunto, texto = mandados[0]
     assert dest == ["l@x.org"] and "rechazada" in asunto and "falta la foto" in texto
+    assert texto.rstrip().endswith("/publicaciones")                       # sin id: la lista
+    # (27/11) con id, el link va a la pieza misma
+    r = avisos.pieza_resuelta(_DB(), {"id": "abc-1", "usuario": "lizzie", "canal": "facebook", "titulo": "Prueba"}, "aprobada", "julian", cuando="2026-12-01 09:00", sincrono=True)
+    assert mandados[-1][2].rstrip().endswith("/publicaciones/abc-1") and "2026-12-01 09:00" in mandados[-1][2]
     # los aprobadores: solo activos con rol aprobador/admin
     assert avisos._emails_aprobadores(_DB()) == ["b@x.org", "j@x.org"]
 
