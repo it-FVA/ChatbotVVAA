@@ -326,14 +326,17 @@ def test_pieza_ajena_se_abre_por_proyecto_compartido(logueado, base, cliente):
 
 
 def test_pieza_ajena_compartida_con_el_equipo_entra_a_un_proyecto(logueado, base, cliente):
-    """(4/11) Como los recortes: una pieza ajena que su dueña compartió con el equipo se puede guardar en un proyecto propio."""
-    base.agregar("publicaciones", id="p2", usuario="franco", canal="facebook", estado="publicada", titulo="De Franco", texto="x", compartido=False)
+    """(4/11) Como los recortes: una pieza ajena que su dueña compartió con el equipo se puede guardar en un proyecto propio.
+    (27/11) Un borrador ajeno no entra; lo que ya se mandó, se aprobó o salió entra sin compartir (db.VISIBLES_EQUIPO)."""
+    base.agregar("publicaciones", id="p2", usuario="franco", canal="facebook", estado="borrador", titulo="De Franco", texto="x", compartido=False)
     _lizzie(cliente)
     a = cliente.post("/proyectos", json={"nombre": "Mías"}).json()
     assert cliente.post(f"/proyectos/{a['id']}/items", json={"tipo": "pieza", "item_id": "p2"}).status_code == 403
     base.t["publicaciones"][-1]["compartido"] = True
     assert cliente.post(f"/proyectos/{a['id']}/items", json={"tipo": "pieza", "item_id": "p2"}).status_code == 200
     assert cliente.get("/publicaciones/p2").json()["propia"] is False
+    base.agregar("publicaciones", id="p3", usuario="franco", canal="facebook", estado="publicada", titulo="Salió", texto="x", compartido=False)
+    assert cliente.post(f"/proyectos/{a['id']}/items", json={"tipo": "pieza", "item_id": "p3"}).status_code == 200
 
 
 def _sin_envio_real(monkeypatch):

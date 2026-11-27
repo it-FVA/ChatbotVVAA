@@ -201,6 +201,22 @@ def listar_mias(usuario, limite=50):
     return _db._req("GET", q, tabla="publicaciones")
 
 
+# (27/11, Franco) Lo que el equipo ve de los demás sin que nadie lo comparta: lo que ya se mandó a aprobar, lo aprobado y lo publicado.
+# Borradores, pruebas y rechazadas siguen siendo de cada uno (salvo que la dueña las comparta con el botón «Compartir»).
+VISIBLES_EQUIPO = ("a_aprobar", "pendiente", "procesando", "publicada")
+
+
+def listar_del_equipo(usuario, limite=80):
+    """(27/11) «Del equipo»: las piezas de otras personas que están en un estado visible para todos (VISIBLES_EQUIPO) o que
+    la dueña compartió. Solo lectura. Sin las piezas automáticas de la Frase del día (usuario frase_del_dia): esas tienen su sección."""
+    if not _db.disponible():
+        return []
+    q = (f"?select=id,creado,usuario,canal,modo,titulo,texto,imagen_url,estado,fecha_programada,procesado_en,resultado,compartido"
+         f"&usuario=not.in.({urllib.parse.quote(usuario)},frase_del_dia)&or=(compartido.is.true,estado.in.({','.join(VISIBLES_EQUIPO)}))"
+         f"&order=creado.desc&limit={limite}")
+    return _db._req("GET", q, tabla="publicaciones")
+
+
 def listar_compartidas(usuario, limite=50):
     """(2/11) Las piezas que otras personas compartieron con el equipo (publicaciones.compartido), como clips «Del equipo»."""
     if not _db.disponible():

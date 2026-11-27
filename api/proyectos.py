@@ -493,8 +493,9 @@ def _validar_item(tipo, item_id, datos, usuario):
         if not p:
             raise HTTPException(404, "No existe esa pieza.")
         # (4/11) igual que los recortes: una pieza ajena entra si su dueña la compartió con el equipo, si ya la ves por un
-        # proyecto compartido, o si sos aprobador
-        if p.get("usuario") != usuario and not p.get("compartido") and not _aprueba(usuario) and not permiso_por_proyectos("pieza", item_id, usuario):
+        # proyecto compartido, o si sos aprobador. (27/11) Y si está en un estado visible para todos (mandada, aprobada, publicada).
+        if (p.get("usuario") != usuario and not p.get("compartido") and p.get("estado") not in db.VISIBLES_EQUIPO
+                and not _aprueba(usuario) and not permiso_por_proyectos("pieza", item_id, usuario)):
             raise HTTPException(403, "Esa pieza es de otra persona y no está compartida.")
     elif tipo == "imagen":
         url = ((datos or {}).get("url") or item_id).strip()

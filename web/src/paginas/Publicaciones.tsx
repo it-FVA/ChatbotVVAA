@@ -125,7 +125,7 @@ export default function Publicaciones() {
             ))}
           </select>
         </label>
-        {solapa === "Del equipo" && <span className="suave">Piezas que otras personas compartieron con el botón «Compartir». Se ven y se guardan en un proyecto; no se retoman ni se borran.</span>}
+        {solapa === "Del equipo" && <span className="suave">Lo que el resto del equipo mandó a aprobar, tiene aprobado o ya publicó, más lo que compartieron con «Compartir». Se ven y se guardan en un proyecto; no se retoman ni se borran.</span>}
       </div>
       {error && (
         <div className="aviso error">

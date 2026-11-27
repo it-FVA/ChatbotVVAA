@@ -351,8 +351,8 @@ def decorar(p):
 
 def permiso_pieza(p, usuario, rol):
     """(4/11) 'dueño' | 'editar' | 'ver' | None. Editan la dueña, un aprobador y quien la tiene en un proyecto con permiso
-    «editar» (directo o heredado de la carpeta de arriba). Ven además quien la tiene con «ver» y cualquiera si está
-    compartida con el equipo."""
+    «editar» (directo o heredado de la carpeta de arriba). Ven además quien la tiene con «ver», cualquiera si está
+    compartida con el equipo y (27/11) cualquiera si ya se mandó a aprobar, está aprobada o publicada (db.VISIBLES_EQUIPO)."""
     if p.get("usuario") == usuario:
         return "dueño"
     if rol.get("aprueba"):
@@ -361,7 +361,7 @@ def permiso_pieza(p, usuario, rol):
     perm = permiso_por_proyectos("pieza", p.get("id"), usuario)
     if perm:
         return perm
-    return "ver" if p.get("compartido") else None
+    return "ver" if (p.get("compartido") or p.get("estado") in db.VISIBLES_EQUIPO) else None
 
 
 def _borrador_ajeno(borrador_id, usuario, rol):

@@ -344,8 +344,24 @@ def test_una_publicacion_y_retomar(logueado, lizzie, base):
     pz = logueado.get("/publicaciones/a").json()["pieza"]
     assert pz["titulo"] == "A" and pz["imagen_url"] == "https://wp/a.jpg" and pz["fecha"] == "2026-10-21" and pz["hora"] == "09:00"
     assert logueado.get("/publicaciones/zzz").status_code == 404
-    # lizzie no es aprobadora: no ve las piezas de franco (franco sí vería las de ella)
-    assert lizzie.get("/publicaciones/a").status_code == 403
+    # lizzie no es aprobadora: no ve los borradores ni las rechazadas de franco (franco sí vería las de ella)
+    assert lizzie.get("/publicaciones/a").status_code == 403 and lizzie.get("/publicaciones/b").status_code == 403
+    # (27/11) pero sí lo que ya se mandó, se aprobó o salió: solo lectura
+    base["filas"]["a"]["estado"] = "publicada"
+    r = lizzie.get("/publicaciones/a")
+    assert r.status_code == 200 and r.json()["permiso"] == "ver" and r.json()["propia"] is False
+
+
+def test_del_equipo_lista_lo_mandado_aprobado_y_publicado(lizzie, base, monkeypatch):
+    """(27/11, Franco) «Del equipo» muestra las piezas de los demás que ya se mandaron a aprobar, están aprobadas o publicadas,
+    además de las compartidas; sin retomar, eliminar ni compartir."""
+    visto = {}
+    monkeypatch.setattr(db, "listar_del_equipo", lambda u, limite=80: visto.update(usuario=u) or [dict(FILAS[0])])
+    d = lizzie.get("/publicaciones?equipo=1").json()
+    assert visto["usuario"] == "lizzie" and [p["id"] for p in d["piezas"]] == ["a"] and d["solapas"]["Todas"] == ["a"]
+    p = d["piezas"][0]
+    assert p["usuario"] == "franco" and p["propio"] is False and p["retomable"] is False and p["eliminable"] is False and p["puede_compartir"] is False
+    assert db.VISIBLES_EQUIPO == ("a_aprobar", "pendiente", "procesando", "publicada")
 
 
 def test_eliminar(logueado, base, monkeypatch):

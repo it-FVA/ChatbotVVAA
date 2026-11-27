@@ -280,9 +280,10 @@ def publicaciones(request: Request, todos: bool = False, equipo: bool = False, u
     if not db.disponible():
         return {"piezas": [], "grupos": GRUPOS, "solapas": {}}
     if equipo:
-        # (2/11) «Del equipo»: lo que otras personas compartieron; solo lectura (sin retomar ni eliminar)
+        # (2/11) «Del equipo»: lo que otras personas compartieron; solo lectura (sin retomar ni eliminar).
+        # (27/11, Franco) y además todo lo que el equipo mandó a aprobar, lo aprobado y lo publicado (db.VISIBLES_EQUIPO).
         otras = []
-        for p in db.listar_compartidas(usuario):
+        for p in db.listar_del_equipo(usuario):
             p = _pub.decorar(p)
             p["propio"], p["retomable"], p["eliminable"], p["puede_compartir"] = False, False, False, False
             otras.append(p)
